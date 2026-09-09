@@ -208,25 +208,105 @@ class WakeRuntimeTest {
     }
 
     @Test
-    fun `finished session is terminal`() {
+    fun `orientation directives are emitted once even if more evidence arrives`() {
+        var snapshot = runtime.initial(WakeSessionId("session-6b"), policy)
+        snapshot = runtime.reduce(snapshot, WakeInput.UserInteracted(id("touch")), policy).snapshot
+        snapshot = runtime.reduce(
+            snapshot,
+            WakeInput.MotionObserved(id("move"), MotionEvidenceKind.SUSTAINED_MOVEMENT),
+            policy,
+        ).snapshot
+        val orienting = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("voice"), coherent = true),
+            policy,
+        )
+        assertEquals(WakePhase.ORIENTING, orienting.snapshot.phase)
+        assertTrue(WakeDirective.PresentOrientation in orienting.directives)
+
+        val extraEvidence = runtime.reduce(
+            orienting.snapshot,
+            WakeInput.MotionObserved(id("move-after-orient"), MotionEvidenceKind.DEVICE_PICKUP),
+            policy,
+        )
+        assertEquals(WakePhase.ORIENTING, extraEvidence.snapshot.phase)
+        assertTrue(extraEvidence.directives.isEmpty())
+    }
+
+    @Test
+    fun `stop waits for durable execution confirmation before finishing`() {
         val initial = runtime.initial(WakeSessionId("session-7"), policy)
-        val stopped = runtime.reduce(initial, WakeInput.StopRequested(id("stop")), policy)
+        val requested = runtime.reduce(initial, WakeInput.StopRequested(id("stop-request")), policy)
+
+        assertEquals(WakePhase.ALERTING, requested.snapshot.phase)
+        assertEquals(StopState.STOPPING, requested.snapshot.stopState)
+        assertEquals(null, requested.snapshot.outcome)
+        assertTrue(WakeDirective.RequestStopExecution in requested.directives)
+
+        val unrelated = runtime.reduce(
+            requested.snapshot,
+            WakeInput.UserInteracted(id("touch-while-stopping")),
+            policy,
+        )
+        assertEquals(StopState.STOPPING, unrelated.snapshot.stopState)
+        assertTrue(unrelated.directives.isEmpty())
+
+        val completed = runtime.reduce(
+            unrelated.snapshot,
+            WakeInput.StopCompleted(id("stop-completed")),
+            policy,
+        )
+        assertEquals(WakePhase.FINISHED, completed.snapshot.phase)
+        assertEquals(WakeOutcome.STOPPED, completed.snapshot.outcome)
+        assertEquals(StopState.NONE, completed.snapshot.stopState)
+    }
+
+    @Test
+    fun `out of order stop completion cannot finish the wake`() {
+        val initial = runtime.initial(WakeSessionId("session-7a"), policy)
+        val completed = runtime.reduce(initial, WakeInput.StopCompleted(id("unexpected-stop")), policy)
+
+        assertEquals(WakePhase.ALERTING, completed.snapshot.phase)
+        assertEquals(null, completed.snapshot.outcome)
+        assertTrue(completed.directives.isEmpty())
+    }
+
+    @Test
+    fun `failed stop keeps wake active and audible`() {
+        val initial = runtime.initial(WakeSessionId("session-7b"), policy)
+        val requested = runtime.reduce(initial, WakeInput.StopRequested(id("request")), policy)
+        val failed = runtime.reduce(
+            requested.snapshot,
+            WakeInput.StopFailed(id("failed"), "kernel_rejected"),
+            policy,
+        )
+
+        assertEquals(WakePhase.ALERTING, failed.snapshot.phase)
+        assertEquals(StopState.NONE, failed.snapshot.stopState)
+        assertEquals(null, failed.snapshot.outcome)
+        assertTrue(WakeDirective.EnsureAlarmAudible in failed.directives)
+    }
+
+    @Test
+    fun `finished session is terminal`() {
+        val initial = runtime.initial(WakeSessionId("session-7c"), policy)
+        val finished = runtime.reduce(initial, WakeInput.UnrecoverableFailure(id("fatal")), policy)
         val afterFinish = runtime.reduce(
-            stopped.snapshot,
+            finished.snapshot,
             WakeInput.UserInteracted(id("late-touch")),
             policy,
         )
 
-        assertEquals(WakePhase.FINISHED, stopped.snapshot.phase)
-        assertEquals(WakeOutcome.STOPPED, stopped.snapshot.outcome)
+        assertEquals(WakePhase.FINISHED, finished.snapshot.phase)
+        assertEquals(WakeOutcome.UNRECOVERABLE, finished.snapshot.outcome)
         assertFalse(afterFinish.inputApplied)
-        assertEquals(stopped.snapshot, afterFinish.snapshot)
+        assertEquals(finished.snapshot, afterFinish.snapshot)
         assertTrue(afterFinish.directives.isEmpty())
     }
 
     @Test
     fun `policy version mismatch is rejected instead of silently changing behavior`() {
-        val initial = runtime.initial(WakeSessionId("session-7b"), policy)
+        val initial = runtime.initial(WakeSessionId("session-7d"), policy)
         val newerPolicy = policy.copy(version = 2)
 
         assertFailsWith<IllegalArgumentException> {
