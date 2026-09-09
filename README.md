@@ -30,8 +30,9 @@ Merged into `main`:
 - **M3 deterministic Wake Runtime** — typed inputs/directives, activation evidence, escalation and replayable session behavior
 - **M4 Motion Evidence** — bounded local sensor evidence extraction without raw sensor persistence
 - **M5 Alfred local character** — deterministic curated character rendering plus offline-only local Android TTS lab
+- **M6 Tomorrow Contract + Prepared Wake Plan** — private night-before context, deterministic local preparation and unlocked-only morning enrichment
 
-**M6 Tomorrow Contract + Prepared Wake Plan is currently in implementation in PR #20.** It adds optional private night-before context, deterministic local preparation, credential-protected storage, integrity validation and offline fallback without putting personalization on the critical alarm path.
+**M7 Wake Learning v0 is currently in review in PR #22.** It introduces privacy-minimized Wake Outcomes and a deterministic local learning loop that may adjust only future movement-prompt timing after repeated evidence, with explicit calibration, annoyance and agency guardrails.
 
 The main unresolved trust boundary is physical-device reliability evidence. CI/emulator success does not prove real overnight behavior across locked screens, Doze, reboot-before-unlock, OEM power management or audio coexistence.
 
@@ -42,11 +43,13 @@ Current architectural decisions include:
 - Deep Alarm Kernel owns scheduling **and Active Wake Execution**
 - `WakeActivity` is presentation, not critical playback lifetime authority
 - deterministic pure-Kotlin Wake Runtime owns in-session behavioral decisions
+- one Wake Session is pinned to one immutable Wake Policy version
 - `Activation Completion` is distinct from calibrated `Confirmed Wake Success`
-- motion/character/prepared personalization remain subordinate to alarm reliability
+- unknown calibration is never treated as Wake Success
+- motion/character/prepared/learned personalization remain subordinate to alarm reliability
 - Direct Boot stores only a minimal non-sensitive Critical Wake Snapshot
-- Tomorrow Contract/private prepared content remains credential-protected
-- deterministic local **Wake Learning v0 is M7**, before realtime voice
+- Tomorrow Contract, prepared private content and Wake Learning state remain credential-protected
+- Wake Learning v0 is local, deterministic, explainable, bounded and reversible
 - realtime voice architecture is a measured M8 spike, not a current dependency
 - non-critical future cloud direction remains **Vercel + Supabase**, outside wake authority
 
@@ -64,9 +67,10 @@ See [`docs/00-project-status.md`](docs/00-project-status.md) for the living impl
 8. [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) — trust-critical scheduling + active wake execution
 9. [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) — deterministic in-session behavior
 10. [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) — local explainable adaptation
-11. [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) — evidence-driven build order
-12. [`docs/implementation/m6-tomorrow-contract.md`](docs/implementation/m6-tomorrow-contract.md) — current M6 implementation boundary
-13. [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md) — testing, dogfood and future cloud topology
+11. [`docs/implementation/m6-tomorrow-contract.md`](docs/implementation/m6-tomorrow-contract.md) — merged private preparation implementation
+12. [`docs/implementation/m7-wake-learning-v0.md`](docs/implementation/m7-wake-learning-v0.md) — current M7 learning implementation
+13. [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) — evidence-driven build order
+14. [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md) — testing, dogfood and future cloud topology
 
 ## Non-negotiable engineering principles
 
@@ -89,7 +93,7 @@ wake-my-way/
 ├── apps/
 │   └── android/
 │       ├── app/          # Android composition root, UI, Alarm Kernel + platform adapters
-│       ├── wake-core/    # pure Kotlin schedule/runtime/motion/character/preparation behavior
+│       ├── wake-core/    # pure Kotlin schedule/runtime/motion/character/preparation/learning behavior
 │       └── benchmark/    # startup / wake-path performance
 ├── docs/
 ├── tooling/
