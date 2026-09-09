@@ -15,6 +15,9 @@
     <string name="tonight_wake_ready">Wake Ready</string>
     <string name="tonight_wake_not_ready">Needs attention</string>
     <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
+    <string name="tonight_readiness_ready">Scheduled locally and ready for tomorrow.</string>
+    <string name="tonight_readiness_attention">One system setting needs attention before tomorrow is Wake Ready.</string>
+    <string name="tonight_readiness_empty">Set a wake time to prepare tomorrow.</string>
     <string name="tonight_open_lab">Open Wake Lab</string>
     <string name="tonight_lab_note">Founder diagnostics remain available while the production setup flow is being built.</string>
     <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
