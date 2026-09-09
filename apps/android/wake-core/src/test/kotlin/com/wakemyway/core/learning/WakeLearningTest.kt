@@ -262,17 +262,17 @@ class WakeLearningTest {
         policyVersion = policyVersion,
         activationCompleted = activationCompleted,
         metActivationWindow = metActivationWindow,
-        timeToFirstEngagement = Duration.ofSeconds(5),
-        timeToMeaningfulMovement = if (activationCompleted) Duration.ofSeconds(10) else null,
+        timeToFirstEngagement = Duration.ofSeconds(5L),
+        timeToMeaningfulMovement = if (activationCompleted) Duration.ofSeconds(10L) else null,
         timeToActivationCompletion = if (activationCompleted) {
-            Duration.ofSeconds(if (metActivationWindow) 20 else 60)
+            Duration.ofSeconds(if (metActivationWindow) 20L else 60L)
         } else {
             null
         },
         snoozeCount = 0,
         maxInterventionDepth = if (activationCompleted) 1 else 3,
         finishReason = if (activationCompleted) WakeOutcome.COMPLETED else WakeOutcome.STOPPED,
-        calibration = calibration?.let(::WakeCalibration),
+        calibration = calibration?.let { outcome -> WakeCalibration(outcome) },
         frictionFeedback = friction,
     )
 }
