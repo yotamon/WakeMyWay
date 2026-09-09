@@ -2,13 +2,31 @@
 
 **Snapshot date:** 2026-09-09
 
-This document records time-sensitive Android platform facts that materially affect Wake My Way. Re-verify before changing target SDK, Play declarations, or public reliability claims.
+This document records time-sensitive Android/Google Play facts that materially affect Wake My Way. Re-verify before changing target SDK, Play declarations, active-audio architecture, or public reliability claims.
+
+## Google Play target API baseline
+
+Starting 2026-08-31, Google Play requires new Android phone/tablet apps and app updates to target **Android 16 / API level 36 or higher**.
+
+WMW M0 consequence:
+
+```text
+targetSdk = 36 baseline
+compileSdk = 36+ with the current stable toolchain
+minSdk = deliberate project decision during M0
+```
+
+Do not treat API 37 as the initial target merely because Android 17 exists; instead test Android 17 behavior and raise target SDK deliberately when required/ready.
+
+Source:
+
+- https://support.google.com/googleplay/android-developer/answer/11926878
 
 ## Exact alarm primitive
 
 Wake My Way plans to use `AlarmManager.setAlarmClock()` for the concrete next user-facing Wake Occurrence.
 
-Android documents this form as a precise, highly visible alarm clock event; the system does not adjust its delivery time and may leave low-power modes to deliver it.
+Android documents exact alarms as appropriate when an app's core functionality depends on precisely timed behavior such as an alarm clock, and `setAlarmClock()` represents a highly visible user alarm-clock event.
 
 Source:
 
@@ -17,19 +35,37 @@ Source:
 
 ## Exact-alarm capability / permissions
 
-For modern target SDKs, exact alarm use requires one of Android's alarms/reminders permission paths.
+Android distinguishes `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM`.
 
-Android distinguishes `USE_EXACT_ALARM` and `SCHEDULE_EXACT_ALARM`; they represent similar exact-alarm capability but have different grant/policy behavior. Alarm-clock apps are an intended exact-alarm use case, but Google Play policy applies.
+Current Android/Play guidance states that `USE_EXACT_ALARM` is restricted to applications whose **core, user-facing functionality genuinely requires precise timing**, with dedicated alarm/timer applications explicitly fitting the intended category. Unlike `SCHEDULE_EXACT_ALARM`, it does not require the user-granted special-access flow, but Play policy/review applies.
 
-Decision intentionally deferred to M0/M1:
+### Current WMW direction
 
-- final manifest declaration
-- whether a user special-access repair flow is needed
-- exact onboarding copy
+Because Wake My Way is fundamentally a dedicated alarm-clock product, the implementation hypothesis is now:
 
-Source:
+```text
+USE_EXACT_ALARM
++
+AlarmManager.setAlarmClock()
+```
+
+This is a preferred direction, not permission to ignore policy drift.
+
+Before manifest implementation and again before Play submission:
+
+- re-check current Play restricted-permission policy
+- verify WMW's store listing/product still clearly qualifies as an alarm-clock use case
+- verify current target SDK behavior
+- switch to `SCHEDULE_EXACT_ALARM` or another path only if current policy/platform evidence requires it
+- record a reversal in the decisions/ADR trail
+
+Do not build a special-access onboarding screen if the implemented permission path does not need one.
+
+Sources:
 
 - https://developer.android.com/develop/background-work/services/alarms
+- https://developer.android.com/reference/kotlin/android/Manifest.permission#USE_EXACT_ALARM
+- https://support.google.com/googleplay/android-developer/answer/16558241
 
 ## Full-screen intent
 
@@ -59,12 +95,13 @@ Source:
 
 ## Explicit Force Stop on Android 15+
 
-Android 15 cancels all pending intents when an app enters the stopped state through Force Stop. When user action later removes the app from stopped state, Android can deliver `ACTION_BOOT_COMPLETED` so pending intents can be re-registered. `ApplicationStartInfo.wasForceStopped()` can help identify this start condition.
+Android 15 cancels pending intents when an app enters the stopped state through explicit Force Stop. When user action later removes the app from stopped state, Android can provide startup/boot-related recovery signals; `ApplicationStartInfo.wasForceStopped()` can help identify the condition on supported versions.
 
 WMW design consequence:
 
 - do not promise alarm delivery after explicit Force Stop
 - show/repair readiness on next user start
+- clear/repair stale active-execution state
 - test the limitation and recovery rather than asserting impossible delivery
 
 Source:
@@ -73,26 +110,61 @@ Source:
 
 ## Android 17 background-audio hardening
 
-Android 17 adds stricter rules for background audio interactions. Apps need a visible activity or suitable foreground service for background audio interactions. For apps targeting API 37, the while-in-use foreground-service requirement has an exception when the app has exact-alarm capability and operates on `USAGE_ALARM` audio streams.
+Android 17 enforces stricter rules for background audio interactions including playback, audio focus requests, and volume changes.
+
+For apps running on Android 17, background audio generally requires a visible Activity or a foreground service that is not `SHORT_SERVICE`.
+
+For apps targeting API 37, the background foreground-service requirement becomes stricter, but Android documents an exception to the while-in-use capability requirement when:
+
+```text
+app has exact-alarm permission
++
+audio interaction uses USAGE_ALARM
+```
 
 WMW design consequence:
 
-- critical alarm audio uses alarm-appropriate audio attributes
+- the Alarm Kernel owns an **Active Wake Execution** after the trigger
+- critical alarm audio uses alarm-appropriate `USAGE_ALARM` attributes
+- initial implementation direction uses a foreground alarm playback service/controller rather than making `WakeActivity` the only lifetime owner
+- `WakeActivity` may recreate without being allowed to silence critical playback
+- duplicate playback-owner starts must converge on one active occurrence
 - realtime microphone/conversation begins only from an allowed visible/foreground lifecycle
-- Android 17 behavior belongs in compatibility testing before targeting API 37
+- Android 17 behavior belongs in M2 compatibility testing even while target SDK remains 36
+- rerun tests before eventually targeting API 37
 
-Source:
+Sources:
 
 - https://developer.android.com/about/versions/17/changes/bg-audio
 - https://developer.android.com/about/versions/17/behavior-changes-17
+
+## Active alarm lifecycle implication
+
+Scheduling research alone does not prove alarm reliability.
+
+The implementation must separately prove:
+
+```text
+occurrence delivered
+→ Active Wake Execution established
+→ safe local audio starts
+→ UI can recreate
+→ playback owner can recover idempotently
+→ stop remains terminal
+→ durable snooze replacement remains authoritative
+```
+
+See ADR-014 and `docs/18-testing-quality.md`.
 
 ## Revalidation triggers
 
 Refresh this research when any of these occur:
 
 - target/compile SDK major update
+- Google Play target API requirement update
 - Google Play exact-alarm/full-screen policy update
 - public beta/production submission
 - wake delivery differs on a new Android release/OEM
 - foreground-service/audio behavior changes
 - manifest permission strategy changes
+- `USE_EXACT_ALARM` eligibility/review guidance changes
