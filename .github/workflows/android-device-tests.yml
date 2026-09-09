@@ -53,7 +53,7 @@ jobs:
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
-            set -euo pipefail
+            set -eu
             trap 'adb devices -l > "$GITHUB_WORKSPACE/adb-devices.txt" 2>&1 || true; timeout 15s adb logcat -d -t 2000 > "$GITHUB_WORKSPACE/emulator-logcat.txt" 2>&1 || true' EXIT
             cd apps/android
             ./gradlew :app:connectedDebugAndroidTest --stacktrace
