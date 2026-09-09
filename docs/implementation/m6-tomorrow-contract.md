@@ -117,11 +117,17 @@ This prevents an already-running WorkManager refresh for an older contract revis
 
 The plan still independently records the Contract ID/revision and checksum, so any inconsistent or stale state fails closed at read time even if storage is externally corrupted.
 
-## WorkManager role
+## WorkManager role and startup isolation
 
 M6 adds AndroidX WorkManager 2.11.2 as a non-critical dependency.
 
 `PrepareWakePlanWorker` may rebuild the latest private Prepared Wake Plan as deferrable background work. It uses one unique replacement work item and has no network constraint because preparation is fully local.
+
+The default WorkManager App Startup initializer is explicitly removed from the merged Android manifest. `WakeMyWayApplication` implements `Configuration.Provider`, so WorkManager is initialized on demand only when the preparation path explicitly calls `WorkManager.getInstance(Context)`.
+
+This is a reliability boundary, not an optimization detail: a cold process start caused by `AlarmReceiver` must not initialize WorkManager or its database before Active Wake Execution. Deferrable M6 work therefore adds no mandatory startup work to the trust-critical alarm path.
+
+On-demand initialization can delay automatic WorkManager rescheduling until WorkManager is first requested after a process restart. That tradeoff is acceptable here because the foreground save path already commits a valid Prepared Wake Plan immediately, the worker is redundant refresh work, and missing/stale preparation deterministically falls back to generic local wake content.
 
 WorkManager does **not**:
 
@@ -131,8 +137,6 @@ WorkManager does **not**:
 - own snooze/stop;
 - determine Wake Ready;
 - become a prerequisite for valid wake delivery.
-
-The foreground save path prepares immediately so the user can inspect the result. WorkManager is a redundant deferrable refresh path, not a correctness dependency.
 
 ## Founder UI
 
@@ -219,14 +223,17 @@ Pure Kotlin coverage verifies:
 - changed source content changes checksum;
 - tampering fails checksum validation;
 - stale source revision is rejected;
+- wrong Wake Occurrence is rejected;
 - unsupported plan format fails closed.
 
 Android instrumentation verifies:
 
 - credential-protected contract + plan round-trip;
 - validated plan survives persistence;
+- tampered persisted content falls back at wake-time read;
 - clearing removes both private files;
-- device-protected storage is rejected.
+- device-protected storage is rejected;
+- WorkManager can initialize on demand from the application-provided configuration.
 
 CI remains the source of truth for build/lint/test status on PR #20.
 
