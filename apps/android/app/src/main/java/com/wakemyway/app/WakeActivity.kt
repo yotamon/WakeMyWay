@@ -2,6 +2,7 @@ package com.wakemyway.app
 
 import android.app.KeyguardManager
 import android.os.Bundle
+import android.os.UserManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,7 +48,8 @@ class WakeActivity : ComponentActivity() {
             finish()
             return
         }
-        occurrenceId = WakeOccurrenceId(rawId)
+        val wakeOccurrenceId = WakeOccurrenceId(rawId)
+        occurrenceId = wakeOccurrenceId
         refreshPreparedPlanIfUnlocked()
 
         setContent {
@@ -55,11 +57,11 @@ class WakeActivity : ComponentActivity() {
                 WakeSurface(
                     preparedPlan = preparedPlan,
                     onSnooze = {
-                        AlarmPlaybackService.requestSnooze(this, occurrenceId!!)
+                        AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
                     onStop = {
-                        AlarmPlaybackService.requestStop(this, occurrenceId!!)
+                        AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
                 )
@@ -67,13 +69,19 @@ class WakeActivity : ComponentActivity() {
         }
 
         window.decorView.post {
-            occurrenceId?.let { WakeTimingTrace(this).uiVisible(it) }
+            WakeTimingTrace(this).uiVisible(wakeOccurrenceId)
         }
     }
 
     override fun onResume() {
         super.onResume()
         refreshPreparedPlanIfUnlocked()
+    }
+
+    override fun onPause() {
+        // Do not leave private content retained in the Compose state when the wake UI loses focus.
+        preparedPlan = null
+        super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -85,9 +93,10 @@ class WakeActivity : ComponentActivity() {
 
     private fun refreshPreparedPlanIfUnlocked() {
         val id = occurrenceId ?: return
+        val userManager = getSystemService(UserManager::class.java)
         val keyguard = getSystemService(KeyguardManager::class.java)
-        if (keyguard.isDeviceLocked) {
-            // Never render private Tomorrow Contract-derived content over the lock screen.
+        if (!userManager.isUserUnlocked || keyguard.isDeviceLocked) {
+            // Never read/render private Tomorrow Contract-derived content during Direct Boot or lock.
             preparedPlan = null
             return
         }
@@ -98,6 +107,11 @@ class WakeActivity : ComponentActivity() {
                 is WakeTimePreparedContent.GenericFallback -> null
             }
         }.getOrNull()
+
+        if (preparedPlan != null) {
+            // Prevent OS screenshots/recents thumbnails while private prepared text is visible.
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
     }
 }
 
@@ -142,7 +156,7 @@ private fun WakeSurface(
         Text(
             modifier = Modifier.padding(top = 8.dp, bottom = 40.dp),
             text = if (preparedPlan == null) {
-                "Private morning context appears only after the device is unlocked."
+                "Unlock for private morning context, if available."
             } else {
                 "Prepared locally. No network required."
             },
