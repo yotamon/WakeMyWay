@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.wakemyway.core.schedule.NextWakeOccurrenceResolver
 import com.wakemyway.core.schedule.SnoozeOccurrenceFactory
+import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeOccurrence
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeSchedule
@@ -58,15 +59,7 @@ class AlarmKernel(
 
         // Persist the cancellation tombstone first. If the process dies before AlarmManager
         // cancellation, the stale PendingIntent may still arrive but beginActive() rejects it.
-        store.write(
-            snapshot.copy(
-                nextOccurrence = null,
-                activeOccurrence = null,
-                registeredOccurrenceId = null,
-                generation = snapshot.generation + 1,
-                enabled = false,
-            ),
-        )
+        disable(snapshot)
         obsoleteOccurrenceId?.let(registrar::cancel)
     }
 
@@ -93,7 +86,7 @@ class AlarmKernel(
     fun stopActive(occurrenceId: WakeOccurrenceId): Boolean {
         val snapshot = store.read() ?: return false
         if (!snapshot.enabled || snapshot.activeOccurrence?.id != occurrenceId) return false
-        scheduleNextPrimary(snapshot)
+        completeOrAdvance(snapshot)
         return true
     }
 
@@ -127,7 +120,7 @@ class AlarmKernel(
 
     /**
      * Repairs Android registration from durable state.
-     * On boot, an execution that was active before power loss is treated as interrupted and advanced.
+     * On boot, an execution that was active before power loss is treated as interrupted and completed.
      */
     @Synchronized
     fun reconcile(afterBoot: Boolean = false): AlarmHealth {
@@ -135,17 +128,17 @@ class AlarmKernel(
         if (!snapshot.enabled) return health()
 
         if (snapshot.activeOccurrence != null) {
-            if (afterBoot) scheduleNextPrimary(snapshot)
+            if (afterBoot) completeOrAdvance(snapshot)
             return health()
         }
 
         val next = snapshot.nextOccurrence ?: run {
-            scheduleNextPrimary(snapshot)
+            completeOrAdvance(snapshot)
             return health()
         }
 
         if (!next.scheduledAt.toInstant().isAfter(Instant.now(clock))) {
-            scheduleNextPrimary(snapshot)
+            completeOrAdvance(snapshot)
             return health()
         }
 
@@ -199,6 +192,25 @@ class AlarmKernel(
                 !fullScreenAllowed -> "Ready with degraded full-screen presentation"
                 else -> "Wake Ready"
             },
+        )
+    }
+
+    private fun completeOrAdvance(snapshot: CriticalWakeSnapshot) {
+        when (snapshot.schedule.completionPolicy) {
+            WakeCompletionPolicy.ONE_SHOT -> disable(snapshot)
+            WakeCompletionPolicy.RECURRING -> scheduleNextPrimary(snapshot)
+        }
+    }
+
+    private fun disable(snapshot: CriticalWakeSnapshot) {
+        store.write(
+            snapshot.copy(
+                nextOccurrence = null,
+                activeOccurrence = null,
+                registeredOccurrenceId = null,
+                generation = snapshot.generation + 1,
+                enabled = false,
+            ),
         )
     }
 
