@@ -165,6 +165,7 @@ enum class LearnedPolicyFallbackReason {
     MISSING,
     UNSUPPORTED_ALGORITHM,
     INVALID_LEARNING_BOUNDS,
+    RESET_TO_DEFAULT,
 }
 
 data class LearnedPolicyResolution(
