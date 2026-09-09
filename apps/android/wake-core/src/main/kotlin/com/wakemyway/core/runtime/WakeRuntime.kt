@@ -119,10 +119,13 @@ class WakeRuntime {
 
             is WakeInput.SilenceElapsed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
-                val accumulatedSilence = remembered.engagementSilenceElapsed.plus(input.interval)
+                val accumulatedEngagementSilence = when (remembered.phase) {
+                    WakePhase.ENGAGING -> remembered.engagementSilenceElapsed.plus(input.interval)
+                    else -> remembered.engagementSilenceElapsed
+                }
                 val movementPromptDue =
-                    remembered.phase in setOf(WakePhase.ALERTING, WakePhase.ENGAGING) &&
-                        accumulatedSilence >= policy.movementPromptDelay
+                    remembered.phase == WakePhase.ENGAGING &&
+                        accumulatedEngagementSilence >= policy.movementPromptDelay
                 val next = remembered.copy(
                     phase = when {
                         movementPromptDue -> WakePhase.ACTIVATING
@@ -130,7 +133,11 @@ class WakeRuntime {
                         else -> remembered.phase
                     },
                     escalationLevel = escalation,
-                    engagementSilenceElapsed = accumulatedSilence,
+                    engagementSilenceElapsed = when {
+                        remembered.phase == WakePhase.ALERTING -> Duration.ZERO
+                        movementPromptDue -> Duration.ZERO
+                        else -> accumulatedEngagementSilence
+                    },
                 )
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
@@ -174,6 +181,7 @@ class WakeRuntime {
                         else -> remembered.phase
                     },
                     escalationLevel = escalation,
+                    engagementSilenceElapsed = Duration.ZERO,
                 )
                 transition(
                     next,
