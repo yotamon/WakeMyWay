@@ -26,11 +26,13 @@ class WakeTimingTrace(context: Context) {
     fun expected(
         occurrence: WakeOccurrence,
         scenario: String,
+        expectFullScreen: Boolean,
     ) = safelyMutate { sessions ->
         val session = sessions.findSession(occurrence.id) ?: newSession(occurrence).also {
             sessions.add(0, it)
         }
         session.put(KEY_SCENARIO, scenario)
+        session.put(KEY_EXPECT_FULL_SCREEN, expectFullScreen)
         session.put(KEY_EXPECTED_WALL_MS, System.currentTimeMillis())
     }
 
@@ -151,6 +153,7 @@ class WakeTimingTrace(context: Context) {
             scheduleId = json.optString(KEY_SCHEDULE_ID),
             occurrenceKind = json.optString(KEY_OCCURRENCE_KIND),
             scenario = json.optString(KEY_SCENARIO).takeIf { it.isNotBlank() },
+            expectFullScreen = json.optBoolean(KEY_EXPECT_FULL_SCREEN, false),
             targetWallMillis = json.optLong(KEY_TARGET_WALL_MS, 0),
             expectedWallMillis = json.optionalLong(KEY_EXPECTED_WALL_MS),
             receiverWallMillis = json.optionalLong(KEY_RECEIVER_WALL_MS),
@@ -181,6 +184,7 @@ class WakeTimingTrace(context: Context) {
         const val SCENARIO_NORMAL_T_PLUS_2M = "NORMAL_T_PLUS_2M"
         const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
         const val MISSED_RECEIVER_GRACE_MS = 60_000L
+        const val DELIVERY_STAGE_GRACE_MS = 5_000L
 
         private val LOCK = Any()
         private const val MAX_SESSIONS = 24
@@ -190,6 +194,7 @@ class WakeTimingTrace(context: Context) {
         private const val KEY_SCHEDULE_ID = "schedule_id"
         private const val KEY_OCCURRENCE_KIND = "occurrence_kind"
         private const val KEY_SCENARIO = "scenario"
+        private const val KEY_EXPECT_FULL_SCREEN = "expect_full_screen"
         private const val KEY_TARGET_WALL_MS = "target_wall_ms"
         private const val KEY_EXPECTED_WALL_MS = "expected_wall_ms"
         private const val KEY_RECEIVER_WALL_MS = "receiver_wall_ms"
@@ -214,6 +219,7 @@ data class TimingSnapshot(
     val scheduleId: String,
     val occurrenceKind: String,
     val scenario: String?,
+    val expectFullScreen: Boolean,
     val targetWallMillis: Long,
     val expectedWallMillis: Long?,
     val receiverWallMillis: Long?,
@@ -239,12 +245,15 @@ data class TimingSnapshot(
     fun state(
         nowWallMillis: Long = System.currentTimeMillis(),
         missedReceiverGraceMillis: Long = WakeTimingTrace.MISSED_RECEIVER_GRACE_MS,
+        deliveryStageGraceMillis: Long = WakeTimingTrace.DELIVERY_STAGE_GRACE_MS,
     ): ReliabilityState = when {
         terminalAction == "STOPPED" -> ReliabilityState.STOPPED
         terminalAction == "SNOOZED" -> ReliabilityState.SNOOZED
         receiverWallMillis == null && nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
         receiverWallMillis == null -> ReliabilityState.EXPECTED
+        audioWallMillis == null && nowWallMillis > receiverWallMillis + deliveryStageGraceMillis -> ReliabilityState.AUDIO_TIMEOUT
         audioWallMillis == null -> ReliabilityState.RECEIVED_NO_AUDIO_YET
+        uiWallMillis == null && expectFullScreen && nowWallMillis > receiverWallMillis + deliveryStageGraceMillis -> ReliabilityState.UI_TIMEOUT
         uiWallMillis == null -> ReliabilityState.AUDIBLE_NO_UI_YET
         else -> ReliabilityState.ACTIVE
     }
@@ -257,7 +266,9 @@ enum class ReliabilityState {
     EXPECTED,
     MISSED_RECEIVER,
     RECEIVED_NO_AUDIO_YET,
+    AUDIO_TIMEOUT,
     AUDIBLE_NO_UI_YET,
+    UI_TIMEOUT,
     ACTIVE,
     STOPPED,
     SNOOZED,
