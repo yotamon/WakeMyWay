@@ -34,6 +34,7 @@ import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.character.AlfredCharacterLab
+import com.wakemyway.app.preparation.TomorrowContractLab
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
@@ -207,6 +208,11 @@ private fun WakeAlarmLabScreen() {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+
+        TomorrowContractLab(
+            wakeOccurrence = health.nextOccurrence,
+            modifier = Modifier.padding(top = 32.dp),
+        )
 
         AlfredCharacterLab(modifier = Modifier.padding(top = 32.dp))
 
