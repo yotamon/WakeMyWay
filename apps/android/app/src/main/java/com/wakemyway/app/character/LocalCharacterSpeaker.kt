@@ -37,6 +37,7 @@ sealed interface LocalSpeechResult {
         NOT_READY,
         ENGINE_REJECTED_UTTERANCE,
         ENGINE_PLAYBACK_ERROR,
+        INTERRUPTED,
         CLOSED,
     }
 }
@@ -66,9 +67,12 @@ class LocalCharacterSpeaker(
     private var engine: TextToSpeech? = null
 
     init {
-        engine = TextToSpeech(appContext) { status ->
-            configureEngine(status)
+        val created = TextToSpeech(appContext) { status ->
+            // Some TTS engines initialize aggressively. Posting guarantees the engine field has
+            // been assigned before configuration reads it, even if the callback is unusually fast.
+            mainHandler.post { configureEngine(status) }
         }
+        engine = created
     }
 
     fun state(): LocalSpeechState = state
@@ -102,7 +106,7 @@ class LocalCharacterSpeaker(
         }
 
         callbacks.remove(utteranceId)?.let { previous ->
-            dispatchResult(previous, LocalSpeechResult.Failed(LocalSpeechResult.Reason.ENGINE_PLAYBACK_ERROR))
+            dispatchResult(previous, LocalSpeechResult.Failed(LocalSpeechResult.Reason.INTERRUPTED))
         }
         callbacks[utteranceId] = onResult
 
@@ -124,7 +128,7 @@ class LocalCharacterSpeaker(
     fun stop() {
         if (closed) return
         engine?.stop()
-        failPending(LocalSpeechResult.Reason.ENGINE_PLAYBACK_ERROR)
+        failPending(LocalSpeechResult.Reason.INTERRUPTED)
     }
 
     override fun close() {
@@ -192,6 +196,13 @@ class LocalCharacterSpeaker(
 
                 override fun onDone(utteranceId: String?) {
                     finishUtterance(utteranceId, LocalSpeechResult.Completed)
+                }
+
+                override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                    finishUtterance(
+                        utteranceId,
+                        LocalSpeechResult.Failed(LocalSpeechResult.Reason.INTERRUPTED),
+                    )
                 }
 
                 @Deprecated("Deprecated by Android; retained for compatibility with older engines")
