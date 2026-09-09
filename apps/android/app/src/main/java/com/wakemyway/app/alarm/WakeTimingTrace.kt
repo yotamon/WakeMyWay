@@ -1,7 +1,6 @@
 package com.wakemyway.app.alarm
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.SystemClock
 import com.wakemyway.core.schedule.WakeOccurrence
 import com.wakemyway.core.schedule.WakeOccurrenceId
@@ -20,20 +19,27 @@ class WakeTimingTrace(context: Context) {
         .createDeviceProtectedStorageContext()
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    /**
+     * Records an expected OS wake before its target time. This is what lets the lab diagnose
+     * the most important failure mode: an alarm that was scheduled but never reached the receiver.
+     */
+    fun expected(
+        occurrence: WakeOccurrence,
+        scenario: String,
+    ) = safelyMutate { sessions ->
+        val session = sessions.findSession(occurrence.id) ?: newSession(occurrence).also {
+            sessions.add(0, it)
+        }
+        session.put(KEY_SCENARIO, scenario)
+        session.put(KEY_EXPECTED_WALL_MS, System.currentTimeMillis())
+    }
+
     fun receiver(occurrence: WakeOccurrence) = safelyMutate { sessions ->
-        sessions.removeAll { it.optString(KEY_OCCURRENCE_ID) == occurrence.id.value }
-        sessions.add(
-            0,
-            JSONObject().apply {
-                put(KEY_OCCURRENCE_ID, occurrence.id.value)
-                put(KEY_SCHEDULE_ID, occurrence.wakeScheduleId.value)
-                put(KEY_OCCURRENCE_KIND, occurrence.kind.name)
-                put(KEY_TARGET_WALL_MS, occurrence.scheduledAt.toInstant().toEpochMilli())
-                put(KEY_RECEIVER_WALL_MS, System.currentTimeMillis())
-                put(KEY_RECEIVER_ELAPSED_MS, SystemClock.elapsedRealtime())
-                put(KEY_SERVICE_RECOVERY_COUNT, 0)
-            },
-        )
+        val session = sessions.findSession(occurrence.id) ?: newSession(occurrence).also {
+            sessions.add(0, it)
+        }
+        session.put(KEY_RECEIVER_WALL_MS, System.currentTimeMillis())
+        session.put(KEY_RECEIVER_ELAPSED_MS, SystemClock.elapsedRealtime())
     }
 
     fun foreground(occurrenceId: WakeOccurrenceId) = mark(
@@ -80,6 +86,14 @@ class WakeTimingTrace(context: Context) {
         runCatching { prefs.edit().remove(KEY_SESSIONS).apply() }
     }
 
+    private fun newSession(occurrence: WakeOccurrence): JSONObject = JSONObject().apply {
+        put(KEY_OCCURRENCE_ID, occurrence.id.value)
+        put(KEY_SCHEDULE_ID, occurrence.wakeScheduleId.value)
+        put(KEY_OCCURRENCE_KIND, occurrence.kind.name)
+        put(KEY_TARGET_WALL_MS, occurrence.scheduledAt.toInstant().toEpochMilli())
+        put(KEY_SERVICE_RECOVERY_COUNT, 0)
+    }
+
     private fun mark(
         occurrenceId: WakeOccurrenceId,
         wallKey: String,
@@ -121,8 +135,9 @@ class WakeTimingTrace(context: Context) {
     }
 
     private fun persistSessions(sessions: List<JSONObject>) {
-        val bounded = sessions.take(MAX_SESSIONS)
-        val array = JSONArray().apply { bounded.forEach(::put) }
+        val array = JSONArray().apply {
+            sessions.take(MAX_SESSIONS).forEach { put(it) }
+        }
         prefs.edit().putString(KEY_SESSIONS, array.toString()).apply()
     }
 
@@ -135,7 +150,9 @@ class WakeTimingTrace(context: Context) {
             occurrenceId = occurrenceId,
             scheduleId = json.optString(KEY_SCHEDULE_ID),
             occurrenceKind = json.optString(KEY_OCCURRENCE_KIND),
+            scenario = json.optString(KEY_SCENARIO).takeIf { it.isNotBlank() },
             targetWallMillis = json.optLong(KEY_TARGET_WALL_MS, 0),
+            expectedWallMillis = json.optionalLong(KEY_EXPECTED_WALL_MS),
             receiverWallMillis = json.optionalLong(KEY_RECEIVER_WALL_MS),
             receiverElapsedMillis = json.optionalLong(KEY_RECEIVER_ELAPSED_MS),
             foregroundWallMillis = json.optionalLong(KEY_FOREGROUND_WALL_MS),
@@ -160,29 +177,35 @@ class WakeTimingTrace(context: Context) {
         SNOOZED,
     }
 
-    private companion object {
-        val LOCK = Any()
-        const val MAX_SESSIONS = 24
-        const val PREFS_NAME = "wake-reliability-journal"
-        const val KEY_SESSIONS = "sessions"
-        const val KEY_OCCURRENCE_ID = "occurrence_id"
-        const val KEY_SCHEDULE_ID = "schedule_id"
-        const val KEY_OCCURRENCE_KIND = "occurrence_kind"
-        const val KEY_TARGET_WALL_MS = "target_wall_ms"
-        const val KEY_RECEIVER_WALL_MS = "receiver_wall_ms"
-        const val KEY_RECEIVER_ELAPSED_MS = "receiver_elapsed_ms"
-        const val KEY_FOREGROUND_WALL_MS = "foreground_wall_ms"
-        const val KEY_FOREGROUND_ELAPSED_MS = "foreground_elapsed_ms"
-        const val KEY_AUDIO_WALL_MS = "audio_wall_ms"
-        const val KEY_AUDIO_ELAPSED_MS = "audio_elapsed_ms"
-        const val KEY_UI_WALL_MS = "ui_wall_ms"
-        const val KEY_UI_ELAPSED_MS = "ui_elapsed_ms"
-        const val KEY_TERMINAL_ACTION = "terminal_action"
-        const val KEY_TERMINAL_WALL_MS = "terminal_wall_ms"
-        const val KEY_TERMINAL_ELAPSED_MS = "terminal_elapsed_ms"
-        const val KEY_SERVICE_RECOVERY_COUNT = "service_recovery_count"
-        const val KEY_LAST_RECOVERY_WALL_MS = "last_recovery_wall_ms"
-        const val KEY_LAST_RECOVERY_ELAPSED_MS = "last_recovery_elapsed_ms"
+    companion object {
+        const val SCENARIO_NORMAL_T_PLUS_2M = "NORMAL_T_PLUS_2M"
+        const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
+        const val MISSED_RECEIVER_GRACE_MS = 60_000L
+
+        private val LOCK = Any()
+        private const val MAX_SESSIONS = 24
+        private const val PREFS_NAME = "wake-reliability-journal"
+        private const val KEY_SESSIONS = "sessions"
+        private const val KEY_OCCURRENCE_ID = "occurrence_id"
+        private const val KEY_SCHEDULE_ID = "schedule_id"
+        private const val KEY_OCCURRENCE_KIND = "occurrence_kind"
+        private const val KEY_SCENARIO = "scenario"
+        private const val KEY_TARGET_WALL_MS = "target_wall_ms"
+        private const val KEY_EXPECTED_WALL_MS = "expected_wall_ms"
+        private const val KEY_RECEIVER_WALL_MS = "receiver_wall_ms"
+        private const val KEY_RECEIVER_ELAPSED_MS = "receiver_elapsed_ms"
+        private const val KEY_FOREGROUND_WALL_MS = "foreground_wall_ms"
+        private const val KEY_FOREGROUND_ELAPSED_MS = "foreground_elapsed_ms"
+        private const val KEY_AUDIO_WALL_MS = "audio_wall_ms"
+        private const val KEY_AUDIO_ELAPSED_MS = "audio_elapsed_ms"
+        private const val KEY_UI_WALL_MS = "ui_wall_ms"
+        private const val KEY_UI_ELAPSED_MS = "ui_elapsed_ms"
+        private const val KEY_TERMINAL_ACTION = "terminal_action"
+        private const val KEY_TERMINAL_WALL_MS = "terminal_wall_ms"
+        private const val KEY_TERMINAL_ELAPSED_MS = "terminal_elapsed_ms"
+        private const val KEY_SERVICE_RECOVERY_COUNT = "service_recovery_count"
+        private const val KEY_LAST_RECOVERY_WALL_MS = "last_recovery_wall_ms"
+        private const val KEY_LAST_RECOVERY_ELAPSED_MS = "last_recovery_elapsed_ms"
     }
 }
 
@@ -190,7 +213,9 @@ data class TimingSnapshot(
     val occurrenceId: String,
     val scheduleId: String,
     val occurrenceKind: String,
+    val scenario: String?,
     val targetWallMillis: Long,
+    val expectedWallMillis: Long?,
     val receiverWallMillis: Long?,
     val receiverElapsedMillis: Long?,
     val foregroundWallMillis: Long?,
@@ -211,6 +236,29 @@ data class TimingSnapshot(
     val triggerToUiMillis: Long? = elapsedDelta(uiElapsedMillis)
     val triggerToTerminalMillis: Long? = elapsedDelta(terminalElapsedMillis)
 
+    fun state(
+        nowWallMillis: Long = System.currentTimeMillis(),
+        missedReceiverGraceMillis: Long = WakeTimingTrace.MISSED_RECEIVER_GRACE_MS,
+    ): ReliabilityState = when {
+        terminalAction == "STOPPED" -> ReliabilityState.STOPPED
+        terminalAction == "SNOOZED" -> ReliabilityState.SNOOZED
+        receiverWallMillis == null && nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
+        receiverWallMillis == null -> ReliabilityState.EXPECTED
+        audioWallMillis == null -> ReliabilityState.RECEIVED_NO_AUDIO_YET
+        uiWallMillis == null -> ReliabilityState.AUDIBLE_NO_UI_YET
+        else -> ReliabilityState.ACTIVE
+    }
+
     private fun elapsedDelta(stageElapsedMillis: Long?): Long? =
         receiverElapsedMillis?.let { receiver -> stageElapsedMillis?.minus(receiver) }
+}
+
+enum class ReliabilityState {
+    EXPECTED,
+    MISSED_RECEIVER,
+    RECEIVED_NO_AUDIO_YET,
+    AUDIBLE_NO_UI_YET,
+    ACTIVE,
+    STOPPED,
+    SNOOZED,
 }
