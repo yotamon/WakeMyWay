@@ -8,11 +8,19 @@ Conversation should feel alive while wake behavior remains controlled.
 
 Canonical Wake Runtime terms live in [`../CONTEXT.md`](../CONTEXT.md).
 
+## Product sequencing
+
+Realtime voice is intentionally **not** the first adaptive intelligence milestone.
+
+WMW must first prove locally that deterministic Wake Runtime + motion + Wake Learning v0 can learn a useful, bounded change from prior mornings. Realtime voice then enriches an already-valid adaptive product rather than becoming the thing we mistakenly optimize around.
+
+The measured provider spike is therefore **M8**, after M7 Wake Learning v0.
+
 ## Do not design a provider abstraction before the spike
 
 The first architecture draft proposed three interfaces (`RealtimeVoiceProvider`, `WakePlanGenerator`, `SpeechRenderer`) up front. The pre-development architecture review deliberately backs away from that.
 
-Before implementation exists, those names are hypotheses. M7 must reveal what responsibilities are actually deep/stable and what is merely SDK glue.
+Before implementation exists, those names are hypotheses. M8 must reveal what responsibilities are actually deep/stable and what is merely SDK glue.
 
 Stable product-level boundary today:
 
@@ -31,9 +39,11 @@ Never create a generic `AIProvider` that leaks vendor concepts into Wake Runtime
 ## Morning voice flow
 
 ```text
-Alarm Kernel starts safe local Wake Motif / alarm output
+Alarm Kernel starts Active Wake Execution
        ↓
-WakeActivity / wake surface is available
+safe local Wake Motif / USAGE_ALARM output is already owned locally
+       ↓
+WakeActivity / wake surface attaches
        ↓
 Wake Runtime starts deterministic session
        ↓
@@ -46,9 +56,11 @@ realtime enriches later Speech Intents
 provider slow/fails → local rendering continues
 ```
 
+Critical alarm playback lifetime belongs to the Alarm Kernel/ADR-014, not to the realtime provider or `WakeActivity`.
+
 Never show a critical-path spinner waiting for live AI.
 
-## M7 provider spike
+## M8 provider spike
 
 Measure real candidates rather than selecting from feature lists.
 
@@ -162,7 +174,13 @@ BOUNDARIES
 - brief spoken output
 ```
 
-Model output is **language only**. It cannot transition Wake Phase, declare activation success, stop the alarm, or accept snooze on behalf of the user.
+Model output is **language only**. It cannot transition Wake Phase, declare Activation Completion, claim Confirmed Wake Success, stop the alarm, or accept snooze on behalf of the user.
+
+## Learning/voice boundary
+
+Wake Learning may select future **behavioral policy parameters**. A character renderer may use the selected intervention style/intent, but it does not learn or mutate Wake Policy by observing arbitrary model dialogue.
+
+Do not use raw model transcripts as the default training source for Wake Learning. Prefer typed semantic Wake Inputs, outcomes, and optional calibration feedback.
 
 ## Character safety
 
@@ -191,3 +209,5 @@ Humor is allowed when it preserves dignity.
 Alfred must work before realtime voice exists.
 
 Curated local phrase variants per Speech Intent let us validate whether conversation/personality actually improves mornings before introducing provider complexity.
+
+Local Wake Learning v0 must also remain fully usable without realtime voice, proving that personalization is not vendor-dependent.
