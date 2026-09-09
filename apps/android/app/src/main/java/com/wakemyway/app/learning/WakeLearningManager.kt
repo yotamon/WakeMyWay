@@ -69,7 +69,7 @@ class WakeLearningManager(
         outcome: WakeOutcomeRecord,
         recoveredFromStorageError: Boolean,
     ): WakeLearningResult {
-        val validProfile = state.profile.takeIf(::isSupportedProfile)
+        val validProfile = state.profile?.takeIf { profile -> isSupportedProfile(profile) }
         val currentPolicy = validProfile?.activePolicy ?: defaultPolicy
         val outcomes = (state.outcomes.filterNot { it.id == outcome.id } + outcome)
             .sortedWith(compareBy<WakeOutcomeRecord> { it.startedAtEpochMillis }.thenBy { it.id.value })
@@ -109,7 +109,7 @@ class WakeLearningManager(
         state: StoredWakeLearningState,
         forcedStatus: WakeLearningStorageStatus? = null,
     ): WakeLearningSnapshot {
-        val supportedProfile = state.profile.takeIf(::isSupportedProfile)
+        val supportedProfile = state.profile?.takeIf { profile -> isSupportedProfile(profile) }
         val unsupportedProfile = state.profile != null && supportedProfile == null
         val status = forcedStatus ?: when {
             unsupportedProfile -> WakeLearningStorageStatus.PROFILE_FALLBACK
