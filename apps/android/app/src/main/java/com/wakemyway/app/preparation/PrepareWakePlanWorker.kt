@@ -2,7 +2,7 @@ package com.wakemyway.app.preparation
 
 import android.content.Context
 import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
@@ -27,7 +27,7 @@ object PrepareWakePlanScheduler {
     private const val UNIQUE_WORK_NAME = "wmw-prepare-next-wake"
 
     fun enqueue(context: Context) {
-        val request = OneTimeWorkRequestBuilder<PrepareWakePlanWorker>().build()
+        val request = OneTimeWorkRequest.Builder(PrepareWakePlanWorker::class.java).build()
         WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
             UNIQUE_WORK_NAME,
             ExistingWorkPolicy.REPLACE,
