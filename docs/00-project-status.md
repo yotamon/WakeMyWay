@@ -21,7 +21,7 @@ Merged into `main`:
 - M4 bounded Motion Evidence extraction + thin Android sensor adapter
 - M5 Alfred deterministic local character + offline-only Android speech lab
 
-M6 is implemented as a PR candidate. It introduces private night-before context and deterministic local morning preparation without moving any new authority into the critical alarm path.
+M6 is implemented as a PR candidate. It introduces private night-before context and deterministic local morning preparation without moving any new authority or startup dependency into the critical alarm path.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, or coexistence of critical alarm audio with optional character speech.
 
@@ -50,7 +50,7 @@ AlarmPlaybackService
     └─ durable Stop / Snooze
 ```
 
-Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract and Prepared Wake Plan do not participate in alarm delivery.
+Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract and Prepared Wake Plan do not participate in alarm delivery. WorkManager's default App Startup initializer is removed, so M6 deferrable preparation does not initialize ahead of a cold-start `AlarmReceiver`.
 
 ### Deterministic behavior path
 
@@ -113,11 +113,11 @@ WakePreparationManager
         ├─ AtomicFile persistence
         ├─ deterministic local preparation
         ├─ SHA-256 integrity validation
-        └─ deferrable WorkManager refresh
+        └─ on-demand WorkManager refresh
         ↓
 Prepared Wake Plan
         ↓
-valid + device unlocked
+valid + user/keyguard unlocked
         → optional WakeActivity text enrichment
 
 missing / stale / corrupt / locked / Direct Boot
@@ -245,25 +245,28 @@ Implementation candidate includes:
 - credential-protected private persistence under `noBackupFilesDir`;
 - `AtomicFile` replacement semantics;
 - explicit rejection of device-protected Contexts;
-- AndroidX WorkManager 2.11.2 for deferrable local refresh only;
+- AndroidX WorkManager 2.11.2 for redundant deferrable local refresh only;
+- removal of WorkManager's default App Startup initializer;
+- `WakeMyWayApplication : Configuration.Provider` for explicit on-demand WorkManager initialization;
 - in-process serialization of UI/worker two-file commits;
 - founder Tomorrow Contract edit/clear/preview flow;
 - local offline wake-time plan read/fallback diagnostics;
 - unlocked-only Prepared Wake Plan enrichment in `WakeActivity`;
 - no private prepared text read/rendered during Direct Boot or while keyguard is locked;
 - `FLAG_SECURE` when private morning text is visible;
-- pure preparation tests and Android persistence/privacy instrumentation tests.
+- pure preparation tests including occurrence/revision/tamper validation;
+- Android persistence/privacy/fail-closed/on-demand-WorkManager instrumentation tests.
 
 Not introduced:
 
 - cloud/backend preparation;
 - account/auth dependency;
 - prepared private content in Critical Wake Snapshot;
-- WorkManager alarm firing;
+- WorkManager alarm firing or cold-start initialization dependency;
 - TTS/private prepared speech in production Active Wake Execution;
 - Wake Runtime policy/state inside the plan.
 
-M6 is not considered merged/complete until PR #20 CI and review are green.
+M6 is not considered merged/complete until PR #20 CI and review are green. The dedicated API-36 emulator lane is manual for this branch and must be executed separately before merge if the connected GitHub Actions interface permits it; otherwise the limitation must be recorded rather than silently claimed.
 
 ## Privacy boundaries
 
@@ -303,12 +306,13 @@ M6 private state is credential-protected and excluded from Auto Backup through `
 
 ## Exact next work
 
-1. Make PR #20 fully green across docs, pure tests, Android lint/compile and emulator instrumentation.
-2. Resolve any M6 review/CI defects without weakening the private/critical storage boundary.
-3. Merge M6 and advance canonical status to M7 Wake Learning v0.
-4. Begin M7 as bounded, local, explainable off-session policy derivation only.
-5. In parallel, continue issue #9 physical-device reliability scenarios when a real device execution path is available.
-6. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+1. Make PR #20 fully green across docs, pure tests, Android lint/compile and instrumentation compilation.
+2. Execute the API-36 emulator instrumentation lane for the M6 head if an Actions dispatch path is available; otherwise record the execution limitation without treating compilation as execution.
+3. Resolve any M6 review/CI defects without weakening the private/critical storage boundary.
+4. Merge M6 and advance canonical status to M7 Wake Learning v0.
+5. Begin M7 as bounded, local, explainable off-session policy derivation only.
+6. In parallel, continue issue #9 physical-device reliability scenarios when a real device execution path is available.
+7. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
 
 ## Cloud / future stack status
 
@@ -327,4 +331,4 @@ Open proof/risk boundaries:
 - physical Android reliability evidence (#9);
 - motion threshold calibration on real devices;
 - coexistence of critical alarm audio with optional local character TTS;
-- M6 PR #20 must still pass current CI before merge.
+- final M6 CI and emulator execution evidence before merge.
