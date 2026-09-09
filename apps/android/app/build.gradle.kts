@@ -55,4 +55,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.espresso.core)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    // M8 transport spike only. Release builds intentionally have no RTC dependency.
+    debugImplementation(libs.webrtc.android)
 }
