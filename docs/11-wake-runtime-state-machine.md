@@ -10,11 +10,11 @@ Wake Runtime is the deep deterministic module for one active Wake Session:
 
 > Given the current session snapshot, a typed Wake Input, and a versioned Wake Policy, decide the next session snapshot and Wake Directives.
 
-The caller should not coordinate activation scoring, escalation rules, snooze rules, and phase transitions separately.
+The caller should not coordinate activation scoring, escalation rules, snooze/stop completion, and phase transitions separately.
 
 ## Runtime model
 
-The original design had too many states that mixed lifecycle, interventions, evidence, and capability modes. The simplified model keeps only durable session phases.
+The simplified model keeps only durable session phases:
 
 ```text
 ALERTING
@@ -50,7 +50,7 @@ The runtime is actively seeking stronger behavioral evidence, normally movement/
 
 ### Orienting
 
-Sufficient activation evidence exists to introduce small amounts of context and, optionally, a First Move.
+Sufficient activation evidence exists to introduce small amounts of context and, optionally, a First Move. Late activation callbacks are treated as stale here so delayed timers, speech completions, or sensor events cannot drag the session backward or re-present orientation.
 
 ### Finished
 
@@ -104,6 +104,8 @@ SnoozeSchedulingFailed
 CapabilitiesChanged
 OrientationCompleted
 StopRequested
+StopCompleted
+StopFailed
 UnrecoverableFailure
 ```
 
@@ -120,11 +122,12 @@ ObserveMotion
 StopObservingMotion
 OfferSnooze
 RequestSnoozeSchedule
+RequestStopExecution
 PresentOrientation
 CompleteSession
 ```
 
-Android/application code executes directives and feeds behavior-relevant results back as inputs.
+Android/application code executes directives and feeds behavior-relevant success/failure results back as typed inputs.
 
 ## Wake Policy
 
@@ -136,7 +139,7 @@ Wake Runtime receives a versioned Wake Policy containing deterministic parameter
 - default snooze duration
 - bounded duplicate-input memory
 
-For a new user this is the default policy. Later Wake Learning can derive a personalized policy while preserving the same reducer authority boundary.
+For a new user this is the default policy. Later Wake Learning can derive a personalized policy while preserving the same reducer authority boundary. A Wake Session never silently changes policy version mid-session.
 
 ## Activation Evidence
 
@@ -150,9 +153,9 @@ Wake Runtime currently combines typed counts for:
 
 The weighted scalar is available only through runtime diagnostics for replay/tuning. It is **not** a public authority seam. Callers ask Wake Runtime what to do next; they do not calculate a score and then decide what to do with it.
 
-## Snooze rule
+## Snooze transaction
 
-Snooze uses a transactional handshake:
+Snooze uses a durable-effect handshake:
 
 ```text
 SnoozeRequested
@@ -162,13 +165,33 @@ SnoozeConfirmed
 RequestSnoozeSchedule
    ↓
 Alarm Kernel durably creates replacement occurrence
-   ↓
-SnoozeScheduled
-   ↓
-FINISHED / SNOOZED
+   │
+   ├─ SnoozeScheduled ───────→ FINISHED / SNOOZED
+   │
+   └─ SnoozeSchedulingFailed → remain active + audible
 ```
 
-If exact replacement scheduling fails, `SnoozeSchedulingFailed` keeps the Wake Session active and directs the audible path to continue.
+Out-of-order `SnoozeConfirmed` or `SnoozeScheduled` inputs are no-ops. The runtime never declares snooze complete before exact replacement scheduling succeeds.
+
+## Stop transaction
+
+Stop follows the same discipline instead of treating a button tap as durable completion:
+
+```text
+StopRequested
+   ↓
+STOPPING
+   ↓
+RequestStopExecution
+   ↓
+Alarm Kernel performs durable active-wake stop/advance
+   │
+   ├─ StopCompleted → FINISHED / STOPPED
+   │
+   └─ StopFailed    → remain active + audible
+```
+
+While Stop is in flight, unrelated behavioral inputs may be recorded for idempotency but cannot mutate the lifecycle or emit competing actions. An out-of-order `StopCompleted` cannot finish the session.
 
 ## AI rule
 
@@ -178,6 +201,7 @@ AI can render a constrained Speech Intent. It cannot:
 - mark the session successfully activated
 - dismiss/finish the alarm
 - approve snooze without explicit user confirmation and successful exact rescheduling
+- claim Stop succeeded before the Alarm Kernel confirms it
 - invent product facts/context
 
 If generated language says "you're up" before the runtime has enough activation evidence, that is a rendering defect, not a state transition.
@@ -200,8 +224,10 @@ Do not make the persistence schema itself the domain interface.
 - a Finished session never becomes active again
 - network/provider availability never prevents the Alerting path from starting
 - AI output never directly changes Wake Phase
-- snooze does not finish the active alarm until the replacement exact occurrence is successfully scheduled
+- snooze does not finish until the replacement exact occurrence is successfully scheduled
+- stop does not finish until durable Alarm Kernel execution is confirmed
 - duplicate inputs do not cause duplicate destructive behavior
+- stale activation callbacks cannot re-engage an Orienting session
 - Orienting is reachable only after the configured activation criterion is met
 - fallback richness can decrease without invalidating the Wake Session lifecycle
 - escalation level is bounded by policy and never becomes a lifecycle state
