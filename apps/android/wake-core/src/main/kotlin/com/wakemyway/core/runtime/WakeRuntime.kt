@@ -1,5 +1,7 @@
 package com.wakemyway.core.runtime
 
+import java.time.Duration
+
 class WakeRuntime {
     fun initial(
         sessionId: WakeSessionId,
@@ -64,6 +66,7 @@ class WakeRuntime {
                     activationEvidence = remembered.activationEvidence.copy(
                         meaningfulInteractions = remembered.activationEvidence.meaningfulInteractions + 1,
                     ),
+                    engagementSilenceElapsed = Duration.ZERO,
                 )
                 advanceOr(
                     next,
@@ -84,6 +87,7 @@ class WakeRuntime {
                 val next = remembered.copy(
                     phase = if (remembered.phase == WakePhase.ALERTING) WakePhase.ENGAGING else remembered.phase,
                     activationEvidence = evidence,
+                    engagementSilenceElapsed = Duration.ZERO,
                 )
                 advanceOr(next, policy, WakeDirective.ObserveMotion)
             }
@@ -108,23 +112,34 @@ class WakeRuntime {
                         else -> remembered.phase
                     },
                     activationEvidence = evidence,
+                    engagementSilenceElapsed = Duration.ZERO,
                 )
                 advanceOr(next, policy, WakeDirective.ObserveMotion)
             }
 
             is WakeInput.SilenceElapsed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
+                val accumulatedSilence = remembered.engagementSilenceElapsed.plus(input.interval)
+                val movementPromptDue =
+                    remembered.phase in setOf(WakePhase.ALERTING, WakePhase.ENGAGING) &&
+                        accumulatedSilence >= policy.movementPromptDelay
                 val next = remembered.copy(
-                    phase = when (remembered.phase) {
-                        WakePhase.ALERTING -> WakePhase.ENGAGING
-                        WakePhase.ENGAGING -> WakePhase.ACTIVATING
+                    phase = when {
+                        movementPromptDue -> WakePhase.ACTIVATING
+                        remembered.phase == WakePhase.ALERTING -> WakePhase.ENGAGING
                         else -> remembered.phase
                     },
                     escalationLevel = escalation,
+                    engagementSilenceElapsed = accumulatedSilence,
                 )
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
-                    add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                    add(
+                        WakeDirective.Speak(
+                            if (movementPromptDue) SpeechIntent.AskToMove
+                            else SpeechIntent.ReEngage(escalation),
+                        ),
+                    )
                     if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
                         add(WakeDirective.ObserveMotion)
                     }
@@ -134,15 +149,17 @@ class WakeRuntime {
 
             is WakeInput.SpeechFinished -> when (remembered.phase) {
                 WakePhase.ALERTING -> transition(
-                    remembered.copy(phase = WakePhase.ENGAGING),
+                    remembered.copy(
+                        phase = WakePhase.ENGAGING,
+                        engagementSilenceElapsed = Duration.ZERO,
+                    ),
                     WakeDirective.Speak(SpeechIntent.AskToSitUp),
                     WakeDirective.ObserveMotion,
                 )
 
                 WakePhase.ENGAGING -> transition(
-                    remembered.copy(phase = WakePhase.ACTIVATING),
+                    remembered,
                     WakeDirective.ObserveMotion,
-                    WakeDirective.Speak(SpeechIntent.AskToMove),
                 )
 
                 else -> transition(remembered)
@@ -296,6 +313,7 @@ class WakeRuntime {
             snapshot.copy(
                 phase = WakePhase.ORIENTING,
                 snoozeState = SnoozeState.NONE,
+                engagementSilenceElapsed = Duration.ZERO,
             ),
             WakeDirective.StopObservingMotion,
             WakeDirective.PresentOrientation,
@@ -309,6 +327,7 @@ class WakeRuntime {
             outcome = outcome,
             snoozeState = SnoozeState.NONE,
             stopState = StopState.NONE,
+            engagementSilenceElapsed = Duration.ZERO,
         ),
         WakeDirective.StopObservingMotion,
         WakeDirective.CompleteSession(outcome),
