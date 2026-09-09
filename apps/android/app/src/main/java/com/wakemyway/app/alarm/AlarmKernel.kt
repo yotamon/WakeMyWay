@@ -31,20 +31,15 @@ class AlarmKernel(
         previous?.nextOccurrence?.let { registrar.cancel(it.id) }
 
         val next = resolver.resolve(schedule, Instant.now(clock))
-        val pending = CriticalWakeSnapshot(
-            schedule = schedule,
-            nextOccurrence = next,
-            activeOccurrence = null,
-            registeredOccurrenceId = null,
-            generation = (previous?.generation ?: 0) + 1,
-        )
-        store.write(pending)
-        registrar.register(next)
-        store.write(
-            pending.copy(
-                registeredOccurrenceId = next.id,
-                generation = pending.generation + 1,
+        persistPlannedOccurrence(
+            snapshot = CriticalWakeSnapshot(
+                schedule = schedule,
+                nextOccurrence = next,
+                activeOccurrence = null,
+                registeredOccurrenceId = null,
+                generation = (previous?.generation ?: 0) + 1,
             ),
+            occurrence = next,
         )
         return health()
     }
@@ -95,19 +90,14 @@ class AlarmKernel(
             now = Instant.now(clock),
             duration = duration,
         )
-        val pending = snapshot.copy(
-            nextOccurrence = snooze,
-            activeOccurrence = null,
-            registeredOccurrenceId = null,
-            generation = snapshot.generation + 1,
-        )
-        store.write(pending)
-        registrar.register(snooze)
-        store.write(
-            pending.copy(
-                registeredOccurrenceId = snooze.id,
-                generation = pending.generation + 1,
+        persistPlannedOccurrence(
+            snapshot = snapshot.copy(
+                nextOccurrence = snooze,
+                activeOccurrence = null,
+                registeredOccurrenceId = null,
+                generation = snapshot.generation + 1,
             ),
+            occurrence = snooze,
         )
         return snooze
     }
@@ -121,9 +111,7 @@ class AlarmKernel(
         val snapshot = store.read() ?: return health()
 
         if (snapshot.activeOccurrence != null) {
-            if (afterBoot) {
-                scheduleNextPrimary(snapshot)
-            }
+            if (afterBoot) scheduleNextPrimary(snapshot)
             return health()
         }
 
@@ -134,6 +122,18 @@ class AlarmKernel(
 
         if (!next.scheduledAt.toInstant().isAfter(Instant.now(clock))) {
             scheduleNextPrimary(snapshot)
+            return health()
+        }
+
+        if (!registrar.canScheduleExactAlarms()) {
+            if (snapshot.registeredOccurrenceId != null) {
+                store.write(
+                    snapshot.copy(
+                        registeredOccurrenceId = null,
+                        generation = snapshot.generation + 1,
+                    ),
+                )
+            }
             return health()
         }
 
@@ -178,18 +178,29 @@ class AlarmKernel(
 
     private fun scheduleNextPrimary(snapshot: CriticalWakeSnapshot) {
         val next = resolver.resolve(snapshot.schedule, Instant.now(clock))
-        val pending = snapshot.copy(
-            nextOccurrence = next,
-            activeOccurrence = null,
-            registeredOccurrenceId = null,
-            generation = snapshot.generation + 1,
+        persistPlannedOccurrence(
+            snapshot = snapshot.copy(
+                nextOccurrence = next,
+                activeOccurrence = null,
+                registeredOccurrenceId = null,
+                generation = snapshot.generation + 1,
+            ),
+            occurrence = next,
         )
-        store.write(pending)
-        registrar.register(next)
+    }
+
+    private fun persistPlannedOccurrence(
+        snapshot: CriticalWakeSnapshot,
+        occurrence: WakeOccurrence,
+    ) {
+        store.write(snapshot)
+        if (!registrar.canScheduleExactAlarms()) return
+
+        registrar.register(occurrence)
         store.write(
-            pending.copy(
-                registeredOccurrenceId = next.id,
-                generation = pending.generation + 1,
+            snapshot.copy(
+                registeredOccurrenceId = occurrence.id,
+                generation = snapshot.generation + 1,
             ),
         )
     }
