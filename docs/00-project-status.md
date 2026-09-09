@@ -3,111 +3,67 @@
 **Last updated:** 2026-09-09  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first  
-**Current phase:** M0 Foundation implemented and CI-verified; M1 Deep Alarm Kernel + Active Wake Execution is next
+**Current phase:** M2 Reliability Harness in progress  
+**Current implementation branch:** `feat/m2-reliability-harness`  
+**Current PR:** #10
 
 ## Executive status
 
-Wake My Way has moved from planning into implementation.
+Wake My Way is in active Android development.
 
-The pre-development architecture review and final plan-hardening pass remain authoritative. The hardening work added explicit ownership of **Active Wake Execution**, moved deterministic **Wake Learning v0** ahead of realtime voice, separated Activation Completion from Confirmed Wake Success, and clarified Android platform/reliability decisions.
+M0 Foundation and M1 Deep Alarm Kernel are merged into `main`. The project now has a real exact local Android alarm path with durable Direct-Boot state, local alarm playback, dedicated wake presentation, crash-safe cancellation, durable snooze semantics, reconciliation, Wake Ready diagnostics, and local timing instrumentation.
 
-M0 now implements the first production-quality Android foundation on top of that plan:
+M2 is now converting that build-valid Alarm Kernel into an evidence-backed alarm system. The first Wake Alarm Lab slice adds repeatable one-shot T+2m tests, a bounded replayable reliability journal, exportable reports, service/reconciliation/capability evidence, and Android instrumentation tests.
 
-- a real native Android project
-- intentionally minimal physical modules
-- pure-Kotlin Wake Schedule / Wake Occurrence domain
-- deterministic recurrence and DST semantics with tests
+No physical-device reliability claim has been made yet. A green CI build proves compilation, domain tests, lint, APK packaging, and instrumentation-test packaging. It does not prove locked-screen, Doze, reboot-before-unlock, OEM power-management, full-screen presentation, or real audio latency behavior.
+
+## Canonical architecture
+
+Root [`../CONTEXT.md`](../CONTEXT.md) owns vocabulary and invariants.
+
+The trust-critical path remains local:
+
+```text
+Wake Schedule
+    ↓
+Alarm Kernel
+    ↓
+Critical Wake Snapshot
+(device-protected, non-sensitive)
+    ↓
+AlarmManager.setAlarmClock()
+    ↓
+AlarmReceiver
+    ↓
+Active Wake Execution
+AlarmPlaybackService
+    ├─ USAGE_ALARM bundled local audio
+    ├─ notification / full-screen wake intent
+    └─ durable Stop / Snooze
+             ↓
+        WakeActivity
+```
+
+Cloud, Vercel, Supabase, AI, calendar, weather, and realtime voice do not participate in this path.
+
+`WakeActivity` is presentation. It does not own critical playback lifetime.
+
+## Implemented: M0 Foundation
+
+- native Android project
+- intentionally minimal modules: `:app`, `:wake-core`, `:benchmark`
+- Kotlin / Compose baseline
 - committed Gradle wrapper
-- GitHub CI for docs, tests, lint, APK assembly, and downloadable debug APK artifacts
+- pure Kotlin Wake Schedule / Wake Occurrence domain
+- deterministic recurrence and DST handling
+- GitHub Actions for docs, domain tests, lint, APK assembly, and artifacts
 
-The next milestone is **M1 Deep Alarm Kernel + Active Wake Execution**. It must turn an accepted Wake Occurrence into an exact, recoverable, locally audible alarm whose critical playback lifetime does not depend on `WakeActivity`, cloud services, AI, or normal app navigation.
-
-No physical-device alarm reliability claim has been made yet. That evidence belongs to M1/M2 and must be measured.
-
-## Architecture state
-
-### Canonical domain context
-
-Root [`../CONTEXT.md`](../CONTEXT.md) owns canonical vocabulary and invariants.
-
-Important hardening terms include:
-
-- Active Wake Execution
-- Activation Completion
-- Confirmed Wake Success
-- Safety Backup
-
-### Deep Alarm Kernel
-
-The Alarm Kernel owns the whole trust-critical lifecycle:
-
-```text
-accepted Wake Schedule / next Wake Occurrence
-→ durable normal state
-→ minimal Critical Wake Snapshot
-→ exact Android alarm registration
-→ readiness/reconciliation
-→ occurrence fires
-→ Active Wake Execution
-→ safe local alarm playback + controls
-→ stop / durable snooze / completion
-```
-
-Callers do not coordinate those steps themselves.
-
-`WakeActivity` is presentation, not critical playback lifetime authority. ADR-014 defines the initial Active Wake Execution direction and recovery invariants.
-
-### Wake Runtime
-
-Canonical phases remain:
-
-```text
-ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
-```
-
-Escalation, fallback mode, movement requests, and First Move are not phases.
-
-The legacy term **Verified Awake** remains removed. WMW observes behavioral activation; it cannot medically verify consciousness.
-
-### Wake Learning
-
-Wake Learning stays separate from in-session Wake Runtime and is now an earlier core milestone.
-
-M7 implements local deterministic Wake Learning v0 before realtime voice. It must demonstrate bounded, explainable, reversible future-policy adaptation without ML, backend, or network dependency.
-
-### Outcome model
-
-Metrics distinguish:
-
-- **Activation Completion** — the runtime's phone-observable activation criterion is reached
-- **Confirmed Wake Success** — calibrated evidence indicates the intended wake result was actually achieved
-
-Missing feedback is not silently counted as confirmation.
-
-### V1 schedule scope
-
-V1 supports **one active adaptive Wake Schedule at a time**. It may contain weekday-specific times and always yields one next Wake Occurrence.
-
-A later conventional **Safety Backup** may be evaluated during founder/trusted dogfood while trust is being established. It is not a second adaptive schedule and must not force generic multi-alarm architecture.
-
-## Implemented in M0
-
-### Minimal Android module topology
-
-```text
-:app
-:wake-core
-:benchmark
-```
-
-No Hilt, Navigation framework, backend skeleton, feature-module forest, testkit module, generic provider hierarchy, Room, analytics, or realtime voice infrastructure was added speculatively.
-
-### Android toolchain baseline
+Current toolchain:
 
 ```text
 Android Gradle Plugin  9.4.0
 Kotlin                 2.4.20
-Gradle                 9.6.1 via committed wrapper
+Gradle                 9.6.1
 JDK                    17
 Compose BOM            2026.08.00
 compileSdk             37
@@ -115,115 +71,111 @@ targetSdk              36
 minSdk                 29
 ```
 
-GitHub CI installs Android 17 using `platforms;android-37.0` with build tools 37.0.0.
+## Implemented and merged: M1 Deep Alarm Kernel
 
-`targetSdk = 36` satisfies the current 2026 Play target baseline while API-37 behavior can be compiled and tested deliberately before a future target upgrade.
+M1 merged in PR #8.
 
-### Pure Kotlin scheduling domain
+Implemented:
 
-`:wake-core` now contains:
+- `AlarmManager.setAlarmClock()` exact alarm registration
+- `USE_EXACT_ALARM` direction for the dedicated alarm use case
+- `USE_FULL_SCREEN_INTENT` alarm presentation path
+- foreground Active Wake Execution with `mediaPlayback`
+- bundled local emergency WAV using `AudioAttributes.USAGE_ALARM`
+- ToneGenerator secondary fallback
+- dedicated Direct-Boot-aware `WakeActivity`
+- versioned Critical Wake Snapshot
+- atomic device-protected persistence
+- persisted OS-registration confirmation for truthful Wake Ready
+- crash-safe schedule replacement
+- durable disabled tombstone for cancellation
+- stale occurrence rejection
+- collision-free occurrence-specific PendingIntent identity
+- idempotent active-occurrence transition
+- foreground-service recovery from persisted active state
+- durable Stop
+- durable Snooze replacement scheduling before current playback ends
+- boot / locked-boot / time / timezone / package reconciliation
+- graceful exact-alarm capability loss
+- non-sensitive target → receiver → foreground → audio → UI timing trace
 
-- `WakeScheduleId`
-- `WakeOccurrenceId`
-- `WakeSchedule`
-- `WakeOccurrence`
-- `WakeOccurrenceKind`
-- `LocalTimeResolution`
-- `NextWakeOccurrenceResolver`
+M1's implementation is build-valid and CI-verified. Its physical-device exit criterion remains open and is being satisfied through M2 evidence.
 
-The resolver produces the next PRIMARY Wake Occurrence strictly after `now`.
+## In progress: M2 Reliability Harness
 
-### Timezone and DST semantics
+Canonical runbook: [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md).
 
-Current deterministic policy:
+The first M2 slice currently includes:
 
-- ordinary local time: use the single valid offset
-- spring-forward gap: move to the first valid local time after the gap
-- fall-back overlap: use the earlier physical occurrence so the alarm is not delayed by an extra hour
-- if today's selected time already passed, resolve the next active recurrence
+- hidden/founder Wake Alarm Lab screen
+- one-shot T+2m lab schedules
+- bounded device-protected reliability history
+- replayable ordered event timeline per occurrence
+- expected wake records before target time
+- target, receiver, foreground, audio, UI and terminal timestamps
+- elapsed-realtime stage latency calculation
+- derived failure states such as missed receiver, audio timeout, and UI timeout
+- service recreation count/event
+- reconciliation event evidence
+- exact alarm / notification / full-screen capability evidence
+- Stop / Snooze terminal journaling
+- snooze replacement expected-wake journaling
+- shareable human-readable reliability report
+- isolated device-test storage so instrumentation cannot overwrite founder alarm state/history
+- Android instrumentation tests for critical snapshot persistence, cancellation resurrection prevention, one-shot snooze completion, and reliability-report/event replay
+- CI compilation and artifact upload for the instrumentation APK
 
-Tests cover same-day scheduling, recurrence rollover, spring-forward gaps, fall-back overlaps, and exact-time rollover.
+## M2 evidence status
 
-### Android shell
+### Proven by CI
 
-`:app` launches a minimal Wake My Way Compose surface using the documented brand direction. It is intentionally only a foundation shell. Normal scheduling UX and the dedicated `WakeActivity` belong to M1 and later UX work.
+- documentation validation
+- pure Kotlin scheduling tests
+- Android compile/lint
+- debug APK packaging
+- instrumentation test source compilation/package generation once PR #10 is green
 
-### CI and build hygiene
+### Not yet proven
 
-The repository now validates:
+- instrumentation execution on an emulator/device
+- locked-screen T+2m delivery
+- physical receiver → audio latency
+- physical receiver → WakeActivity latency
+- Doze/idle delivery
+- process/service recreation during active playback
+- reboot and Direct Boot before first unlock
+- wall-clock/timezone change repair
+- exact-alarm capability loss/restoration behavior on-device
+- full-screen intent degradation behavior on-device
+- OEM-specific power management
+- Android 17 physical background-audio behavior
 
-```text
-documentation
-    ↓
-:wake-core tests
-    ↓
-Android lint
-    ↓
-debug APK assembly
-    ↓
-APK artifact upload
-```
+## Reliability targets
 
-A clean GitHub-hosted build has passed the Android 17 SDK setup, pure-Kotlin tests, Android lint, and debug APK assembly. The repository contains the official Gradle wrapper so local/CI builds do not require a globally installed Gradle.
+Targets remain:
 
-## Current Android permission / execution direction
+- no silent expected wake failures without diagnosable evidence
+- receiver → audible local alarm P99 < 1 second on supported devices
+- receiver → WakeActivity visible P95 < 1 second when full-screen presentation is permitted
+- stale/cancelled occurrences never become active
+- snooze replacement is durable before current execution ends
+- service/process recreation does not silence an active wake
+- reboot-before-unlock can recover a future wake without credential-protected/private data
 
-`AlarmManager.setAlarmClock()` remains the exact user-facing wake primitive.
+These are targets, not current claims.
 
-WMW is a dedicated alarm-clock app whose core function genuinely requires exact timing, so `USE_EXACT_ALARM` is the preferred exact-alarm manifest strategy under current Play policy. The policy must still be revalidated at implementation/submission time and declared correctly in Play Console.
+## Privacy boundary for reliability data
 
-For full-screen alarm presentation, WMW's alarm core use case fits the platform/Play eligibility category for `USE_FULL_SCREEN_INTENT`; M1 must still expose truthful capability state and degrade gracefully when the capability is unavailable.
+Reliability evidence may contain only operational information such as technical occurrence IDs, scenario IDs, timestamps, terminal action, capability booleans, service recovery counts, device model, and SDK version in exported reports.
 
-Android 17 background-audio hardening makes Active Wake Execution ownership especially important. M1 must use an appropriate foreground execution path for critical alarm playback and `USAGE_ALARM` audio semantics rather than relying on Activity lifetime.
-
-## Direct Boot and reliability
-
-A minimal non-sensitive Critical Wake Snapshot belongs in device-protected storage so a Wake Occurrence can be recovered before first unlock after reboot.
-
-Private contextual content remains credential-protected, including:
+It must never contain:
 
 - Tomorrow Contract text
 - calendar content
-- transcripts
+- transcripts or microphone audio
 - prompts
-- tokens/secrets
+- secrets/tokens
 - personalized private generated speech
-
-Explicit user Force Stop remains outside the deliverable-alarm reliability envelope when Android intentionally cancels pending work. Normal Activity/process recreation is different and is explicitly part of M1/M2 testing.
-
-## Testing and deployment
-
-The evidence ladder remains:
-
-```text
-pure Kotlin tests
-→ Wake Lab
-→ Android instrumentation
-→ Firebase Test Lab
-→ Google Play Internal Testing
-→ real overnight dogfood
-```
-
-M2 must include:
-
-- repeated T+30s / T+2m cycles
-- process and Activity recreation
-- playback-owner recreation
-- Doze/idle
-- locked vs already-unlocked presentation
-- notification permission denied
-- full-screen intent unavailable/revoked
-- reboot and Direct Boot before first unlock
-- timezone/wall-clock changes
-- duplicate start suppression
-- stop then recreation: must not resurrect
-- durable snooze then recreation: old occurrence must not resurrect
-- Android 17 background-audio compatibility
-- trigger → audible and trigger → accessible-controls latency measurements
-
-Vercel remains the preferred future non-critical web/API host. Supabase remains the preferred future managed cloud data platform. Neither is needed for M0–M7 core local behavior or current wake authority.
-
-Realtime voice deployment/transport is selected by the **M8 measured spike**, after local Wake Learning v0.
 
 ## Milestone status
 
@@ -234,9 +186,9 @@ Realtime voice deployment/transport is selected by the **M8 measured spike**, af
 | Brand direction | Complete v1 |
 | Architecture review | Complete |
 | Plan hardening review | Complete |
-| M0 Foundation | **Implemented and CI-verified; merging** |
-| M1 Deep Alarm Kernel + Active Wake Execution | **Next** |
-| M2 Reliability Harness / Direct Boot / active recovery | Not started |
+| M0 Foundation | **Merged / complete** |
+| M1 Deep Alarm Kernel + Active Wake Execution | **Merged / implementation complete; physical evidence delegated to M2** |
+| M2 Reliability Harness | **In progress, PR #10** |
 | M3 Wake Runtime | Not started |
 | M4 Motion evidence | Not started |
 | M5 Alfred local experience | Not started |
@@ -248,42 +200,28 @@ Realtime voice deployment/transport is selected by the **M8 measured spike**, af
 | M11 Dogfood hardening | Not started |
 | M12 Closed beta | Not started |
 
-## Exact next work: M1
+## Exact next work
 
-1. Define one small caller-facing Alarm Kernel operation that commits the one active Wake Schedule and its next Wake Occurrence atomically from the caller's perspective.
-2. Revalidate and document the exact-alarm, foreground-service, alarm-audio, notification, and full-screen-intent manifest/Play strategy before implementation is merged.
-3. Add durable normal local state for schedule + active occurrence without leaking orchestration into UI code.
-4. Implement a minimal versioned Critical Wake Snapshot in device-protected storage with atomic writes and integrity validation.
-5. Register the next Wake Occurrence with `AlarmManager.setAlarmClock()` using stable PendingIntent identity/version semantics.
-6. Implement Active Wake Execution as the critical local playback owner, independent of `WakeActivity` lifecycle.
-7. Add a thin alarm receiver, alarm notification/full-screen presentation path, and bundled emergency audio.
-8. Add a dedicated `WakeActivity` independent of MainActivity navigation state, with accessible Stop and Snooze controls.
-9. Make Stop and Snooze durable. Snooze must create a new exact Wake Occurrence before the current execution ends.
-10. Add boot/time/timezone/package reconciliation, including Direct Boot.
-11. Expose truthful Wake Ready / Alarm Health facts.
-12. Add automated integration coverage where Android APIs can be exercised, then move into the M2 device/reliability harness.
+1. Get PR #10 fully green, including instrumentation APK compilation.
+2. Review the reliability journal/report path for failure isolation and privacy.
+3. Merge the first M2 harness slice once CI is green.
+4. Execute instrumentation tests on a dedicated Android device/emulator path.
+5. Install the latest debug APK on a real Android phone and run repeated locked-screen T+2m cycles.
+6. Export and inspect measured trigger → audio / UI evidence.
+7. Exercise Stop/Snooze resurrection, service recreation, Doze, reboot/Direct Boot, timezone/time changes, and capability-loss scenarios.
+8. Record OEM/device results and only then close issue #5's physical-device criterion and M2 issue #9.
+9. Begin M3 Wake Runtime only after the Alarm Kernel has sufficient reliability evidence to support higher-level behavior safely.
 
-## Known risks and boundaries
+## Cloud / future stack status
 
-Not yet proven on physical devices:
+Vercel remains the preferred future non-critical web/API host. Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when cloud features become necessary.
 
-- exact alarm delivery while locked
-- process-death behavior around an active wake attempt
-- Direct Boot re-registration before first unlock
-- OEM-specific behavior across supported device families
-- final Android 17 background-audio behavior
-- full-screen presentation under every permission/lock-state combination
-- real trigger → audible and trigger → controls latency percentiles
+Neither is required for M0–M7 local wake authority.
 
-These are M1/M2 evidence requirements, not M0 blockers.
-
-Still required before wider Play distribution:
-
-- exact-alarm / full-screen / foreground-service Play declarations under then-current policy
-- release signing and Play Internal Testing setup
-- trademark clearance / domain ownership confirmation
-- privacy/provider legal review before cloud/realtime beta
+Realtime voice transport remains an M8 measured decision, after local deterministic Wake Learning v0.
 
 ## Current blocker
 
-There is no codebase blocker to M1 after M0 merges. Physical-device reliability evidence will require actual Android devices or an appropriate device-testing service during M2.
+There is no codebase blocker to completing the first M2 harness slice.
+
+The remaining proof boundary is environmental: physical-device and/or device-testing infrastructure is required for lock-screen, audio, Doze, reboot, Direct Boot, OEM, and real-latency evidence.
