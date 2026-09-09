@@ -19,9 +19,10 @@ import java.time.Instant
 class AlarmKernel(
     context: Context,
     private val clock: Clock = Clock.systemUTC(),
+    criticalStateFileName: String = CriticalWakeStore.DEFAULT_FILE_NAME,
 ) {
     private val appContext = context.applicationContext
-    private val store = CriticalWakeStore(appContext)
+    private val store = CriticalWakeStore(appContext, criticalStateFileName)
     private val registrar = AlarmRegistrar(appContext)
     private val resolver = NextWakeOccurrenceResolver()
     private val snoozeFactory = SnoozeOccurrenceFactory()
