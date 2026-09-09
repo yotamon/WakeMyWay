@@ -36,8 +36,8 @@ class WakePreparationTest {
 
     @Test
     fun changingPrivateIntentChangesPreparedChecksum() {
-        val first = PreparedWakePlanPreparer.prepare(contract(rawText = "Call Adam after breakfast"), PREPARED_AT)
-        val second = PreparedWakePlanPreparer.prepare(contract(rawText = "Take the dog out after breakfast"), PREPARED_AT)
+        val first = PreparedWakePlanPreparer.prepare(contract(rawText = "Call the venue after breakfast"), PREPARED_AT)
+        val second = PreparedWakePlanPreparer.prepare(contract(rawText = "Review the notes after breakfast"), PREPARED_AT)
 
         assertNotEquals(first.reminderLine, second.reminderLine)
         assertNotEquals(first.checksum, second.checksum)
