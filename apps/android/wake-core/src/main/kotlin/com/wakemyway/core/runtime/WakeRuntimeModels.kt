@@ -87,6 +87,7 @@ data class WakePolicy(
     val orientationChangeWeight: Int = 1,
     val sustainedMovementWeight: Int = 2,
     val maxEscalationLevel: Int = 3,
+    val movementPromptDelay: Duration = Duration.ofSeconds(15),
     val defaultSnoozeDuration: Duration = Duration.ofMinutes(5),
     val rememberedInputLimit: Int = 128,
 ) {
@@ -101,6 +102,9 @@ data class WakePolicy(
                 sustainedMovementWeight >= 0,
         ) { "Evidence weights must be non-negative" }
         require(maxEscalationLevel >= 0) { "Max escalation level must be non-negative" }
+        require(!movementPromptDelay.isNegative && !movementPromptDelay.isZero) {
+            "Movement prompt delay must be positive"
+        }
         require(!defaultSnoozeDuration.isNegative && !defaultSnoozeDuration.isZero) {
             "Default snooze duration must be positive"
         }
@@ -115,6 +119,7 @@ data class WakeSessionSnapshot(
     val outcome: WakeOutcome? = null,
     val activationEvidence: ActivationEvidence = ActivationEvidence(),
     val escalationLevel: Int = 0,
+    val engagementSilenceElapsed: Duration = Duration.ZERO,
     val snoozeState: SnoozeState = SnoozeState.NONE,
     val stopState: StopState = StopState.NONE,
     val capabilities: WakeCapabilities = WakeCapabilities(),
@@ -123,6 +128,7 @@ data class WakeSessionSnapshot(
     init {
         require(policyVersion > 0) { "Wake session policy version must be positive" }
         require(escalationLevel >= 0) { "Escalation level must be non-negative" }
+        require(!engagementSilenceElapsed.isNegative) { "Engagement silence cannot be negative" }
         require(processedInputIds.distinct().size == processedInputIds.size) {
             "Processed wake input ids must be unique"
         }
