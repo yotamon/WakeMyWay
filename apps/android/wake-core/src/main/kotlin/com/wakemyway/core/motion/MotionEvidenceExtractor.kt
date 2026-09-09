@@ -40,7 +40,7 @@ class MotionEvidenceExtractor(
         }
 
         val emissions = mutableListOf<MotionEvidenceEmission>()
-        pickupIfReady(timestampNanos)?.let(emissions::add)
+        pickupIfReady()?.let(emissions::add)
         sustainedMovementIfReady(timestampNanos)?.let(emissions::add)
         return emissions
     }
@@ -67,7 +67,7 @@ class MotionEvidenceExtractor(
         }
 
         val emissions = mutableListOf<MotionEvidenceEmission>()
-        pickupIfReady(timestampNanos)?.let(emissions::add)
+        pickupIfReady()?.let(emissions::add)
 
         if (
             delta >= tuning.orientationChangeDegrees &&
@@ -96,7 +96,7 @@ class MotionEvidenceExtractor(
         pendingTiltDeltaDegrees = 0.0
     }
 
-    private fun pickupIfReady(nowNanos: Long): MotionEvidenceEmission? {
+    private fun pickupIfReady(): MotionEvidenceEmission? {
         val accelerationAt = lastHighAccelerationNanos ?: return null
         val tiltAt = pendingTiltChangeNanos ?: return null
         val pairedWithin = tuning.pickupPairWindow.toNanos()
