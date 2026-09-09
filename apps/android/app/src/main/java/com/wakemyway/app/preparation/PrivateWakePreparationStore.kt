@@ -9,7 +9,6 @@ import com.wakemyway.core.preparation.TomorrowContract
 import com.wakemyway.core.preparation.TomorrowContractId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
@@ -131,11 +130,10 @@ class PrivateWakePreparationStore(
 
     private fun writeAtomic(file: AtomicFile, encode: (DataOutputStream) -> Unit) {
         val stream = file.startWrite()
+        val output = DataOutputStream(stream)
         try {
-            DataOutputStream(BufferedOutputStream(stream)).use { output ->
-                encode(output)
-                output.flush()
-            }
+            encode(output)
+            output.flush()
             file.finishWrite(stream)
         } catch (error: Throwable) {
             file.failWrite(stream)
