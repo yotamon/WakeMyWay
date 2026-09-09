@@ -28,6 +28,15 @@ class WakeRuntime {
         }
 
         val remembered = remember(current, input.id, policy)
+        if (
+            current.stopState == StopState.STOPPING &&
+            input !is WakeInput.StopCompleted &&
+            input !is WakeInput.StopFailed &&
+            input !is WakeInput.UnrecoverableFailure
+        ) {
+            return transition(remembered)
+        }
+
         return when (input) {
             is WakeInput.AlarmFired -> transition(
                 remembered,
@@ -197,7 +206,30 @@ class WakeRuntime {
                 else transition(remembered)
             }
 
-            is WakeInput.StopRequested -> finish(remembered, WakeOutcome.STOPPED)
+            is WakeInput.StopRequested -> transition(
+                remembered.copy(
+                    snoozeState = SnoozeState.NONE,
+                    stopState = StopState.STOPPING,
+                ),
+                WakeDirective.RequestStopExecution,
+            )
+
+            is WakeInput.StopCompleted -> {
+                if (remembered.stopState == StopState.STOPPING) finish(remembered, WakeOutcome.STOPPED)
+                else transition(remembered)
+            }
+
+            is WakeInput.StopFailed -> {
+                if (remembered.stopState != StopState.STOPPING) {
+                    transition(remembered)
+                } else {
+                    transition(
+                        remembered.copy(stopState = StopState.NONE),
+                        WakeDirective.EnsureAlarmAudible,
+                    )
+                }
+            }
+
             is WakeInput.UnrecoverableFailure -> finish(remembered, WakeOutcome.UNRECOVERABLE)
         }
     }
@@ -233,6 +265,7 @@ class WakeRuntime {
         policy: WakePolicy,
         vararg otherwise: WakeDirective,
     ): WakeTransition {
+        if (snapshot.phase == WakePhase.ORIENTING) return transition(snapshot)
         if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) {
             return transition(snapshot, *otherwise)
         }
@@ -252,6 +285,7 @@ class WakeRuntime {
             phase = WakePhase.FINISHED,
             outcome = outcome,
             snoozeState = SnoozeState.NONE,
+            stopState = StopState.NONE,
         ),
         WakeDirective.StopObservingMotion,
         WakeDirective.CompleteSession(outcome),
