@@ -12,10 +12,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: m2-device-tests
+  cancel-in-progress: true
+
 jobs:
   instrumentation:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -24,13 +28,17 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Pre-build app and instrumentation APKs
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-
-      - uses: gradle/actions/setup-gradle@v5
 
       - name: Run reliability instrumentation on API 36
         uses: ReactiveCircus/android-emulator-runner@v2.38.0
@@ -44,15 +52,28 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
-          script: cd apps/android && ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          script: |
+            set -euo pipefail
+            adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r com.wakemyway.app.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation-output.txt
+            grep -Eq 'OK \([0-9]+ tests?\)' instrumentation-output.txt
+            ! grep -q 'FAILURES!!!' instrumentation-output.txt
 
-      - name: Upload instrumentation reports
+      - name: Capture emulator diagnostics
+        if: always()
+        run: |
+          adb devices -l > adb-devices.txt 2>&1 || true
+          adb logcat -d -t 2000 > emulator-logcat.txt 2>&1 || true
+
+      - name: Upload device-test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wake-my-way-device-test-reports-${{ github.sha }}
+          name: wake-my-way-device-test-evidence-${{ github.sha }}
           path: |
-            apps/android/app/build/reports/androidTests/connected/**
-            apps/android/app/build/outputs/androidTest-results/connected/**
+            instrumentation-output.txt
+            adb-devices.txt
+            emulator-logcat.txt
           if-no-files-found: warn
           retention-days: 14
