@@ -28,9 +28,11 @@ class AlarmKernel(
     @Synchronized
     fun commitSchedule(schedule: WakeSchedule): AlarmHealth {
         val previous = store.read()
-        previous?.nextOccurrence?.let { registrar.cancel(it.id) }
-
         val next = resolver.resolve(schedule, Instant.now(clock))
+
+        // New durable authority is written before the old OS alarm is cancelled. If the
+        // process dies between these steps, an old alarm can still arrive but will be stale
+        // against this snapshot and therefore cannot wake the user.
         persistPlannedOccurrence(
             snapshot = CriticalWakeSnapshot(
                 schedule = schedule,
@@ -38,22 +40,37 @@ class AlarmKernel(
                 activeOccurrence = null,
                 registeredOccurrenceId = null,
                 generation = (previous?.generation ?: 0) + 1,
+                enabled = true,
             ),
             occurrence = next,
+            obsoleteOccurrenceId = previous?.nextOccurrence?.id,
         )
         return health()
     }
 
     @Synchronized
     fun cancelSchedule() {
-        val snapshot = store.read()
-        snapshot?.nextOccurrence?.let { registrar.cancel(it.id) }
-        store.clear()
+        val snapshot = store.read() ?: return
+        val obsoleteOccurrenceId = snapshot.nextOccurrence?.id
+
+        // Persist the cancellation tombstone first. If the process dies before AlarmManager
+        // cancellation, the stale PendingIntent may still arrive but beginActive() rejects it.
+        store.write(
+            snapshot.copy(
+                nextOccurrence = null,
+                activeOccurrence = null,
+                registeredOccurrenceId = null,
+                generation = snapshot.generation + 1,
+                enabled = false,
+            ),
+        )
+        obsoleteOccurrenceId?.let(registrar::cancel)
     }
 
     @Synchronized
     fun beginActive(occurrenceId: WakeOccurrenceId): BeginActiveResult {
         val snapshot = store.read() ?: return BeginActiveResult.STALE
+        if (!snapshot.enabled) return BeginActiveResult.STALE
         if (snapshot.activeOccurrence?.id == occurrenceId) return BeginActiveResult.ALREADY_ACTIVE
         val next = snapshot.nextOccurrence ?: return BeginActiveResult.STALE
         if (next.id != occurrenceId) return BeginActiveResult.STALE
@@ -72,7 +89,7 @@ class AlarmKernel(
     @Synchronized
     fun stopActive(occurrenceId: WakeOccurrenceId): Boolean {
         val snapshot = store.read() ?: return false
-        if (snapshot.activeOccurrence?.id != occurrenceId) return false
+        if (!snapshot.enabled || snapshot.activeOccurrence?.id != occurrenceId) return false
         scheduleNextPrimary(snapshot)
         return true
     }
@@ -83,7 +100,7 @@ class AlarmKernel(
         duration: Duration,
     ): WakeOccurrence? {
         val snapshot = store.read() ?: return null
-        if (snapshot.activeOccurrence?.id != occurrenceId) return null
+        if (!snapshot.enabled || snapshot.activeOccurrence?.id != occurrenceId) return null
 
         val snooze = snoozeFactory.create(
             schedule = snapshot.schedule,
@@ -102,6 +119,9 @@ class AlarmKernel(
         return snooze
     }
 
+    fun activeOccurrence(): WakeOccurrence? =
+        store.read()?.takeIf { it.enabled }?.activeOccurrence
+
     /**
      * Repairs Android registration from durable state.
      * On boot, an execution that was active before power loss is treated as interrupted and advanced.
@@ -109,6 +129,7 @@ class AlarmKernel(
     @Synchronized
     fun reconcile(afterBoot: Boolean = false): AlarmHealth {
         val snapshot = store.read() ?: return health()
+        if (!snapshot.enabled) return health()
 
         if (snapshot.activeOccurrence != null) {
             if (afterBoot) scheduleNextPrimary(snapshot)
@@ -152,9 +173,10 @@ class AlarmKernel(
         val exactAllowed = registrar.canScheduleExactAlarms()
         val notificationAllowed = notificationsAllowed()
         val fullScreenAllowed = fullScreenIntentAllowed()
-        val registered = snapshot?.nextOccurrence != null &&
+        val enabled = snapshot?.enabled == true
+        val registered = enabled && snapshot?.nextOccurrence != null &&
             snapshot.registeredOccurrenceId == snapshot.nextOccurrence.id
-        val active = snapshot?.activeOccurrence != null
+        val active = enabled && snapshot?.activeOccurrence != null
         val ready = exactAllowed && (registered || active)
 
         return AlarmHealth(
@@ -162,10 +184,11 @@ class AlarmKernel(
             exactAlarmAllowed = exactAllowed,
             notificationsAllowed = notificationAllowed,
             fullScreenIntentAllowed = fullScreenAllowed,
-            nextOccurrence = snapshot?.nextOccurrence,
-            activeOccurrence = snapshot?.activeOccurrence,
+            nextOccurrence = snapshot?.takeIf { it.enabled }?.nextOccurrence,
+            activeOccurrence = snapshot?.takeIf { it.enabled }?.activeOccurrence,
             detail = when {
                 snapshot == null -> "No wake schedule configured"
+                !snapshot.enabled -> "Wake schedule disabled"
                 !exactAllowed -> "Exact alarm capability unavailable"
                 active -> "Wake execution is active"
                 !registered -> "Wake occurrence needs reconciliation"
@@ -184,6 +207,7 @@ class AlarmKernel(
                 activeOccurrence = null,
                 registeredOccurrenceId = null,
                 generation = snapshot.generation + 1,
+                enabled = true,
             ),
             occurrence = next,
         )
@@ -192,8 +216,14 @@ class AlarmKernel(
     private fun persistPlannedOccurrence(
         snapshot: CriticalWakeSnapshot,
         occurrence: WakeOccurrence,
+        obsoleteOccurrenceId: WakeOccurrenceId? = null,
     ) {
         store.write(snapshot)
+
+        obsoleteOccurrenceId
+            ?.takeIf { it != occurrence.id }
+            ?.let(registrar::cancel)
+
         if (!registrar.canScheduleExactAlarms()) return
 
         registrar.register(occurrence)
