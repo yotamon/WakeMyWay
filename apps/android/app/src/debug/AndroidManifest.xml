@@ -5,10 +5,15 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <application>
+    <application android:usesCleartextTraffic="true">
+        <!--
+            Exported only in debug builds so the founder can launch it with adb.
+            The activity accepts no secret Intent extras; credentials are entered
+            interactively and remain in memory only.
+        -->
         <activity
             android:name=".voice.VoiceSpikeActivity"
-            android:exported="false"
+            android:exported="true"
             android:label="WMW Voice Spike" />
     </application>
 </manifest>
