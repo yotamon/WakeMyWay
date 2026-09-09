@@ -84,9 +84,9 @@ Backend/service directories are created only when a cloud capability is actually
 
 ## Brand
 
-**Name:** Wake My Way  
-**Short mark:** WMW  
-**Primary tagline:** Wake up your way.  
+**Name:** Wake My Way
+**Short mark:** WMW
+**Primary tagline:** Wake up your way.
 **Secondary line:** An alarm that learns what works for you.
 
 `wakemyway.com` was verified as available via a live Namecheap lookup on 2026-09-09. Availability is time-sensitive; the repository does not imply registration.
