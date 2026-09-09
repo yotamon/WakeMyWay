@@ -60,7 +60,7 @@ class WakeLearning(
 
         val relevant = relevantGroups
             .values
-            .map(List<WakeOutcomeSummary>::first)
+            .map { duplicates -> duplicates.first() }
             .sortedBy { outcome -> outcome.sessionId.value }
 
         if (relevant.size < rules.minimumRelevantSessions) {
