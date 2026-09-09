@@ -36,6 +36,15 @@ class WakeRuntime {
         ) {
             return transition(remembered)
         }
+        if (
+            current.snoozeState == SnoozeState.SCHEDULING &&
+            input !is WakeInput.SnoozeScheduled &&
+            input !is WakeInput.SnoozeSchedulingFailed &&
+            input !is WakeInput.CapabilitiesChanged &&
+            input !is WakeInput.UnrecoverableFailure
+        ) {
+            return transition(remembered)
+        }
         if (current.phase == WakePhase.ORIENTING && input.isStaleActivationCallback()) {
             return transition(remembered)
         }
