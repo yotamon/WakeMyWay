@@ -127,9 +127,6 @@ data class WakeSessionSnapshot(
             "A finished Wake Session cannot still be scheduling snooze"
         }
     }
-
-    val activationScore: Int
-        get() = error("Activation score is policy-dependent; ask WakeRuntime diagnostics instead")
 }
 
 sealed interface WakeInput {
