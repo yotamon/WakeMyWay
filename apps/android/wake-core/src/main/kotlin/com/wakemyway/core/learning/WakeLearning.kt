@@ -116,6 +116,7 @@ object WakeLearning {
     ): WakeLearningDecision {
         val considered = outcomes
             .asSequence()
+            .filter { it.derivationVersion == WakeOutcomeDeriver.DERIVATION_VERSION }
             .filter { it.policyVersion == currentPolicy.version }
             .filter { it.terminalOutcome != WakeOutcome.UNRECOVERABLE }
             .sortedWith(compareBy<WakeOutcomeRecord> { it.startedAtEpochMillis }.thenBy { it.id.value })
