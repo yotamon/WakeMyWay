@@ -20,49 +20,53 @@ It is not a general productivity assistant, sleep tracker, or AI companion.
 
 ## Current status
 
-The repository is in **pre-implementation architecture + plan-hardening complete** state. No application code has been started yet.
+Wake My Way is in **active native Android development**.
 
-Two documentation reviews are complete:
+Merged into `main`:
 
-1. a deep-module architecture review removed speculative seams/modules before code existed
-2. a plan-hardening review closed the remaining high-risk gaps around active alarm lifecycle, adaptive-learning sequence, outcome measurement, and current Android platform baseline
+- **M0 Foundation** — Android project, pure schedule domain, recurrence/DST tests and CI baseline
+- **M1 Deep Alarm Kernel + Active Wake Execution** — exact local alarm registration, durable Direct-Boot critical state, foreground alarm playback, stop/snooze/reconciliation
+- **M2 automated reliability harness** — Wake Alarm Lab, timing evidence, instrumentation coverage and dedicated emulator lane; physical-device proof remains open
+- **M3 deterministic Wake Runtime** — typed inputs/directives, activation evidence, escalation and replayable session behavior
+- **M4 Motion Evidence** — bounded local sensor evidence extraction without raw sensor persistence
+- **M5 Alfred local character** — deterministic curated character rendering plus offline-only local Android TTS lab
 
-Current decisions include:
+**M6 Tomorrow Contract + Prepared Wake Plan is currently in implementation in PR #20.** It adds optional private night-before context, deterministic local preparation, credential-protected storage, integrity validation and offline fallback without putting personalization on the critical alarm path.
 
-- Product concept and differentiation: defined
-- UX psychology and V1 flow: defined
-- Brand: **Wake My Way / WMW**
-- Android-first native strategy: accepted
+The main unresolved trust boundary is physical-device reliability evidence. CI/emulator success does not prove real overnight behavior across locked screens, Doze, reboot-before-unlock, OEM power management or audio coexistence.
+
+Current architectural decisions include:
+
 - Canonical domain context: [`CONTEXT.md`](CONTEXT.md)
-- Deep Alarm Kernel contract: scheduling **plus Active Wake Execution**
+- Native Android first: Kotlin + Jetpack Compose
+- Deep Alarm Kernel owns scheduling **and Active Wake Execution**
 - `WakeActivity` is presentation, not critical playback lifetime authority
-- Deterministic Wake Runtime: defined
-- `Activation Completion` separated from calibrated `Confirmed Wake Success`
-- Deterministic local **Wake Learning v0 is M7**, before realtime voice
-- Direct Boot / Force Stop reliability envelope: defined
-- Initial physical module topology: `:app`, `:wake-core`, `:benchmark`
-- V1 schedule cardinality: one active adaptive Wake Schedule
-- Android M0 baseline: target API 36; preferred exact-alarm manifest direction is `USE_EXACT_ALARM`, subject to current Play revalidation
-- Non-critical cloud direction: **Vercel compute + Supabase managed PostgreSQL**, introduced only when a real cloud feature exists
-- Realtime voice architecture spike: M8, after local adaptation is proven
-- Next engineering work: **M0 Foundation → M1 Deep Alarm Kernel + Active Wake Execution**
+- deterministic pure-Kotlin Wake Runtime owns in-session behavioral decisions
+- `Activation Completion` is distinct from calibrated `Confirmed Wake Success`
+- motion/character/prepared personalization remain subordinate to alarm reliability
+- Direct Boot stores only a minimal non-sensitive Critical Wake Snapshot
+- Tomorrow Contract/private prepared content remains credential-protected
+- deterministic local **Wake Learning v0 is M7**, before realtime voice
+- realtime voice architecture is a measured M8 spike, not a current dependency
+- non-critical future cloud direction remains **Vercel + Supabase**, outside wake authority
 
-See [`docs/00-project-status.md`](docs/00-project-status.md) for the living status.
+See [`docs/00-project-status.md`](docs/00-project-status.md) for the living implementation truth.
 
 ## Start here
 
 1. [`CONTEXT.md`](CONTEXT.md) — canonical terms, product invariants, reliability language
 2. [`AGENTS.md`](AGENTS.md) — engineering rules for humans/agents
 3. [`docs/README.md`](docs/README.md) — documentation map
-4. [`docs/00-project-status.md`](docs/00-project-status.md) — current state and next task
+4. [`docs/00-project-status.md`](docs/00-project-status.md) — current state and exact next work
 5. [`docs/01-product-vision.md`](docs/01-product-vision.md) — product thesis
 6. [`docs/04-ux-psychology.md`](docs/04-ux-psychology.md) — behavioral design rationale
 7. [`docs/08-android-architecture.md`](docs/08-android-architecture.md) — architecture
 8. [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) — trust-critical scheduling + active wake execution
-9. [`docs/adr/014-active-wake-execution-lifecycle.md`](docs/adr/014-active-wake-execution-lifecycle.md) — active playback/recovery decision
+9. [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) — deterministic in-session behavior
 10. [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) — local explainable adaptation
-11. [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) — build order
-12. [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md) — how WMW is tested, dogfooded and where cloud workloads run
+11. [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) — evidence-driven build order
+12. [`docs/implementation/m6-tomorrow-contract.md`](docs/implementation/m6-tomorrow-contract.md) — current M6 implementation boundary
+13. [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md) — testing, dogfood and future cloud topology
 
 ## Non-negotiable engineering principles
 
@@ -76,16 +80,16 @@ See [`docs/00-project-status.md`](docs/00-project-status.md) for the living stat
 8. **Activation Completion is not circular proof of real Wake Success.**
 9. **User dignity and agency are product requirements.**
 
-## Planned implementation shape
+## Current implementation shape
 
-The first codebase deliberately starts small:
+The physical codebase deliberately remains small:
 
 ```text
 wake-my-way/
 ├── apps/
 │   └── android/
-│       ├── app/          # Android composition root, UI, Alarm Kernel implementation
-│       ├── wake-core/    # pure Kotlin recurrence/runtime/policy/learning behavior
+│       ├── app/          # Android composition root, UI, Alarm Kernel + platform adapters
+│       ├── wake-core/    # pure Kotlin schedule/runtime/motion/character/preparation behavior
 │       └── benchmark/    # startup / wake-path performance
 ├── docs/
 ├── tooling/
