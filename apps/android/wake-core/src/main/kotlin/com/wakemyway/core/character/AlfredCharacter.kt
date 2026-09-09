@@ -109,16 +109,16 @@ object AlfredCharacter {
         listOf(
             "We are past gentle reminders. Feet on the floor, please.",
             "This is the firm version: upright now.",
-            "Time to move properly. Sit up and put your feet down.",
-            "We need action now. Feet on the floor.",
+            "Feet on the floor now, please.",
+            "We need action now. Make one clear movement.",
         ),
     )
 
     private val SNOOZE_CONFIRMATION = listOf(
-        "Very well. A short pause, then we continue.",
-        "Snooze requested. We will resume shortly.",
-        "A brief reprieve. We will try again shortly.",
-        "Understood. We will continue when the next alarm arrives.",
+        "Very well. Confirm the snooze, if you please.",
+        "Snooze is available. Confirm it if you want the pause.",
+        "A short reprieve? Confirm it and I will step aside.",
+        "If you want the snooze, confirm it now.",
     )
 
     private val SNOOZE_FAILED = listOf(
@@ -130,8 +130,8 @@ object AlfredCharacter {
 
     private val ORIENTATION = listOf(
         "Good. Take a moment and get your bearings.",
-        "You are upright. Let us orient the morning.",
-        "Good. Now we can work out what comes first.",
+        "Good. Let us orient the morning.",
+        "Now we can work out what comes first.",
         "That will do. Take a moment and find your morning.",
     )
 }
