@@ -3,6 +3,7 @@ package com.wakemyway.core.runtime
 import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -90,6 +91,21 @@ class WakeRuntimeTest {
     }
 
     @Test
+    fun `out of order snooze scheduled input cannot finish the wake`() {
+        val initial = runtime.initial(WakeSessionId("session-3b"), policy)
+        val spoofed = runtime.reduce(
+            initial,
+            WakeInput.SnoozeScheduled(id("unexpected-scheduled"), "replacement-1"),
+            policy,
+        )
+
+        assertEquals(WakePhase.ALERTING, spoofed.snapshot.phase)
+        assertEquals(SnoozeState.NONE, spoofed.snapshot.snoozeState)
+        assertEquals(null, spoofed.snapshot.outcome)
+        assertTrue(spoofed.directives.isEmpty())
+    }
+
+    @Test
     fun `failed snooze scheduling keeps wake active and audible`() {
         var snapshot = runtime.initial(WakeSessionId("session-4"), policy)
         snapshot = runtime.reduce(snapshot, WakeInput.SnoozeRequested(id("request")), policy).snapshot
@@ -124,6 +140,44 @@ class WakeRuntimeTest {
         assertEquals(WakePhase.ALERTING, wake.snapshot.phase)
         assertTrue(WakeDirective.EnsureAlarmAudible in wake.directives)
         assertTrue(wake.directives.none { it is WakeDirective.Speak })
+    }
+
+    @Test
+    fun `motion capability loss stops observation and future directives stay degraded`() {
+        var snapshot = runtime.initial(WakeSessionId("session-5b"), policy)
+        snapshot = runtime.reduce(snapshot, WakeInput.UserInteracted(id("touch")), policy).snapshot
+
+        val degraded = runtime.reduce(
+            snapshot,
+            WakeInput.CapabilitiesChanged(
+                id("motion-off"),
+                WakeCapabilities(speechAvailable = true, motionAvailable = false),
+            ),
+            policy,
+        )
+        assertTrue(WakeDirective.StopObservingMotion in degraded.directives)
+
+        val activating = runtime.reduce(
+            degraded.snapshot,
+            WakeInput.SpeechFinished(id("speech-finished")),
+            policy,
+        )
+        assertEquals(WakePhase.ACTIVATING, activating.snapshot.phase)
+        assertTrue(activating.directives.none { it == WakeDirective.ObserveMotion })
+        assertTrue(WakeDirective.Speak(SpeechIntent.AskToMove) in activating.directives)
+    }
+
+    @Test
+    fun `speech failure advances safely without making speech authoritative`() {
+        var snapshot = runtime.initial(WakeSessionId("session-5c"), policy)
+        snapshot = runtime.reduce(snapshot, WakeInput.UserInteracted(id("touch")), policy).snapshot
+
+        val failed = runtime.reduce(snapshot, WakeInput.SpeechFailed(id("speech-failed")), policy)
+
+        assertEquals(WakePhase.ACTIVATING, failed.snapshot.phase)
+        assertEquals(1, failed.snapshot.escalationLevel)
+        assertTrue(WakeDirective.EnsureAlarmAudible in failed.directives)
+        assertTrue(failed.directives.none { it is WakeDirective.Speak })
     }
 
     @Test
@@ -168,6 +222,19 @@ class WakeRuntimeTest {
         assertFalse(afterFinish.inputApplied)
         assertEquals(stopped.snapshot, afterFinish.snapshot)
         assertTrue(afterFinish.directives.isEmpty())
+    }
+
+    @Test
+    fun `policy version mismatch is rejected instead of silently changing behavior`() {
+        val initial = runtime.initial(WakeSessionId("session-7b"), policy)
+        val newerPolicy = policy.copy(version = 2)
+
+        assertFailsWith<IllegalArgumentException> {
+            runtime.reduce(initial, WakeInput.AlarmFired(id("alarm")), newerPolicy)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            runtime.diagnostics(initial, newerPolicy)
+        }
     }
 
     @Test
