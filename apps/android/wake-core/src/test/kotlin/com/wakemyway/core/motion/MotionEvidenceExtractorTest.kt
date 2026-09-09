@@ -18,6 +18,22 @@ class MotionEvidenceExtractorTest {
     }
 
     @Test
+    fun `pickup callback does not also count a correlated orientation change`() {
+        val extractor = MotionEvidenceExtractor()
+        extractor.onTilt(ms(0), 0.0)
+        extractor.onAcceleration(ms(100), 2.0)
+
+        val evidence = extractor.onTilt(ms(300), 40.0)
+
+        assertEquals(listOf(MotionEvidenceKind.DEVICE_PICKUP), evidence.map { it.kind })
+        val laterDistinctOrientation = extractor.onTilt(ms(700), 75.0)
+        assertEquals(
+            listOf(MotionEvidenceKind.ORIENTATION_CHANGE),
+            laterDistinctOrientation.map { it.kind },
+        )
+    }
+
+    @Test
     fun `large tilt change emits orientation evidence without acceleration`() {
         val extractor = MotionEvidenceExtractor()
         extractor.onTilt(ms(0), 0.0)
