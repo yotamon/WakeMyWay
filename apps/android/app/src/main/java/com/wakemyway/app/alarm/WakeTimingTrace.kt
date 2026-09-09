@@ -1,9 +1,11 @@
 package com.wakemyway.app.alarm
 
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import com.wakemyway.core.schedule.WakeOccurrence
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import java.time.Instant
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -34,6 +36,7 @@ class WakeTimingTrace(context: Context) {
         session.put(KEY_SCENARIO, scenario)
         session.put(KEY_EXPECT_FULL_SCREEN, expectFullScreen)
         session.put(KEY_EXPECTED_WALL_MS, System.currentTimeMillis())
+        appendEvent(session, EVENT_EXPECTED, "scenario=$scenario;fullScreen=$expectFullScreen")
     }
 
     fun receiver(occurrence: WakeOccurrence) = safelyMutate { sessions ->
@@ -42,24 +45,28 @@ class WakeTimingTrace(context: Context) {
         }
         session.put(KEY_RECEIVER_WALL_MS, System.currentTimeMillis())
         session.put(KEY_RECEIVER_ELAPSED_MS, SystemClock.elapsedRealtime())
+        appendEvent(session, EVENT_RECEIVER)
     }
 
     fun foreground(occurrenceId: WakeOccurrenceId) = mark(
         occurrenceId = occurrenceId,
         wallKey = KEY_FOREGROUND_WALL_MS,
         elapsedKey = KEY_FOREGROUND_ELAPSED_MS,
+        eventType = EVENT_FOREGROUND,
     )
 
     fun audioStarted(occurrenceId: WakeOccurrenceId) = mark(
         occurrenceId = occurrenceId,
         wallKey = KEY_AUDIO_WALL_MS,
         elapsedKey = KEY_AUDIO_ELAPSED_MS,
+        eventType = EVENT_AUDIO_STARTED,
     )
 
     fun uiVisible(occurrenceId: WakeOccurrenceId) = mark(
         occurrenceId = occurrenceId,
         wallKey = KEY_UI_WALL_MS,
         elapsedKey = KEY_UI_ELAPSED_MS,
+        eventType = EVENT_UI_VISIBLE,
     )
 
     fun serviceRecovered(occurrenceId: WakeOccurrenceId) = safelyMutate { sessions ->
@@ -67,6 +74,32 @@ class WakeTimingTrace(context: Context) {
             put(KEY_SERVICE_RECOVERY_COUNT, optInt(KEY_SERVICE_RECOVERY_COUNT, 0) + 1)
             put(KEY_LAST_RECOVERY_WALL_MS, System.currentTimeMillis())
             put(KEY_LAST_RECOVERY_ELAPSED_MS, SystemClock.elapsedRealtime())
+            appendEvent(this, EVENT_SERVICE_RECOVERED)
+        }
+    }
+
+    fun reconciled(
+        occurrenceId: WakeOccurrenceId,
+        reason: String,
+        wakeReadyAfter: Boolean,
+    ) = safelyMutate { sessions ->
+        sessions.findSession(occurrenceId)?.let { session ->
+            appendEvent(session, EVENT_RECONCILED, "reason=$reason;wakeReady=$wakeReadyAfter")
+        }
+    }
+
+    fun capabilities(
+        occurrenceId: WakeOccurrenceId,
+        exactAlarmAllowed: Boolean,
+        notificationsAllowed: Boolean,
+        fullScreenIntentAllowed: Boolean,
+    ) = safelyMutate { sessions ->
+        sessions.findSession(occurrenceId)?.let { session ->
+            appendEvent(
+                session,
+                EVENT_CAPABILITIES,
+                "exact=$exactAlarmAllowed;notifications=$notificationsAllowed;fullScreen=$fullScreenIntentAllowed",
+            )
         }
     }
 
@@ -84,6 +117,36 @@ class WakeTimingTrace(context: Context) {
         }
     }.getOrDefault(emptyList())
 
+    fun reportText(limit: Int = MAX_SESSIONS): String {
+        val sessions = history(limit)
+        return buildString {
+            appendLine("Wake My Way Reliability Report")
+            appendLine("generated=${Instant.ofEpochMilli(System.currentTimeMillis())}")
+            appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}; sdk=${Build.VERSION.SDK_INT}")
+            appendLine("sessions=${sessions.size}")
+            appendLine()
+
+            sessions.forEachIndexed { index, session ->
+                appendLine("#${index + 1} ${session.scenario ?: session.occurrenceKind.ifBlank { "UNKNOWN" }} ${session.state().name}")
+                appendLine("occurrence=${session.occurrenceId}")
+                appendLine("target=${Instant.ofEpochMilli(session.targetWallMillis)}")
+                appendLine(
+                    "latency trigger=${formatMillis(session.triggerDelayMillis)} " +
+                        "foreground=${formatMillis(session.triggerToForegroundMillis)} " +
+                        "audio=${formatMillis(session.triggerToAudioMillis)} " +
+                        "ui=${formatMillis(session.triggerToUiMillis)}",
+                )
+                appendLine("terminal=${session.terminalAction ?: "NONE"}; serviceRecoveries=${session.serviceRecoveryCount}")
+                appendLine("events:")
+                session.events.forEach { event ->
+                    val detail = event.detail?.let { " [$it]" }.orEmpty()
+                    appendLine("  ${Instant.ofEpochMilli(event.wallMillis)} ${event.type}$detail")
+                }
+                appendLine()
+            }
+        }
+    }
+
     fun clearHistory() {
         runCatching { prefs.edit().remove(KEY_SESSIONS).apply() }
     }
@@ -94,16 +157,19 @@ class WakeTimingTrace(context: Context) {
         put(KEY_OCCURRENCE_KIND, occurrence.kind.name)
         put(KEY_TARGET_WALL_MS, occurrence.scheduledAt.toInstant().toEpochMilli())
         put(KEY_SERVICE_RECOVERY_COUNT, 0)
+        put(KEY_EVENTS, JSONArray())
     }
 
     private fun mark(
         occurrenceId: WakeOccurrenceId,
         wallKey: String,
         elapsedKey: String,
+        eventType: String,
     ) = safelyMutate { sessions ->
         sessions.findSession(occurrenceId)?.apply {
             put(wallKey, System.currentTimeMillis())
             put(elapsedKey, SystemClock.elapsedRealtime())
+            appendEvent(this, eventType)
         }
     }
 
@@ -115,6 +181,31 @@ class WakeTimingTrace(context: Context) {
             put(KEY_TERMINAL_ACTION, action.name)
             put(KEY_TERMINAL_WALL_MS, System.currentTimeMillis())
             put(KEY_TERMINAL_ELAPSED_MS, SystemClock.elapsedRealtime())
+            appendEvent(this, action.name)
+        }
+    }
+
+    private fun appendEvent(
+        session: JSONObject,
+        type: String,
+        detail: String? = null,
+    ) {
+        val events = session.optJSONArray(KEY_EVENTS) ?: JSONArray().also { session.put(KEY_EVENTS, it) }
+        events.put(
+            JSONObject().apply {
+                put(KEY_EVENT_TYPE, type)
+                put(KEY_EVENT_WALL_MS, System.currentTimeMillis())
+                put(KEY_EVENT_ELAPSED_MS, SystemClock.elapsedRealtime())
+                if (detail != null) put(KEY_EVENT_DETAIL, detail)
+            },
+        )
+        if (events.length() > MAX_EVENTS_PER_SESSION) {
+            val trimmed = JSONArray()
+            val first = events.length() - MAX_EVENTS_PER_SESSION
+            for (index in first until events.length()) {
+                trimmed.put(events.getJSONObject(index))
+            }
+            session.put(KEY_EVENTS, trimmed)
         }
     }
 
@@ -169,7 +260,26 @@ class WakeTimingTrace(context: Context) {
             terminalElapsedMillis = json.optionalLong(KEY_TERMINAL_ELAPSED_MS),
             serviceRecoveryCount = json.optInt(KEY_SERVICE_RECOVERY_COUNT, 0),
             lastRecoveryWallMillis = json.optionalLong(KEY_LAST_RECOVERY_WALL_MS),
+            events = json.events(),
         )
+    }
+
+    private fun JSONObject.events(): List<TimingEventSnapshot> {
+        val events = optJSONArray(KEY_EVENTS) ?: return emptyList()
+        return buildList {
+            for (index in 0 until events.length()) {
+                val event = events.optJSONObject(index) ?: continue
+                val type = event.optString(KEY_EVENT_TYPE).takeIf { it.isNotBlank() } ?: continue
+                add(
+                    TimingEventSnapshot(
+                        type = type,
+                        wallMillis = event.optLong(KEY_EVENT_WALL_MS, 0),
+                        elapsedMillis = event.optionalLong(KEY_EVENT_ELAPSED_MS),
+                        detail = event.optString(KEY_EVENT_DETAIL).takeIf { it.isNotBlank() },
+                    ),
+                )
+            }
+        }
     }
 
     private fun JSONObject.optionalLong(key: String): Long? =
@@ -188,6 +298,7 @@ class WakeTimingTrace(context: Context) {
 
         private val LOCK = Any()
         private const val MAX_SESSIONS = 24
+        private const val MAX_EVENTS_PER_SESSION = 64
         private const val PREFS_NAME = "wake-reliability-journal"
         private const val KEY_SESSIONS = "sessions"
         private const val KEY_OCCURRENCE_ID = "occurrence_id"
@@ -211,8 +322,28 @@ class WakeTimingTrace(context: Context) {
         private const val KEY_SERVICE_RECOVERY_COUNT = "service_recovery_count"
         private const val KEY_LAST_RECOVERY_WALL_MS = "last_recovery_wall_ms"
         private const val KEY_LAST_RECOVERY_ELAPSED_MS = "last_recovery_elapsed_ms"
+        private const val KEY_EVENTS = "events"
+        private const val KEY_EVENT_TYPE = "type"
+        private const val KEY_EVENT_WALL_MS = "wall_ms"
+        private const val KEY_EVENT_ELAPSED_MS = "elapsed_ms"
+        private const val KEY_EVENT_DETAIL = "detail"
+        private const val EVENT_EXPECTED = "EXPECTED"
+        private const val EVENT_RECEIVER = "RECEIVER"
+        private const val EVENT_FOREGROUND = "FOREGROUND"
+        private const val EVENT_AUDIO_STARTED = "AUDIO_STARTED"
+        private const val EVENT_UI_VISIBLE = "UI_VISIBLE"
+        private const val EVENT_SERVICE_RECOVERED = "SERVICE_RECOVERED"
+        private const val EVENT_RECONCILED = "RECONCILED"
+        private const val EVENT_CAPABILITIES = "CAPABILITIES"
     }
 }
+
+data class TimingEventSnapshot(
+    val type: String,
+    val wallMillis: Long,
+    val elapsedMillis: Long?,
+    val detail: String?,
+)
 
 data class TimingSnapshot(
     val occurrenceId: String,
@@ -235,6 +366,7 @@ data class TimingSnapshot(
     val terminalElapsedMillis: Long?,
     val serviceRecoveryCount: Int,
     val lastRecoveryWallMillis: Long?,
+    val events: List<TimingEventSnapshot>,
 ) {
     val triggerDelayMillis: Long? = receiverWallMillis?.minus(targetWallMillis)
     val triggerToForegroundMillis: Long? = elapsedDelta(foregroundElapsedMillis)
@@ -273,3 +405,5 @@ enum class ReliabilityState {
     STOPPED,
     SNOOZED,
 }
+
+private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"
