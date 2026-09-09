@@ -2,6 +2,8 @@
 
 Canonical domain terms are defined in [`../CONTEXT.md`](../CONTEXT.md).
 
+Implementation detail and current M3 status live in [`implementation/m3-wake-runtime.md`](implementation/m3-wake-runtime.md).
+
 ## Responsibility
 
 Wake Runtime is the deep deterministic module for one active Wake Session:
@@ -30,7 +32,7 @@ ORIENTING
 FINISHED
 ```
 
-A session may finish with an outcome such as completed, intentionally snoozed, cancelled, or unrecoverable termination.
+A session may finish with an outcome such as completed, intentionally snoozed, stopped, or unrecoverable termination.
 
 ## Phase meaning
 
@@ -52,7 +54,7 @@ Sufficient activation evidence exists to introduce small amounts of context and,
 
 ### Finished
 
-The wake attempt no longer occupies the active runtime. The outcome records whether it completed, snoozed, cancelled, or terminated unexpectedly.
+The wake attempt no longer occupies the active runtime. The outcome records whether it completed, snoozed, stopped, or terminated unexpectedly.
 
 ## Concepts intentionally not modeled as phases
 
@@ -84,7 +86,7 @@ Fallback level is capability/runtime mode, not lifecycle state.
 
 Inputs are typed facts, not generic bags and not commands from AI.
 
-Representative categories:
+The first M3 implementation uses:
 
 ```text
 AlarmFired
@@ -93,18 +95,23 @@ UserInteracted
 VoiceResponseObserved
 MotionObserved
 SilenceElapsed
-SpeechFinished / SpeechFailed
+SpeechFinished
+SpeechFailed
 SnoozeRequested
 SnoozeConfirmed
 SnoozeScheduled
-CapabilityChanged
+SnoozeSchedulingFailed
+CapabilitiesChanged
+OrientationCompleted
+StopRequested
+UnrecoverableFailure
 ```
 
-Exact type design is an implementation decision, but inputs should make invalid combinations hard and should not rely on nullable `textValue` / `numericValue` fields in domain code.
+Each input has a stable `WakeInputId` so recent redelivery can be rejected deterministically. Inputs do not use nullable generic value bags.
 
 ## Wake Directives
 
-Representative categories:
+The first M3 implementation uses:
 
 ```text
 EnsureAlarmAudible
@@ -119,34 +126,49 @@ CompleteSession
 
 Android/application code executes directives and feeds behavior-relevant results back as inputs.
 
-The exact public contract should be designed from M3 usage scenarios, not frozen from documentation pseudocode.
-
 ## Wake Policy
 
 Wake Runtime receives a versioned Wake Policy containing deterministic parameters such as:
 
-- intervention timing
-- activation evidence thresholds
-- escalation preferences
-- snooze parameters
-- context timing
-- character-independent behavioral rules
+- activation evidence threshold
+- evidence weights
+- escalation ceiling
+- default snooze duration
+- bounded duplicate-input memory
 
-For a new user this is the default policy. Later Wake Learning can derive a personalized policy.
+For a new user this is the default policy. Later Wake Learning can derive a personalized policy while preserving the same reducer authority boundary.
 
 ## Activation Evidence
 
-Wake Runtime may internally combine:
+Wake Runtime currently combines typed counts for:
 
 - meaningful interaction
 - device pickup
 - sustained movement
 - orientation change
-- coherent/continued response
-- silence/stationary time
-- snooze behavior
+- coherent response
 
-An internal scalar/probability may be useful for diagnostics and tuning, but it is **not a public module or authority seam**. Callers ask Wake Runtime what to do next; they do not calculate a score and then decide what to do with it.
+The weighted scalar is available only through runtime diagnostics for replay/tuning. It is **not** a public authority seam. Callers ask Wake Runtime what to do next; they do not calculate a score and then decide what to do with it.
+
+## Snooze rule
+
+Snooze uses a transactional handshake:
+
+```text
+SnoozeRequested
+   ↓
+SnoozeConfirmed
+   ↓
+RequestSnoozeSchedule
+   ↓
+Alarm Kernel durably creates replacement occurrence
+   ↓
+SnoozeScheduled
+   ↓
+FINISHED / SNOOZED
+```
+
+If exact replacement scheduling fails, `SnoozeSchedulingFailed` keeps the Wake Session active and directs the audible path to continue.
 
 ## AI rule
 
@@ -162,9 +184,7 @@ If generated language says "you're up" before the runtime has enough activation 
 
 ## Replay and timeline
 
-Persist enough typed inputs and execution observations to replay/diagnose a session against its recorded runtime/policy version.
-
-Do not make the persistence schema itself the domain interface.
+`WakeRuntime.replay()` feeds recorded typed inputs through the same reducer used live and returns every transition plus the final snapshot.
 
 Replay should answer:
 
@@ -173,14 +193,15 @@ Replay should answer:
 - what directives were selected?
 - which external effects succeeded/failed?
 
-## Behavior invariants
+Do not make the persistence schema itself the domain interface.
 
-Examples:
+## Behavior invariants
 
 - a Finished session never becomes active again
 - network/provider availability never prevents the Alerting path from starting
 - AI output never directly changes Wake Phase
 - snooze does not finish the active alarm until the replacement exact occurrence is successfully scheduled
-- duplicate inputs/effect results do not cause duplicate destructive behavior
+- duplicate inputs do not cause duplicate destructive behavior
 - Orienting is reachable only after the configured activation criterion is met
 - fallback richness can decrease without invalidating the Wake Session lifecycle
+- escalation level is bounded by policy and never becomes a lifecycle state
