@@ -65,6 +65,31 @@ class OfflineVoiceSelectorTest {
     }
 
     @Test
+    fun `same-language local fallback is allowed when exact locale is absent`() {
+        val selected = OfflineVoiceSelector.select(
+            candidates = listOf(
+                LocalVoiceCandidate("local-en-us", "en-US", networkRequired = false, quality = 200),
+            ),
+            preferredLanguageTag = "en-GB",
+        )
+
+        assertEquals("local-en-us", selected?.id)
+    }
+
+    @Test
+    fun `unrelated-language local voices fail closed`() {
+        val selected = OfflineVoiceSelector.select(
+            candidates = listOf(
+                LocalVoiceCandidate("local-de", "de-DE", networkRequired = false, quality = 1000),
+                LocalVoiceCandidate("local-fr", "fr-FR", networkRequired = false, quality = 1000),
+            ),
+            preferredLanguageTag = "en-GB",
+        )
+
+        assertNull(selected)
+    }
+
+    @Test
     fun `network-only catalog fails closed`() {
         val selected = OfflineVoiceSelector.select(
             candidates = listOf(
