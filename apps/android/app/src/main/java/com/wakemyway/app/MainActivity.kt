@@ -104,8 +104,15 @@ private fun WakeAlarmLabScreen() {
             modifier = Modifier.padding(top = 24.dp),
             onClick = {
                 runCatching { kernel.commitSchedule(founderTestSchedule()) }
-                    .onSuccess {
-                        health = it
+                    .onSuccess { committedHealth ->
+                        health = committedHealth
+                        committedHealth.nextOccurrence?.let { occurrence ->
+                            timingTrace.expected(
+                                occurrence = occurrence,
+                                scenario = WakeTimingTrace.SCENARIO_NORMAL_T_PLUS_2M,
+                            )
+                        }
+                        history = timingTrace.history(HISTORY_LIMIT)
                         message = "One-shot lab wake scheduled for about 2 minutes from now. Lock the phone."
                     }
                     .onFailure {
@@ -220,7 +227,7 @@ private fun HealthFacts(health: AlarmHealth) {
 private fun TimingFacts(number: Int, timing: TimingSnapshot) {
     Text(
         modifier = Modifier.padding(top = 16.dp),
-        text = "#$number · ${timing.scheduleId.ifBlank { "unknown" }} · ${timing.occurrenceKind.ifBlank { "unknown" }}",
+        text = "#$number · ${timing.scenario ?: timing.occurrenceKind.ifBlank { "unknown" }} · ${timing.state().name}",
         style = MaterialTheme.typography.labelLarge,
     )
     Text(
