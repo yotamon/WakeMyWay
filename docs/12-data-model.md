@@ -4,12 +4,13 @@ Canonical domain terms are defined in [`../CONTEXT.md`](../CONTEXT.md).
 
 ## Design goals
 
-- one active Wake Schedule in V1
+- one active adaptive Wake Schedule in V1
 - local authority for wake-critical state
-- Alarm Kernel owns critical scheduling consistency
+- Alarm Kernel owns critical scheduling **and Active Wake Execution** consistency
 - typed session history sufficient for replay/learning
+- Activation Completion remains distinguishable from Confirmed Wake Success calibration
 - privacy by minimizing raw text/audio/sensor retention
-- derived profiles can be rebuilt from source outcomes
+- derived profiles/policies can be rebuilt from source outcomes
 - persistence representation does not become the domain interface
 
 # Local model
@@ -31,7 +32,9 @@ updatedAt
 revision
 ```
 
-V1 allows one active schedule. Do not design a generic many-alarm coordinator until product evidence requires it.
+V1 allows one active adaptive schedule. Do not design a generic many-alarm coordinator until product evidence requires it.
+
+An optional dogfood Safety Backup, if implemented, is a separate trust-transition mechanism and must not distort the WakeSchedule domain into arbitrary multi-alarm coordination.
 
 ## WakeOccurrence
 
@@ -51,6 +54,32 @@ parentOccurrenceId?   // snooze lineage
 ```
 
 Possible lifecycle statuses are persistence concerns and should match actual Alarm Kernel behavior rather than being invented prematurely.
+
+The implemented status model must still be able to represent the invariants required by ADR-014, including the distinction between scheduled, currently active, intentionally stopped, durably replaced/snoozed, and completed/terminated occurrences.
+
+## Active Wake Execution state
+
+Do not create a public domain object merely because Android uses a foreground service. Persist only the minimum implementation state the Alarm Kernel proves necessary for idempotent active-alarm recovery.
+
+Conceptually useful facts may include:
+
+```text
+activeWakeOccurrenceId?
+activeExecutionRevision / generation
+playbackStartedAtElapsed?
+terminalReason?
+replacementOccurrenceId?
+```
+
+The exact schema belongs to M1 implementation.
+
+Hard requirements:
+
+- one occurrence cannot recover into duplicate critical playback owners
+- Stop must remain terminal after component recreation
+- successful snooze replacement makes the old occurrence non-authoritative
+- stale execution identity cannot attach to a newer occurrence
+- private conversation/context is not required to recover critical playback
 
 ## TomorrowContract
 
@@ -98,6 +127,8 @@ finishedAtWall?
 finishReason?
 ```
 
+Every session snapshots one immutable Wake Policy version for replay/experiments.
+
 Derived timing such as engagement/movement can come from typed timeline facts rather than duplicated nullable columns unless query performance later justifies denormalized summary fields.
 
 ## Typed wake timeline
@@ -132,9 +163,11 @@ Persist only records needed for replay, reliability diagnosis, and safe learning
 Derived compact summary, for example:
 
 ```text
-metWakeWindow
+activationCompleted
+metActivationWindow
 secondsToFirstEngagement
 secondsToMeaningfulMovement
+secondsToActivationCompletion
 snoozeCount
 maxInterventionDepth
 fallbackLevel
@@ -143,14 +176,40 @@ finishReason
 
 The exact activation criterion is versioned with the policy/experiment so historical outcomes remain interpretable.
 
-## WakeFeedback
+Do not name `activationCompleted` as `wakeSuccess` in persistence. It is an operational phone-observable outcome, not automatically confirmed real-world success.
+
+## WakeCalibration
+
+Optional later feedback used to calibrate whether Activation Completion corresponded to the real-world wake result.
+
+Conceptual semantic shape:
 
 ```text
 sessionId
-rating/direction?
+outcome = GOT_UP | RETURNED_TO_BED | GOT_UP_LATER | SKIPPED
+createdAt
+source = USER_FEEDBACK | future_privacy_safe_proxy
+```
+
+Rules:
+
+- calibration is optional and sparse
+- missing calibration is `unknown`, not success
+- do not require it during the alarm session
+- preserve source/provenance so a future proxy is not treated as equivalent to direct user feedback without evaluation
+
+## WakeFeedback
+
+Feedback about friction/style is distinct from outcome calibration.
+
+```text
+sessionId
+direction = TOO_MUCH | GOOD | TOO_GENTLE | ...
 notes?        // sensitive, local unless explicitly uploaded
 createdAt
 ```
+
+This separation prevents "the wake felt good" from being treated as proof the user actually got up.
 
 ## WakeProfileSnapshot / WakePolicySnapshot
 
@@ -159,12 +218,22 @@ Derived, versioned data. Not source of truth.
 ```text
 id
 algorithmVersion
+policyVersion
 generatedAt
 sourceSessionRange/count
-safe derived parameters/insights
+safe derived parameters
+safe debug explanation metadata
 ```
 
-Do not persist raw sensitive morning content simply because a future learner might want it.
+For M7 Wake Learning v0, a policy snapshot must be:
+
+- locally derivable
+- bounded/validated
+- immutable once used by a Wake Session
+- resettable to the stable default
+- recoverable to default if corrupt/unsupported
+
+Do not persist raw sensitive morning content simply because a learner might want it.
 
 # Critical Wake Snapshot
 
@@ -183,6 +252,8 @@ checksum
 
 It must be sufficient to re-register/identify/start a generic safe alarm before first unlock after reboot.
 
+If M1 proves a tiny additional non-sensitive fact is necessary to prevent active-execution duplication during Direct Boot, document and threat-model it explicitly before extending this snapshot.
+
 It must **not** contain:
 
 - Tomorrow Contract content
@@ -190,12 +261,15 @@ It must **not** contain:
 - transcripts
 - private generated contextual speech
 - auth tokens
+- learned explanations containing private source facts
 
 # Credential-protected storage
 
 Normal Room/DataStore files remain credential-protected unless a very small item is explicitly proven necessary during Direct Boot.
 
 Prepared personalized audio derived from private context should remain credential-protected; a pre-unlock wake falls back to generic bundled/brand audio.
+
+Wake Outcomes, calibration, feedback and learned policy snapshots are normal credential-protected local data.
 
 # Preferences
 
@@ -207,9 +281,10 @@ language
 analyticsConsent
 diagnosticsEnabled
 lastSelectedWakeTime
+safetyBackupEnabled?   // only if the dogfood feature exists
 ```
 
-Avoid duplicating authoritative Wake Schedule/session state in DataStore.
+Avoid duplicating authoritative Wake Schedule/session/active-execution state in DataStore.
 
 # Cloud model
 
@@ -219,19 +294,20 @@ Cloud storage is introduced only with a feature that needs it. Possible later co
 installations
 users (optional/later)
 wake_sessions / safe outcome summaries
+wake_calibration
 wake_feedback
 wake_profiles
 character_preferences
 subscriptions
 ```
 
-The server never owns Android exact alarm scheduling.
+The server never owns Android exact alarm scheduling, Active Wake Execution, or local M7 policy derivation.
 
 # Sync outbox
 
-Add a durable outbox only when backend sync exists. It is not an M0 dependency.
+Add a durable outbox only when backend sync exists. It is not an M0–M7 dependency.
 
-When introduced, uploads must be retry-safe and must never block the Wake Session.
+When introduced, uploads must be retry-safe and must never block the Wake Session or policy fallback.
 
 # Raw sensor policy
 
