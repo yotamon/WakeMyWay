@@ -28,8 +28,10 @@ WakePreparationManager
 Prepared Wake Plan
         ↓
 validate occurrence + source revision + format + checksum
-        ├─ valid → private prepared content available offline
-        └─ invalid/missing/locked → bundled generic local fallback
+        ├─ invalid/missing/Direct Boot/locked → generic local wake UI
+        └─ valid + Android user unlocked + keyguard unlocked
+                         ↓
+                  WakeActivity text enrichment
 ```
 
 The `WakePreparationManager` is the application-facing owner. UI and workers do not coordinate contract persistence, plan persistence and validation independently.
@@ -82,7 +84,7 @@ The current v1 plan:
 
 Given the same contract, character version and preparation timestamp, the output is identical.
 
-No AI, network, backend, prompt, realtime voice provider or cloud model is involved.
+No AI, network, backend, prompt, realtime voice provider or cloud model is involved. The current application manifest has no `INTERNET` permission.
 
 ## Android private storage boundary
 
@@ -107,6 +109,14 @@ Properties:
 
 That explicit rejection is a defense-in-depth invariant. A future caller cannot move Tomorrow Contract/private prepared state into Direct-Boot storage simply by passing a different Context.
 
+## Commit ordering and worker race safety
+
+The Contract and Prepared Plan are intentionally separate files. `WakePreparationManager` serializes UI saves, background preparation and clear operations behind one in-process commit lock.
+
+This prevents an already-running WorkManager refresh for an older contract revision from overwriting a newer immediate plan after the user edits their Tomorrow Contract.
+
+The plan still independently records the Contract ID/revision and checksum, so any inconsistent or stale state fails closed at read time even if storage is externally corrupted.
+
 ## WorkManager role
 
 M6 adds AndroidX WorkManager 2.11.2 as a non-critical dependency.
@@ -126,7 +136,7 @@ The foreground save path prepares immediately so the user can inspect the result
 
 ## Founder UI
 
-Wake Alarm Lab now exposes a Tomorrow Contract section for the current next Wake Occurrence:
+Wake Alarm Lab exposes a Tomorrow Contract section for the current next Wake Occurrence:
 
 - multiline private intention field;
 - optional First Move;
@@ -136,15 +146,36 @@ Wake Alarm Lab now exposes a Tomorrow Contract section for the current next Wake
 - prepared morning preview;
 - explicit offline wake-time read result showing either prepared content or generic fallback.
 
-This is still founder/product-lab UI. It is not final onboarding or night-before product design.
+This is still founder/product-lab editing UI. It is not final onboarding or night-before product design.
+
+## WakeActivity enrichment
+
+M6 makes the prepared text influence the actual morning surface without touching critical playback.
+
+`WakeActivity` keeps its existing generic local UI while either of these is true:
+
+- Android's user storage is not yet unlocked after reboot;
+- the keyguard currently reports the device as locked;
+- the private store cannot be read;
+- the Contract/Plan is missing, stale, corrupt, unsupported or for another occurrence.
+
+Only when the Android user is unlocked **and** the keyguard is unlocked does `WakeActivity` load a validated plan and replace the generic morning copy with:
+
+- the prepared Alfred Orientation line;
+- the bounded reminder derived from the Tomorrow Contract;
+- the optional First Move.
+
+When private text is visible, `WakeActivity` adds `FLAG_SECURE` so the OS cannot capture it in screenshots/recents thumbnails. The prepared Compose state is cleared whenever the Activity pauses.
+
+This enrichment does not control alarm sound, Stop, Snooze, Wake Ready, phase transitions or Activation Evidence.
 
 ## Offline and failure behavior
 
 Wake-time plan loading is a local operation.
 
 ```text
-private state available + valid
-    → PreparedWakePlan
+private state available + valid + unlocked
+    → PreparedWakePlan text enrichment
 
 no contract
 missing plan
@@ -153,7 +184,8 @@ wrong occurrence
 unsupported format
 checksum mismatch
 credential storage unavailable before unlock
-    → generic local fallback
+keyguard locked
+    → generic local wake UI
 ```
 
 None of these states may prevent the normal Alarm Kernel from making sound or exposing local controls.
@@ -166,11 +198,17 @@ M6 deliberately does not modify:
 - `CriticalWakeStore`;
 - reliability trace payloads;
 - AlarmReceiver payloads;
-- alarm notification/full-screen intents.
+- alarm notification/full-screen intent payloads.
 
-Therefore Tomorrow Contract text and prepared private speech remain outside the device-protected trust-critical path.
+Therefore Tomorrow Contract text and prepared private content remain outside the device-protected trust-critical path.
 
-Android instrumentation additionally verifies that the private store refuses a device-protected Context.
+Additional controls:
+
+- the private store refuses a device-protected Context;
+- files live in credential-protected `noBackupFilesDir`;
+- WakeActivity does not read/render them in Direct Boot or while keyguard is locked;
+- private wake UI uses `FLAG_SECURE`;
+- no private-content logs are produced.
 
 ## Tests
 
@@ -194,9 +232,9 @@ CI remains the source of truth for build/lint/test status on PR #20.
 
 ## Intentionally deferred
 
-M6 does **not** production-wire private prepared lines or TTS into `WakeActivity` / `AlarmPlaybackService` yet. Physical M2 evidence is still required before optional character/personalized speech can coexist with critical alarm audio without weakening reliability.
+M6 does **not** production-wire personalized TTS or prepared audio into `AlarmPlaybackService`. Physical M2 evidence is still required before optional character/personalized speech can coexist with critical alarm audio without weakening reliability.
 
-Prepared audio files are also deferred for the same reason. The Prepared Wake Plan schema can evolve when measured audio behavior justifies that capability.
+Prepared audio files are deferred for the same reason. The Prepared Wake Plan schema can evolve when measured audio behavior justifies that capability.
 
 No cloud preparation is introduced. Supabase/Vercel remain irrelevant to M6 wake authority.
 
