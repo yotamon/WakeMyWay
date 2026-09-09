@@ -68,6 +68,11 @@ private fun AlarmHealth.toTonightUiState(context: Context): TonightUiState {
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE · MMM d", locale)
+    val readinessCopy = when {
+        occurrence == null -> context.getString(R.string.tonight_readiness_empty)
+        ready -> context.getString(R.string.tonight_readiness_ready)
+        else -> context.getString(R.string.tonight_readiness_attention)
+    }
 
     return TonightUiState(
         wakeTime = occurrence?.scheduledAt?.format(timeFormatter) ?: "--:--",
@@ -75,6 +80,6 @@ private fun AlarmHealth.toTonightUiState(context: Context): TonightUiState {
             ?: context.getString(R.string.tonight_section_tomorrow),
         hasOccurrence = occurrence != null,
         wakeReady = ready,
-        readinessDetail = detail,
+        readinessDetail = readinessCopy,
     )
 }
