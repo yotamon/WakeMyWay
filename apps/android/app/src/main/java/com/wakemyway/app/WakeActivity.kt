@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.LocalTime
@@ -51,6 +52,10 @@ class WakeActivity : ComponentActivity() {
                     },
                 )
             }
+        }
+
+        window.decorView.post {
+            WakeTimingTrace(this).uiVisible(occurrenceId)
         }
     }
 }
