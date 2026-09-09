@@ -52,18 +52,19 @@ class PreparedWakePlanFactory {
             .trim()
         if (normalized.length <= PreparedWakePlan.MAX_ORIENTATION_CONTEXT_CHARACTERS) return normalized
 
-        val hardLimit = PreparedWakePlan.MAX_ORIENTATION_CONTEXT_CHARACTERS
-        val candidate = normalized.take(hardLimit)
+        val contentLimit = PreparedWakePlan.MAX_ORIENTATION_CONTEXT_CHARACTERS - ELLIPSIS.length
+        val candidate = normalized.take(contentLimit)
         val lastWhitespace = candidate.indexOfLast { it.isWhitespace() }
         val cut = if (lastWhitespace >= MIN_WORD_BOUNDARY_INDEX) {
             candidate.take(lastWhitespace)
         } else {
             candidate
         }
-        return cut.trimEnd(' ', ',', ';', ':', '-', '.') + "…"
+        return cut.trimEnd(' ', ',', ';', ':', '-', '.') + ELLIPSIS
     }
 
     private companion object {
         const val MIN_WORD_BOUNDARY_INDEX = 80
+        const val ELLIPSIS = "…"
     }
 }
