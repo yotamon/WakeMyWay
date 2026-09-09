@@ -14,16 +14,16 @@ class WakeTimingTrace(context: Context) {
         .createDeviceProtectedStorageContext()
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun scheduled(occurrence: WakeOccurrence) {
+    /** Starts a fresh trace when the persisted occurrence actually reaches the receiver. */
+    fun receiver(occurrence: WakeOccurrence) {
         prefs.edit()
             .clear()
             .putString(KEY_OCCURRENCE_ID, occurrence.id.value)
             .putLong(KEY_TARGET_WALL_MS, occurrence.scheduledAt.toInstant().toEpochMilli())
-            .putLong(KEY_SCHEDULED_WALL_MS, System.currentTimeMillis())
+            .putLong(KEY_RECEIVER_WALL_MS, System.currentTimeMillis())
+            .putLong(KEY_RECEIVER_ELAPSED_MS, SystemClock.elapsedRealtime())
             .apply()
     }
-
-    fun receiver(occurrenceId: WakeOccurrenceId) = mark(occurrenceId, KEY_RECEIVER_WALL_MS, KEY_RECEIVER_ELAPSED_MS)
 
     fun foreground(occurrenceId: WakeOccurrenceId) = mark(occurrenceId, KEY_FOREGROUND_WALL_MS, KEY_FOREGROUND_ELAPSED_MS)
 
@@ -36,7 +36,6 @@ class WakeTimingTrace(context: Context) {
         return TimingSnapshot(
             occurrenceId = occurrenceId,
             targetWallMillis = prefs.getLong(KEY_TARGET_WALL_MS, 0),
-            scheduledWallMillis = prefs.getLong(KEY_SCHEDULED_WALL_MS, 0),
             receiverWallMillis = prefs.optionalLong(KEY_RECEIVER_WALL_MS),
             foregroundWallMillis = prefs.optionalLong(KEY_FOREGROUND_WALL_MS),
             audioWallMillis = prefs.optionalLong(KEY_AUDIO_WALL_MS),
@@ -63,7 +62,6 @@ class WakeTimingTrace(context: Context) {
         const val PREFS_NAME = "wake-timing-trace"
         const val KEY_OCCURRENCE_ID = "occurrence_id"
         const val KEY_TARGET_WALL_MS = "target_wall_ms"
-        const val KEY_SCHEDULED_WALL_MS = "scheduled_wall_ms"
         const val KEY_RECEIVER_WALL_MS = "receiver_wall_ms"
         const val KEY_RECEIVER_ELAPSED_MS = "receiver_elapsed_ms"
         const val KEY_FOREGROUND_WALL_MS = "foreground_wall_ms"
@@ -78,7 +76,6 @@ class WakeTimingTrace(context: Context) {
 data class TimingSnapshot(
     val occurrenceId: String,
     val targetWallMillis: Long,
-    val scheduledWallMillis: Long,
     val receiverWallMillis: Long?,
     val foregroundWallMillis: Long?,
     val audioWallMillis: Long?,
