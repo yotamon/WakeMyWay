@@ -1,0 +1,41 @@
+name: Cloud AI Platform CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/cloud/**"
+      - ".github/workflows/cloud-ci.yml"
+      - "docs/adr/016-vercel-ai-platform.md"
+      - "docs/implementation/vercel-ai-platform.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/cloud/**"
+      - ".github/workflows/cloud-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-ai-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/cloud
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/cloud/package.json
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Typecheck and unit tests
+        run: npm run check

@@ -1,12 +1,12 @@
 # Project status
 
-**Last updated:** 2026-09-09  
+**Last updated:** 2026-09-10  
 **Product:** Wake My Way (WMW)  
-**Platform:** Android first  
-**Current engineering phase:** M6 Tomorrow Contract + Prepared Wake Plan in review, while M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `m6/tomorrow-contract-prepared-plan`  
-**Current PR:** #20  
-**Current issue:** #19
+**Platform:** Android first, optional non-critical Vercel cloud  
+**Current engineering phase:** M7 Wake Learning v0 is next; M2 physical-device reliability evidence remains open  
+**Current implementation branch:** `feat/vercel-ai-platform`  
+**Current PR:** #23  
+**Current side-track:** optional Vercel AI platform foundation, with no Android wake-path dependency
 
 ## Executive status
 
@@ -20,8 +20,9 @@ Merged into `main`:
 - M3 deterministic Wake Runtime
 - M4 bounded Motion Evidence extraction + thin Android sensor adapter
 - M5 Alfred deterministic local character + offline-only Android speech lab
+- M6 Tomorrow Contract + Prepared Wake Plan
 
-M6 is implemented as a PR candidate. It introduces private night-before context and deterministic local morning preparation without moving any new authority or startup dependency into the critical alarm path.
+PR #23 introduces an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport. ADR-008 remains the authority for the M8 measured voice spike; ADR-016 records the default cloud AI access layer.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, or coexistence of critical alarm audio with optional character speech.
 
@@ -50,7 +51,7 @@ AlarmPlaybackService
     └─ durable Stop / Snooze
 ```
 
-Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract and Prepared Wake Plan do not participate in alarm delivery. WorkManager's default App Startup initializer is removed, so M6 deferrable preparation does not initialize ahead of a cold-start `AlarmReceiver`.
+Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract and Prepared Wake Plan do not participate in alarm delivery. WorkManager's default App Startup initializer is removed, so deferrable preparation does not initialize ahead of a cold-start `AlarmReceiver`.
 
 ### Deterministic behavior path
 
@@ -101,7 +102,7 @@ WakeDirective.Speak(SpeechIntent)
 
 Character speech remains a Wake Alarm Lab capability and does not own critical alarm audio.
 
-### M6 private preparation path
+### Private preparation path
 
 ```text
 next Wake Occurrence
@@ -126,17 +127,38 @@ missing / stale / corrupt / locked / Direct Boot
 
 Private prepared content is presentation enrichment only. It never owns Wake Runtime policy/state, alarm firing, Stop, Snooze, Wake Ready, or Active Wake Execution.
 
+### Optional cloud AI foundation
+
+```text
+future non-critical WMW feature
+             ↓
+       apps/cloud
+             ↓
+      AI platform
+      ├─ fast/smart text policy
+      ├─ structured outputs
+      ├─ embeddings
+      ├─ STT / TTS
+      └─ M8 realtime token spike
+             ↓
+   Vercel AI SDK 7
+             ↓
+   Vercel AI Gateway
+```
+
+There is currently no Android production call to this service. Provider/network/cloud failure therefore cannot block a wake attempt. See [`implementation/vercel-ai-platform.md`](implementation/vercel-ai-platform.md) and ADR-016.
+
 ## Implemented and merged milestones
 
 ### M0 Foundation
 
 - native Android project;
-- physical modules remain `:app`, `:wake-core`, `:benchmark`;
+- physical Android modules remain `:app`, `:wake-core`, `:benchmark`;
 - pure Kotlin Wake Schedule / Wake Occurrence domain;
 - deterministic recurrence and DST behavior;
 - GitHub Actions for docs, domain tests, Android lint/compile, APK assembly and artifacts.
 
-Current toolchain:
+Current Android toolchain:
 
 ```text
 Android Gradle Plugin  9.4.0
@@ -230,11 +252,11 @@ Implemented:
 
 Production speech integration remains physical-reliability gated.
 
-## M6 in review: Tomorrow Contract + Prepared Wake Plan
+### M6 Tomorrow Contract + Prepared Wake Plan
 
-Tracks issue #19 and PR #20. Canonical implementation note: [`implementation/m6-tomorrow-contract.md`](implementation/m6-tomorrow-contract.md).
+Merged in PR #20. Canonical implementation note: [`implementation/m6-tomorrow-contract.md`](implementation/m6-tomorrow-contract.md).
 
-Implementation candidate includes:
+Implemented:
 
 - pure/versioned `TomorrowContract` and `PreparedWakePlan` models in `:wake-core`;
 - contract and First Move bounds;
@@ -245,28 +267,36 @@ Implementation candidate includes:
 - credential-protected private persistence under `noBackupFilesDir`;
 - `AtomicFile` replacement semantics;
 - explicit rejection of device-protected Contexts;
-- AndroidX WorkManager 2.11.2 for redundant deferrable local refresh only;
+- AndroidX WorkManager for redundant deferrable local refresh only;
 - removal of WorkManager's default App Startup initializer;
-- `WakeMyWayApplication : Configuration.Provider` for explicit on-demand WorkManager initialization;
-- in-process serialization of UI/worker two-file commits;
+- explicit on-demand WorkManager initialization;
+- serialized UI/worker two-file commits;
 - founder Tomorrow Contract edit/clear/preview flow;
 - local offline wake-time plan read/fallback diagnostics;
 - unlocked-only Prepared Wake Plan enrichment in `WakeActivity`;
 - no private prepared text read/rendered during Direct Boot or while keyguard is locked;
 - `FLAG_SECURE` when private morning text is visible;
-- pure preparation tests including occurrence/revision/tamper validation;
-- Android persistence/privacy/fail-closed/on-demand-WorkManager instrumentation tests.
+- pure preparation tests plus Android persistence/privacy/fail-closed instrumentation coverage.
 
-Not introduced:
+M6 did not introduce cloud/backend preparation, account/auth dependency, private content in Critical Wake Snapshot, WorkManager alarm firing, private production TTS, or Wake Runtime state inside the plan.
 
-- cloud/backend preparation;
-- account/auth dependency;
-- prepared private content in Critical Wake Snapshot;
-- WorkManager alarm firing or cold-start initialization dependency;
-- TTS/private prepared speech in production Active Wake Execution;
-- Wake Runtime policy/state inside the plan.
+## Optional AI platform foundation in PR #23
 
-M6 is not considered merged/complete until PR #20 CI and review are green. The dedicated API-36 emulator lane is manual for this branch and must be executed separately before merge if the connected GitHub Actions interface permits it; otherwise the limitation must be recorded rather than silently claimed.
+The current side-track adds:
+
+- isolated framework-less Vercel Functions service under `apps/cloud`;
+- Vercel AI SDK 7 + AI Gateway as the default optional cloud model layer;
+- centralized `fast` and `smart` model policy with cross-provider fallbacks;
+- language generation, streaming and server-owned structured outputs;
+- embeddings, transcription and speech generation;
+- short-lived realtime credential minting for M8 experiments only;
+- operator-only diagnostic endpoints with bounded request sizes;
+- no generic prompt/transcript/audio persistence;
+- metadata-only error logging;
+- strict TypeScript/unit-test CI;
+- ADR-016 plus implementation documentation.
+
+This foundation is not a roadmap milestone completion. M7 remains local/offline and M8 remains evidence-gated.
 
 ## Privacy boundaries
 
@@ -282,6 +312,8 @@ The Critical Wake Snapshot and reliability logs must never contain:
 
 M6 private state is credential-protected and excluded from Auto Backup through `noBackupFilesDir`. Pre-unlock wake remains generic and locally actionable.
 
+The optional cloud service has no persistence/database dependency in PR #23 and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android.
+
 ## Milestone status
 
 | Milestone | Status |
@@ -296,8 +328,9 @@ M6 private state is credential-protected and excluded from Auto Backup through `
 | M3 Wake Runtime | **Merged / pure runtime complete** |
 | M4 Motion Evidence | **Merged / isolated evidence layer; physical calibration open** |
 | M5 Alfred local experience | **Merged / complete, PR #17** |
-| M6 Tomorrow Contract | **In review, PR #20** |
-| M7 Wake Learning v0 | Not started |
+| M6 Tomorrow Contract | **Merged / complete, PR #20** |
+| Optional Vercel AI platform foundation | **In review, PR #23; no Android dependency** |
+| M7 Wake Learning v0 | **Next roadmap milestone** |
 | M8 Voice architecture spike | Not started |
 | M9 Realtime conversation | Not started |
 | M10 Useful context | Not started |
@@ -306,19 +339,20 @@ M6 private state is credential-protected and excluded from Auto Backup through `
 
 ## Exact next work
 
-1. Make PR #20 fully green across docs, pure tests, Android lint/compile and instrumentation compilation.
-2. Execute the API-36 emulator instrumentation lane for the M6 head if an Actions dispatch path is available; otherwise record the execution limitation without treating compilation as execution.
-3. Resolve any M6 review/CI defects without weakening the private/critical storage boundary.
-4. Merge M6 and advance canonical status to M7 Wake Learning v0.
-5. Begin M7 as bounded, local, explainable off-session policy derivation only.
-6. In parallel, continue issue #9 physical-device reliability scenarios when a real device execution path is available.
-7. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+1. Make PR #23 green on strict TypeScript/unit tests and existing repository checks; fix SDK/runtime mismatches rather than weakening types.
+2. Merge PR #23 only if the cloud boundary remains non-critical and no Android operator credential is introduced.
+3. Begin M7 as bounded, local, explainable off-session Wake Policy derivation with immutable per-session policy versions.
+4. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
+5. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+6. At M8, benchmark realtime transport candidates and use the new Vercel AI platform only as one candidate/control plane, not as a preselected transport.
 
 ## Cloud / future stack status
 
-Vercel remains the preferred future non-critical web/API host. Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when a real cloud capability requires them.
+Vercel is the preferred non-critical cloud/web host. PR #23 establishes `apps/cloud` as the isolated implementation root and AI SDK + AI Gateway as the default cloud AI access layer.
 
-Neither is required for M0–M7 local wake authority.
+Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when a real persistence or identity capability requires it. No Supabase dependency is added by the AI platform foundation.
+
+Neither Vercel nor Supabase is required for local wake authority or M7 Wake Learning v0.
 
 Realtime voice transport remains an M8 measured decision after deterministic local behavior and Wake Learning v0.
 
@@ -331,4 +365,5 @@ Open proof/risk boundaries:
 - physical Android reliability evidence (#9);
 - motion threshold calibration on real devices;
 - coexistence of critical alarm audio with optional local character TTS;
-- final M6 CI and emulator execution evidence before merge.
+- PR #23 cloud type/runtime validation and eventual authenticated Android-facing API design;
+- realtime voice latency/transport/provider choice remains unproven until M8.
