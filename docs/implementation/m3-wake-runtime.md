@@ -40,6 +40,8 @@ FINISHED
 
 `Escalating`, movement checks, fallback mode, and First Move are not lifecycle phases. Once a session enters `ORIENTING`, later activation evidence does not re-emit orientation directives.
 
+No-response behavior is explicit: initial speech completion, speech failure, or elapsed silence may advance `ALERTING → ENGAGING → ACTIVATING` so an unresponsive sleeper receives progressively stronger intervention. Silence/time never counts as Activation Evidence and can never by itself advance the session into `ORIENTING` or claim wake success.
+
 ## Implemented typed inputs
 
 - `AlarmFired`
@@ -143,6 +145,8 @@ This is the basis for later Wake Lab session replay, behavior debugging, and ver
 
 - normal Alerting → Engaging → Activating → Orienting → Finished path
 - activation threshold behavior
+- no-response progression after initial speech completion
+- speech-unavailable no-response progression through silence
 - duplicate input idempotency
 - orientation directive one-shot behavior
 - snooze request/confirm/schedule success
