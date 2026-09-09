@@ -36,6 +36,9 @@ class WakeRuntime {
         ) {
             return transition(remembered)
         }
+        if (current.phase == WakePhase.ORIENTING && input.isStaleActivationCallback()) {
+            return transition(remembered)
+        }
 
         return when (input) {
             is WakeInput.AlarmFired -> transition(
@@ -155,12 +158,9 @@ class WakeRuntime {
                     remembered.copy(snoozeState = SnoozeState.SCHEDULING),
                     WakeDirective.RequestSnoozeSchedule(policy.defaultSnoozeDuration),
                 )
-                SnoozeState.NONE -> transition(
-                    remembered.copy(snoozeState = SnoozeState.OFFERED),
-                    WakeDirective.Speak(SpeechIntent.SnoozeConfirmation),
-                    WakeDirective.OfferSnooze(policy.defaultSnoozeDuration),
-                )
-                SnoozeState.SCHEDULING -> transition(remembered)
+                SnoozeState.NONE,
+                SnoozeState.SCHEDULING,
+                -> transition(remembered)
             }
 
             is WakeInput.SnoozeScheduled -> {
@@ -314,5 +314,19 @@ class WakeRuntime {
         val remembered = (snapshot.processedInputIds + inputId)
             .takeLast(policy.rememberedInputLimit)
         return snapshot.copy(processedInputIds = remembered)
+    }
+
+    private fun WakeInput.isStaleActivationCallback(): Boolean = when (this) {
+        is WakeInput.AlarmFired,
+        is WakeInput.WakeSurfacePresented,
+        is WakeInput.UserInteracted,
+        is WakeInput.VoiceResponseObserved,
+        is WakeInput.MotionObserved,
+        is WakeInput.SilenceElapsed,
+        is WakeInput.SpeechFinished,
+        is WakeInput.SpeechFailed,
+        -> true
+
+        else -> false
     }
 }
