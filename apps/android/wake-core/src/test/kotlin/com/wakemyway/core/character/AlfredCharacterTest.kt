@@ -85,12 +85,36 @@ class AlfredCharacterTest {
     }
 
     @Test
-    fun `curated Alfred catalog never uses shame insult or threat vocabulary`() {
-        val renderedCatalog = intents.flatMap { intent ->
-            (0 until 256).map { index ->
-                AlfredCharacter.render(intent, WakeLineKey("safety-$index")).text.lowercase()
+    fun `snooze confirmation never claims that replacement scheduling already succeeded`() {
+        val lines = renderedTexts(SpeechIntent.SnoozeConfirmation)
+
+        lines.forEach { line ->
+            PREMATURE_SNOOZE_SUCCESS_TERMS.forEach { forbidden ->
+                assertTrue(
+                    forbidden !in line,
+                    "Snooze confirmation over-claimed durable state with '$forbidden': $line",
+                )
             }
-        }.toSet()
+        }
+    }
+
+    @Test
+    fun `orientation never claims biological wakefulness or unsupported posture`() {
+        val lines = renderedTexts(SpeechIntent.Orientation)
+
+        lines.forEach { line ->
+            UNSUPPORTED_ORIENTATION_CLAIMS.forEach { forbidden ->
+                assertTrue(
+                    forbidden !in line,
+                    "Orientation line over-claimed wake state with '$forbidden': $line",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `curated Alfred catalog never uses shame insult or threat vocabulary`() {
+        val renderedCatalog = intents.flatMap(::renderedTexts).toSet()
 
         renderedCatalog.forEach { line ->
             FORBIDDEN_TERMS.forEach { forbidden ->
@@ -102,10 +126,34 @@ class AlfredCharacterTest {
         }
     }
 
+    private fun renderedTexts(intent: SpeechIntent): Set<String> =
+        (0 until 256)
+            .map { index ->
+                AlfredCharacter.render(intent, WakeLineKey("catalog-$index")).text.lowercase()
+            }
+            .toSet()
+
     private fun String.wordCount(): Int = trim().split(Regex("\\s+")).size
 
     private companion object {
         const val MAX_EXPECTED_WORDS = 16
+
+        val PREMATURE_SNOOZE_SUCCESS_TERMS = setOf(
+            "snooze accepted",
+            "snooze scheduled",
+            "was scheduled",
+            "has been scheduled",
+            "snooze confirmed",
+        )
+
+        val UNSUPPORTED_ORIENTATION_CLAIMS = setOf(
+            "you are awake",
+            "you're awake",
+            "fully awake",
+            "you are upright",
+            "you're upright",
+        )
+
         val FORBIDDEN_TERMS = setOf(
             "lazy",
             "stupid",
