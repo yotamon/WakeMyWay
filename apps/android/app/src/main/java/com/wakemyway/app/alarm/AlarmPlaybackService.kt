@@ -30,6 +30,7 @@ class AlarmPlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val kernel = AlarmKernel(this)
+        val trace = WakeTimingTrace(this)
 
         // Android can recreate a service without redelivering its previous Intent. The durable
         // active occurrence is the recovery authority, so a process restart cannot silently
@@ -40,6 +41,7 @@ class AlarmPlaybackService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            trace.serviceRecovered(active.id)
             return ensureActiveWake(kernel, active.id)
         }
 
@@ -50,13 +52,17 @@ class AlarmPlaybackService : Service() {
             ACTION_START -> ensureActiveWake(kernel, occurrenceId)
 
             ACTION_STOP -> {
-                kernel.stopActive(occurrenceId)
+                if (kernel.stopActive(occurrenceId)) {
+                    trace.stopped(occurrenceId)
+                }
                 stopExecution()
                 START_NOT_STICKY
             }
 
             ACTION_SNOOZE -> {
-                kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
+                if (kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE) != null) {
+                    trace.snoozed(occurrenceId)
+                }
                 stopExecution()
                 START_NOT_STICKY
             }
