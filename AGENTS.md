@@ -16,6 +16,7 @@ Read in this order:
 8. [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) — local/off-session adaptation rules
 9. the active milestone in [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md)
 10. for testing/deployment/cloud work, [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md)
+11. for cloud AI work, [`docs/adr/016-vercel-ai-platform.md`](docs/adr/016-vercel-ai-platform.md) and [`docs/implementation/vercel-ai-platform.md`](docs/implementation/vercel-ai-platform.md)
 
 For UX work also read `docs/04-ux-psychology.md`, `docs/05-ux-flows.md`, and `docs/07-design-system.md`.
 
@@ -33,11 +34,11 @@ If the answer is no, keep the implementation local and concrete.
 
 ## Hard rules
 
-- Android is the only implementation target now. Future iOS portability is preserved through domain language, behavior tests, data/API contracts, and clean platform boundaries — **not** speculative iOS-shaped interfaces.
+- Android is the only client/runtime product target now. Future iOS portability is preserved through domain language, behavior tests, data/API contracts, and clean platform boundaries — **not** speculative iOS-shaped interfaces. Optional `apps/cloud` code may implement non-critical web/API/AI capabilities, but it never becomes Android wake authority.
 - Use native Android: Kotlin + Jetpack Compose.
 - Do not introduce React Native, Flutter, or KMP unless a future ADR explicitly changes the decision.
-- M0 starts with only `:app`, `:wake-core`, and `:benchmark`. Split more physical modules only after implementation evidence shows a real boundary.
-- `:wake-core` is pure Kotlin and must not depend on `android.*`, Compose, Room, networking, voice providers, or analytics.
+- M0 starts with only `:app`, `:wake-core`, and `:benchmark`. Split more physical Android modules only after implementation evidence shows a real boundary. The isolated `apps/cloud` service is not a Gradle/Android module.
+- `:wake-core` is pure Kotlin and must not depend on `android.*`, Compose, Room, networking, voice providers, analytics, or cloud SDKs.
 - Current M0 Android baseline is `targetSdk = 36`, `compileSdk >= 36` using the current stable toolchain, with `minSdk` selected deliberately during M0. Revalidate before future target-SDK upgrades.
 - The preferred exact-alarm manifest direction is `USE_EXACT_ALARM` because WMW is a dedicated alarm-clock app. Revalidate current Google Play restricted-permission eligibility before implementation/submission; do not silently change the strategy.
 - The exact native alarm primitive is `AlarmManager.setAlarmClock()` for user-facing Wake Occurrences.
@@ -51,7 +52,10 @@ If the answer is no, keep the implementation local and concrete.
 - Snooze is a durable replacement occurrence. The old active execution ends only after the new exact Snooze Occurrence is safely scheduled; the old occurrence must not resurrect afterward.
 - Do not add broad/indefinite wake locks by default. If measurements prove a power primitive is needed, its lifecycle belongs inside Alarm Kernel and must be released on all terminal paths.
 - Do not put network, AI, analytics, account, subscription, calendar, weather, or generated content on the critical alarm path.
-- The Android app runs on the device; it is never "hosted on Vercel". Vercel is reserved for future non-critical web/API workloads and must remain outside current wake authority.
+- The Android app runs on the device; it is never "hosted on Vercel". `apps/cloud` may run optional non-critical web/API/AI workloads on Vercel, but Vercel must remain outside Wake Ready, alarm delivery, Active Wake Execution, Stop/Snooze, Wake Runtime authority, and local M7 learning.
+- Vercel AI SDK + AI Gateway are the default cloud AI access layer under ADR-016. Product/domain code should use the deep `apps/cloud/src/ai` boundary rather than importing provider SDKs directly, unless a measured capability requires an explicit documented exception.
+- Realtime token support in `apps/cloud` is an M8 spike facility only. It does not select Vercel-mediated realtime transport or authorize coupling Android's live wake session to Vercel before measurements.
+- Never embed `WMW_INTERNAL_API_KEY`, AI Gateway keys, provider keys, or other server/operator credentials in the Android app. Future Android-facing cloud endpoints require installation/account/session authorization.
 - Supabase is the preferred future managed cloud data platform: PostgreSQL first, Auth later when accounts are justified, Storage only when a concrete object-storage need exists. It remains outside current wake authority.
 - Do not couple Android domain behavior directly to Supabase tables. Domain reads/writes go through the Wake API; a future direct Supabase Auth flow may be used only for identity/session acquisition if explicitly implemented.
 - **Wake Learning v0 is M7 and local/offline.** Do not create a backend, ML model, generic rule engine, or cloud learning dependency to implement initial adaptation.
@@ -60,7 +64,7 @@ If the answer is no, keep the implementation local and concrete.
 - The runtime's own activation threshold is **Activation Completion**, not automatic proof of real Wake Success.
 - **Confirmed Wake Success** requires calibration evidence such as occasional later user feedback or a future validated privacy-safe proxy. Missing calibration is unknown, not success.
 - Wake Learning must not optimize Activation Completion alone if calibration shows return-to-bed false positives.
-- Realtime voice transport is spike-gated. Do not assume Vercel WebSockets, direct provider access, or LiveKit until **M8** measurements select the boundary.
+- Realtime voice transport is spike-gated. Do not assume Vercel WebSockets/Gateway transport, direct provider access, or LiveKit until **M8** measurements select the boundary.
 - Do not use WorkManager to fire alarms. WorkManager is for deferrable preparation/sync only.
 - Alarm delivery must degrade safely when backend, network, AI, generated speech, normal database initialization, or optional permissions fail.
 - Direct Boot matters. Only the minimal, non-sensitive **Critical Wake Snapshot** may live in device-protected storage. Tomorrow Contract text, calendar content, transcripts, prompts, tokens, learned private explanations, and personalized private speech remain credential-protected.
@@ -71,6 +75,7 @@ If the answer is no, keep the implementation local and concrete.
 - Do not use the legacy term **Verified Awake**. The app observes behavioral activation; it does not medically verify consciousness.
 - Never store raw microphone audio by default.
 - Never send full transcripts, calendar descriptions, Tomorrow Contract raw text, generated prompts, private learning inputs/explanations, or private wake content to crash/analytics tooling.
+- Cloud AI errors/logs must not include prompts, transcripts, raw audio, private generated speech, provider response bodies, or secrets. Prefer request IDs and typed metadata.
 - No shame, humiliation, guilt, threats, or infantilizing character language.
 - No AI-gradient/orb/robot visual clichés. Follow the Wake My Way design language.
 
@@ -126,6 +131,8 @@ Calibration = RETURNED_TO_BED
 ```
 
 and verify the system preserves the disagreement instead of counting it as Wake Success.
+
+Cloud AI tests should remain deterministic and non-billable by default. Use unit/type tests for routing/auth/validation and explicit controlled smoke tests for real providers only when credentials/spend limits are intentionally configured.
 
 ## After meaningful work
 
