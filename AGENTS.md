@@ -11,9 +11,11 @@ Read in this order:
 3. [`docs/03-product-principles.md`](docs/03-product-principles.md) — product constraints
 4. [`docs/08-android-architecture.md`](docs/08-android-architecture.md) — architecture and module boundaries
 5. [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) — alarm-critical reliability contract
-6. [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) — in-session deterministic behavior
-7. the active milestone in [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md)
-8. for testing/deployment/cloud work, [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md)
+6. [`docs/adr/014-active-wake-execution-lifecycle.md`](docs/adr/014-active-wake-execution-lifecycle.md) — active alarm playback/recovery invariant
+7. [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) — in-session deterministic behavior
+8. [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) — local/off-session adaptation rules
+9. the active milestone in [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md)
+10. for testing/deployment/cloud work, [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md)
 
 For UX work also read `docs/04-ux-psychology.md`, `docs/05-ux-flows.md`, and `docs/07-design-system.md`.
 
@@ -36,23 +38,39 @@ If the answer is no, keep the implementation local and concrete.
 - Do not introduce React Native, Flutter, or KMP unless a future ADR explicitly changes the decision.
 - M0 starts with only `:app`, `:wake-core`, and `:benchmark`. Split more physical modules only after implementation evidence shows a real boundary.
 - `:wake-core` is pure Kotlin and must not depend on `android.*`, Compose, Room, networking, voice providers, or analytics.
-- V1 supports **one active Wake Schedule at a time**, which may have weekday-specific times and produces one next Wake Occurrence.
+- Current M0 Android baseline is `targetSdk = 36`, `compileSdk >= 36` using the current stable toolchain, with `minSdk` selected deliberately during M0. Revalidate before future target-SDK upgrades.
+- The preferred exact-alarm manifest direction is `USE_EXACT_ALARM` because WMW is a dedicated alarm-clock app. Revalidate current Google Play restricted-permission eligibility before implementation/submission; do not silently change the strategy.
+- The exact native alarm primitive is `AlarmManager.setAlarmClock()` for user-facing Wake Occurrences.
+- V1 supports **one active adaptive Wake Schedule at a time**, which may have weekday-specific times and produces one next Wake Occurrence.
+- A dogfood Safety Backup, if implemented, is a temporary conventional fallback and **not** a second adaptive Wake Schedule. Do not introduce generic multi-alarm architecture for it.
 - The **Alarm Kernel is a deep module**. Callers must not orchestrate persistence → snapshot → `AlarmManager` ordering themselves.
+- Alarm Kernel ownership continues after the trigger through **Active Wake Execution**. `WakeActivity` must never be the sole lifetime owner of critical alarm playback.
+- Initial active-alarm implementation direction is an alarm-appropriate foreground playback service/controller with `USAGE_ALARM` semantics, kept private inside the Alarm Kernel. A Service class does not automatically deserve its own Gradle module/public interface.
+- Active-alarm starts/recovery must be idempotent: one active occurrence cannot produce duplicate overlapping critical audio.
+- Stop is local, accessible, non-AI-dependent, idempotent, and terminal for that occurrence. Component recreation/stale trigger must not resurrect it.
+- Snooze is a durable replacement occurrence. The old active execution ends only after the new exact Snooze Occurrence is safely scheduled; the old occurrence must not resurrect afterward.
+- Do not add broad/indefinite wake locks by default. If measurements prove a power primitive is needed, its lifecycle belongs inside Alarm Kernel and must be released on all terminal paths.
 - Do not put network, AI, analytics, account, subscription, calendar, weather, or generated content on the critical alarm path.
 - The Android app runs on the device; it is never "hosted on Vercel". Vercel is reserved for future non-critical web/API workloads and must remain outside current wake authority.
 - Supabase is the preferred future managed cloud data platform: PostgreSQL first, Auth later when accounts are justified, Storage only when a concrete object-storage need exists. It remains outside current wake authority.
 - Do not couple Android domain behavior directly to Supabase tables. Domain reads/writes go through the Wake API; a future direct Supabase Auth flow may be used only for identity/session acquisition if explicitly implemented.
-- Realtime voice transport is spike-gated. Do not assume Vercel WebSockets, direct provider access, or LiveKit until M7 measurements select the boundary.
+- **Wake Learning v0 is M7 and local/offline.** Do not create a backend, ML model, generic rule engine, or cloud learning dependency to implement initial adaptation.
+- Wake Learning may derive future Wake Policy only between sessions. One Wake Session uses one immutable policy version.
+- Learned policy changes must be bounded, explainable, versioned, reversible/resettable, and constrained by annoyance/agency as well as effectiveness.
+- The runtime's own activation threshold is **Activation Completion**, not automatic proof of real Wake Success.
+- **Confirmed Wake Success** requires calibration evidence such as occasional later user feedback or a future validated privacy-safe proxy. Missing calibration is unknown, not success.
+- Wake Learning must not optimize Activation Completion alone if calibration shows return-to-bed false positives.
+- Realtime voice transport is spike-gated. Do not assume Vercel WebSockets, direct provider access, or LiveKit until **M8** measurements select the boundary.
 - Do not use WorkManager to fire alarms. WorkManager is for deferrable preparation/sync only.
-- The exact native alarm primitive is `AlarmManager.setAlarmClock()` for user-facing wake occurrences.
 - Alarm delivery must degrade safely when backend, network, AI, generated speech, normal database initialization, or optional permissions fail.
-- Direct Boot matters. Only the minimal, non-sensitive **Critical Wake Snapshot** may live in device-protected storage. Tomorrow Contract text, calendar content, transcripts, prompts, tokens, and personalized private speech remain credential-protected.
-- Explicit Android Force Stop is outside the deliverable-alarm reliability envelope when the OS cancels the app's pending intents. Detect/reconcile on next user start; never promise the impossible.
+- Direct Boot matters. Only the minimal, non-sensitive **Critical Wake Snapshot** may live in device-protected storage. Tomorrow Contract text, calendar content, transcripts, prompts, tokens, learned private explanations, and personalized private speech remain credential-protected.
+- Explicit Android Force Stop is outside the deliverable-alarm reliability envelope when the OS stops/cancels the app's pending work. Detect/reconcile on next user start; never promise the impossible.
+- Ordinary Activity recreation/process churn is **not** treated as Force Stop and must be covered by M1/M2 active-execution recovery tests.
 - The **Wake Runtime** is deterministic and owns in-session activation evidence, escalation, and behavioral policy. Do not split these into shallow public modules merely for theoretical testability.
-- AI may render an approved `Speech Intent`; it must never decide phase transitions, activation success, alarm dismissal, snooze acceptance, or facts.
+- AI may render an approved `Speech Intent`; it must never decide phase transitions, Activation Completion, Confirmed Wake Success, alarm dismissal, snooze acceptance, or facts.
 - Do not use the legacy term **Verified Awake**. The app observes behavioral activation; it does not medically verify consciousness.
 - Never store raw microphone audio by default.
-- Never send full transcripts, calendar descriptions, Tomorrow Contract raw text, generated prompts, or private wake content to crash/analytics tooling.
+- Never send full transcripts, calendar descriptions, Tomorrow Contract raw text, generated prompts, private learning inputs/explanations, or private wake content to crash/analytics tooling.
 - No shame, humiliation, guilt, threats, or infantilizing character language.
 - No AI-gradient/orb/robot visual clichés. Follow the Wake My Way design language.
 
@@ -71,7 +89,7 @@ Prepared/local personalized speech
     ↓
 Prepared scripted character plan
     ↓
-Deterministic local Wake Runtime
+Deterministic local Wake Runtime + learned policy
     ↓
 Standard branded alarm + basic controls
     ↓
@@ -80,9 +98,34 @@ Bundled emergency alarm
 
 Fallback richness may degrade. A valid scheduled wake attempt must remain locally actionable inside the documented Android reliability envelope.
 
+The critical execution chain is conceptually:
+
+```text
+Wake Occurrence scheduled
+    ↓
+AlarmManager trigger
+    ↓
+Alarm Kernel Active Wake Execution
+    ↓
+safe local alarm playback + controls
+    ↓
+WakeActivity / Wake Runtime enrichment
+```
+
+Never reverse this dependency so UI/AI availability becomes a prerequisite for alarm playback.
+
 ## Testing truth hierarchy
 
-Behavioral correctness is established through pure Kotlin tests and Wake Lab replay. Platform reliability is established through Android instrumentation, device matrices, Play-distributed builds, and real overnight dogfood. No emulator or cloud-device pass alone proves that the product reliably wakes a sleeping user.
+Behavioral correctness is established through pure Kotlin tests and Wake Lab replay. Platform reliability is established through Android instrumentation, lifecycle kill/recreate cases, device matrices, Play-distributed builds, and real overnight dogfood. No emulator or cloud-device pass alone proves that the product reliably wakes a sleeping user.
+
+When working on M7 learning, include fixtures where:
+
+```text
+Activation Completion = true
+Calibration = RETURNED_TO_BED
+```
+
+and verify the system preserves the disagreement instead of counting it as Wake Success.
 
 ## After meaningful work
 
