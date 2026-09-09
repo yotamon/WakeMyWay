@@ -10,6 +10,7 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -28,37 +29,40 @@ class AlarmPlaybackService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val rawId = intent?.getStringExtra(EXTRA_OCCURRENCE_ID) ?: return START_NOT_STICKY
+        val kernel = AlarmKernel(this)
+
+        // Android can recreate a service without redelivering its previous Intent. The durable
+        // active occurrence is the recovery authority, so a process restart cannot silently
+        // convert an already-firing alarm into silence.
+        if (intent == null) {
+            val active = kernel.activeOccurrence()
+            if (active == null) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            return ensureActiveWake(kernel, active.id)
+        }
+
+        val rawId = intent.getStringExtra(EXTRA_OCCURRENCE_ID) ?: return START_NOT_STICKY
         val occurrenceId = WakeOccurrenceId(rawId)
 
-        when (intent.action) {
-            ACTION_START -> {
-                val beginResult = AlarmKernel(this).beginActive(occurrenceId)
-                if (beginResult == BeginActiveResult.STALE) {
-                    stopSelf()
-                    return START_NOT_STICKY
-                }
-
-                val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
-                startForeground(NOTIFICATION_ID, alarmNotification(occurrenceId))
-                if (!playbackAlreadyActive) {
-                    WakeTimingTrace(this).foreground(occurrenceId)
-                }
-                startPlayback(occurrenceId)
-                return START_REDELIVER_INTENT
-            }
+        return when (intent.action) {
+            ACTION_START -> ensureActiveWake(kernel, occurrenceId)
 
             ACTION_STOP -> {
-                AlarmKernel(this).stopActive(occurrenceId)
+                kernel.stopActive(occurrenceId)
                 stopExecution()
+                START_NOT_STICKY
             }
 
             ACTION_SNOOZE -> {
-                AlarmKernel(this).snoozeActive(occurrenceId, DEFAULT_SNOOZE)
+                kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
                 stopExecution()
+                START_NOT_STICKY
             }
+
+            else -> START_NOT_STICKY
         }
-        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -67,6 +71,25 @@ class AlarmPlaybackService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun ensureActiveWake(
+        kernel: AlarmKernel,
+        occurrenceId: WakeOccurrenceId,
+    ): Int {
+        val beginResult = kernel.beginActive(occurrenceId)
+        if (beginResult == BeginActiveResult.STALE) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
+        startForeground(NOTIFICATION_ID, alarmNotification(occurrenceId))
+        if (!playbackAlreadyActive) {
+            WakeTimingTrace(this).foreground(occurrenceId)
+        }
+        startPlayback(occurrenceId)
+        return START_REDELIVER_INTENT
+    }
 
     private fun startPlayback(occurrenceId: WakeOccurrenceId) {
         if (mediaPlayer?.isPlaying == true || toneFallback != null) return
@@ -126,19 +149,20 @@ class AlarmPlaybackService : Service() {
         .addAction(
             android.R.drawable.ic_lock_idle_alarm,
             "Snooze 5 min",
-            commandIntent(ACTION_SNOOZE, occurrenceId, 1),
+            commandIntent(ACTION_SNOOZE, occurrenceId),
         )
         .addAction(
             android.R.drawable.ic_menu_close_clear_cancel,
             "Stop",
-            commandIntent(ACTION_STOP, occurrenceId, 2),
+            commandIntent(ACTION_STOP, occurrenceId),
         )
         .build()
 
     private fun wakeActivityIntent(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getActivity(
         this,
-        occurrenceId.value.hashCode() and Int.MAX_VALUE,
+        0,
         Intent(this, WakeActivity::class.java)
+            .setData(intentIdentity("wake-ui", occurrenceId))
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -147,15 +171,23 @@ class AlarmPlaybackService : Service() {
     private fun commandIntent(
         action: String,
         occurrenceId: WakeOccurrenceId,
-        discriminator: Int,
     ): PendingIntent = PendingIntent.getService(
         this,
-        (occurrenceId.value.hashCode() * 31 + discriminator) and Int.MAX_VALUE,
+        0,
         Intent(this, AlarmPlaybackService::class.java)
             .setAction(action)
+            .setData(intentIdentity(action.substringAfterLast('.').lowercase(), occurrenceId))
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
+
+    private fun intentIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
+        Uri.Builder()
+            .scheme("wakemyway")
+            .authority("wake")
+            .appendPath(kind)
+            .appendPath(occurrenceId.value)
+            .build()
 
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
@@ -187,6 +219,7 @@ class AlarmPlaybackService : Service() {
                 context,
                 Intent(context, AlarmPlaybackService::class.java)
                     .setAction(ACTION_START)
+                    .setData(commandIdentity("start", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
@@ -195,6 +228,7 @@ class AlarmPlaybackService : Service() {
             context.startService(
                 Intent(context, AlarmPlaybackService::class.java)
                     .setAction(ACTION_STOP)
+                    .setData(commandIdentity("stop", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
@@ -203,8 +237,17 @@ class AlarmPlaybackService : Service() {
             context.startService(
                 Intent(context, AlarmPlaybackService::class.java)
                     .setAction(ACTION_SNOOZE)
+                    .setData(commandIdentity("snooze", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
+
+        private fun commandIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
+            Uri.Builder()
+                .scheme("wakemyway")
+                .authority("wake-command")
+                .appendPath(kind)
+                .appendPath(occurrenceId.value)
+                .build()
     }
 }
