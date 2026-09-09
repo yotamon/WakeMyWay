@@ -156,39 +156,37 @@ object WakeLearning {
                 .minus(learningPolicy.movementPromptStep)
                 .coerceAtLeast(learningPolicy.minimumMovementPromptDelay)
             if (nextDelay == currentPolicy.movementPromptDelay) {
-                return atBound(ids, currentPolicy, "earlier")
+                return atBound(ids, "earlier")
             }
             return updated(
                 currentPolicy = currentPolicy,
                 nextDelay = nextDelay,
                 consideredOutcomeIds = ids,
-                learningPolicy = learningPolicy,
                 explanation = "$quickEngagementSlowMovement/${considered.size} recent wakes engaged within ${learningPolicy.quickEngagementThreshold.seconds}s but meaningful movement was missing or took at least ${learningPolicy.slowMovementThreshold.seconds}s. Ask for movement ${learningPolicy.movementPromptStep.seconds}s earlier.",
             )
         }
 
-        val fastMovementWithNoKnownFailure = considered.count { outcome ->
+        val fastMovementWithConfirmedSuccess = considered.count { outcome ->
             val movement = outcome.meaningfulMovementAfter
             movement != null &&
                 movement <= learningPolicy.fastMovementThreshold &&
-                outcome.confirmedWakeSuccess != ConfirmedWakeSuccess.NOT_CONFIRMED
+                outcome.confirmedWakeSuccess == ConfirmedWakeSuccess.CONFIRMED
         }
         if (
-            fastMovementWithNoKnownFailure >= learningPolicy.requiredPatternCount &&
+            fastMovementWithConfirmedSuccess >= learningPolicy.requiredPatternCount &&
             guardrailViolations >= learningPolicy.requiredGuardrailViolationsForLaterPrompt
         ) {
             val nextDelay = currentPolicy.movementPromptDelay
                 .plus(learningPolicy.movementPromptStep)
                 .coerceAtMost(learningPolicy.maximumMovementPromptDelay)
             if (nextDelay == currentPolicy.movementPromptDelay) {
-                return atBound(ids, currentPolicy, "later")
+                return atBound(ids, "later")
             }
             return updated(
                 currentPolicy = currentPolicy,
                 nextDelay = nextDelay,
                 consideredOutcomeIds = ids,
-                learningPolicy = learningPolicy,
-                explanation = "$fastMovementWithNoKnownFailure/${considered.size} recent wakes reached meaningful movement within ${learningPolicy.fastMovementThreshold.seconds}s while $guardrailViolations reported high annoyance or low agency. Reduce friction by asking for movement ${learningPolicy.movementPromptStep.seconds}s later.",
+                explanation = "$fastMovementWithConfirmedSuccess/${considered.size} recent wakes had Confirmed Wake Success and reached meaningful movement within ${learningPolicy.fastMovementThreshold.seconds}s while $guardrailViolations reported high annoyance or low agency. Reduce friction by asking for movement ${learningPolicy.movementPromptStep.seconds}s later.",
             )
         }
 
@@ -203,7 +201,6 @@ object WakeLearning {
         currentPolicy: WakePolicy,
         nextDelay: Duration,
         consideredOutcomeIds: List<WakeOutcomeId>,
-        learningPolicy: WakeLearningPolicy,
         explanation: String,
     ): WakeLearningDecision.PolicyUpdated {
         require(currentPolicy.version < Int.MAX_VALUE) { "Wake policy version exhausted" }
@@ -225,7 +222,6 @@ object WakeLearning {
 
     private fun atBound(
         consideredOutcomeIds: List<WakeOutcomeId>,
-        currentPolicy: WakePolicy,
         direction: String,
     ): WakeLearningDecision.NoChange = WakeLearningDecision.NoChange(
         reason = WakeLearningNoChangeReason.AT_POLICY_BOUND,
