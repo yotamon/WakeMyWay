@@ -1,0 +1,1 @@
+M1 critical playback must remain local and network-independent. The current emergency_alarm raw resource is intentionally consumed through USAGE_ALARM and has a ToneGenerator fallback. Replace the seed resource with the final branded Wake Motif audio asset after device reliability validation, without changing the Alarm Kernel contract.
