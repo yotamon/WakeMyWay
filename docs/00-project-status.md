@@ -3,9 +3,9 @@
 **Last updated:** 2026-09-09  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first  
-**Current engineering phase:** M5 Alfred local character experience in progress, while M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `feat/m5-alfred-local`  
-**Current PR:** #17
+**Current engineering phase:** M6 Tomorrow Contract + Prepared Wake Plan next, while M2 physical-device reliability evidence remains open  
+**Current implementation branch:** none yet  
+**Current PR:** none
 
 ## Executive status
 
@@ -18,8 +18,7 @@ Merged into `main`:
 - M2 automated reliability harness + dedicated emulator lane
 - M3 deterministic Wake Runtime
 - M4 bounded Motion Evidence extraction + thin Android sensor adapter
-
-M5 is implementing Alfred as the first deterministic local character. The implementation is deliberately isolated from production Active Wake Execution until physical-device reliability evidence shows that character speech can be integrated without weakening alarm audibility or lifecycle guarantees.
+- M5 Alfred deterministic local character + offline-only Android speech lab
 
 The product now has:
 
@@ -95,7 +94,7 @@ WakeRuntime
 
 Current thresholds are tuning hypotheses until calibrated on physical devices.
 
-### M5 character path
+### Character path
 
 ```text
 WakeDirective.Speak(SpeechIntent)
@@ -113,7 +112,7 @@ WakeDirective.Speak(SpeechIntent)
  verified offline voice
 ```
 
-M5 currently exposes this path in Wake Alarm Lab only. Character speech does not own critical alarm audio and is not yet production-wired into Active Wake Execution.
+Character speech currently exists in Wake Alarm Lab only. It does not own critical alarm audio and is not yet production-wired into Active Wake Execution.
 
 ## Implemented and merged: M0 Foundation
 
@@ -255,11 +254,11 @@ Implemented:
 
 Production wiring remains reliability-gated, and thresholds are not considered calibrated yet.
 
-## In progress: M5 Alfred local character experience
+## Implemented and merged: M5 Alfred local character experience
 
-Tracks issue #16 and PR #17. Canonical implementation note: [`implementation/m5-alfred-local.md`](implementation/m5-alfred-local.md).
+M5 merged in PR #17. Issue #16 is complete. Canonical implementation note: [`implementation/m5-alfred-local.md`](implementation/m5-alfred-local.md).
 
-Current implementation candidate includes:
+Implemented:
 
 - versioned `CharacterSpec` and `RenderedWakeLine`;
 - Alfred v1: dry, composed, concise, direct;
@@ -275,13 +274,35 @@ Current implementation candidate includes:
 - Alfred preview and voice diagnostics in Wake Alarm Lab;
 - no network, AI, microphone or transcript persistence.
 
-Production speech integration remains intentionally deferred until M2 physical reliability work shows it is safe.
+The final PR #17 head passed docs, pure tests, Android lint, instrumentation compilation, debug APK assembly and both APK artifact uploads.
+
+Production character-speech integration remains intentionally deferred until physical reliability work shows it is safe.
+
+## Next: M6 Tomorrow Contract + Prepared Wake Plan
+
+M6 adds the first sensitive personalized morning content while preserving the alarm trust boundary.
+
+Planned scope:
+
+- optional night-before Tomorrow Contract text;
+- credential-protected local storage;
+- typed/versioned Prepared Wake Plan;
+- deterministic local preparation;
+- deferrable WorkManager preparation only;
+- local prepared safe lines/audio where useful;
+- checksum/version validation and deterministic fallback;
+- no Tomorrow Contract/private content in Direct-Boot Critical Wake Snapshot;
+- offline-at-wake behavior remains complete.
+
+Prepared content is presentation/context enrichment. It never owns Wake Runtime policy/state or Alarm Kernel authority.
 
 ## Privacy boundaries
 
-Critical/reliability/motion/character operational paths must never persist:
+Critical/reliability/motion/character operational paths must never persist private content in device-protected storage.
 
-- Tomorrow Contract text in device-protected critical state;
+The following remain prohibited from the Critical Wake Snapshot and reliability logs:
+
+- Tomorrow Contract raw text;
 - calendar content;
 - transcripts or microphone audio;
 - prompts;
@@ -291,7 +312,9 @@ Critical/reliability/motion/character operational paths must never persist:
 
 Derived motion evidence may contain only technical evidence type, monotonic timing, bounded derived reason and sensor-source availability.
 
-M5 character rendering consumes typed `SpeechIntent` plus a non-sensitive render key and does not retain transcripts.
+M5 character rendering consumes typed `SpeechIntent` plus a non-sensitive render key and retains no transcript history.
+
+M6 private content must remain credential-protected and optional. A pre-unlock wake must fall back to generic local content.
 
 ## Milestone status
 
@@ -306,8 +329,8 @@ M5 character rendering consumes typed `SpeechIntent` plus a non-sensitive render
 | M2 Reliability Harness | **Automated harness + emulator lane merged; physical-device evidence still open (#9)** |
 | M3 Wake Runtime | **Merged / pure runtime complete** |
 | M4 Motion evidence | **Merged / isolated evidence layer complete; physical calibration open** |
-| M5 Alfred local experience | **In progress, PR #17** |
-| M6 Tomorrow Contract | Not started |
+| M5 Alfred local experience | **Merged / complete, PR #17** |
+| M6 Tomorrow Contract | **Next** |
 | M7 Wake Learning v0 | Not started |
 | M8 Voice architecture spike | Not started |
 | M9 Realtime conversation | Not started |
@@ -317,12 +340,14 @@ M5 character rendering consumes typed `SpeechIntent` plus a non-sensitive render
 
 ## Exact next work
 
-1. Get the final hardened PR #17 head fully green and review character authority/privacy boundaries.
-2. Merge M5 without production-wiring character speech into Active Wake Execution.
-3. Begin M6 Tomorrow Contract as a local-first data/product feature.
-4. In parallel, run physical M2 founder-device scenarios when a device execution path is available: locked T+2m, Stop/Snooze resurrection, service recreation, Doze, reboot/Direct Boot, time/timezone changes and capability degradation.
-5. Calibrate motion thresholds and local TTS/audio coexistence on real devices before production integration.
-6. Keep M7 Wake Learning local and bounded before the M8 realtime-provider spike.
+1. Create the M6 issue/branch from current `main`.
+2. Define pure Tomorrow Contract / Prepared Wake Plan models and invariants in `:wake-core`.
+3. Add credential-protected local persistence without contaminating Direct-Boot critical storage.
+4. Add deterministic preparation + WorkManager orchestration with checksum/fallback behavior.
+5. Build a concise night-before editing/preview flow in the founder app.
+6. Prove preparation and wake-time plan loading work with network absent.
+7. Continue physical M2 founder-device scenarios when a device execution path is available.
+8. Keep production wiring of motion/character/prepared personalization behind the reliability gate.
 
 ## Cloud / future stack status
 
