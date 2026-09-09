@@ -2,17 +2,18 @@
 
 ## Build philosophy
 
-Do not start with an AI demo. Build the deepest trust-critical behavior first.
+Do not start with an AI demo. Build the deepest trust-critical behavior first, then prove that the adaptive thesis works before adding expensive realtime richness.
 
 ```text
 reliable native wake occurrence
+→ resilient active alarm execution
 → deterministic Wake Runtime
 → physical activation evidence
 → local character experience
 → Tomorrow Contract / prepared plan
+→ deterministic Wake Learning v0
 → realtime voice
 → context
-→ learning
 ```
 
 The roadmap is evidence-driven. Later architecture is intentionally left unbuilt until earlier milestones expose real needs.
@@ -37,7 +38,11 @@ Set up:
 - unit-test baseline
 - CI build/test/lint
 - manual composition root
-- versioned Android SDK settings after current Play/API recheck
+- `targetSdk = 36` baseline for Google Play submissions as of 2026-09-09
+- `compileSdk = 36+` using the current stable toolchain at implementation time
+- `minSdk` selected deliberately from device-market/reliability needs rather than guessed in documentation
+
+The exact-alarm manifest strategy begins with **`USE_EXACT_ALARM` as the preferred implementation hypothesis** because WMW is a dedicated alarm-clock product whose core user-facing function requires precise timing. Re-verify current Android/Google Play policy immediately before manifest implementation and again before public submission. If policy or platform behavior invalidates this choice, record the change in an ADR.
 
 Do **not** add backend, Hilt, Navigation framework, analytics, generic provider interfaces, or unused feature modules in M0.
 
@@ -59,11 +64,12 @@ Pure Kotlin foundations:
 - clean build on real Android project
 - `:wake-core` has no Android/framework dependencies
 - recurrence/timezone/DST suite passes
+- actual SDK/exact-alarm choices are recorded and policy-verified
 - docs/ADRs match actual package/module shape
 
-# M1 — Deep Alarm Kernel
+# M1 — Deep Alarm Kernel + Active Wake Execution
 
-Implement one caller-facing Alarm Kernel capability that owns the entire scheduling invariant rather than exposing orchestration steps.
+Implement one caller-facing Alarm Kernel capability that owns the entire scheduling and active-alarm reliability invariant rather than exposing orchestration steps.
 
 Internally it may use:
 
@@ -73,13 +79,17 @@ Internally it may use:
 - `PendingIntent` identity/versioning
 - receiver/notification/audio components
 - exact-alarm capability handling
+- a foreground alarm playback service/controller with `USAGE_ALARM` semantics as described by ADR-014
 - dedicated `WakeActivity`
 - bundled emergency audio
 - stop/cancel
 - exact snooze replacement
+- active occurrence identity/recovery
 - reconciliation after schedule edits/time changes/reboot/app start
 
 The app UI should call a small operation such as "commit this Wake Schedule / next occurrence" and receive a durable outcome/readiness result. It must not manually coordinate `Room → snapshot → AlarmManager` ordering.
+
+`WakeActivity` is presentation, not the lifetime authority for critical alarm audio. If the Activity is recreated or crashes, the active alarm execution must remain safe and actionable where Android allows.
 
 ### Exit criteria
 
@@ -90,7 +100,9 @@ set schedule
 close app / process may die
 next occurrence fires
 safe audible alarm starts locally
-user has accessible stop/snooze controls
+foreground alarm execution owns critical playback
+user has accessible intentional stop/snooze controls
+WakeActivity may recreate without silencing/resurrecting incorrectly
 snooze creates a new exact occurrence before current attempt ends
 ```
 
@@ -103,7 +115,12 @@ Build the Alarm Lab and exercise the real platform contract before adding behavi
 Required scenarios:
 
 - T+30s / T+2m repeated alarm cycles
-- process death
+- process death before trigger
+- `WakeActivity` destroy/recreate while alarm is sounding
+- controlled process kill/recreation while active alarm is sounding, verifying safe recovery where Android permits
+- playback-owner recreation without duplicate overlapping audio
+- stop followed by recreation does not resurrect the alarm
+- snooze followed by recreation does not resurrect the old occurrence
 - Doze/idle
 - locked and already-unlocked presentation
 - notification permission denied
@@ -114,13 +131,13 @@ Required scenarios:
 - prepared/private data unavailable
 - duplicate trigger/idempotency
 - Android 15+ explicit Force Stop: document expected non-delivery limitation and verify repair on next launch rather than asserting an impossible guarantee
-- Android 17/API-37 audio behavior compatibility testing when available
+- Android 17/API-37 background-audio compatibility, including foreground execution and `USAGE_ALARM` behavior
 
 Measure real trigger → audio and trigger → user-control latency distributions. Only after measurement set percentile reliability targets.
 
 ### Exit criteria
 
-Wake can explain/diagnose whether the next occurrence is **Wake Ready**, and repeated tests show the Alarm Kernel contract is stable enough to build behavior above it.
+Wake can explain/diagnose whether the next occurrence is **Wake Ready**, and repeated tests show both scheduled delivery and active alarm execution are stable enough to build behavior above them.
 
 M2 should also establish the first automated device-matrix path. Start with local instrumentation and a small Firebase Test Lab virtual matrix; add physical cloud-device coverage before significant release candidates. See `32-testing-and-deployment-topology.md`.
 
@@ -145,6 +162,8 @@ Implement:
 - replayable typed session timeline
 - invariant/property tests
 - Android directive executor in `:app`
+
+Keep **Activation Completion** distinct from the broader product concept of **Confirmed Wake Success**. The runtime may deterministically decide that its activation criterion has completed; it cannot by itself prove that the user did not return to bed afterward.
 
 Do not create public `WakeConfidenceEstimator`, `StrategyPolicy`, or generic state-machine service layers unless implementation later proves a separate contract has value.
 
@@ -195,13 +214,37 @@ Implement:
 
 Sensitive content remains credential-protected and is never required by Direct Boot alarm delivery.
 
+During founder dogfood, optionally allow a **Safety Backup**: a later conventional safety alarm used only as a trust-transition aid. It is not a second adaptive Wake Schedule and must not force generic multi-alarm coordination into V1.
+
 ### Exit criteria
 
 A night-before intention influences the morning after preparation, while disabling network at wake time still produces a complete local wake attempt.
 
-# M7 — Realtime voice architecture spike
+# M7 — Wake Learning v0
 
-Only now create isolated prototypes and measure:
+Prove the product moat before realtime voice becomes central.
+
+Implement deterministic, local, explainable off-session learning from prior Wake Outcomes and feedback:
+
+- derive compact Wake Outcomes from typed timelines
+- version Wake Policy/profile snapshots
+- adjust a small bounded set of parameters such as engagement timing, movement timing, intervention depth, and snooze behavior
+- preserve annoyance/agency constraints
+- produce human-readable reasons for meaningful policy changes
+- keep every Wake Session on one immutable policy version
+- provide reset/fallback to the default policy
+
+Introduce lightweight calibration feedback only occasionally, for example whether the user actually got up, returned to bed, or got up later. This feedback calibrates **Confirmed Wake Success** against phone-observable **Activation Completion**.
+
+No machine learning, cloud dependency, opaque optimization, or mid-session policy mutation.
+
+### Exit criteria
+
+After multiple dogfood mornings, WMW can make at least one bounded, explainable policy adaptation based on prior outcomes, and replay/tests prove the update is deterministic and reversible.
+
+# M8 — Realtime voice architecture spike
+
+Only after local adaptive behavior is measurable, create isolated prototypes and measure:
 
 - direct OpenAI realtime
 - LiveKit if it may provide meaningful RTC/session leverage
@@ -219,9 +262,9 @@ Android → LiveKit / RTC layer
 Android → Vercel WebSocket gateway → provider
 ```
 
-Vercel WebSocket support is a Public Beta capability as of the current planning date, so convenience alone is not sufficient evidence to select it.
+Vercel WebSocket support is beta/time-sensitive infrastructure, so convenience alone is not sufficient evidence to select it.
 
-# M8 — Realtime conversation
+# M9 — Realtime conversation
 
 Integrate the selected implementation without changing Wake Runtime authority.
 
@@ -235,11 +278,11 @@ Integrate the selected implementation without changing Wake Runtime authority.
 
 ### Exit criteria
 
-Realtime conversation enriches the session but turning the provider/network off leaves the Wake Runtime and Alarm Kernel fully functional.
+Realtime conversation enriches the session but turning the provider/network off leaves the Wake Runtime, Wake Learning policy, and Alarm Kernel fully functional.
 
-# M9 — Useful context
+# M10 — Useful context
 
-Add optional context only after basic waking works:
+Add optional context only after basic waking and local adaptation work:
 
 - read-only Android Calendar Provider
 - narrow relevance window
@@ -249,29 +292,20 @@ Add optional context only after basic waking works:
 
 Do not create a provider abstraction until a chosen external source or substitution need makes the seam real.
 
-# M10 — Wake Learning
-
-Use prior outcomes to derive future policy/profile changes:
-
-- Wake Outcome derivation
-- versioned profile/policy snapshots
-- explainable effectiveness features
-- annoyance/agency constraints
-
-Learning is off-session and never required for the current Wake Occurrence.
-
-No ML until real data shows deterministic policy has a material limitation.
-
 # M11 — Dogfood hardening
 
 Move regular founder/trusted-user distribution to Google Play Internal Testing rather than relying only on sideloaded APKs. Daily real-device use drives product changes. Capture:
 
 - alarm trust
+- active-alarm lifecycle failures
 - annoyance/repetition
 - time to engagement
 - time to meaningful movement
-- premature activation assumptions / return-to-bed proxies
+- Activation Completion
+- Confirmed Wake Success calibration
+- premature activation assumptions / return-to-bed cases
 - snooze patterns
+- whether Safety Backup remains necessary
 - voice latency/fallback
 - battery/lifecycle/device issues
 
@@ -282,6 +316,7 @@ Introduce sanitized Sentry/PostHog only when they solve a concrete dogfood diagn
 - promote proven Internal Testing pipeline into Closed Testing workflow
 - privacy policy / processor list
 - Play declarations for exact alarm/full-screen/notifications
+- revalidate `USE_EXACT_ALARM` eligibility and Android target API requirements immediately before submission
 - GDPR export/delete direction for cloud data
 - accessibility audit
 - support diagnostics
@@ -294,7 +329,7 @@ Introduce sanitized Sentry/PostHog only when they solve a concrete dogfood diagn
 
 - iOS
 - KMP
-- multiple independent Wake Schedules/alarms
+- multiple independent adaptive Wake Schedules/alarms
 - wearables/smart home
 - email/news briefing
 - QR/photo missions
