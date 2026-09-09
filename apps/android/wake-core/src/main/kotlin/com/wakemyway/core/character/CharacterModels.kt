@@ -18,31 +18,35 @@ value class WakeLineKey(val value: String) {
 
 data class CharacterSpec(
     val id: CharacterId,
+    val version: Int,
     val displayName: String,
     val voiceLocaleTag: String,
     val speechRate: Float,
     val pitch: Float,
 ) {
     init {
-        require(displayName.isNotBlank())
-        require(voiceLocaleTag.isNotBlank())
-        require(speechRate in 0.5f..1.5f)
-        require(pitch in 0.5f..1.5f)
+        require(version > 0) { "Character version must be positive" }
+        require(displayName.isNotBlank()) { "Character display name must not be blank" }
+        require(voiceLocaleTag.isNotBlank()) { "Character voice locale must not be blank" }
+        require(speechRate in 0.5f..1.5f) { "Character speech rate is outside the supported range" }
+        require(pitch in 0.5f..1.5f) { "Character pitch is outside the supported range" }
     }
 }
 
 data class RenderedWakeLine(
     val characterId: CharacterId,
+    val characterVersion: Int,
     val intent: SpeechIntent,
     val text: String,
     val variantIndex: Int,
 ) {
     init {
-        require(text.isNotBlank())
+        require(characterVersion > 0) { "Rendered character version must be positive" }
+        require(text.isNotBlank()) { "Wake line must not be blank" }
         require(text.length <= MAX_WAKE_LINE_CHARACTERS) {
             "Wake lines must stay concise during sleep inertia"
         }
-        require(variantIndex >= 0)
+        require(variantIndex >= 0) { "Wake line variant index must be non-negative" }
     }
 
     companion object {
@@ -57,8 +61,8 @@ data class LocalVoiceCandidate(
     val quality: Int = 0,
 ) {
     init {
-        require(id.isNotBlank())
-        require(languageTag.isNotBlank())
+        require(id.isNotBlank()) { "Local voice id must not be blank" }
+        require(languageTag.isNotBlank()) { "Local voice language tag must not be blank" }
     }
 }
 
