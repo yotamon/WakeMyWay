@@ -19,7 +19,7 @@ concurrency:
 jobs:
   instrumentation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
 
@@ -54,17 +54,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
             set -euo pipefail
-            adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
-            adb install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r com.wakemyway.app.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation-output.txt
-            grep -Eq 'OK \([0-9]+ tests?\)' instrumentation-output.txt
-            ! grep -q 'FAILURES!!!' instrumentation-output.txt
-
-      - name: Capture emulator diagnostics
-        if: always()
-        run: |
-          adb devices -l > adb-devices.txt 2>&1 || true
-          adb logcat -d -t 2000 > emulator-logcat.txt 2>&1 || true
+            trap 'adb devices -l > "$GITHUB_WORKSPACE/adb-devices.txt" 2>&1 || true; timeout 15s adb logcat -d -t 2000 > "$GITHUB_WORKSPACE/emulator-logcat.txt" 2>&1 || true' EXIT
+            cd apps/android
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
       - name: Upload device-test evidence
         if: always()
@@ -72,7 +64,8 @@ jobs:
         with:
           name: wake-my-way-device-test-evidence-${{ github.sha }}
           path: |
-            instrumentation-output.txt
+            apps/android/app/build/reports/androidTests/connected/**
+            apps/android/app/build/outputs/androidTest-results/connected/**
             adb-devices.txt
             emulator-logcat.txt
           if-no-files-found: warn
