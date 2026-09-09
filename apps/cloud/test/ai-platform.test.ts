@@ -62,11 +62,11 @@ describe('internal HTTP boundary', () => {
     const supplied = new Request('https://example.test', {
       headers: { 'x-request-id': 'wake:123.test' },
     });
-    const hostile = new Request('https://example.test', {
-      headers: { 'x-request-id': 'bad id\nnot-safe' },
+    const policyInvalidButHttpValid = new Request('https://example.test', {
+      headers: { 'x-request-id': 'contains spaces' },
     });
 
     expect(requestId(supplied)).toBe('wake:123.test');
-    expect(requestId(hostile)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(requestId(policyInvalidButHttpValid)).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
