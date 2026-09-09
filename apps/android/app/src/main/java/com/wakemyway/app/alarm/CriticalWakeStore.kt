@@ -5,10 +5,13 @@ import android.util.AtomicFile
 import java.io.File
 import java.io.FileNotFoundException
 
-class CriticalWakeStore(context: Context) {
+class CriticalWakeStore(
+    context: Context,
+    fileName: String = DEFAULT_FILE_NAME,
+) {
     private val protectedContext = context.createDeviceProtectedStorageContext()
     private val atomicFile = AtomicFile(
-        File(protectedContext.noBackupFilesDir, FILE_NAME),
+        File(protectedContext.noBackupFilesDir, fileName),
     )
 
     @Synchronized
@@ -42,7 +45,7 @@ class CriticalWakeStore(context: Context) {
         atomicFile.delete()
     }
 
-    private companion object {
-        const val FILE_NAME = "critical-wake-snapshot.json"
+    companion object {
+        const val DEFAULT_FILE_NAME = "critical-wake-snapshot.json"
     }
 }
