@@ -4,9 +4,9 @@
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** M7 Wake Learning v0 is next; M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `feat/vercel-ai-platform`  
-**Current PR:** #23  
-**Current side-track:** optional Vercel AI platform foundation, with no Android wake-path dependency
+**Current implementation branch:** `main`  
+**Current PR:** none  
+**Current side-track:** optional Vercel AI platform foundation merged in PR #23; no Android wake-path dependency
 
 ## Executive status
 
@@ -21,8 +21,11 @@ Merged into `main`:
 - M4 bounded Motion Evidence extraction + thin Android sensor adapter
 - M5 Alfred deterministic local character + offline-only Android speech lab
 - M6 Tomorrow Contract + Prepared Wake Plan
+- optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
 
-PR #23 introduces an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport. ADR-008 remains the authority for the M8 measured voice spike; ADR-016 records the default cloud AI access layer.
+PR #23 established an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport. ADR-008 remains the authority for the M8 measured voice spike; ADR-016 records the default cloud AI access layer and its privacy boundary.
+
+Private text, structured generation and embeddings fail closed to Gateway routes that satisfy Zero Data Retention. Current default Gateway STT/TTS/realtime routes do not satisfy WMW's ZDR requirement and are disabled by default behind an explicit synthetic-spike gate.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, or coexistence of critical alarm audio with optional character speech.
 
@@ -138,7 +141,7 @@ future non-critical WMW feature
       ├─ fast/smart text policy
       ├─ structured outputs
       ├─ embeddings
-      ├─ STT / TTS
+      ├─ STT / TTS spike adapters
       └─ M8 realtime token spike
              ↓
    Vercel AI SDK 7
@@ -147,6 +150,8 @@ future non-critical WMW feature
 ```
 
 There is currently no Android production call to this service. Provider/network/cloud failure therefore cannot block a wake attempt. See [`implementation/vercel-ai-platform.md`](implementation/vercel-ai-platform.md) and ADR-016.
+
+Private text/embedding calls require ZDR and fail closed. STT/TTS/realtime are disabled by default because the current selected Gateway audio models do not provide the required ZDR guarantee; they may be enabled only for synthetic, non-sensitive engineering experiments.
 
 ## Implemented and merged milestones
 
@@ -280,16 +285,21 @@ Implemented:
 
 M6 did not introduce cloud/backend preparation, account/auth dependency, private content in Critical Wake Snapshot, WorkManager alarm firing, private production TTS, or Wake Runtime state inside the plan.
 
-## Optional AI platform foundation in PR #23
+## Optional AI platform foundation
 
-The current side-track adds:
+Merged in PR #23.
+
+Implemented:
 
 - isolated framework-less Vercel Functions service under `apps/cloud`;
 - Vercel AI SDK 7 + AI Gateway as the default optional cloud model layer;
 - centralized `fast` and `smart` model policy with cross-provider fallbacks;
 - language generation, streaming and server-owned structured outputs;
-- embeddings, transcription and speech generation;
+- ZDR-required text and embedding routing with no Gateway prompt caching;
+- embeddings;
+- transcription and speech spike adapters;
 - short-lived realtime credential minting for M8 experiments only;
+- explicit `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` default gate;
 - operator-only diagnostic endpoints with bounded request sizes;
 - no generic prompt/transcript/audio persistence;
 - metadata-only error logging;
@@ -312,7 +322,7 @@ The Critical Wake Snapshot and reliability logs must never contain:
 
 M6 private state is credential-protected and excluded from Auto Backup through `noBackupFilesDir`. Pre-unlock wake remains generic and locally actionable.
 
-The optional cloud service has no persistence/database dependency in PR #23 and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android.
+The optional cloud service has no persistence/database dependency and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android. Private text/embedding routes require ZDR. Non-ZDR audio/realtime experiments remain synthetic-only until a privacy-compliant route is verified.
 
 ## Milestone status
 
@@ -329,7 +339,7 @@ The optional cloud service has no persistence/database dependency in PR #23 and 
 | M4 Motion Evidence | **Merged / isolated evidence layer; physical calibration open** |
 | M5 Alfred local experience | **Merged / complete, PR #17** |
 | M6 Tomorrow Contract | **Merged / complete, PR #20** |
-| Optional Vercel AI platform foundation | **In review, PR #23; no Android dependency** |
+| Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
 | M7 Wake Learning v0 | **Next roadmap milestone** |
 | M8 Voice architecture spike | Not started |
 | M9 Realtime conversation | Not started |
@@ -339,16 +349,17 @@ The optional cloud service has no persistence/database dependency in PR #23 and 
 
 ## Exact next work
 
-1. Make PR #23 green on strict TypeScript/unit tests and existing repository checks; fix SDK/runtime mismatches rather than weakening types.
-2. Merge PR #23 only if the cloud boundary remains non-critical and no Android operator credential is introduced.
-3. Begin M7 as bounded, local, explainable off-session Wake Policy derivation with immutable per-session policy versions.
-4. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
-5. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
-6. At M8, benchmark realtime transport candidates and use the new Vercel AI platform only as one candidate/control plane, not as a preselected transport.
+1. Begin M7 as bounded, local, explainable off-session Wake Policy derivation with immutable per-session policy versions.
+2. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
+3. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+4. Keep the optional cloud service undeployed/unconnected to Android until a concrete non-critical feature justifies the API/auth boundary and the required privacy controls are available.
+5. At M8, benchmark realtime transport candidates and use the Vercel AI platform as one candidate/control plane, not as a preselected transport; privacy eligibility is part of the acceptance criteria.
 
 ## Cloud / future stack status
 
-Vercel is the preferred non-critical cloud/web host. PR #23 establishes `apps/cloud` as the isolated implementation root and AI SDK + AI Gateway as the default cloud AI access layer.
+Vercel is the preferred non-critical cloud/web host. PR #23 established `apps/cloud` as the isolated implementation root and AI SDK + AI Gateway as the default cloud AI access layer.
+
+Private cloud text/embedding use requires a Vercel environment/plan that can enforce the configured ZDR policy. Current selected Gateway STT/TTS/realtime models remain unsuitable for private wake data because they do not provide WMW's required ZDR guarantee.
 
 Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when a real persistence or identity capability requires it. No Supabase dependency is added by the AI platform foundation.
 
@@ -365,5 +376,7 @@ Open proof/risk boundaries:
 - physical Android reliability evidence (#9);
 - motion threshold calibration on real devices;
 - coexistence of critical alarm audio with optional local character TTS;
-- PR #23 cloud type/runtime validation and eventual authenticated Android-facing API design;
+- future Android-facing cloud API needs real installation/account/session authorization before product use;
+- private Gateway use depends on an environment/plan that supports the configured ZDR policy;
+- current selected Gateway audio/realtime routes do not meet WMW's ZDR requirement;
 - realtime voice latency/transport/provider choice remains unproven until M8.
