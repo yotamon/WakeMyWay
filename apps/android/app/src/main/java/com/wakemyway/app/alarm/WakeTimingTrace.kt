@@ -16,10 +16,13 @@ import org.json.JSONObject
  * instrumentation can never prevent the alarm path from continuing. No user-entered wake
  * context, transcript, prompt, calendar title or microphone data belongs here.
  */
-class WakeTimingTrace(context: Context) {
+class WakeTimingTrace(
+    context: Context,
+    journalName: String = DEFAULT_JOURNAL_NAME,
+) {
     private val prefs = context
         .createDeviceProtectedStorageContext()
-        .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getSharedPreferences(journalName, Context.MODE_PRIVATE)
 
     /**
      * Records an expected OS wake before its target time. This is what lets the lab diagnose
@@ -295,11 +298,11 @@ class WakeTimingTrace(context: Context) {
         const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
         const val MISSED_RECEIVER_GRACE_MS = 60_000L
         const val DELIVERY_STAGE_GRACE_MS = 5_000L
+        const val DEFAULT_JOURNAL_NAME = "wake-reliability-journal"
 
         private val LOCK = Any()
         private const val MAX_SESSIONS = 24
         private const val MAX_EVENTS_PER_SESSION = 64
-        private const val PREFS_NAME = "wake-reliability-journal"
         private const val KEY_SESSIONS = "sessions"
         private const val KEY_OCCURRENCE_ID = "occurrence_id"
         private const val KEY_SCHEDULE_ID = "schedule_id"
