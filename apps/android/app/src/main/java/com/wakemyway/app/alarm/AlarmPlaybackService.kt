@@ -38,8 +38,13 @@ class AlarmPlaybackService : Service() {
                     stopSelf()
                     return START_NOT_STICKY
                 }
+
+                val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
                 startForeground(NOTIFICATION_ID, alarmNotification(occurrenceId))
-                startPlayback()
+                if (!playbackAlreadyActive) {
+                    WakeTimingTrace(this).foreground(occurrenceId)
+                }
+                startPlayback(occurrenceId)
                 return START_REDELIVER_INTENT
             }
 
@@ -63,30 +68,32 @@ class AlarmPlaybackService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun startPlayback() {
+    private fun startPlayback(occurrenceId: WakeOccurrenceId) {
         if (mediaPlayer?.isPlaying == true || toneFallback != null) return
 
         runCatching {
-            val descriptor = resources.openRawResourceFd(R.raw.emergency_alarm)
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build(),
-                )
-                setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
-                descriptor.close()
-                isLooping = true
-                prepare()
-                start()
+            resources.openRawResourceFd(R.raw.emergency_alarm).use { descriptor ->
+                mediaPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build(),
+                    )
+                    setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+                    isLooping = true
+                    prepare()
+                    start()
+                }
             }
+            WakeTimingTrace(this).audioStarted(occurrenceId)
         }.onFailure {
             mediaPlayer?.release()
             mediaPlayer = null
             toneFallback = ToneGenerator(AudioManager.STREAM_ALARM, 100).also { tone ->
                 tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
             }
+            WakeTimingTrace(this).audioStarted(occurrenceId)
         }
     }
 
