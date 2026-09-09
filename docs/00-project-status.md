@@ -3,9 +3,10 @@
 **Last updated:** 2026-09-10  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** M7 Wake Learning v0 core is in PR #26; M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `feat/m7-wake-learning-v0`  
-**Current PR:** #26 — deterministic local Wake Learning v0 core  
+**Current engineering phase:** M7 Wake Learning v0 core merged; live Android integration remains reliability-gated  
+**Current implementation branch:** `main`  
+**Current PR:** none  
+**Current integration track:** issue #27, sequenced after physical reliability gate #9  
 **Current side-track:** optional Vercel AI platform foundation merged in PR #23; no Android wake-path dependency
 
 ## Executive status
@@ -16,16 +17,19 @@ Merged into `main`:
 
 - M0 Foundation
 - M1 Deep Alarm Kernel + Active Wake Execution
-- M2 automated reliability harness + dedicated emulator lane
+- M2 automated reliability harness + dedicated API-36 emulator lane
 - M3 deterministic Wake Runtime
 - M4 bounded Motion Evidence extraction + thin Android sensor adapter
 - M5 Alfred deterministic local character + offline-only Android speech lab
 - M6 Tomorrow Contract + Prepared Wake Plan
+- M7 deterministic local Wake Learning v0 core (PR #26)
 - optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
 
-Active PR #26 implements the first M7 pure-Kotlin adaptive loop: compact Wake Outcome derivation from real Wake Runtime replay, sparse calibration semantics, bounded deterministic policy derivation, annoyance/agency guardrails, versioned self-validating policy snapshots, fail-closed learned-policy resolution and explicit reset. Android persistence, calibration UI, learned-policy selection and dogfood tuning remain the next M7 integration slice.
+PR #26 merged the first M7 pure-Kotlin adaptive loop: compact Wake Outcome derivation from real Wake Runtime replay, sparse calibration semantics, bounded deterministic policy derivation, annoyance/agency guardrails, versioned self-validating policy snapshots, fail-closed learned-policy resolution and explicit reset.
 
-PR #23 established an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport. ADR-008 remains the authority for the M8 measured voice spike; ADR-016 records the default cloud AI access layer and its privacy boundary.
+M7 is not yet connected to real morning sessions. The current `WakeActivity` still attaches directly to Active Wake Execution and is not the Android directive executor for `WakeRuntime`. That richer M3 Android integration remains intentionally behind the physical reliability gate. Issue #27 tracks the later local Wake journal, outcome persistence, calibration, learned-policy selection and Wake Lab inspection/reset work.
+
+PR #23 established an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport.
 
 Private text, structured generation and embeddings fail closed to Gateway routes that satisfy Zero Data Retention. Current default Gateway STT/TTS/realtime routes do not satisfy WMW's ZDR requirement and are disabled by default behind an explicit synthetic-spike gate.
 
@@ -56,7 +60,7 @@ AlarmPlaybackService
     └─ durable Stop / Snooze
 ```
 
-Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract and Prepared Wake Plan do not participate in alarm delivery. WorkManager's default App Startup initializer is removed, so deferrable preparation does not initialize ahead of a cold-start `AlarmReceiver`.
+Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract, Prepared Wake Plan and Wake Learning do not participate in alarm delivery.
 
 ### Deterministic behavior path
 
@@ -71,7 +75,7 @@ ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
  typed WakeDirective
 ```
 
-Wake Runtime remains behavioral authority. Android adapters, characters and future AI cannot calculate a separate confidence score or overrule it.
+Wake Runtime remains behavioral authority. Android adapters, characters, learning and future AI cannot calculate a separate confidence score or overrule it.
 
 ### Off-session learning path
 
@@ -89,7 +93,7 @@ optional calibration / friction feedback
  future Wake Session only
 ```
 
-Wake Learning never mutates the active Wake Session and cannot learn Alarm Kernel delivery, safety, privacy or critical execution boundaries.
+Wake Learning never mutates an active Wake Session and cannot learn Alarm Kernel delivery, safety, privacy or critical execution boundaries.
 
 ### Motion evidence path
 
@@ -123,7 +127,7 @@ WakeDirective.Speak(SpeechIntent)
  Android TextToSpeech
 ```
 
-Character speech remains a Wake Alarm Lab capability and does not own critical alarm audio.
+Character speech remains a Wake Alarm Lab capability and does not own critical alarm audio. Alfred currently has explicit re-engagement copy through level 3 and safely clamps higher runtime escalation levels to the firmest existing wording.
 
 ### Private preparation path
 
@@ -171,9 +175,7 @@ future non-critical WMW feature
 
 There is currently no Android production call to this service. Provider/network/cloud failure therefore cannot block a wake attempt. See [`implementation/vercel-ai-platform.md`](implementation/vercel-ai-platform.md) and ADR-016.
 
-Private text/embedding calls require ZDR and fail closed. STT/TTS/realtime are disabled by default because the current selected Gateway audio models do not provide the required ZDR guarantee; they may be enabled only for synthetic, non-sensitive engineering experiments.
-
-## Implemented and merged milestones
+## Implemented milestones
 
 ### M0 Foundation
 
@@ -200,33 +202,13 @@ minSdk                 29
 
 Merged in PR #8.
 
-Implemented:
-
-- `AlarmManager.setAlarmClock()` exact registration;
-- foreground Active Wake Execution using alarm-appropriate local audio;
-- dedicated Direct-Boot-aware `WakeActivity`;
-- versioned atomic device-protected Critical Wake Snapshot;
-- crash-safe schedule replacement and cancellation tombstone;
-- stale occurrence rejection;
-- idempotent active playback recovery;
-- durable Stop and Snooze replacement-before-stop semantics;
-- boot / locked-boot / time / timezone / package reconciliation;
-- exact-alarm capability degradation;
-- non-sensitive wake timing trace.
+Implemented exact `setAlarmClock()` registration, foreground Active Wake Execution, bundled local alarm audio, Direct-Boot-aware wake UI, atomic device-protected Critical Wake Snapshot, durable Stop/Snooze, stale occurrence rejection, boot/time/timezone/package reconciliation, exact-alarm capability degradation and non-sensitive timing traces.
 
 ### M2 Reliability Harness
 
 PR #10 merged the Wake Alarm Lab/reliability slice. PR #11 merged the dedicated Android device-test workflow.
 
-Automated evidence includes:
-
-- founder T+2m Wake Alarm Lab;
-- bounded reliability history;
-- target/receiver/foreground/audio/UI/terminal timing facts;
-- service recovery/reconciliation evidence;
-- sanitized shareable reports;
-- Android instrumentation coverage;
-- dedicated API-36 emulator workflow.
+Automated evidence includes founder T+2m tests, bounded timing history, target/receiver/foreground/audio/UI/terminal timing facts, recovery/reconciliation evidence, sanitized reports, instrumentation coverage and a dedicated API-36 emulator workflow.
 
 Issue #9 remains open for physical-device evidence covering locked-screen delivery, real audible latency, Doze, process/service recreation, reboot-before-unlock, time/timezone repair, capability loss/restoration, OEM power behavior and audio coexistence.
 
@@ -234,140 +216,72 @@ Issue #9 remains open for physical-device evidence covering locked-screen delive
 
 Merged in PR #13.
 
-Implemented in pure Kotlin:
+Pure Kotlin implementation includes durable phases `ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED`, typed Wake Inputs/Directives, versioned Wake Policy, internal Activation Evidence authority, deterministic escalation, capability degradation, durable Stop/Snooze handshakes, replay and terminal invariants.
 
-- durable phases `ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED`;
-- typed Wake Inputs and Wake Directives;
-- versioned Wake Policy;
-- internal Activation Evidence authority;
-- deterministic escalation;
-- capability degradation;
-- durable Stop/Snooze handshakes;
-- replay and terminal invariants.
+The pure runtime is complete, but its richer Android directive-executor integration remains intentionally reliability-gated. The production `WakeActivity` is not yet a parallel behavioral authority.
 
 ### M4 Motion Evidence
 
 Merged in PR #15. See [`implementation/m4-motion-evidence.md`](implementation/m4-motion-evidence.md).
 
-Implemented:
-
-- pure bounded `MotionEvidenceExtractor`;
-- pickup, orientation-change and sustained-movement evidence;
-- ephemeral rolling state only;
-- correlated-evidence protection;
-- conservative sensor fallback;
-- thin Android sensor observer;
-- no raw sensor persistence.
-
-Production thresholds remain uncalibrated and reliability-gated.
+Implemented bounded pickup/orientation/sustained-movement extraction, ephemeral rolling state, correlated-evidence protection, conservative sensor fallback, a thin Android sensor observer and no raw sensor persistence. Production thresholds remain uncalibrated and reliability-gated.
 
 ### M5 Alfred local character
 
 Merged in PR #17. See [`implementation/m5-alfred-local.md`](implementation/m5-alfred-local.md).
 
-Implemented:
-
-- versioned deterministic character model;
-- Alfred v1 curated copy for current `SpeechIntent`s;
-- bounded escalation language and semantic guardrails;
-- offline voice selection;
-- Android local TextToSpeech adapter with explicit silent fallback;
-- founder character preview/diagnostics;
-- no network, AI, microphone or transcript persistence.
-
-Production speech integration remains physical-reliability gated.
+Implemented a versioned deterministic character model, curated Alfred v1 copy, bounded escalation language, offline voice selection, local Android TTS with silent fallback, founder preview/diagnostics and no network/AI/microphone/transcript persistence. Production speech integration remains physical-reliability gated.
 
 ### M6 Tomorrow Contract + Prepared Wake Plan
 
 Merged in PR #20. Canonical implementation note: [`implementation/m6-tomorrow-contract.md`](implementation/m6-tomorrow-contract.md).
 
-Implemented:
+Implemented pure/versioned contract and plan models, deterministic local preparation, occurrence/revision binding, SHA-256 integrity validation, credential-protected `noBackupFilesDir` storage, atomic replacement, on-demand WorkManager refresh, founder edit/clear/preview flow, local wake-time fallback diagnostics, unlocked-only enrichment and `FLAG_SECURE` while private morning text is visible.
 
-- pure/versioned `TomorrowContract` and `PreparedWakePlan` models in `:wake-core`;
-- contract and First Move bounds;
-- deterministic local preparation using the existing Alfred Orientation renderer;
-- source occurrence/revision binding;
-- SHA-256 integrity checksum over canonical prepared content;
-- explicit stale/wrong-occurrence/unsupported/corrupt validation failure;
-- credential-protected private persistence under `noBackupFilesDir`;
-- `AtomicFile` replacement semantics;
-- explicit rejection of device-protected Contexts;
-- AndroidX WorkManager for redundant deferrable local refresh only;
-- removal of WorkManager's default App Startup initializer;
-- explicit on-demand WorkManager initialization;
-- serialized UI/worker two-file commits;
-- founder Tomorrow Contract edit/clear/preview flow;
-- local offline wake-time plan read/fallback diagnostics;
-- unlocked-only Prepared Wake Plan enrichment in `WakeActivity`;
-- no private prepared text read/rendered during Direct Boot or while keyguard is locked;
-- `FLAG_SECURE` when private morning text is visible;
-- pure preparation tests plus Android persistence/privacy/fail-closed instrumentation coverage.
+M6 did not introduce cloud/backend preparation, account/auth dependency, private content in the Critical Wake Snapshot, WorkManager alarm firing, private production TTS or Wake Runtime state inside the plan.
 
-M6 did not introduce cloud/backend preparation, account/auth dependency, private content in Critical Wake Snapshot, WorkManager alarm firing, private production TTS, or Wake Runtime state inside the plan.
+### M7 Wake Learning v0 core
 
-### M7 Wake Learning v0
+Merged in PR #26. Canonical implementation note: [`implementation/m7-wake-learning-v0.md`](implementation/m7-wake-learning-v0.md).
 
-Active in PR #26. Canonical implementation note: [`implementation/m7-wake-learning-v0.md`](implementation/m7-wake-learning-v0.md).
-
-Current PR implements in pure Kotlin:
+Implemented in pure Kotlin:
 
 - `WakeOutcomeSummary` derived by replaying timestamped semantic inputs through the real Wake Runtime;
 - Activation Completion timing at the actual transition into `ORIENTING`;
 - optional `GOT_UP`, `RETURNED_TO_BED`, `GOT_UP_LATER`, `SKIPPED` calibration semantics;
 - missing calibration remains unknown rather than implicit success;
-- annoyance and perceived-agency feedback model;
+- annoyance and perceived-agency feedback;
 - deterministic learning from only the current immutable policy version;
-- v0 learnable surface limited to `activationThreshold` and `maxEscalationLevel`;
+- v0 learnable surface limited to runtime-effective `activationThreshold` and `maxEscalationLevel`;
 - minimum-evidence/hysteresis rules;
 - one parameter / one bounded step per derivation;
 - safe ranges plus friction/agency guardrails;
 - human-readable explanation for every change or non-change;
-- self-validating source/result policy snapshots;
+- full-source, self-validating policy snapshots that reject undeclared changes;
 - fail-closed learned-policy resolution and explicit reset;
 - deterministic tests for false-positive activation, incomplete activation, excess friction, ordering, fallback and snapshot integrity.
 
-M7 is not yet product-integrated. Local semantic timeline persistence, outcome/history persistence, calibration collection, selected learned-policy storage/application, Wake Lab inspection/reset UI and dogfood tuning remain deferred to the next integration slice.
+The critical false-positive fixture is covered: Activation Completion can be true while calibration says `RETURNED_TO_BED`; the learner treats that as evidence that the operational activation criterion may be too permissive rather than calling the morning a Confirmed Wake Success.
+
+M7 is not yet product-integrated. Issue #27 tracks local semantic timeline/outcome persistence, calibration collection, learned-policy storage/application and Wake Lab inspection/reset. That work is sequenced after the M3 Android runtime path is safe to connect under the physical reliability gate in #9.
 
 ## Optional AI platform foundation
 
 Merged in PR #23.
 
-Implemented:
+Implemented an isolated framework-less Vercel Functions service under `apps/cloud`, Vercel AI SDK 7 + AI Gateway, centralized fast/smart model policy, structured generation, streaming, embeddings, STT/TTS/realtime spike adapters, strict request bounds, metadata-only error logging, and no generic prompt/transcript/audio persistence.
 
-- isolated framework-less Vercel Functions service under `apps/cloud`;
-- Vercel AI SDK 7 + AI Gateway as the default optional cloud model layer;
-- centralized `fast` and `smart` model policy with cross-provider fallbacks;
-- language generation, streaming and server-owned structured outputs;
-- ZDR-required text and embedding routing with no Gateway prompt caching;
-- embeddings;
-- transcription and speech spike adapters;
-- short-lived realtime credential minting for M8 experiments only;
-- explicit `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` default gate;
-- operator-only diagnostic endpoints with bounded request sizes;
-- no generic prompt/transcript/audio persistence;
-- metadata-only error logging;
-- strict TypeScript/unit-test CI;
-- ADR-016 plus implementation documentation.
-
-This foundation is not a roadmap milestone completion. M7 remains local/offline and M8 remains evidence-gated.
+Private text/embedding calls require ZDR and fail closed. STT/TTS/realtime remain disabled by default for private wake data because the current selected Gateway audio models do not provide the required ZDR guarantee.
 
 ## Privacy boundaries
 
-The Critical Wake Snapshot and reliability logs must never contain:
-
-- Tomorrow Contract raw text;
-- calendar content;
-- transcripts or microphone audio;
-- prompts;
-- secrets/tokens;
-- private generated speech;
-- raw high-frequency motion streams.
+The Critical Wake Snapshot and reliability logs must never contain Tomorrow Contract raw text, calendar content, transcripts/microphone audio, prompts, secrets/tokens, private generated speech or raw high-frequency motion streams.
 
 M6 private state is credential-protected and excluded from Auto Backup through `noBackupFilesDir`. Pre-unlock wake remains generic and locally actionable.
 
-M7 Wake Learning consumes compact semantic outcomes and optional structured calibration/friction feedback. It does not require raw audio, transcripts, raw high-frequency motion streams, Tomorrow Contract text or cloud identity.
+M7 consumes compact semantic outcomes and optional structured calibration/friction feedback. It does not require raw audio, transcripts, raw high-frequency motion streams, Tomorrow Contract text or cloud identity.
 
-The optional cloud service has no persistence/database dependency and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android. Private text/embedding routes require ZDR. Non-ZDR audio/realtime experiments remain synthetic-only until a privacy-compliant route is verified.
+The optional cloud service has no persistence/database dependency and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android.
 
 ## Milestone status
 
@@ -380,12 +294,12 @@ The optional cloud service has no persistence/database dependency and must not l
 | M0 Foundation | **Merged / complete** |
 | M1 Deep Alarm Kernel + Active Wake Execution | **Merged / implementation complete** |
 | M2 Reliability Harness | **Automated harness + emulator lane merged; physical-device evidence open (#9)** |
-| M3 Wake Runtime | **Merged / pure runtime complete** |
+| M3 Wake Runtime | **Pure runtime merged; Android execution integration reliability-gated** |
 | M4 Motion Evidence | **Merged / isolated evidence layer; physical calibration open** |
-| M5 Alfred local experience | **Merged / complete, PR #17** |
+| M5 Alfred local experience | **Merged / complete core, PR #17; production integration gated** |
 | M6 Tomorrow Contract | **Merged / complete, PR #20** |
 | Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
-| M7 Wake Learning v0 | **Core implementation in PR #26; persistence/dogfood integration remains** |
+| M7 Wake Learning v0 | **Core merged, PR #26; live integration tracked by #27 and gated by #9** |
 | M8 Voice architecture spike | Not started |
 | M9 Realtime conversation | Not started |
 | M10 Useful context | Not started |
@@ -394,23 +308,22 @@ The optional cloud service has no persistence/database dependency and must not l
 
 ## Exact next work
 
-1. Let repository CI validate PR #26, fix any real integration failure, and merge only when the core is green.
-2. Continue M7 with local typed Wake Session/timing journal persistence, compact Wake Outcome/history persistence, occasional calibration attachment, validated learned-policy storage/selection for a later session, and Wake Lab inspect/reset tooling.
-3. Calibrate the v0 evidence thresholds/ranges through deterministic fixtures and later real dogfood rather than treating the initial constants as product truth.
-4. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
-5. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
-6. Keep the optional cloud service undeployed/unconnected to Android until a concrete non-critical feature justifies the API/auth boundary and required privacy controls are available.
-7. At M8, benchmark realtime transport candidates and use the Vercel AI platform as one candidate/control plane, not as a preselected transport; privacy eligibility is part of the acceptance criteria.
+1. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected without weakening the Alarm Kernel.
+2. Once that gate is satisfied, implement issue #27: authoritative local timed semantic Wake journal, compact Wake Outcome history, occasional calibration/friction attachment, fail-closed learned-policy persistence/selection for future sessions, and Wake Lab inspect/reset tooling.
+3. Calibrate M7's initial evidence thresholds and safe ranges through deterministic fixtures and later real dogfood. The current numbers are engineering hypotheses, not product truth.
+4. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+5. Keep optional cloud services out of wake authority; deploy/connect them only when a concrete non-critical feature justifies the API/auth/privacy boundary.
+6. At M8, benchmark realtime transport candidates and use the Vercel AI platform as one candidate/control plane, not as a preselected transport. Privacy eligibility is part of acceptance.
 
 ## Cloud / future stack status
 
-Vercel is the preferred non-critical cloud/web host. PR #23 established `apps/cloud` as the isolated implementation root and AI SDK + AI Gateway as the default cloud AI access layer.
+Vercel is the preferred non-critical cloud/web host. PR #23 established `apps/cloud` as the isolated implementation root and AI SDK + AI Gateway as the default optional cloud AI access layer.
 
 Private cloud text/embedding use requires a Vercel environment/plan that can enforce the configured ZDR policy. Current selected Gateway STT/TTS/realtime models remain unsuitable for private wake data because they do not provide WMW's required ZDR guarantee.
 
-Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when a real persistence or identity capability requires it. No Supabase dependency is added by the AI platform foundation.
+Supabase remains the preferred managed PostgreSQL/Auth/Storage platform when a real persistence or identity capability requires it. No Supabase dependency is currently required by M7.
 
-Neither Vercel nor Supabase is required for local wake authority or M7 Wake Learning v0.
+Neither Vercel nor Supabase is required for local wake authority or Wake Learning v0.
 
 Realtime voice transport remains an M8 measured decision after deterministic local behavior and Wake Learning v0.
 
@@ -420,13 +333,12 @@ There is no blocker to isolated local product/domain development.
 
 Open proof/risk boundaries:
 
-- PR #26 repository integration validation is still pending until CI completes;
-- initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
-- M7 local persistence/application wiring is not implemented by the pure core slice;
-- physical Android reliability evidence (#9);
-- motion threshold calibration on real devices;
-- coexistence of critical alarm audio with optional local character TTS;
-- future Android-facing cloud API needs real installation/account/session authorization before product use;
+- physical Android reliability evidence (#9) is still required before richer live Wake Runtime/character/learning integration;
+- the initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
+- M7 local journal/persistence/application wiring is intentionally not implemented yet (#27);
+- motion threshold calibration on real devices remains open;
+- coexistence of critical alarm audio with optional local character TTS remains unproven on representative physical devices;
+- future Android-facing cloud APIs need real installation/account/session authorization before product use;
 - private Gateway use depends on an environment/plan that supports the configured ZDR policy;
 - current selected Gateway audio/realtime routes do not meet WMW's ZDR requirement;
 - realtime voice latency/transport/provider choice remains unproven until M8.
