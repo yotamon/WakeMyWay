@@ -71,11 +71,15 @@ object OfflineVoiceSelector {
         candidates: Iterable<LocalVoiceCandidate>,
         preferredLanguageTag: String,
     ): LocalVoiceCandidate? {
-        val local = candidates.filterNot { it.networkRequired }
-        if (local.isEmpty()) return null
-
         val preferred = java.util.Locale.forLanguageTag(preferredLanguageTag)
-        return local.maxWithOrNull(
+        val eligible = candidates
+            .filterNot { it.networkRequired }
+            .filter { candidate ->
+                localeScore(java.util.Locale.forLanguageTag(candidate.languageTag), preferred) > 0
+            }
+        if (eligible.isEmpty()) return null
+
+        return eligible.maxWithOrNull(
             compareBy<LocalVoiceCandidate> {
                 localeScore(java.util.Locale.forLanguageTag(it.languageTag), preferred)
             }.thenBy { it.quality }
