@@ -131,24 +131,52 @@ sealed interface WakePolicyChange {
 
 data class WakePolicySnapshot(
     val algorithmVersion: Int = WAKE_LEARNING_ALGORITHM_VERSION,
-    val sourcePolicyVersion: Int,
+    val sourcePolicy: WakePolicy,
     val policy: WakePolicy,
     val sourceSessionIds: List<WakeSessionId>,
     val changes: List<WakePolicyChange>,
 ) {
     init {
         require(algorithmVersion > 0) { "Wake Learning algorithm version must be positive" }
-        require(sourcePolicyVersion > 0) { "Source Wake Policy version must be positive" }
         require(sourceSessionIds.distinct().size == sourceSessionIds.size) {
             "Source Wake Session ids must be unique"
         }
         require(changes.size <= 1) { "Wake Learning v0 changes at most one parameter per derivation" }
-        require(changes.isEmpty() || policy.version == sourcePolicyVersion + 1) {
-            "A learned policy change must advance the Wake Policy version exactly once"
+
+        val change = changes.singleOrNull()
+        if (change == null) {
+            require(policy == sourcePolicy) {
+                "An unchanged Wake Policy snapshot must preserve its source policy exactly"
+            }
+        } else {
+            require(policy.version == sourcePolicy.version + 1) {
+                "A learned Wake Policy must advance the source policy version exactly once"
+            }
+            require(change.matches(sourcePolicy, policy)) {
+                "A Wake Learning snapshot may contain only its single declared policy change"
+            }
         }
-        require(changes.isNotEmpty() || policy.version == sourcePolicyVersion) {
-            "An unchanged policy snapshot must retain the current Wake Policy version"
-        }
+    }
+
+    val sourcePolicyVersion: Int
+        get() = sourcePolicy.version
+
+    private fun WakePolicyChange.matches(source: WakePolicy, learned: WakePolicy): Boolean = when (this) {
+        is WakePolicyChange.ActivationThreshold ->
+            from == source.activationThreshold &&
+                to == learned.activationThreshold &&
+                learned == source.copy(
+                    version = learned.version,
+                    activationThreshold = to,
+                )
+
+        is WakePolicyChange.MaxEscalationLevel ->
+            from == source.maxEscalationLevel &&
+                to == learned.maxEscalationLevel &&
+                learned == source.copy(
+                    version = learned.version,
+                    maxEscalationLevel = to,
+                )
     }
 }
 
