@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wake My Way</string>
+    <string name="wmw_brand_short">WMW</string>
+    <string name="wmw_founder_build">Founder build</string>
+
+    <string name="tonight_greeting">Good evening</string>
+    <string name="tonight_ready_title">Tomorrow is ready.</string>
+    <string name="tonight_not_ready_title">Tomorrow needs attention.</string>
+    <string name="tonight_no_wake_title">No wake planned yet.</string>
+    <string name="tonight_character_ready">Alfred is ready</string>
+    <string name="tonight_character_waiting">Alfred is waiting</string>
+    <string name="tonight_section_tomorrow">Tomorrow</string>
+    <string name="tonight_section_wake_system">Wake system</string>
+    <string name="tonight_wake_ready">Wake Ready</string>
+    <string name="tonight_wake_not_ready">Needs attention</string>
+    <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
+    <string name="tonight_open_lab">Open Wake Lab</string>
+    <string name="tonight_lab_note">Founder diagnostics remain available while the production setup flow is being built.</string>
+    <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
+    <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan</string>
+
+    <string name="wake_character_name">Alfred</string>
+    <string name="wake_presence_description">Wake My Way alarm is active</string>
+    <string name="wake_default_greeting">Morning.</string>
+    <string name="wake_default_instruction">Just get upright first.</string>
+    <string name="wake_private_context_locked">Unlock for private morning context, if available.</string>
+    <string name="wake_private_context_ready">Prepared locally. No network required.</string>
+    <string name="wake_snooze_five">I need five more minutes</string>
+    <string name="wake_stop_alarm">Stop alarm</string>
+</resources>
