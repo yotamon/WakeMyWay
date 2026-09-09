@@ -1,8 +1,8 @@
 # M6 — Tomorrow Contract + Prepared Wake Plan
 
-**Status:** implementation candidate in PR #20  
+**Status:** merged / complete in PR #20  
 **Issue:** #19  
-**Branch:** `m6/tomorrow-contract-prepared-plan`
+**Merged commit:** `20627940342252fa52d51906777ede7448c0ebe7`
 
 ## Purpose
 
@@ -214,7 +214,7 @@ Additional controls:
 - private wake UI uses `FLAG_SECURE`;
 - no private-content logs are produced.
 
-## Tests
+## Tests and merge evidence
 
 Pure Kotlin coverage verifies:
 
@@ -235,7 +235,12 @@ Android instrumentation verifies:
 - device-protected storage is rejected;
 - WorkManager can initialize on demand from the application-provided configuration.
 
-CI remains the source of truth for build/lint/test status on PR #20.
+Before PR #20 merged, its final head `78a3a322745bed32c12b57a2707c175f209cdd78` passed both:
+
+- Android CI, including docs validation, all `:wake-core` tests, Android lint, instrumentation compilation and debug APK assembly;
+- `Android Device Reliability Tests`, executing `connectedDebugAndroidTest` on the API-36 emulator lane.
+
+This is emulator/integration evidence, not a physical-device reliability claim.
 
 ## Intentionally deferred
 
@@ -244,12 +249,3 @@ M6 does **not** production-wire personalized TTS or prepared audio into `AlarmPl
 Prepared audio files are deferred for the same reason. The Prepared Wake Plan schema can evolve when measured audio behavior justifies that capability.
 
 No cloud preparation is introduced. Supabase/Vercel remain irrelevant to M6 wake authority.
-
-## Exit evidence required before merge
-
-- docs check green;
-- all `:wake-core` tests green;
-- Android lint/compile green;
-- instrumentation APK compilation green;
-- dedicated emulator instrumentation lane green;
-- manual/physical validation remains a separate M2 evidence item and is not claimed by this milestone.

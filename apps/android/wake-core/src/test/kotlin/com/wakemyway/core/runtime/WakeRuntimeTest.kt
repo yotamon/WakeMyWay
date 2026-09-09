@@ -23,7 +23,16 @@ class WakeRuntimeTest {
         assertEquals(1, runtime.diagnostics(snapshot, policy).activationScore)
 
         snapshot = runtime.reduce(snapshot, WakeInput.SpeechFinished(id("speech-done")), policy).snapshot
+        assertEquals(WakePhase.ENGAGING, snapshot.phase)
+
+        val movementPrompt = runtime.reduce(
+            snapshot,
+            WakeInput.SilenceElapsed(id("movement-delay"), policy.movementPromptDelay),
+            policy,
+        )
+        snapshot = movementPrompt.snapshot
         assertEquals(WakePhase.ACTIVATING, snapshot.phase)
+        assertTrue(WakeDirective.Speak(SpeechIntent.AskToMove) in movementPrompt.directives)
 
         snapshot = runtime.reduce(
             snapshot,
@@ -143,7 +152,7 @@ class WakeRuntimeTest {
     }
 
     @Test
-    fun `motion capability loss stops observation and future directives stay degraded`() {
+    fun `motion capability loss keeps timed movement prompt while observation stays degraded`() {
         var snapshot = runtime.initial(WakeSessionId("session-5b"), policy)
         snapshot = runtime.reduce(snapshot, WakeInput.UserInteracted(id("touch")), policy).snapshot
 
@@ -157,9 +166,17 @@ class WakeRuntimeTest {
         )
         assertTrue(WakeDirective.StopObservingMotion in degraded.directives)
 
-        val activating = runtime.reduce(
+        val afterSpeech = runtime.reduce(
             degraded.snapshot,
             WakeInput.SpeechFinished(id("speech-finished")),
+            policy,
+        )
+        assertEquals(WakePhase.ENGAGING, afterSpeech.snapshot.phase)
+        assertTrue(afterSpeech.directives.none { it == WakeDirective.ObserveMotion })
+
+        val activating = runtime.reduce(
+            afterSpeech.snapshot,
+            WakeInput.SilenceElapsed(id("movement-delay"), policy.movementPromptDelay),
             policy,
         )
         assertEquals(WakePhase.ACTIVATING, activating.snapshot.phase)
@@ -181,19 +198,19 @@ class WakeRuntimeTest {
     }
 
     @Test
-    fun `silence escalates deterministically and never creates a separate escalation phase`() {
+    fun `silence reaches movement prompt deterministically without a separate escalation phase`() {
         var snapshot = runtime.initial(WakeSessionId("session-6"), policy)
         snapshot = runtime.reduce(snapshot, WakeInput.UserInteracted(id("touch")), policy).snapshot
         assertEquals(WakePhase.ENGAGING, snapshot.phase)
 
         val firstSilence = runtime.reduce(
             snapshot,
-            WakeInput.SilenceElapsed(id("silence-1"), Duration.ofSeconds(15)),
+            WakeInput.SilenceElapsed(id("silence-1"), policy.movementPromptDelay),
             policy,
         )
         assertEquals(WakePhase.ACTIVATING, firstSilence.snapshot.phase)
         assertEquals(1, firstSilence.snapshot.escalationLevel)
-        assertTrue(WakeDirective.Speak(SpeechIntent.ReEngage(1)) in firstSilence.directives)
+        assertTrue(WakeDirective.Speak(SpeechIntent.AskToMove) in firstSilence.directives)
 
         snapshot = firstSilence.snapshot
         repeat(5) { index ->
