@@ -76,6 +76,22 @@ class WakePreparationTest {
     }
 
     @Test
+    fun planCannotBeReusedForAnotherOccurrence() {
+        val original = contract()
+        val plan = PreparedWakePlanPreparer.prepare(original, PREPARED_AT)
+        val anotherOccurrence = original.copy(
+            wakeOccurrenceId = WakeOccurrenceId("occurrence-2"),
+        )
+
+        val validation = PreparedWakePlanPreparer.validate(plan, anotherOccurrence)
+
+        assertEquals(
+            PreparedPlanValidation.Invalid(PreparedPlanInvalidReason.WRONG_OCCURRENCE),
+            validation,
+        )
+    }
+
+    @Test
     fun unsupportedPlanVersionFailsClosed() {
         val contract = contract()
         val valid = PreparedWakePlanPreparer.prepare(contract, PREPARED_AT)
