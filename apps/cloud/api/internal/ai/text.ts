@@ -24,7 +24,11 @@ export default {
     try {
       requireInternalAuthorization(request);
       const input = await parseJson(request, inputSchema);
-      const result = await generateTextWithAI(input);
+      const result = await generateTextWithAI({
+        task: input.task,
+        prompt: input.prompt,
+        ...(input.system !== undefined ? { system: input.system } : {}),
+      });
       return json(result, 200, id);
     } catch (error) {
       return errorResponse(error, id, 'ai.text');

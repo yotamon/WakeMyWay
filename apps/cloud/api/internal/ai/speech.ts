@@ -24,9 +24,19 @@ export default {
     try {
       requireInternalAuthorization(request);
       const input = await parseJson(request, inputSchema);
-      const speech = await generateSpeechWithAI(input);
+      const speech = await generateSpeechWithAI({
+        text: input.text,
+        ...(input.voice !== undefined ? { voice: input.voice } : {}),
+        ...(input.language !== undefined ? { language: input.language } : {}),
+        ...(input.speed !== undefined ? { speed: input.speed } : {}),
+      });
 
-      return new Response(speech.bytes, {
+      // DOM BodyInit is intentionally backed by a concrete ArrayBuffer, not an
+      // ArrayBufferLike view that could be SharedArrayBuffer under newer TS libs.
+      const body = new ArrayBuffer(speech.bytes.byteLength);
+      new Uint8Array(body).set(speech.bytes);
+
+      return new Response(body, {
         status: 200,
         headers: {
           'content-type': speech.mediaType || 'audio/mpeg',

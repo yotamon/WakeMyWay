@@ -23,7 +23,11 @@ export default {
     try {
       requireInternalAuthorization(request);
       const input = await parseJson(request, inputSchema);
-      const response = streamTextWithAI(input);
+      const response = streamTextWithAI({
+        task: input.task,
+        prompt: input.prompt,
+        ...(input.system !== undefined ? { system: input.system } : {}),
+      });
       const headers = new Headers(response.headers);
       headers.set('x-request-id', id);
       headers.set('cache-control', 'no-store');
