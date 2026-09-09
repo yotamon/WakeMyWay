@@ -35,9 +35,9 @@ A Wake Occurrence created only after the user intentionally confirms snooze. It 
 
 ### Alarm Kernel
 
-The deep Android module that owns the reliability invariant from accepted Wake Occurrence to durable local schedule, exact OS alarm, critical fallback, reconciliation, snooze replacement, and audible wake start.
+The deep Android module that owns the reliability invariant from accepted Wake Occurrence to durable local schedule, exact OS alarm, critical fallback, reconciliation, snooze replacement, and safe active wake execution.
 
-Callers must not coordinate the ordering of Room persistence, critical snapshot writes, `AlarmManager`, or reconciliation themselves.
+Callers must not coordinate the ordering of Room persistence, critical snapshot writes, `AlarmManager`, active-alarm recovery, or reconciliation themselves.
 
 ### Critical Wake Snapshot
 
@@ -51,11 +51,19 @@ User-facing readiness state meaning the next Wake Occurrence has the required cr
 
 Optional microphone, calendar, weather, and cloud capabilities do not determine Wake Ready.
 
+### Active Wake Execution
+
+The trust-critical Android execution that begins when a Wake Occurrence fires and remains responsible for keeping safe alarm audio and user controls alive until the occurrence is intentionally stopped, durably snoozed, completed, or reaches an explicitly handled terminal failure.
+
+Active Wake Execution is owned by the Alarm Kernel's Android implementation. A visible `WakeActivity` may present the experience, but Activity lifetime is not allowed to be the lifetime authority for alarm playback.
+
+The initial implementation is expected to use an alarm-appropriate foreground playback service/controller with `USAGE_ALARM` audio semantics, subject to implementation-time Android API verification.
+
 ### Wake Session
 
-The active morning interaction created when a Wake Occurrence fires.
+The active morning behavioral interaction created when a Wake Occurrence fires.
 
-A Wake Session is deterministic at its behavioral core and may be enriched by voice/AI when available.
+A Wake Session is deterministic at its behavioral core and may be enriched by voice/AI when available. Its behavioral state is separate from the Android component that keeps critical alarm playback alive.
 
 ### Wake Phase
 
@@ -105,17 +113,31 @@ A new user begins with a default Wake Policy. Wake Learning may derive a more pe
 
 Off-session logic that derives future Wake Policy/profile information from prior Wake Sessions, outcomes, and feedback.
 
-Wake Learning is deliberately separate from the Wake Runtime because it has a different lifecycle and may eventually use server-side or ML implementations. It is never required for the current alarm to fire.
+Wake Learning is deliberately separate from the Wake Runtime because it has a different lifecycle. V1 learning begins with deterministic, local, explainable policy updates before realtime voice or machine learning is allowed to become central to the product.
+
+Wake Learning is never required for the current alarm to fire.
 
 ### Wake Outcome
 
 A derived summary of what happened in a Wake Session, including time to engagement, time to meaningful movement, snooze behavior, fallback use, intervention depth, and whether the session met its target wake window.
 
+### Activation Completion
+
+Operational outcome: the Wake Runtime's configured behavioral activation criterion was reached inside the intended wake window.
+
+This is useful for deterministic runtime behavior and immediate measurement, but it is not automatically proof that the user's real-world wake goal succeeded.
+
+### Confirmed Wake Success
+
+Calibrated product outcome: evidence indicates the user actually achieved the intended wake result rather than merely satisfying the phone-observable activation criterion and then returning to bed.
+
+Confirmation may come from occasional lightweight user feedback and future privacy-safe proxies. It is not required every morning and is never a medical assertion.
+
 ### Wake Success
 
-Product outcome: a Wake Session reaches the configured behavioral activation criterion inside the intended wake window.
+When used without qualification in product strategy, **Wake Success means the real-world product goal** and should be measured using Confirmed Wake Success when calibration evidence exists. Activation Completion remains the operational runtime metric.
 
-This is a behavioral product metric, not a medical assertion.
+Historical or experiment analysis must keep these two concepts distinguishable so the system cannot improve merely by making its own activation threshold easier to satisfy.
 
 ### Minimum Effective Friction
 
@@ -155,6 +177,12 @@ It is an orientation aid, not a required Wake Phase.
 
 The short branded melodic identity that begins the wake transition before or alongside character speech.
 
+### Safety Backup
+
+An optional transition aid for early dogfood/onboarding that lets a user keep a later conventional safety alarm while they build trust in WMW.
+
+A Safety Backup is not another adaptive Wake Schedule, does not participate in the Wake Runtime, and must not force the core V1 architecture into generic multi-alarm coordination. Whether it ships beyond dogfood is evidence-driven.
+
 ## UX consciousness language
 
 The design documents may use **Asleep → Emerging → Engaged → Active → Oriented** to describe the user's likely cognitive/visual experience.
@@ -165,7 +193,7 @@ This is a UX model, not the runtime state machine. Do not create one code state 
 
 ### Reliability envelope
 
-Wake My Way aims to be reliable when its process is dead, the device is idle, the network/cloud/AI is unavailable, or normal app data initialization fails.
+Wake My Way aims to be reliable when its normal UI Activity is gone, its process must be recreated, the device is idle, the network/cloud/AI is unavailable, or normal app data initialization fails.
 
 No Android app can guarantee an alarm after conditions where the OS intentionally prevents it, including explicit user Force Stop on Android versions that cancel pending intents, app uninstall/disable, powered-off hardware, or revoked required system capabilities. WMW must detect and explain recoverable readiness problems on the next user interaction.
 

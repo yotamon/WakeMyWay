@@ -6,7 +6,7 @@ Canonical domain terms are defined in [`../CONTEXT.md`](../CONTEXT.md).
 
 The Alarm Kernel is the deep Android module that owns this invariant:
 
-> An accepted next Wake Occurrence becomes a recoverable exact Android alarm with a safe audible path, and remains so across process death, snooze, reboot, time changes, and recoverable capability changes.
+> An accepted next Wake Occurrence becomes a recoverable exact Android alarm with a safe audible path, and remains locally actionable across process death, UI recreation, snooze, reboot, time changes, and recoverable capability changes.
 
 Its promise remains:
 
@@ -14,11 +14,28 @@ Its promise remains:
 
 That promise applies inside the documented Android reliability envelope; explicit user Force Stop, uninstall/disable, powered-off hardware, or revoked required system capabilities can prevent delivery and must be communicated honestly.
 
+The Alarm Kernel's responsibility does **not** end when `AlarmManager` fires. It also owns the trust-critical **Active Wake Execution** until the occurrence is intentionally stopped, durably snoozed, completed, or explicitly terminated.
+
+See ADR-014.
+
 ## Primary Android primitive
 
-Use `AlarmManager.setAlarmClock()` for the user-set Wake Occurrence. Android documents `setAlarmClock()` as the most critical exact-alarm form and does not adjust its delivery time. Re-verify exact-alarm and Play policy at implementation/release time.
+Use `AlarmManager.setAlarmClock()` for the user-set Wake Occurrence. Android documents `setAlarmClock()` as a precise, highly visible alarm-clock event. Re-verify exact-alarm and Play policy at implementation/release time.
 
 Do not use WorkManager to fire the wake alarm.
+
+## Exact-alarm permission direction
+
+As of 2026-09-09, the preferred manifest strategy is **`USE_EXACT_ALARM`** because Wake My Way is a dedicated alarm-clock application whose core user-facing functionality genuinely requires exact timing.
+
+This is still policy-sensitive. Before implementing the manifest and again before Play submission:
+
+- re-check Google Play's restricted-permission policy
+- verify WMW still qualifies as a permitted alarm-clock use case
+- verify target/compile SDK behavior
+- record any change to `SCHEDULE_EXACT_ALARM` or another flow in an ADR
+
+Do not build a user-facing special-access flow unless the implemented permission path actually requires one.
 
 ## V1 scheduling model
 
@@ -33,6 +50,8 @@ Why:
 - multiple independent alarms can be added later if dogfood/beta evidence shows a real need
 
 A Snooze Occurrence temporarily replaces the current wake attempt with a new exact occurrence.
+
+A temporary dogfood **Safety Backup** may exist as a later conventional fallback alarm while trust is being established, but it is not another adaptive Wake Schedule and must not force generic multi-alarm orchestration into the kernel contract.
 
 ## Wake Schedule vs Wake Occurrence
 
@@ -138,7 +157,7 @@ res/raw/emergency_alarm.ogg
 
 It must not depend on download, cache, TTS, provider SDK, Room, or network.
 
-## Trigger flow
+## Trigger and Active Wake Execution flow
 
 ```text
 OS exact alarm fires
@@ -147,11 +166,14 @@ OS exact alarm fires
 thin AlarmReceiver
       |
       +--> identify occurrence from trusted trigger identity/snapshot
-      +--> ensure high-priority alarm presentation path
-      +--> enter Alarm Kernel wake-start path
+      +--> enter Alarm Kernel active-wake start
       |
       v
-safe audible alarm begins first
+foreground alarm playback owner
+      |
+      +--> safe local USAGE_ALARM audio begins
+      +--> alarm notification / accessible controls
+      +--> persist/attach to active occurrence identity
       |
       v
 WakeActivity / Wake Runtime enrich the experience
@@ -159,13 +181,56 @@ WakeActivity / Wake Runtime enrich the experience
 
 Cloud and normal app initialization must not delay the first safe audible frame.
 
+The exact implementation may use an `AlarmPlaybackService` or equivalent private component. The public architecture rule is more important than the class name: **critical playback lifetime is not owned by `WakeActivity`.**
+
+## Active occurrence recovery
+
+Persist the minimum normal/critical facts needed to make recreation idempotent.
+
+The kernel must distinguish at least conceptually:
+
+```text
+scheduled occurrence
+active occurrence
+intentionally stopped occurrence
+durably snoozed/replaced occurrence
+completed occurrence
+```
+
+The exact persistence status model is implementation-time work, but these invariants must hold:
+
+- recreating `WakeActivity` does not silence the active alarm
+- recreating the playback owner does not start duplicate overlapping alarm streams
+- an occurrence intentionally stopped must not resurrect on component recreation
+- an occurrence durably replaced by snooze must not resurrect
+- process recovery while an occurrence is actively alerting restores a safe actionable state where Android allows
+- stale trigger identities cannot revive an older occurrence
+
+Do not persist conversation/private context merely to recover critical alarm playback.
+
+## Foreground playback / Android 17
+
+Android 17 hardens background audio interactions. The planned active-alarm execution therefore uses a visible wake surface and/or an appropriate foreground service, with alarm audio using `USAGE_ALARM` attributes.
+
+For apps targeting API 37, Android documents an exact-alarm + `USAGE_ALARM` exception to the while-in-use capability requirement, but implementation must still be tested on the actual target SDK/device matrix.
+
+Do not rely on incidental Activity visibility as the only reason alarm audio is allowed to continue.
+
+## Wake locks and power
+
+Do not hold a broad or indefinite wake lock by default.
+
+If measurement shows a wake lock or related power primitive is required for a reliable transition, the Alarm Kernel owns its acquisition/release ordering and exposes no caller choreography.
+
+Tests must prove stop/snooze/completion release critical resources and that recreation does not leak multiple locks/services/audio owners.
+
 ## Receiver responsibilities
 
 Keep the receiver intentionally thin:
 
 - validate/identify the trigger
-- delegate to Alarm Kernel wake-start behavior
-- post required alarm notification/presentation
+- delegate to Alarm Kernel active-wake start behavior
+- initiate the required alarm presentation/execution path
 
 Do not perform:
 
@@ -179,6 +244,8 @@ Do not perform:
 ## WakeActivity and full-screen behavior
 
 `WakeActivity` is the dedicated alarm-session UI shell.
+
+It is **not** the critical playback lifecycle owner.
 
 Android presentation is capability/lock-state dependent. Do not assume full-screen activity appears in every condition:
 
@@ -194,13 +261,26 @@ Android 13+ notification permission is a separate readiness concern from exact-a
 
 The exact onboarding copy/flow remains implementation-time work after the chosen manifest strategy is verified.
 
-## Exact-alarm permission strategy
+## Intentional stop invariant
 
-Wake My Way is genuinely an alarm-clock app. Android provides `USE_EXACT_ALARM` for apps whose core functionality depends on exact alarms, subject to app-store policy; `SCHEDULE_EXACT_ALARM` uses a different special-access flow.
+The user must always have an accessible way to stop the alarm. The product may make stop deliberate rather than reflexive, but it must never trap the user.
 
-M0/M1 must choose the final declaration based on current Play policy and document it in an ADR before public distribution.
+The kernel must treat stop as an explicit, idempotent terminal action for the active occurrence:
 
-Do not hard-code a user permission screen in UX specifications until that choice is made.
+```text
+user intentionally stops
+      |
+      v
+mark active occurrence stopped / cancel active execution
+      |
+      v
+stop critical audio + release resources
+      |
+      v
+ensure recreation/stale trigger cannot resurrect it
+```
+
+UX may require a small confirmation/gesture depending on accessibility testing, but kernel correctness does not depend on a fragile multi-screen interaction.
 
 ## Snooze invariant
 
@@ -216,7 +296,7 @@ Alarm Kernel creates Snooze Occurrence
 persist critical state + exact schedule
       |
       v
-ONLY AFTER success: finish current Wake Session
+ONLY AFTER success: terminate old active execution / finish current Wake Session
 ```
 
 If replacement scheduling fails, the current alarm must not silently disappear.
@@ -236,17 +316,20 @@ It must be idempotent and restore the one next Wake Occurrence after relevant ev
 - schedule edit/cancel
 - first launch after Force Stop where Android reports prior stopped-state recovery
 
+Active Wake Execution recovery is related but distinct: it restores/attaches to an already-fired occurrence rather than re-registering the next scheduled one.
+
 ## Force Stop reliability limit
 
-On Android 15+, explicit user Force Stop puts the package in a stopped state and cancels pending intents. The app cannot truthfully guarantee a scheduled alarm while the user has intentionally force-stopped it.
+On Android 15+, explicit user Force Stop puts the package in a stopped state and cancels pending intents. The app cannot truthfully guarantee a scheduled or active alarm while the user has intentionally force-stopped it.
 
 On the next user launch/interacting action, Wake My Way must:
 
 - detect/reconcile schedule state where platform APIs allow
 - re-register the next occurrence
+- clear/repair stale active-execution state safely
 - show Wake Ready only after readiness is restored
 
-Do not treat swiping the app from Recents as equivalent to a normal process death guarantee without device/version testing.
+Do not treat swiping the app from Recents as equivalent to Force Stop or ordinary process death without device/version testing.
 
 ## Timezone and DST
 
@@ -276,6 +359,7 @@ next Wake Occurrence resolved
 critical snapshot valid
 exact alarm scheduled/capable
 safe alarm audio available
+active wake execution path configured
 required alarm presentation/notification capability understood
 ```
 
@@ -293,4 +377,4 @@ Missing optional richness never makes the base alarm silently unsafe.
 
 ## Kernel dependencies
 
-Keep the first-audio path close to stable Android platform primitives. Do not initialize heavy player/AI/network/analytics graphs before safe alarm output is guaranteed.
+Keep the first-audio and active-playback path close to stable Android platform primitives. Do not initialize heavy player/AI/network/analytics graphs before safe alarm output is guaranteed.

@@ -62,7 +62,7 @@ First alarm must work without sign-up.
 
 Final current name: **Wake My Way**. Short mark: **WMW**.
 
-Primary line: **Wake up your way.**
+Primary line: **Wake up your way.**  
 Product explanation: **An alarm that learns what works for you.**
 
 `wakemyway.com` returned available in a live Namecheap lookup; this does not imply registration.
@@ -91,7 +91,7 @@ Create root `CONTEXT.md` as the single canonical domain vocabulary/invariant sou
 
 ## Deep Alarm Kernel
 
-Treat the Alarm Kernel as one deep reliability capability. Its public contract hides persistence/snapshot/OS-registration ordering, snooze replacement, reconciliation, and readiness.
+Treat the Alarm Kernel as one deep reliability capability. Its public contract hides persistence/snapshot/OS-registration ordering, snooze replacement, reconciliation, readiness, and eventually active alarm execution/recovery.
 
 ## Minimal physical modules
 
@@ -103,7 +103,7 @@ Do not add Hilt in M0 without object-graph pressure. Prefer explicit constructor
 
 ## One active Wake Schedule in V1
 
-V1 supports one active Wake Schedule, potentially with weekday-specific times, producing one next Wake Occurrence. Multiple independent alarm definitions are deferred.
+V1 supports one active Wake Schedule, potentially with weekday-specific times, producing one next Wake Occurrence. Multiple independent adaptive alarm definitions are deferred.
 
 ## Simplified Wake Runtime phases
 
@@ -111,7 +111,7 @@ Canonical phases are Alerting, Engaging, Activating, Orienting, Finished. Escala
 
 ## Remove "Verified Awake" from domain language
 
-The phone observes behavioral activation; it does not medically verify consciousness. Product metrics use Wake Success / activation criterion terminology.
+The phone observes behavioral activation; it does not medically verify consciousness.
 
 ## Activation evidence is internal to Wake Runtime
 
@@ -127,10 +127,92 @@ Explicit Force Stop can invalidate pending delivery on modern Android. Treat thi
 
 ## Backend/voice seams are earned
 
-Do not create generic provider interfaces or backend services before a real external boundary exists. The M7 voice spike determines the actual voice seam.
+Do not create generic provider interfaces or backend services before a real external boundary exists. Realtime voice transport is selected only by a measured spike.
 
-## 2026-09-09 — Testing and deployment topology
+## Testing and deployment topology
 
 Testing is layered by evidence type: pure Kotlin contracts → Wake Lab simulation/replay → Android instrumentation → Firebase Test Lab → Google Play Internal Testing → real overnight dogfood. Real-device mornings remain the final validation of both reliability and product effectiveness.
 
-Vercel is the preferred initial deployment platform for future non-critical web/API workloads once a real backend capability exists. It is never part of the Alarm Kernel critical path. Realtime voice transport remains an M7 measured decision; Vercel WebSockets are one candidate, not a commitment.
+Vercel is the preferred initial deployment platform for future non-critical web/API workloads once a real backend capability exists. It is never part of the Alarm Kernel critical path.
+
+# Plan hardening review — 2026-09-09
+
+## Active Wake Execution is part of Alarm Kernel reliability
+
+Scheduling reliability is not enough. Once a Wake Occurrence fires, critical alarm audio and controls must survive ordinary `WakeActivity` recreation/process churn where Android allows.
+
+Decision:
+
+- Alarm Kernel owns an **Active Wake Execution** lifecycle
+- `WakeActivity` is presentation, not critical playback lifetime authority
+- initial implementation direction uses an alarm-appropriate foreground playback service/controller with `USAGE_ALARM` semantics
+- duplicate starts/recreation must converge on one active occurrence
+- stopped or durably snoozed occurrences must never resurrect
+- power/wake-lock behavior, if needed, remains private Alarm Kernel implementation
+
+See ADR-014.
+
+## Current Android SDK baseline
+
+As of 2026-09-09, Google Play requires new phone/tablet app submissions and app updates to target Android 16 / API 36 or higher.
+
+Decision for M0:
+
+```text
+targetSdk = 36 baseline
+compileSdk = 36+ current stable toolchain
+minSdk = decide during M0 from supported-device/reliability evidence
+```
+
+Revalidate before future target-SDK upgrades and submission.
+
+## Exact-alarm manifest direction
+
+WMW is a dedicated alarm-clock app whose core user-facing functionality requires precise timing.
+
+Decision: begin implementation with **`USE_EXACT_ALARM` as the preferred manifest strategy**, subject to current Google Play restricted-permission eligibility/review and implementation-time revalidation. Switch to `SCHEDULE_EXACT_ALARM` or another path only if current policy/platform evidence requires it, and record the reversal.
+
+## Wake Learning moves before realtime voice
+
+The adaptive learning loop is the core moat; realtime conversation is presentation richness.
+
+Decision:
+
+```text
+M7 = deterministic local Wake Learning v0
+M8 = realtime voice architecture spike
+M9 = realtime conversation
+M10 = useful context
+```
+
+M7 must prove at least one bounded, explainable, reversible policy adaptation before realtime provider complexity becomes central.
+
+Wake Learning v0 is local/offline and requires no backend or ML.
+
+## Activation Completion vs Confirmed Wake Success
+
+The runtime's own activation threshold must not become circular proof that the product succeeded.
+
+Decision:
+
+- **Activation Completion** = phone-observable runtime criterion reached
+- **Confirmed Wake Success** = calibrated evidence that the user actually achieved the intended wake result
+- product-level Wake Success should use confirmed calibration where available
+- missing feedback does not become automatic confirmation
+- Wake Learning must not optimize Activation Completion alone if calibration shows return-to-bed false positives
+
+## Intentional Stop
+
+The user always retains an accessible, local, non-AI-dependent way to stop an active alarm.
+
+Stop may be made deliberate rather than the largest reflex target, but must never become a puzzle, hidden control, coercive trap, or network-dependent action. Kernel stop is idempotent and terminal for that occurrence.
+
+## Safety Backup as trust-transition hypothesis
+
+During founder/trusted dogfood, WMW may optionally allow a later conventional Safety Backup alarm while trust is being earned.
+
+It is not a second adaptive Wake Schedule and must not pull generic multi-alarm coordination into V1 architecture. Track whether users stop needing it and keep WMW's own reliability metrics independent from the backup.
+
+## Voice/backend numbering amendment
+
+ADR-008 and ADR-012 are amended: the measured realtime voice decision now occurs in **M8**, after M7 Wake Learning v0.
