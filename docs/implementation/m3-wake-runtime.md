@@ -22,7 +22,7 @@ WakeSessionSnapshot + WakeInput + WakePolicy
           └─ Wake Directives
 ```
 
-Callers do not independently calculate activation confidence, decide phase transitions, or coordinate snooze completion.
+Callers do not independently calculate activation confidence, decide phase transitions, or declare Stop/Snooze complete before the Alarm Kernel confirms the durable platform effect.
 
 ## Implemented phases
 
@@ -38,7 +38,7 @@ ORIENTING
 FINISHED
 ```
 
-`Escalating`, movement checks, fallback mode, and First Move are not lifecycle phases.
+`Escalating`, movement checks, fallback mode, and First Move are not lifecycle phases. Once a session enters `ORIENTING`, later activation evidence does not re-emit orientation directives.
 
 ## Implemented typed inputs
 
@@ -57,6 +57,8 @@ FINISHED
 - `CapabilitiesChanged`
 - `OrientationCompleted`
 - `StopRequested`
+- `StopCompleted`
+- `StopFailed`
 - `UnrecoverableFailure`
 
 Each input has a stable `WakeInputId`. Recently processed IDs are retained in the session snapshot so redelivery does not repeat destructive directives.
@@ -69,6 +71,7 @@ Each input has a stable `WakeInputId`. Recently processed IDs are retained in th
 - `StopObservingMotion`
 - `OfferSnooze`
 - `RequestSnoozeSchedule`
+- `RequestStopExecution`
 - `PresentOrientation`
 - `CompleteSession`
 
@@ -110,6 +113,26 @@ Android Alarm Kernel attempts durable exact replacement
 
 The runtime therefore cannot claim a snooze outcome before the Alarm Kernel confirms that a replacement occurrence exists.
 
+## Stop transaction
+
+Stop uses the same durable-effect discipline:
+
+```text
+StopRequested
+      ↓
+STOPPING
+      ↓
+RequestStopExecution
+      ↓
+Alarm Kernel attempts durable active-wake stop/advance
+      │
+      ├─ StopCompleted → FINISHED / STOPPED
+      │
+      └─ StopFailed    → remain active + audible
+```
+
+While Stop is in flight, unrelated behavioral inputs are recorded but cannot move the lifecycle or emit competing actions. A spontaneous/out-of-order `StopCompleted` cannot finish the session.
+
 ## Replay
 
 `WakeRuntime.replay()` folds a recorded ordered input stream through the same reducer and returns every transition plus the final snapshot.
@@ -121,10 +144,18 @@ This is the basis for later Wake Lab session replay, behavior debugging, and ver
 - normal Alerting → Engaging → Activating → Orienting → Finished path
 - activation threshold behavior
 - duplicate input idempotency
+- orientation directive one-shot behavior
 - snooze request/confirm/schedule success
+- out-of-order snooze completion rejection
 - snooze scheduling failure keeps the wake active
+- transactional Stop request/completion/failure
+- out-of-order Stop completion rejection
+- unrelated inputs suppressed while Stop is in flight
 - speech capability degradation
+- motion capability degradation
+- speech failure fallback
 - deterministic silence escalation bounded by policy
+- policy-version mismatch rejection
 - Finished is terminal
 - full replay determinism
 
