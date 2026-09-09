@@ -1,0 +1,1 @@
+The actual packaged emergency alarm is stored as a binary Git blob and attached at `apps/android/app/src/main/res/raw/emergency_alarm.wav`. The source waveform is a short deterministic local alarm tone generated for M1 reliability testing; it is not the final branded Wake Motif.
