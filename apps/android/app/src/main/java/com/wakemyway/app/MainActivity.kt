@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.alarm.TimingSnapshot
+import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -53,7 +55,9 @@ class MainActivity : ComponentActivity() {
 private fun AlarmFoundationScreen() {
     val context = LocalContext.current
     val kernel = remember { AlarmKernel(context) }
+    val timingTrace = remember { WakeTimingTrace(context) }
     var health by remember { mutableStateOf(kernel.health()) }
+    var timing by remember { mutableStateOf(timingTrace.snapshot()) }
     var message by remember { mutableStateOf<String?>(null) }
 
     val notificationPermission = rememberLauncherForActivityResult(
@@ -112,10 +116,11 @@ private fun AlarmFoundationScreen() {
             modifier = Modifier.padding(top = 12.dp),
             onClick = {
                 health = kernel.reconcile()
+                timing = timingTrace.snapshot()
                 message = health.detail
             },
         ) {
-            Text("Refresh Wake Ready")
+            Text("Refresh Wake Ready + timing")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !health.notificationsAllowed) {
@@ -142,6 +147,8 @@ private fun AlarmFoundationScreen() {
                 Text("Allow full-screen alarms")
             }
         }
+
+        timing?.let { TimingFacts(it) }
 
         message?.let {
             Text(
@@ -175,6 +182,24 @@ private fun HealthFacts(health: AlarmHealth) {
     }
 }
 
+@Composable
+private fun TimingFacts(timing: TimingSnapshot) {
+    Text(
+        modifier = Modifier.padding(top = 20.dp),
+        text = "Last wake timing",
+        style = MaterialTheme.typography.labelLarge,
+    )
+    Text(
+        modifier = Modifier.padding(top = 6.dp),
+        text = buildString {
+            append("trigger delay: ${formatMillis(timing.triggerDelayMillis)}")
+            append("  ·  audio: ${formatMillis(timing.triggerToAudioMillis)}")
+            append("  ·  UI: ${formatMillis(timing.triggerToUiMillis)}")
+        },
+        style = MaterialTheme.typography.bodySmall,
+    )
+}
+
 private fun founderTestSchedule(): WakeSchedule {
     val target = ZonedDateTime.now().plusMinutes(2).withNano(0)
     return WakeSchedule(
@@ -186,3 +211,5 @@ private fun founderTestSchedule(): WakeSchedule {
 }
 
 private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
+
+private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"
