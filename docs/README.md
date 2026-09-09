@@ -16,7 +16,7 @@ The repository documentation is the persistent product/engineering memory for Wa
 
 ### Alarm/reliability work
 
-Read `08`, `10`, `17`, `18`, then ADRs `002`, `009`, `011`, **`014`**.
+Read `08`, `10`, `17`, `18`, [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md), then ADRs `002`, `009`, `011`, `014`, `015`.
 
 ### Wake behavior / learning work
 
@@ -64,7 +64,7 @@ Read `03`, `04`, `05`, `06`, `07`.
 | Document | Purpose |
 |---|---|
 | [`08-android-architecture.md`](08-android-architecture.md) | Deep-module Android architecture and minimal module topology |
-| [`09-stack-and-dependencies.md`](09-stack-and-dependencies.md) | Android 16 baseline, adopt-by-milestone dependency strategy |
+| [`09-stack-and-dependencies.md`](09-stack-and-dependencies.md) | Adopt-by-milestone dependency strategy |
 | [`10-alarm-kernel.md`](10-alarm-kernel.md) | Deep Alarm Kernel contract / scheduling / Active Wake Execution / Direct Boot |
 | [`11-wake-runtime-state-machine.md`](11-wake-runtime-state-machine.md) | Deep deterministic Wake Runtime |
 | [`12-data-model.md`](12-data-model.md) | Local source-of-truth model / active execution / calibrated outcomes / critical snapshot |
@@ -84,6 +84,7 @@ Read `03`, `04`, `05`, `06`, `07`.
 | [`19-observability-analytics.md`](19-observability-analytics.md) | Safe semantic telemetry / lifecycle reliability / calibrated outcome metrics |
 | [`25-open-source-and-licenses.md`](25-open-source-and-licenses.md) | Dependency/model licensing policy |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Testing ladder, Firebase/Play distribution, local M7, Vercel cloud topology |
+| [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | Current M2 scenario matrix, evidence fields, instrumentation tests and exit gate |
 
 ## Delivery
 
@@ -91,6 +92,8 @@ Read `03`, `04`, `05`, `06`, `07`.
 |---|---|
 | [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md) | Evidence-driven M0–M12 build order with M7 learning before M8 voice |
 | [`implementation/backlog.md`](implementation/backlog.md) | Seed engineering backlog aligned to the current build order |
+| [`implementation/m1-progress.md`](implementation/m1-progress.md) | M1 implementation record |
+| [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | M2 reliability runbook and evidence gates |
 
 ## Research
 
@@ -109,4 +112,5 @@ Key alarm ADRs currently include:
 - ADR-002: local-first Alarm Kernel authority
 - ADR-009: deep Alarm Kernel boundary
 - ADR-011: Direct Boot critical-state privacy split
-- **ADR-014: Active Wake Execution survives UI/process churn**
+- ADR-014: Active Wake Execution survives UI/process churn
+- ADR-015: exact-alarm, full-screen and foreground execution policy
