@@ -43,6 +43,23 @@ For exact alarms, WMW begins with `USE_EXACT_ALARM` as the preferred manifest di
 | Local learning | pure Kotlin deterministic policy updater | M7 | explainable local Wake Learning v0; no ML/cloud requirement |
 | Performance | Macrobenchmark + Baseline Profiles | M1/M2 | measure wake-path cold start and audible latency |
 
+## Product design track dependencies
+
+The product-design track is allowed to add presentation dependencies only when they have clear leverage and remain outside alarm authority.
+
+| Area | Choice | Status | Boundary |
+|---|---|---|---|
+| Normal-app navigation | Navigation 3 `1.1.7` | adopted in product design foundation | normal `MainActivity` destinations only; dedicated `WakeActivity` remains independent |
+| Signature geometry | AndroidX graphics-shapes `1.1.0` | adopted in product design foundation | local presentation only; never behavioral state authority |
+| Navigation key serialization | Kotlin serialization | adopted only for typed/saveable Navigation 3 keys | no domain persistence format implied |
+| Visual regression | Roborazzi | next design gate after canonical previews settle | selected synthetic previews/screens; never private wake content |
+| Charts | Vico | deferred until real learning/history visualization exists | no dependency before a concrete screen earns it |
+| Image loading | Coil 3 | deferred until real artwork/image loading exists | no remote imagery requirement on the wake path |
+| Decorative blur | Haze | optional/evidence-driven | non-critical surfaces only; never required by `WakeActivity` |
+| Authored animation | Lottie/Rive | excluded by default | native state-driven Compose animation remains primary |
+
+The detailed rationale, design language and phase gates live in [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).
+
 ## Active audio platform posture
 
 Android 17 hardens background audio interactions. WMW's critical alarm path should use alarm-appropriate audio attributes (`USAGE_ALARM`) and a valid foreground execution shape rather than relying on incidental Activity lifetime.
@@ -61,11 +78,29 @@ This is intentional: the first architecture review identified speculative DI/mod
 
 ## Navigation
 
-Do not require a navigation framework before the normal application has enough destinations to justify it.
+The normal application now has enough real destinations to justify a navigation framework.
 
-- dedicated `WakeActivity` remains separate from ordinary app navigation
-- onboarding/setup/history may begin with simple Compose state/navigation
-- Navigation 3 is the preferred candidate once real navigation complexity exists
+Decision for the product-design foundation:
+
+- adopt stable **Navigation 3 `1.1.7`** for normal Compose app navigation;
+- use typed `NavKey`s and the smallest required runtime/UI surface;
+- keep the back stack owned explicitly by the Compose app shell;
+- keep dedicated `WakeActivity` completely separate from ordinary app navigation;
+- do not add adaptive-navigation or ViewModel integration artifacts until a real screen requires them;
+- navigation availability must never become a prerequisite for alarm playback, Stop or Snooze.
+
+This replaces the earlier "preferred candidate once complexity exists" posture because that complexity now exists: Tonight/product home and the preserved Wake Alarm Lab are separate destinations, with setup/history/settings planned behind the same normal-app shell.
+
+## Signature visual geometry
+
+Adopt stable **AndroidX graphics-shapes `1.1.0`** for the WMW Presence and other narrowly justified branded geometry.
+
+Rules:
+
+- geometry represents presentation state only;
+- runtime behavior remains owned by `WakeRuntime`;
+- a shape animation may disappear or degrade to a static local shape without changing wake behavior;
+- do not add a general animation engine solely for this purpose.
 
 ## Networking and backend client
 
@@ -113,15 +148,19 @@ Before M8, keep voice experiments isolated. Do not bake a generic `AIProvider` o
 
 The stable domain contract is a **Speech Intent / character rendering request**, not a vendor SDK shape.
 
-## Observability — later milestone
+## Observability and visual regression
 
-Preferred candidates once dogfood needs them:
+Preferred candidates once the matching need exists:
 
-- Sentry for crash/ANR/performance diagnostics
-- PostHog for manual semantic product events
-- Roborazzi for selected Compose visual regression
-- Turbine for Flow tests where Flow behavior exists
-- LeakCanary in debug/dogfood if lifecycle/audio/sensor leaks become a real risk
+- Sentry for crash/ANR/performance diagnostics;
+- PostHog for manual semantic product events;
+- Roborazzi for selected Compose visual regression;
+- Turbine for Flow tests where Flow behavior exists;
+- LeakCanary in debug/dogfood if lifecycle/audio/sensor leaks become a real risk.
+
+For Roborazzi specifically, the product-design foundation first establishes canonical synthetic `@Preview` states. The next design gate records reviewed baselines from those stable states and then makes selected visual regression checks part of CI. Do not create meaningless goldens from a moving first draft.
+
+Visual test fixtures must never contain private Tomorrow Contract text, real calendar content, transcripts or other user data.
 
 Do not initialize analytics/crash SDKs on the critical first-audible or active-alarm playback path.
 
@@ -139,6 +178,9 @@ Do not initialize analytics/crash SDKs on the critical first-audible or active-a
 - machine-learning wake policy
 - an interface for every Android service
 - repository interfaces whose only implementation is a local DAO and whose callers gain no meaningful contract
+- Lottie/Rive as a default UI architecture
+- blur/glass frameworks as required wake UI infrastructure
+- icon mega-libraries when a small vector set is sufficient
 
 ## Physical module policy
 
@@ -161,6 +203,8 @@ Add a Gradle module only when at least one is true:
 Package structure can express locality before physical Gradle boundaries are justified.
 
 The existence of `AlarmPlaybackService` or another Android component does not by itself justify another Gradle module.
+
+The product design system remains inside `:app`; a separate UI Gradle module is not justified yet.
 
 ## Dependency acceptance checklist
 
