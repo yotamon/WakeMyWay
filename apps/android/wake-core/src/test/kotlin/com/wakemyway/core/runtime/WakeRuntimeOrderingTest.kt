@@ -50,5 +50,38 @@ class WakeRuntimeOrderingTest {
         assertTrue(confirmation.directives.isEmpty())
     }
 
+    @Test
+    fun `stop cannot race an in-flight snooze scheduling transaction`() {
+        var snapshot = runtime.initial(WakeSessionId("ordering-snooze-stop"), policy)
+        snapshot = runtime.reduce(snapshot, WakeInput.SnoozeRequested(id("request")), policy).snapshot
+        snapshot = runtime.reduce(snapshot, WakeInput.SnoozeConfirmed(id("confirm")), policy).snapshot
+        assertEquals(SnoozeState.SCHEDULING, snapshot.snoozeState)
+
+        val stopDuringScheduling = runtime.reduce(
+            snapshot,
+            WakeInput.StopRequested(id("stop-during-scheduling")),
+            policy,
+        )
+
+        assertEquals(SnoozeState.SCHEDULING, stopDuringScheduling.snapshot.snoozeState)
+        assertEquals(StopState.NONE, stopDuringScheduling.snapshot.stopState)
+        assertTrue(WakeDirective.RequestStopExecution !in stopDuringScheduling.directives)
+
+        val schedulingFailed = runtime.reduce(
+            stopDuringScheduling.snapshot,
+            WakeInput.SnoozeSchedulingFailed(id("schedule-failed"), "timeout"),
+            policy,
+        )
+        assertEquals(SnoozeState.NONE, schedulingFailed.snapshot.snoozeState)
+
+        val stopAfterResolution = runtime.reduce(
+            schedulingFailed.snapshot,
+            WakeInput.StopRequested(id("stop-after-resolution")),
+            policy,
+        )
+        assertEquals(StopState.STOPPING, stopAfterResolution.snapshot.stopState)
+        assertTrue(WakeDirective.RequestStopExecution in stopAfterResolution.directives)
+    }
+
     private fun id(value: String) = WakeInputId(value)
 }
