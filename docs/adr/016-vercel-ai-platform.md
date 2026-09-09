@@ -28,6 +28,18 @@ The first implementation lives in `apps/cloud/src/ai` and owns:
 
 Product/domain code requests a capability or policy. It must not orchestrate a provider cascade itself.
 
+### Privacy-class decision
+
+Wake My Way treats provider-level retention as part of routing correctness, not as a documentation footnote.
+
+- Private text, structured generation and embeddings require request-level **Zero Data Retention (ZDR)** through AI Gateway and opt out of prompt training. If no compliant provider route exists, the request fails rather than silently weakening privacy.
+- Gateway prompt caching is not enabled for private wake data.
+- The current default Gateway models used for transcription, speech and realtime do **not** provide ZDR as of this ADR date. Those capabilities are therefore disabled by default and may be enabled only for synthetic, non-sensitive engineering spikes.
+- Real wake audio, transcripts, Tomorrow Contract text, calendar content and other private user context must not use a non-ZDR audio/realtime path.
+- M8 must treat privacy support as a measured/verified transport requirement alongside latency, reconnect behavior and cost.
+
+This boundary may be relaxed only by a future documented decision backed by an equivalent privacy guarantee, not merely because a provider is convenient.
+
 ## What this decision does not mean
 
 This ADR does **not**:
@@ -57,10 +69,11 @@ The exception should remain behind the same product-facing contract where practi
 
 - Provider/Gateway credentials are server-only.
 - Internal smoke endpoints use an operator secret and are never an Android production auth mechanism.
-- Realtime clients receive short-lived credentials only.
+- Realtime clients receive short-lived credentials only when the explicit non-ZDR spike gate is enabled.
 - No raw microphone archive by default.
 - Prompts, transcripts, private wake context and generated private speech are not written to generic logs/analytics.
 - Request/error logging is metadata-only.
+- ZDR/private routing is fail-closed; provider availability may reduce enrichment but can never reduce the local alarm's reliability.
 
 ## Reliability consequence
 
@@ -68,7 +81,7 @@ The degradation chain remains local-first:
 
 ```text
 cloud/realtime enrichment
-        ↓ unavailable
+        ↓ unavailable or privacy-ineligible
 prepared/local character speech
         ↓ unavailable
 Wake Runtime + Alarm Kernel
@@ -83,15 +96,17 @@ The optional AI platform can improve richness. It cannot become a condition for 
 ### Positive
 
 - one SDK surface across model providers and modalities;
-- centralized routing/fallback policy;
+- centralized routing/fallback and privacy policy;
 - easier model/cost/quality experiments;
 - fewer provider credentials and SDKs in application code;
 - a natural place for short-lived realtime credentials and spend controls;
-- provider changes do not leak into Wake Runtime.
+- provider changes do not leak into Wake Runtime;
+- private text cannot silently route to a provider lacking the required retention policy.
 
 ### Trade-offs
 
 - AI Gateway and new audio/realtime APIs are another vendor dependency;
+- current Gateway voice/audio routes cannot yet satisfy WMW's preferred ZDR boundary, so production cloud voice remains intentionally blocked;
 - realtime/audio capabilities are still evolving and must be revalidated at M8;
 - a framework-level abstraction cannot erase modality-specific transport and UX differences;
 - the service adds a cloud deployment that must remain explicitly non-critical.

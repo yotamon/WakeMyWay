@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseAIConfig } from '../src/ai/config';
-import { gatewayRouting } from '../src/ai/platform';
+import { parseAIConfig, requireNonZdrAudioSpike } from '../src/ai/config';
+import { privateGatewayRouting } from '../src/ai/platform';
 import { isInternallyAuthorized, requestId, secureEqual } from '../src/http';
 
 describe('AI configuration', () => {
-  it('has deliberate cross-provider defaults', () => {
+  it('has deliberate cross-provider defaults and disables non-ZDR audio by default', () => {
     const config = parseAIConfig({});
 
     expect(config.fast.primary).toBe('openai/gpt-5.4-mini');
@@ -15,6 +15,7 @@ describe('AI configuration', () => {
     ]);
     expect(config.smart.primary).toBe('anthropic/claude-sonnet-4.6');
     expect(config.realtimeModel).toBe('openai/gpt-realtime-2.1');
+    expect(config.allowNonZdrAudioSpikes).toBe(false);
   });
 
   it('deduplicates fallbacks and never retries the primary as a fallback', () => {
@@ -27,18 +28,30 @@ describe('AI configuration', () => {
     expect(config.fast.fallbacks).toEqual(['anthropic/claude-haiku-4.5']);
   });
 
-  it('builds Gateway routing without leaking any credentials', () => {
+  it('builds private Gateway routing with ZDR and no prompt training', () => {
     expect(
-      gatewayRouting({
+      privateGatewayRouting({
         primary: 'openai/gpt-5.4-mini',
         fallbacks: ['anthropic/claude-haiku-4.5'],
       }),
     ).toEqual({
       gateway: {
-        caching: 'auto',
+        zeroDataRetention: true,
+        disallowPromptTraining: true,
         models: ['anthropic/claude-haiku-4.5'],
       },
     });
+  });
+
+  it('requires an explicit opt-in before non-ZDR audio/realtime spikes', () => {
+    const disabled = parseAIConfig({ AI_GATEWAY_API_KEY: 'gateway-test-key' });
+    expect(() => requireNonZdrAudioSpike(disabled)).toThrow(/disabled/i);
+
+    const enabled = parseAIConfig({
+      AI_GATEWAY_API_KEY: 'gateway-test-key',
+      WMW_ENABLE_NON_ZDR_AUDIO_SPIKES: 'true',
+    });
+    expect(requireNonZdrAudioSpike(enabled).allowNonZdrAudioSpikes).toBe(true);
   });
 });
 

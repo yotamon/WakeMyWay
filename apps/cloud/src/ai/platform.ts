@@ -1,4 +1,4 @@
-import { gateway } from '@ai-sdk/gateway';
+import { gateway, type GatewayProviderOptions } from '@ai-sdk/gateway';
 import {
   Output,
   embed,
@@ -12,6 +12,7 @@ import type { z } from 'zod';
 import {
   getAIConfig,
   requireGatewayConfiguration,
+  requireNonZdrAudioSpike,
   type TextModelPolicy,
   type TextTask,
 } from './config';
@@ -38,13 +39,19 @@ function textPolicy(task: TextTask): TextModelPolicy {
   return task === 'fast' ? config.fast : config.smart;
 }
 
-export function gatewayRouting(policy: TextModelPolicy) {
-  return {
-    gateway: {
-      caching: 'auto' as const,
-      ...(policy.fallbacks.length > 0 ? { models: [...policy.fallbacks] } : {}),
-    },
-  };
+/**
+ * Private WMW text/embedding requests fail closed to Gateway routes with
+ * provider-level Zero Data Retention. ZDR also implies prompt-training opt-out.
+ * We intentionally do not enable Gateway prompt caching for private wake data.
+ */
+export function privateGatewayRouting(policy?: TextModelPolicy) {
+  const options = {
+    zeroDataRetention: true,
+    disallowPromptTraining: true,
+    ...(policy && policy.fallbacks.length > 0 ? { models: [...policy.fallbacks] } : {}),
+  } satisfies GatewayProviderOptions;
+
+  return { gateway: options };
 }
 
 function signal(timeoutMs: number): AbortSignal {
@@ -57,7 +64,7 @@ export async function generateTextWithAI(input: TextGenerationInput) {
     model: gateway(policy.primary),
     prompt: input.prompt,
     ...(input.system ? { system: input.system } : {}),
-    providerOptions: gatewayRouting(policy),
+    providerOptions: privateGatewayRouting(policy),
     maxRetries: 2,
     abortSignal: signal(input.timeoutMs ?? DEFAULT_TEXT_TIMEOUT_MS),
   });
@@ -66,7 +73,7 @@ export async function generateTextWithAI(input: TextGenerationInput) {
     text: result.text,
     finishReason: result.finishReason,
     usage: result.usage,
-    route: { primary: policy.primary, fallbacks: [...policy.fallbacks] },
+    route: { primary: policy.primary, fallbacks: [...policy.fallbacks], privacy: 'zdr' as const },
   };
 }
 
@@ -76,7 +83,7 @@ export function streamTextWithAI(input: TextGenerationInput): Response {
     model: gateway(policy.primary),
     prompt: input.prompt,
     ...(input.system ? { system: input.system } : {}),
-    providerOptions: gatewayRouting(policy),
+    providerOptions: privateGatewayRouting(policy),
     maxRetries: 2,
     abortSignal: signal(input.timeoutMs ?? DEFAULT_TEXT_TIMEOUT_MS),
   });
@@ -85,6 +92,7 @@ export function streamTextWithAI(input: TextGenerationInput): Response {
     headers: {
       'cache-control': 'no-store',
       'x-wmw-ai-primary-model': policy.primary,
+      'x-wmw-ai-privacy': 'zdr',
     },
   });
 }
@@ -102,7 +110,7 @@ export async function generateStructuredWithAI<T extends z.ZodType>(input: {
     prompt: input.prompt,
     ...(input.system ? { system: input.system } : {}),
     output: Output.object({ schema: input.schema }),
-    providerOptions: gatewayRouting(policy),
+    providerOptions: privateGatewayRouting(policy),
     maxRetries: 2,
     abortSignal: signal(input.timeoutMs ?? DEFAULT_TEXT_TIMEOUT_MS),
   });
@@ -115,6 +123,7 @@ export async function embedTextWithAI(value: string) {
   const result = await embed({
     model: gateway.textEmbeddingModel(config.embeddingModel),
     value,
+    providerOptions: privateGatewayRouting(),
     maxRetries: 2,
     abortSignal: signal(DEFAULT_TEXT_TIMEOUT_MS),
   });
@@ -123,11 +132,17 @@ export async function embedTextWithAI(value: string) {
     embedding: result.embedding,
     usage: result.usage,
     model: config.embeddingModel,
+    privacy: 'zdr' as const,
   };
 }
 
+/**
+ * Current Gateway audio models in this foundation do not provide ZDR. These
+ * functions are therefore disabled by default and are only for synthetic,
+ * non-sensitive engineering spikes until M8 selects a privacy-safe route.
+ */
 export async function transcribeWithAI(audio: Uint8Array) {
-  const config = requireGatewayConfiguration();
+  const config = requireNonZdrAudioSpike();
   const result = await transcribe({
     model: gateway.transcriptionModel(config.transcriptionModel),
     audio,
@@ -141,11 +156,12 @@ export async function transcribeWithAI(audio: Uint8Array) {
     durationInSeconds: result.durationInSeconds,
     segments: result.segments,
     model: config.transcriptionModel,
+    privacy: 'non-zdr-spike' as const,
   };
 }
 
 export async function generateSpeechWithAI(input: SpeechGenerationInput) {
-  const config = requireGatewayConfiguration();
+  const config = requireNonZdrAudioSpike();
   const result = await generateSpeech({
     model: gateway.speechModel(config.speechModel),
     text: input.text,
@@ -162,11 +178,12 @@ export async function generateSpeechWithAI(input: SpeechGenerationInput) {
     mediaType: result.audio.mediaType,
     format: result.audio.format,
     model: config.speechModel,
+    privacy: 'non-zdr-spike' as const,
   };
 }
 
 export async function createRealtimeToken() {
-  const config = requireGatewayConfiguration();
+  const config = requireNonZdrAudioSpike();
   const token = await gateway.experimental_realtime.getToken({
     model: config.realtimeModel,
   });
@@ -175,6 +192,7 @@ export async function createRealtimeToken() {
     token: token.token,
     url: token.url,
     model: config.realtimeModel,
+    privacy: 'non-zdr-spike' as const,
   };
 }
 

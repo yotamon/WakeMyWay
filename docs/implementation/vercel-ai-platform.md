@@ -70,9 +70,37 @@ realtime       openai/gpt-realtime-2.1
 
 Realtime is included only so M8 can benchmark it behind a safe credential boundary. It is not a production transport decision.
 
+## Privacy routing
+
+Private text, structured output and embeddings are routed with:
+
+```text
+zeroDataRetention = true
+disallowPromptTraining = true
+Gateway prompt caching = not enabled
+```
+
+If the requested model/fallback set has no provider route that satisfies ZDR, the request fails closed. This is acceptable because cloud AI is enrichment, never alarm authority.
+
+Current Gateway status as of 2026-09-10:
+
+| Capability | Default | WMW privacy posture |
+|---|---|---|
+| text / structured output | fast/smart policy | ZDR required |
+| embeddings | `openai/text-embedding-3-small` | ZDR required |
+| transcription | `openai/whisper-1` | no current ZDR; spike-only |
+| speech | `openai/tts-1` | no current ZDR; spike-only |
+| realtime | `openai/gpt-realtime-2.1` | no current ZDR; M8 spike-only |
+
+`WMW_ENABLE_NON_ZDR_AUDIO_SPIKES` defaults to `false`. Enabling it is an explicit engineering action for **synthetic, non-sensitive input only**. Do not use it with real wake audio, user transcripts, Tomorrow Contract text, calendar content, or generated private speech.
+
+This gate exists because short-lived credentials protect API keys, not data-retention policy. M8 must revalidate provider/Gateway privacy before any real-user voice path is approved.
+
 ## Failure behavior
 
 - language calls use Gateway model fallbacks;
+- private text/embedding calls fail closed when no ZDR route is available;
+- non-ZDR audio/realtime calls fail locally unless the explicit spike gate is enabled;
 - individual SDK calls have bounded retries and timeouts;
 - the service returns sanitized errors with request IDs;
 - unknown provider errors are not logged verbatim;
@@ -81,7 +109,7 @@ Realtime is included only so M8 can benchmark it behind a safe credential bounda
 
 ## HTTP boundary
 
-`GET /api/health` is the only public route in this slice. It exposes non-secret configuration/readiness.
+`GET /api/health` is the only public route in this slice. It exposes non-secret configuration/readiness, including whether the non-ZDR audio spike gate is enabled.
 
 All `/api/internal/ai/*` routes require an operator bearer key. They exist for engineering validation and the M8 spike, not as a public model proxy and not as the future Android authentication design.
 
@@ -101,9 +129,9 @@ Application telemetry must continue to prefer typed semantic inputs/outcomes ins
 
 `.github/workflows/cloud-ci.yml` installs the isolated cloud package on Node 22 and runs strict TypeScript checking plus unit tests on every relevant pull request.
 
-Tests cover configuration/fallback invariants and the internal authorization boundary without making paid/live model calls.
+Tests cover configuration/fallback/privacy invariants and the internal authorization boundary without making paid/live model calls.
 
-A real Gateway smoke test belongs in a controlled environment after credentials/spend limits are configured; it should not become a mandatory paid CI step.
+A real Gateway smoke test belongs in a controlled environment after credentials/spend limits are configured; it should not become a mandatory paid CI step. Any private text smoke must verify ZDR routing metadata. Audio/realtime smoke input must remain synthetic until a privacy-compliant route exists.
 
 ## Deployment
 
@@ -115,10 +143,12 @@ apps/cloud
 
 Use Vercel OIDC where available or configure `AI_GATEWAY_API_KEY`. Configure `WMW_INTERNAL_API_KEY` only for operator routes.
 
+Keep `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` in normal environments. If temporarily enabled for M8 engineering, use synthetic input only and turn it back off after the experiment.
+
 Before production Android integration add a real session/installation authorization boundary. Never embed `WMW_INTERNAL_API_KEY` in Android.
 
 ## Next decisions
 
 M7 remains local deterministic Wake Learning v0.
 
-At M8, use this foundation as one measured candidate while still comparing the realtime transport shapes required by ADR-008. Select M9 transport from measurements, not from the existence of this code.
+At M8, use this foundation as one measured candidate while still comparing the realtime transport shapes required by ADR-008. Select M9 transport from measurements, including verified privacy guarantees, not from the existence of this code.
