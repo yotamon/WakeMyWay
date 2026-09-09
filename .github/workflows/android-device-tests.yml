@@ -7,6 +7,7 @@ on:
       - feat/m2-device-ci
     paths:
       - "apps/android/**"
+      - ".github/scripts/run-android-device-tests.sh"
       - ".github/workflows/android-device-tests.yml"
 
 permissions:
@@ -52,11 +53,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
-          script: |
-            set -eu
-            trap 'adb devices -l > "$GITHUB_WORKSPACE/adb-devices.txt" 2>&1 || true; timeout 15s adb logcat -d -t 2000 > "$GITHUB_WORKSPACE/emulator-logcat.txt" 2>&1 || true' EXIT
-            cd apps/android
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/run-android-device-tests.sh"
 
       - name: Upload device-test evidence
         if: always()
