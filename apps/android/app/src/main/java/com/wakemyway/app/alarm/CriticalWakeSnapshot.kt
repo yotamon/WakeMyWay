@@ -16,6 +16,10 @@ import org.json.JSONObject
 /**
  * Minimal non-sensitive state required to recover wake delivery before first unlock.
  * Private context, transcripts, prompts and personalized speech must never be added here.
+ *
+ * [enabled] is persisted as a cancellation tombstone. A disabled snapshot intentionally
+ * keeps the non-sensitive schedule definition so a crash cannot turn a user cancellation
+ * back into a future alarm during reconciliation.
  */
 data class CriticalWakeSnapshot(
     val schedule: WakeSchedule,
@@ -23,6 +27,7 @@ data class CriticalWakeSnapshot(
     val activeOccurrence: WakeOccurrence?,
     val registeredOccurrenceId: WakeOccurrenceId?,
     val generation: Long,
+    val enabled: Boolean = true,
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
 ) {
     init {
@@ -34,11 +39,15 @@ data class CriticalWakeSnapshot(
         require(registeredOccurrenceId == null || registeredOccurrenceId == nextOccurrence?.id) {
             "Registered occurrence must match the persisted next occurrence"
         }
+        require(enabled || (nextOccurrence == null && activeOccurrence == null && registeredOccurrenceId == null)) {
+            "A disabled wake schedule cannot retain an occurrence or OS registration"
+        }
     }
 
     fun encode(): String = JSONObject().apply {
         put("schemaVersion", schemaVersion)
         put("generation", generation)
+        put("enabled", enabled)
         put("schedule", schedule.toJson())
         put("nextOccurrence", nextOccurrence?.toJson())
         put("activeOccurrence", activeOccurrence?.toJson())
@@ -63,6 +72,7 @@ data class CriticalWakeSnapshot(
                     WakeOccurrenceId(json.getString("registeredOccurrenceId"))
                 },
                 generation = json.getLong("generation"),
+                enabled = if (json.has("enabled")) json.getBoolean("enabled") else true,
                 schemaVersion = schema,
             )
         }
