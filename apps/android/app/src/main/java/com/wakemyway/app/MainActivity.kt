@@ -34,6 +34,7 @@ import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
@@ -105,7 +106,7 @@ private fun WakeAlarmLabScreen() {
                 runCatching { kernel.commitSchedule(founderTestSchedule()) }
                     .onSuccess {
                         health = it
-                        message = "Normal lab wake scheduled for about 2 minutes from now. Lock the phone."
+                        message = "One-shot lab wake scheduled for about 2 minutes from now. Lock the phone."
                     }
                     .onFailure {
                         health = kernel.health()
@@ -114,7 +115,7 @@ private fun WakeAlarmLabScreen() {
             },
             enabled = health.exactAlarmAllowed,
         ) {
-            Text("Run normal T+2m wake")
+            Text("Run one-shot T+2m wake")
         }
 
         OutlinedButton(
@@ -249,6 +250,7 @@ private fun founderTestSchedule(): WakeSchedule {
         zoneId = target.zone,
         timesByDay = DayOfWeek.values().associateWith { target.toLocalTime() },
         revision = System.currentTimeMillis().coerceAtLeast(1),
+        completionPolicy = WakeCompletionPolicy.ONE_SHOT,
     )
 }
 
