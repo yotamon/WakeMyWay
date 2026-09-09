@@ -21,6 +21,7 @@ data class CriticalWakeSnapshot(
     val schedule: WakeSchedule,
     val nextOccurrence: WakeOccurrence?,
     val activeOccurrence: WakeOccurrence?,
+    val registeredOccurrenceId: WakeOccurrenceId?,
     val generation: Long,
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
 ) {
@@ -30,6 +31,9 @@ data class CriticalWakeSnapshot(
         require(nextOccurrence == null || activeOccurrence == null) {
             "A critical snapshot cannot have both a next and active occurrence"
         }
+        require(registeredOccurrenceId == null || registeredOccurrenceId == nextOccurrence?.id) {
+            "Registered occurrence must match the persisted next occurrence"
+        }
     }
 
     fun encode(): String = JSONObject().apply {
@@ -38,6 +42,7 @@ data class CriticalWakeSnapshot(
         put("schedule", schedule.toJson())
         put("nextOccurrence", nextOccurrence?.toJson())
         put("activeOccurrence", activeOccurrence?.toJson())
+        put("registeredOccurrenceId", registeredOccurrenceId?.value ?: JSONObject.NULL)
     }.toString()
 
     companion object {
@@ -52,6 +57,11 @@ data class CriticalWakeSnapshot(
                 schedule = schedule,
                 nextOccurrence = json.optJSONObject("nextOccurrence")?.let { occurrenceFromJson(it, schedule) },
                 activeOccurrence = json.optJSONObject("activeOccurrence")?.let { occurrenceFromJson(it, schedule) },
+                registeredOccurrenceId = if (json.isNull("registeredOccurrenceId")) {
+                    null
+                } else {
+                    WakeOccurrenceId(json.getString("registeredOccurrenceId"))
+                },
                 generation = json.getLong("generation"),
                 schemaVersion = schema,
             )
