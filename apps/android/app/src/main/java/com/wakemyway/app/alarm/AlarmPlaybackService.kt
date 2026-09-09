@@ -66,6 +66,7 @@ class AlarmPlaybackService : Service() {
                     trace.expected(
                         occurrence = replacement,
                         scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
+                        expectFullScreen = kernel.health().fullScreenIntentAllowed,
                     )
                 }
                 stopExecution()
