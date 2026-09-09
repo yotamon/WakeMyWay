@@ -43,7 +43,9 @@ import java.time.ZonedDateTime
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AlarmKernel(this).reconcile()
+        val kernel = AlarmKernel(this)
+        val health = kernel.reconcile()
+        recordCapabilities(WakeTimingTrace(this), health)
         setContent {
             WakeMyWayTheme {
                 WakeAlarmLabScreen()
@@ -65,6 +67,8 @@ private fun WakeAlarmLabScreen() {
         ActivityResultContracts.RequestPermission(),
     ) {
         health = kernel.health()
+        recordCapabilities(timingTrace, health)
+        history = timingTrace.history(HISTORY_LIMIT)
     }
 
     Column(
@@ -113,6 +117,7 @@ private fun WakeAlarmLabScreen() {
                                 expectFullScreen = committedHealth.fullScreenIntentAllowed,
                             )
                         }
+                        recordCapabilities(timingTrace, committedHealth)
                         history = timingTrace.history(HISTORY_LIMIT)
                         message = "One-shot lab wake scheduled for about 2 minutes from now. Lock the phone."
                     }
@@ -130,11 +135,32 @@ private fun WakeAlarmLabScreen() {
             modifier = Modifier.padding(top = 10.dp),
             onClick = {
                 health = kernel.reconcile()
+                recordCapabilities(timingTrace, health)
                 history = timingTrace.history(HISTORY_LIMIT)
                 message = health.detail
             },
         ) {
             Text("Refresh evidence")
+        }
+
+        OutlinedButton(
+            modifier = Modifier.padding(top = 10.dp),
+            onClick = {
+                val report = timingTrace.reportText()
+                context.startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Wake My Way reliability report")
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        },
+                        "Share reliability report",
+                    ),
+                )
+            },
+            enabled = history.isNotEmpty(),
+        ) {
+            Text("Share reliability report")
         }
 
         OutlinedButton(
@@ -249,6 +275,14 @@ private fun TimingFacts(number: Int, timing: TimingSnapshot) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.secondary,
     )
+    if (timing.events.isNotEmpty()) {
+        Text(
+            modifier = Modifier.padding(top = 3.dp),
+            text = timing.events.takeLast(5).joinToString(" → ") { it.type },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+    }
 }
 
 private fun founderTestSchedule(): WakeSchedule {
@@ -259,6 +293,19 @@ private fun founderTestSchedule(): WakeSchedule {
         timesByDay = DayOfWeek.values().associateWith { target.toLocalTime() },
         revision = System.currentTimeMillis().coerceAtLeast(1),
         completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+    )
+}
+
+private fun recordCapabilities(
+    timingTrace: WakeTimingTrace,
+    health: AlarmHealth,
+) {
+    val occurrence = health.nextOccurrence ?: health.activeOccurrence ?: return
+    timingTrace.capabilities(
+        occurrenceId = occurrence.id,
+        exactAlarmAllowed = health.exactAlarmAllowed,
+        notificationsAllowed = health.notificationsAllowed,
+        fullScreenIntentAllowed = health.fullScreenIntentAllowed,
     )
 }
 
