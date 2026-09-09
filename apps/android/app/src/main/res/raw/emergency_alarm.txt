@@ -1,1 +1,0 @@
-Wake My Way emergency alarm is generated locally by AlarmPlaybackService using USAGE_ALARM. This text seed documents the bundled deterministic fallback identity for M1; a compressed audio asset will replace it after the first device reliability pass.
