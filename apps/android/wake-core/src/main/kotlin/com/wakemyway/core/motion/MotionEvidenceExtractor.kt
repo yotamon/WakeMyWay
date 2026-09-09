@@ -67,7 +67,16 @@ class MotionEvidenceExtractor(
         }
 
         val emissions = mutableListOf<MotionEvidenceEmission>()
-        pickupIfReady()?.let(emissions::add)
+        val pickup = pickupIfReady()
+        pickup?.let(emissions::add)
+
+        // One physical callback should not earn two correlated evidence points. If this tilt
+        // completes a pickup pair, treat that as the primary evidence and move the orientation
+        // anchor. A later distinct tilt may then emit ORIENTATION_CHANGE independently.
+        if (pickup != null) {
+            orientationAnchorDegrees = tiltDegrees
+            return emissions
+        }
 
         if (
             delta >= tuning.orientationChangeDegrees &&
@@ -79,8 +88,6 @@ class MotionEvidenceExtractor(
                 reason = "tilt_delta_degrees=${format(delta)}",
             )
             rememberEmission(MotionEvidenceKind.ORIENTATION_CHANGE, timestampNanos)
-            orientationAnchorDegrees = tiltDegrees
-        } else if (emissions.any { it.kind == MotionEvidenceKind.DEVICE_PICKUP }) {
             orientationAnchorDegrees = tiltDegrees
         }
 
