@@ -3,36 +3,45 @@
 **Last updated:** 2026-09-09  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first  
-**Current engineering phase:** M4 Motion Evidence in progress, while M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `feat/m4-motion-evidence`  
-**Current PR:** #15
+**Current engineering phase:** M5 Alfred local character experience in progress, while M2 physical-device reliability evidence remains open  
+**Current implementation branch:** `feat/m5-alfred-local`  
+**Current PR:** #17
 
 ## Executive status
 
 Wake My Way is in active Android development.
 
-M0 Foundation, M1 Deep Alarm Kernel, the first M2 reliability harness/emulator lane, and M3 deterministic Wake Runtime are merged into `main`.
+Merged into `main`:
+
+- M0 Foundation
+- M1 Deep Alarm Kernel + Active Wake Execution
+- M2 automated reliability harness + dedicated emulator lane
+- M3 deterministic Wake Runtime
+- M4 bounded Motion Evidence extraction + thin Android sensor adapter
+
+M5 is implementing Alfred as the first deterministic local character. The implementation is deliberately isolated from production Active Wake Execution until physical-device reliability evidence shows that character speech can be integrated without weakening alarm audibility or lifecycle guarantees.
 
 The product now has:
 
-- a real exact local Android alarm path
-- durable Direct-Boot critical state
-- foreground local alarm playback independent of WakeActivity lifetime
-- crash-safe cancellation and snooze semantics
-- replayable reliability diagnostics
-- Android instrumentation tests that execute successfully in a dedicated emulator workflow
-- a deep pure-Kotlin Wake Runtime that owns intervention progression and activation evidence
-- deterministic no-response escalation that cannot manufacture wake-success evidence
+- a real exact local Android alarm path;
+- durable Direct-Boot critical state;
+- foreground local alarm playback independent of `WakeActivity` lifetime;
+- crash-safe cancellation and durable snooze semantics;
+- replayable reliability diagnostics;
+- Android instrumentation tests executing in a dedicated emulator workflow;
+- a deep pure-Kotlin Wake Runtime that owns intervention progression and Activation Evidence;
+- deterministic no-response escalation that cannot manufacture wake success;
+- conservative derived motion evidence with no raw sensor persistence;
+- a versioned deterministic Alfred renderer with bounded curated copy;
+- an offline-only Android TextToSpeech adapter and silent character fallback in Wake Alarm Lab.
 
-M4 is adding conservative physical motion evidence as a thin platform input to Wake Runtime. The first slice contains a pure deterministic extractor plus a thin `SensorManager` adapter. Thresholds are tuning hypotheses and are not yet calibrated on physical founder/OEM devices.
-
-**No physical-device reliability percentile claim has been made yet.** Emulator/device-test evidence is real and useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, or Android 17 physical behavior.
+**No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, audio coexistence, or Android 17 physical behavior.
 
 ## Canonical architecture
 
 Root [`../CONTEXT.md`](../CONTEXT.md) owns vocabulary and invariants.
 
-The trust-critical path remains local:
+### Trust-critical wake path
 
 ```text
 Wake Schedule
@@ -53,7 +62,9 @@ AlarmPlaybackService
     └─ durable Stop / Snooze
 ```
 
-Behavior above the kernel is deterministic and local:
+Cloud, Vercel, Supabase, AI, calendar, weather and realtime voice do not participate in alarm delivery.
+
+### Deterministic behavior path
 
 ```text
 platform/user facts
@@ -66,7 +77,9 @@ ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
  typed WakeDirective
 ```
 
-M4 motion direction:
+Wake Runtime remains behavioral authority. Android adapters, characters and future AI cannot calculate a separate confidence score or overrule it.
+
+### Motion evidence path
 
 ```text
 Android sensors
@@ -80,16 +93,36 @@ MotionObserved(kind)
 WakeRuntime
 ```
 
-Cloud, Vercel, Supabase, AI, calendar, weather, and realtime voice do not participate in alarm delivery or Wake Runtime authority.
+Current thresholds are tuning hypotheses until calibrated on physical devices.
 
-## Implemented: M0 Foundation
+### M5 character path
 
-- native Android project
-- intentionally minimal modules: `:app`, `:wake-core`, `:benchmark`
-- committed Gradle wrapper
-- pure Kotlin Wake Schedule / Wake Occurrence domain
-- deterministic recurrence and DST behavior
-- GitHub Actions for docs, domain tests, lint, instrumentation compilation, APK assembly and artifacts
+```text
+WakeDirective.Speak(SpeechIntent)
+           ↓
+      AlfredCharacter
+ deterministic curated wording
+           ↓
+    RenderedWakeLine
+           ↓
+ OfflineVoiceSelector
+           ↓
+ LocalCharacterSpeaker
+ Android TextToSpeech
+           ↓
+ verified offline voice
+```
+
+M5 currently exposes this path in Wake Alarm Lab only. Character speech does not own critical alarm audio and is not yet production-wired into Active Wake Execution.
+
+## Implemented and merged: M0 Foundation
+
+- native Android project;
+- intentionally minimal modules: `:app`, `:wake-core`, `:benchmark`;
+- committed Gradle wrapper;
+- pure Kotlin Wake Schedule / Wake Occurrence domain;
+- deterministic recurrence and DST behavior;
+- GitHub Actions for docs, domain tests, lint, instrumentation compilation, APK assembly and artifacts.
 
 Current toolchain:
 
@@ -110,75 +143,76 @@ M1 merged in PR #8.
 
 Implemented:
 
-- `AlarmManager.setAlarmClock()` exact alarm registration
-- `USE_EXACT_ALARM` / full-screen alarm presentation direction
-- foreground Active Wake Execution with `mediaPlayback`
-- bundled local emergency WAV using `AudioAttributes.USAGE_ALARM`
-- secondary ToneGenerator fallback
-- dedicated Direct-Boot-aware `WakeActivity`
-- versioned atomic device-protected Critical Wake Snapshot
-- persisted OS-registration confirmation for truthful Wake Ready
-- crash-safe schedule replacement and durable cancellation tombstone
-- stale occurrence rejection and occurrence-specific PendingIntent identity
-- foreground-service recovery from persisted active state
-- durable Stop and Snooze replacement-before-stop semantics
-- boot / locked-boot / time / timezone / package reconciliation
-- graceful exact-alarm capability loss
-- non-sensitive target → receiver → foreground → audio → UI timing trace
+- `AlarmManager.setAlarmClock()` exact registration;
+- `USE_EXACT_ALARM` / full-screen alarm presentation direction;
+- foreground Active Wake Execution with `mediaPlayback`;
+- bundled local emergency WAV using `AudioAttributes.USAGE_ALARM`;
+- secondary ToneGenerator fallback;
+- dedicated Direct-Boot-aware `WakeActivity`;
+- versioned atomic device-protected Critical Wake Snapshot;
+- persisted OS-registration confirmation for truthful Wake Ready;
+- crash-safe schedule replacement and durable cancellation tombstone;
+- stale occurrence rejection and occurrence-specific PendingIntent identity;
+- foreground-service recovery from persisted active state;
+- durable Stop and Snooze replacement-before-stop semantics;
+- boot / locked-boot / time / timezone / package reconciliation;
+- graceful exact-alarm capability loss;
+- non-sensitive target → receiver → foreground → audio → UI timing trace.
 
-M1 implementation is CI-verified. Physical reliability evidence remains part of M2.
+M1 is CI-verified. Physical reliability evidence remains part of M2.
 
-## M2 Reliability Harness: merged automated evidence, physical proof still open
+## M2 Reliability Harness: automated evidence merged, physical proof open
 
-PR #10 merged the first Wake Alarm Lab/reliability slice. PR #11 merged the dedicated Android device-test workflow.
+PR #10 merged the Wake Alarm Lab/reliability slice. PR #11 merged the dedicated Android device-test workflow.
 
 Available tooling/evidence:
 
-- hidden/founder Wake Alarm Lab
-- one-shot T+2m lab schedules
-- bounded device-protected reliability history
-- replayable ordered occurrence timeline
-- target, receiver, foreground, audio, UI and terminal timestamps
-- derived missed-receiver/audio/UI failure states
-- service-recreation, reconciliation and capability evidence
-- Stop/Snooze terminal journaling
-- shareable sanitized reliability reports
-- isolated instrumentation-test storage
-- instrumentation tests for critical snapshot persistence, cancellation resurrection prevention, one-shot snooze completion, event ordering and reporting
-- dedicated API-36 emulator workflow with KVM
-- `:app:connectedDebugAndroidTest` successfully executed on the emulator lane
+- founder Wake Alarm Lab;
+- one-shot T+2m schedules;
+- bounded device-protected reliability history;
+- replayable ordered occurrence timeline;
+- target, receiver, foreground, audio, UI and terminal timestamps;
+- derived missed-receiver/audio/UI failure states;
+- service-recreation, reconciliation and capability evidence;
+- Stop/Snooze terminal journaling;
+- shareable sanitized reliability reports;
+- isolated instrumentation-test storage;
+- instrumentation tests for critical snapshot persistence, cancellation resurrection prevention, one-shot snooze completion, event ordering and reporting;
+- dedicated API-36 emulator workflow with KVM;
+- successful `:app:connectedDebugAndroidTest` execution on the emulator lane.
 
 ### Proven by automated CI/device lane
 
-- documentation validation
-- pure Kotlin tests
-- Android compile/lint
-- debug APK packaging
-- instrumentation APK compilation/package
-- current Android instrumentation suite executes successfully on a known emulator image
+- documentation validation;
+- pure Kotlin tests;
+- Android compile/lint;
+- debug APK packaging;
+- instrumentation APK compilation/package;
+- current Android instrumentation suite executes on a known emulator image.
 
 ### Still not proven on physical devices
 
-- repeated locked-screen T+2m delivery
-- receiver → real audible alarm latency distribution
-- receiver → WakeActivity latency distribution
-- Doze/idle behavior
-- active playback process/service recreation
-- reboot and Direct Boot before first unlock
-- wall-clock/timezone repair
-- exact-alarm / full-screen capability loss and restoration on-device
-- OEM-specific power management
-- Android 17 physical background-audio behavior
+- repeated locked-screen T+2m delivery;
+- receiver → real audible alarm latency distribution;
+- receiver → `WakeActivity` latency distribution;
+- Doze/idle behavior;
+- active playback process/service recreation;
+- reboot and Direct Boot before first unlock;
+- wall-clock/timezone repair;
+- exact-alarm / full-screen capability loss and restoration on-device;
+- OEM-specific power management;
+- Android 17 physical background-audio behavior;
+- coexistence of critical alarm audio with optional local character TTS.
 
 Reliability targets remain targets, not claims:
 
-- no silent expected wake failure without diagnosable evidence
-- receiver → audible local alarm P99 < 1 second on supported devices
-- receiver → WakeActivity visible P95 < 1 second when full-screen presentation is permitted
-- stale/cancelled occurrences never become active
-- snooze replacement is durable before current execution ends
-- service/process recreation does not silence an active wake
-- reboot-before-unlock can recover a future wake without private-data dependency
+- no silent expected wake failure without diagnosable evidence;
+- receiver → audible local alarm P99 < 1 second on supported devices;
+- receiver → `WakeActivity` visible P95 < 1 second when full-screen presentation is permitted;
+- stale/cancelled occurrences never become active;
+- snooze replacement is durable before current execution ends;
+- service/process recreation does not silence an active wake;
+- reboot-before-unlock can recover a future wake without private-data dependency.
 
 Issue #9 remains open until physical evidence supports closing it.
 
@@ -188,55 +222,76 @@ M3 merged in PR #13.
 
 Implemented in pure Kotlin:
 
-- durable phases: `ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED`
-- typed Wake Inputs and Wake Directives
-- versioned Wake Policy
-- internal Activation Evidence authority
-- deterministic escalation/intervention progression
-- explicit no-response progression
-- silence/time can strengthen intervention but never count as Activation Evidence
-- capability degradation
-- durable Snooze scheduling handshake
-- durable Stop handshake
-- serialization of competing destructive effects
-- bounded duplicate-input memory
-- deterministic replay and diagnostics
-- terminal session invariants
+- durable phases `ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED`;
+- typed Wake Inputs and Wake Directives;
+- versioned Wake Policy;
+- internal Activation Evidence authority;
+- deterministic escalation/intervention progression;
+- no-response progression without synthetic wake evidence;
+- capability degradation;
+- durable Snooze scheduling handshake;
+- durable Stop handshake;
+- serialization of competing destructive effects;
+- bounded duplicate-input memory;
+- deterministic replay and diagnostics;
+- terminal session invariants.
 
-Android/AI callers cannot calculate a separate confidence score and overrule the runtime.
+## Implemented and merged: M4 Motion Evidence
 
-## In progress: M4 Motion Evidence
+M4 merged in PR #15. Canonical implementation note: [`implementation/m4-motion-evidence.md`](implementation/m4-motion-evidence.md).
 
-Canonical implementation note: [`implementation/m4-motion-evidence.md`](implementation/m4-motion-evidence.md).
+Implemented:
 
-Current PR #15 contains:
+- pure `MotionEvidenceExtractor`;
+- `DEVICE_PICKUP`, `ORIENTATION_CHANGE`, `SUSTAINED_MOVEMENT` emissions;
+- bounded ephemeral rolling state only;
+- threshold/cooldown/debounce hypotheses;
+- correlated-evidence protection;
+- conservative sensor fallbacks;
+- thin idempotent `AndroidMotionObserver`;
+- no raw sensor persistence;
+- pure extractor tests;
+- runtime integration test showing distinct physical evidence can advance the same Wake Policy.
 
-- pure `MotionEvidenceExtractor`
-- `DEVICE_PICKUP`, `ORIENTATION_CHANGE`, `SUSTAINED_MOVEMENT` emissions
-- bounded rolling feature state only
-- threshold/cooldown/debounce hypotheses
-- correlated-evidence protection so one physical pickup callback cannot also earn orientation credit
-- conservative sensor fallbacks
-- thin idempotent `AndroidMotionObserver`
-- no raw sensor persistence
-- pure extractor tests
-- runtime integration test showing the same Wake Policy stays `ACTIVATING` without motion and can reach `ORIENTING` with distinct physical evidence
+Production wiring remains reliability-gated, and thresholds are not considered calibrated yet.
 
-Production wiring into Active Wake Execution is intentionally deferred until the reliability boundary is ready for that integration.
+## In progress: M5 Alfred local character experience
+
+Tracks issue #16 and PR #17. Canonical implementation note: [`implementation/m5-alfred-local.md`](implementation/m5-alfred-local.md).
+
+Current implementation candidate includes:
+
+- versioned `CharacterSpec` and `RenderedWakeLine`;
+- Alfred v1: dry, composed, concise, direct;
+- deterministic FNV-based bounded variant selection;
+- curated coverage for every current `SpeechIntent`;
+- bounded `ReEngage` escalation language;
+- semantic guardrails preventing premature snooze-success claims and unsupported awake/posture claims;
+- automated brevity and hostile/shaming-language checks;
+- pure `OfflineVoiceSelector` rejecting network-required and unrelated-language voices;
+- Android `LocalCharacterSpeaker` using TextToSpeech only after verified offline voice selection;
+- explicit initialization, interruption, failure and shutdown behavior;
+- immediate silent character fallback when speech is unavailable;
+- Alfred preview and voice diagnostics in Wake Alarm Lab;
+- no network, AI, microphone or transcript persistence.
+
+Production speech integration remains intentionally deferred until M2 physical reliability work shows it is safe.
 
 ## Privacy boundaries
 
-Critical/reliability/motion operational storage must never contain:
+Critical/reliability/motion/character operational paths must never persist:
 
-- Tomorrow Contract text
-- calendar content
-- transcripts or microphone audio
-- prompts
-- secrets/tokens
-- personalized private generated speech
-- raw accelerometer / rotation / gravity / gyroscope streams
+- Tomorrow Contract text in device-protected critical state;
+- calendar content;
+- transcripts or microphone audio;
+- prompts;
+- secrets/tokens;
+- private generated speech;
+- raw accelerometer / rotation / gravity / gyroscope streams.
 
 Derived motion evidence may contain only technical evidence type, monotonic timing, bounded derived reason and sensor-source availability.
+
+M5 character rendering consumes typed `SpeechIntent` plus a non-sensitive render key and does not retain transcripts.
 
 ## Milestone status
 
@@ -250,8 +305,8 @@ Derived motion evidence may contain only technical evidence type, monotonic timi
 | M1 Deep Alarm Kernel + Active Wake Execution | **Merged / implementation complete** |
 | M2 Reliability Harness | **Automated harness + emulator lane merged; physical-device evidence still open (#9)** |
 | M3 Wake Runtime | **Merged / pure runtime complete** |
-| M4 Motion evidence | **In progress, PR #15** |
-| M5 Alfred local experience | Not started |
+| M4 Motion evidence | **Merged / isolated evidence layer complete; physical calibration open** |
+| M5 Alfred local experience | **In progress, PR #17** |
 | M6 Tomorrow Contract | Not started |
 | M7 Wake Learning v0 | Not started |
 | M8 Voice architecture spike | Not started |
@@ -262,12 +317,12 @@ Derived motion evidence may contain only technical evidence type, monotonic timi
 
 ## Exact next work
 
-1. Get PR #15 fully green and review conservative evidence semantics.
-2. Merge the isolated M4 extractor/adapter slice once CI is clean.
-3. Continue building higher-level local components only where they do not weaken the critical alarm path.
-4. In parallel, run physical founder-device M2 scenarios when a device execution path is available: locked T+2m, Stop/Snooze resurrection, service recreation, Doze, reboot/Direct Boot, time/timezone changes and capability degradation.
-5. Calibrate motion thresholds with real traces before treating them as production values.
-6. Only wire adaptive runtime/motion behavior into Active Wake Execution after reliability evidence shows the integration is safe.
+1. Get the final hardened PR #17 head fully green and review character authority/privacy boundaries.
+2. Merge M5 without production-wiring character speech into Active Wake Execution.
+3. Begin M6 Tomorrow Contract as a local-first data/product feature.
+4. In parallel, run physical M2 founder-device scenarios when a device execution path is available: locked T+2m, Stop/Snooze resurrection, service recreation, Doze, reboot/Direct Boot, time/timezone changes and capability degradation.
+5. Calibrate motion thresholds and local TTS/audio coexistence on real devices before production integration.
+6. Keep M7 Wake Learning local and bounded before the M8 realtime-provider spike.
 
 ## Cloud / future stack status
 
