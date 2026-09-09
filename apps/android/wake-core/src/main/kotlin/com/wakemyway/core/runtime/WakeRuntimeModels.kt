@@ -37,6 +37,11 @@ enum class SnoozeState {
     SCHEDULING,
 }
 
+enum class StopState {
+    NONE,
+    STOPPING,
+}
+
 enum class MotionEvidenceKind {
     DEVICE_PICKUP,
     ORIENTATION_CHANGE,
@@ -111,6 +116,7 @@ data class WakeSessionSnapshot(
     val activationEvidence: ActivationEvidence = ActivationEvidence(),
     val escalationLevel: Int = 0,
     val snoozeState: SnoozeState = SnoozeState.NONE,
+    val stopState: StopState = StopState.NONE,
     val capabilities: WakeCapabilities = WakeCapabilities(),
     val processedInputIds: List<WakeInputId> = emptyList(),
 ) {
@@ -125,6 +131,12 @@ data class WakeSessionSnapshot(
         }
         require(phase != WakePhase.FINISHED || snoozeState != SnoozeState.SCHEDULING) {
             "A finished Wake Session cannot still be scheduling snooze"
+        }
+        require(phase != WakePhase.FINISHED || stopState != StopState.STOPPING) {
+            "A finished Wake Session cannot still be stopping execution"
+        }
+        require(snoozeState != SnoozeState.SCHEDULING || stopState == StopState.NONE) {
+            "Snooze scheduling and stop execution cannot be active simultaneously"
         }
     }
 }
@@ -185,6 +197,17 @@ sealed interface WakeInput {
 
     data class OrientationCompleted(override val id: WakeInputId) : WakeInput
     data class StopRequested(override val id: WakeInputId) : WakeInput
+    data class StopCompleted(override val id: WakeInputId) : WakeInput
+
+    data class StopFailed(
+        override val id: WakeInputId,
+        val reasonCode: String,
+    ) : WakeInput {
+        init {
+            require(reasonCode.isNotBlank()) { "Stop failure reason must not be blank" }
+        }
+    }
+
     data class UnrecoverableFailure(override val id: WakeInputId) : WakeInput
 }
 
@@ -205,6 +228,7 @@ sealed interface WakeDirective {
     data object StopObservingMotion : WakeDirective
     data class OfferSnooze(val duration: Duration) : WakeDirective
     data class RequestSnoozeSchedule(val duration: Duration) : WakeDirective
+    data object RequestStopExecution : WakeDirective
     data object PresentOrientation : WakeDirective
     data class CompleteSession(val outcome: WakeOutcome) : WakeDirective
 }
