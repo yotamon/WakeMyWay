@@ -110,6 +110,7 @@ private fun WakeAlarmLabScreen() {
                             timingTrace.expected(
                                 occurrence = occurrence,
                                 scenario = WakeTimingTrace.SCENARIO_NORMAL_T_PLUS_2M,
+                                expectFullScreen = committedHealth.fullScreenIntentAllowed,
                             )
                         }
                         history = timingTrace.history(HISTORY_LIMIT)
