@@ -115,6 +115,8 @@ Android Alarm Kernel attempts durable exact replacement
 
 The runtime therefore cannot claim a snooze outcome before the Alarm Kernel confirms that a replacement occurrence exists.
 
+`SCHEDULING` is an exclusive durable-effect transaction. Competing lifecycle/destructive inputs such as Stop or orientation completion are suppressed until `SnoozeScheduled` or `SnoozeSchedulingFailed` resolves the transaction. The Android directive executor must bound the operation and emit failure on timeout rather than leave a session indefinitely in `SCHEDULING`.
+
 ## Stop transaction
 
 Stop uses the same durable-effect discipline:
@@ -152,6 +154,7 @@ This is the basis for later Wake Lab session replay, behavior debugging, and ver
 - snooze request/confirm/schedule success
 - out-of-order snooze completion rejection
 - snooze scheduling failure keeps the wake active
+- Stop cannot race an in-flight snooze scheduling transaction
 - transactional Stop request/completion/failure
 - out-of-order Stop completion rejection
 - unrelated inputs suppressed while Stop is in flight
