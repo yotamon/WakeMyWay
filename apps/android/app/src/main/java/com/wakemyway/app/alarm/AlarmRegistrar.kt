@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import com.wakemyway.app.MainActivity
 import com.wakemyway.core.schedule.WakeOccurrence
@@ -20,8 +21,10 @@ class AlarmRegistrar(private val context: Context) {
         val triggerAtMillis = occurrence.scheduledAt.toInstant().toEpochMilli()
         val showIntent = PendingIntent.getActivity(
             context,
-            SHOW_ALARM_REQUEST_CODE,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            0,
+            Intent(context, MainActivity::class.java)
+                .setData(intentIdentity("show", occurrence.id))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         alarmManager.setAlarmClock(
@@ -36,19 +39,24 @@ class AlarmRegistrar(private val context: Context) {
 
     private fun operationFor(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getBroadcast(
         context,
-        requestCode(occurrenceId),
+        0,
         Intent(context, AlarmReceiver::class.java)
             .setAction(ACTION_FIRE_WAKE)
+            .setData(intentIdentity("fire", occurrenceId))
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun requestCode(occurrenceId: WakeOccurrenceId): Int =
-        occurrenceId.value.hashCode() and Int.MAX_VALUE
+    private fun intentIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
+        Uri.Builder()
+            .scheme("wakemyway")
+            .authority("alarm")
+            .appendPath(kind)
+            .appendPath(occurrenceId.value)
+            .build()
 
     companion object {
         const val ACTION_FIRE_WAKE = "com.wakemyway.action.FIRE_WAKE"
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
-        private const val SHOW_ALARM_REQUEST_CODE = 7001
     }
 }
