@@ -1,0 +1,30 @@
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+
+# Kotlin
+.kotlin/
+
+# Node
+node_modules/
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local data
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+
+# Generated
+coverage/
+dist/
