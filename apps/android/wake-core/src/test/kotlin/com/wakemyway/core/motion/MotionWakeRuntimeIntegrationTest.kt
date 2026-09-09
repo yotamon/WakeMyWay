@@ -17,18 +17,21 @@ class MotionWakeRuntimeIntegrationTest {
     private val policy = WakePolicy()
 
     @Test
-    fun `same policy stays activating without motion but reaches orienting with sustained physical evidence`() {
+    fun `same policy stays activating without motion but reaches orienting with distinct physical evidence`() {
         val base = activeNoResponseSession("base")
         assertEquals(WakePhase.ACTIVATING, base.phase)
 
         val extractor = MotionEvidenceExtractor()
         extractor.onTilt(ms(0), 0.0)
-        val pickupAndOrientation = buildList {
+
+        val pickup = buildList {
             addAll(extractor.onAcceleration(ms(100), 2.0))
             addAll(extractor.onTilt(ms(300), 30.0))
         }
-        assertTrue(pickupAndOrientation.any { it.kind == MotionEvidenceKind.DEVICE_PICKUP })
-        assertTrue(pickupAndOrientation.any { it.kind == MotionEvidenceKind.ORIENTATION_CHANGE })
+        assertEquals(listOf(MotionEvidenceKind.DEVICE_PICKUP), pickup.map { it.kind })
+
+        val orientation = extractor.onTilt(ms(650), 70.0)
+        assertEquals(listOf(MotionEvidenceKind.ORIENTATION_CHANGE), orientation.map { it.kind })
 
         val sustained = buildList {
             addAll(extractor.onAcceleration(ms(1_000), 0.9))
@@ -39,7 +42,7 @@ class MotionWakeRuntimeIntegrationTest {
         assertTrue(sustained.any { it.kind == MotionEvidenceKind.SUSTAINED_MOVEMENT })
 
         var withMotion = base
-        (pickupAndOrientation + sustained).forEachIndexed { index, evidence ->
+        (pickup + orientation + sustained).forEachIndexed { index, evidence ->
             withMotion = runtime.reduce(
                 withMotion,
                 WakeInput.MotionObserved(
