@@ -60,8 +60,13 @@ class AlarmPlaybackService : Service() {
             }
 
             ACTION_SNOOZE -> {
-                if (kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE) != null) {
+                val replacement = kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
+                if (replacement != null) {
                     trace.snoozed(occurrenceId)
+                    trace.expected(
+                        occurrence = replacement,
+                        scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
+                    )
                 }
                 stopExecution()
                 START_NOT_STICKY
