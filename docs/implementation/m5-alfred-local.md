@@ -1,7 +1,7 @@
 # M5 Alfred local character experience
 
-**Status:** implementation candidate on `feat/m5-alfred-local`  
-**Tracks:** issue #16  
+**Status:** merged in PR #17, CI-verified  
+**Tracks:** issue #16 (completed)  
 **Depends on:** M3 Wake Runtime, M4 motion evidence  
 **Does not depend on:** network, backend, Vercel, Supabase, realtime AI, microphone
 
@@ -52,7 +52,7 @@ speech rate     0.92
 pitch           0.94
 ```
 
-The locale/rate/pitch are presentation preferences, not a promise that every Android device ships the same voice. M5 deliberately uses whatever suitable **installed offline** voice is available.
+The locale/rate/pitch are presentation preferences, not a promise that every Android device ships the same voice. M5 deliberately uses a suitable installed offline voice when one exists.
 
 ## Deterministic rendering
 
@@ -69,10 +69,7 @@ stable FNV-1a selection
 bounded curated variant
 ```
 
-This gives two useful properties:
-
-1. the same render key replays the same line for diagnostics/tests;
-2. different keys provide bounded variation without generative unpredictability.
+This provides deterministic replay for the same render key while allowing bounded variation across different keys.
 
 Character-copy changes require a character-version bump when replay equivalence would otherwise become misleading.
 
@@ -88,7 +85,12 @@ The implementation covers every current runtime `SpeechIntent`:
 - `SnoozeFailed`
 - `Orientation`
 
-`ReEngage` wording becomes firmer with escalation but does not gain new behavioral authority.
+`ReEngage` wording becomes firmer with escalation but does not gain behavioral authority.
+
+Semantic guardrails additionally ensure:
+
+- `SnoozeConfirmation` cannot claim the replacement alarm has already been durably scheduled;
+- `Orientation` cannot claim biological wakefulness or unsupported posture.
 
 ## Copy constraints
 
@@ -98,20 +100,25 @@ Automated tests enforce:
 
 - every current intent renders;
 - no blank line;
-- `RenderedWakeLine` hard maximum of 120 characters;
-- M5 catalog expectation of at most 16 words per line;
+- hard maximum of 120 characters;
+- current catalog expectation of at most 16 words per line;
 - deterministic same-key replay;
 - bounded variation;
 - escalation clamping;
-- absence of defined shame/insult/threat vocabulary.
+- no defined shame/insult/threat vocabulary;
+- no premature snooze-success claim;
+- no unsupported wake/posture claim.
 
-These tests are guardrails, not a complete substitute for human copy review.
+These tests are guardrails, not a substitute for human copy review or dogfood feedback.
 
 ## Offline voice policy
 
 `LocalCharacterSpeaker` fails closed.
 
-It enumerates Android `TextToSpeech` voices and maps them into pure `LocalVoiceCandidate` values. `OfflineVoiceSelector` rejects every voice where Android reports `isNetworkConnectionRequired == true`.
+It enumerates Android `TextToSpeech` voices and maps them into pure `LocalVoiceCandidate` values. `OfflineVoiceSelector` rejects:
+
+- every voice where Android reports `isNetworkConnectionRequired == true`;
+- unrelated-language voices.
 
 Selection priority is:
 
@@ -133,7 +140,7 @@ no waiting spinner
 critical alarm audio continues unchanged
 ```
 
-The app currently declares no `INTERNET` permission, providing an additional practical boundary for M5.
+The app currently declares no `INTERNET` permission, providing an additional structural boundary for M5.
 
 ## Speech lifecycle
 
@@ -149,9 +156,9 @@ or
 Unavailable(reason)
 ```
 
-A speech request made before `Ready` fails immediately. It is not queued for a later network-capable voice.
+A speech request before `Ready` fails immediately. It is not queued for a later network-capable voice.
 
-Utterance callbacks report only local completion/failure and retain no transcript history.
+Utterance lifecycle handles completion, interruption, engine errors, explicit stop and shutdown. Callbacks retain no transcript history.
 
 ## Wake Alarm Lab integration
 
@@ -166,9 +173,9 @@ The lab can:
 - speak the rendered line when a local voice is ready;
 - visibly report silent fallback when speech is unavailable.
 
-This is deliberately **not wired into Active Wake Execution yet**.
+This remains deliberately **not wired into Active Wake Execution**.
 
-That production integration remains gated by the reliability boundary. We first want to prove on physical devices that adding character speech does not interfere with alarm audibility, foreground-service lifetime, audio focus, lock-screen presentation, Stop/Snooze, or timing targets.
+Production integration is gated by physical reliability testing. We must prove that adding character speech does not interfere with critical alarm audibility, foreground-service lifetime, audio routing/focus, lock-screen presentation, Stop/Snooze, or latency targets.
 
 ## Privacy
 
@@ -184,17 +191,20 @@ M5 stores or transmits none of the following:
 
 The character renderer consumes only typed `SpeechIntent` plus a non-sensitive render key.
 
-## Exit criteria
+## Merge evidence
 
-M5 implementation is ready to merge when:
+The final PR #17 head passed:
 
-- pure character tests pass;
-- existing Wake Runtime tests remain green;
-- Android lint passes;
-- instrumentation compilation remains green;
-- debug APK assembles;
-- Wake Alarm Lab exposes deterministic Alfred preview;
-- Android adapter contains no network-required voice fallback;
-- critical alarm execution code remains untouched by the character feature.
+- documentation validation;
+- all `:wake-core` tests including Alfred copy/voice guardrails;
+- Android lint;
+- instrumentation compilation;
+- debug APK assembly;
+- debug APK artifact upload;
+- instrumentation APK artifact upload.
 
-Physical voice quality and audio coexistence remain dogfood evidence, not CI claims.
+The PR changed no Alarm Kernel, receiver, critical playback service, `WakeActivity`, manifest, motion authority or Wake Runtime authority file.
+
+## Remaining evidence boundary
+
+Physical-device voice quality and TTS/critical-audio coexistence remain dogfood evidence, not CI claims. M2 issue #9 remains open for the broader physical reliability envelope.
