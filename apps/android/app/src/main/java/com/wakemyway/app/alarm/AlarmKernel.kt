@@ -28,6 +28,9 @@ class AlarmKernel(
     @Synchronized
     fun commitSchedule(schedule: WakeSchedule): AlarmHealth {
         val previous = store.read()
+        check(previous?.activeOccurrence == null) {
+            "Cannot replace a wake schedule while a wake execution is active"
+        }
         val next = resolver.resolve(schedule, Instant.now(clock))
 
         // New durable authority is written before the old OS alarm is cancelled. If the
