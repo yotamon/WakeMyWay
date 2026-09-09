@@ -106,33 +106,47 @@ class WakeRuntime {
             is WakeInput.SilenceElapsed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
                 val next = remembered.copy(
-                    phase = if (remembered.phase == WakePhase.ENGAGING) WakePhase.ACTIVATING else remembered.phase,
+                    phase = when (remembered.phase) {
+                        WakePhase.ALERTING -> WakePhase.ENGAGING
+                        WakePhase.ENGAGING -> WakePhase.ACTIVATING
+                        else -> remembered.phase
+                    },
                     escalationLevel = escalation,
                 )
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
                     add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
-                    if (next.phase == WakePhase.ACTIVATING) add(WakeDirective.ObserveMotion)
+                    if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
+                        add(WakeDirective.ObserveMotion)
+                    }
                 }
                 transition(next, *directives.toTypedArray())
             }
 
-            is WakeInput.SpeechFinished -> {
-                if (remembered.phase != WakePhase.ENGAGING) {
-                    transition(remembered)
-                } else {
-                    transition(
-                        remembered.copy(phase = WakePhase.ACTIVATING),
-                        WakeDirective.ObserveMotion,
-                        WakeDirective.Speak(SpeechIntent.AskToMove),
-                    )
-                }
+            is WakeInput.SpeechFinished -> when (remembered.phase) {
+                WakePhase.ALERTING -> transition(
+                    remembered.copy(phase = WakePhase.ENGAGING),
+                    WakeDirective.Speak(SpeechIntent.AskToSitUp),
+                    WakeDirective.ObserveMotion,
+                )
+
+                WakePhase.ENGAGING -> transition(
+                    remembered.copy(phase = WakePhase.ACTIVATING),
+                    WakeDirective.ObserveMotion,
+                    WakeDirective.Speak(SpeechIntent.AskToMove),
+                )
+
+                else -> transition(remembered)
             }
 
             is WakeInput.SpeechFailed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
                 val next = remembered.copy(
-                    phase = if (remembered.phase == WakePhase.ENGAGING) WakePhase.ACTIVATING else remembered.phase,
+                    phase = when (remembered.phase) {
+                        WakePhase.ALERTING -> WakePhase.ENGAGING
+                        WakePhase.ENGAGING -> WakePhase.ACTIVATING
+                        else -> remembered.phase
+                    },
                     escalationLevel = escalation,
                 )
                 transition(
