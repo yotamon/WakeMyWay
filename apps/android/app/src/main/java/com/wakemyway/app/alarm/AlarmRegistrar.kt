@@ -18,6 +18,12 @@ class AlarmRegistrar(private val context: Context) {
 
     fun register(occurrence: WakeOccurrence) {
         check(canScheduleExactAlarms()) { "Exact alarm capability is unavailable" }
+
+        // M1 debug builds initially keyed PendingIntents by a 32-bit hash. Remove that
+        // pre-release identity before registering the collision-free URI form so upgrades
+        // cannot leave two OS alarms for the same logical occurrence.
+        cancelLegacy(occurrence.id)
+
         val triggerAtMillis = occurrence.scheduledAt.toInstant().toEpochMilli()
         val showIntent = PendingIntent.getActivity(
             context,
@@ -35,6 +41,7 @@ class AlarmRegistrar(private val context: Context) {
 
     fun cancel(occurrenceId: WakeOccurrenceId) {
         alarmManager.cancel(operationFor(occurrenceId))
+        cancelLegacy(occurrenceId)
     }
 
     private fun operationFor(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getBroadcast(
@@ -46,6 +53,18 @@ class AlarmRegistrar(private val context: Context) {
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
+
+    private fun cancelLegacy(occurrenceId: WakeOccurrenceId) {
+        val legacy = PendingIntent.getBroadcast(
+            context,
+            occurrenceId.value.hashCode() and Int.MAX_VALUE,
+            Intent(context, AlarmReceiver::class.java)
+                .setAction(ACTION_FIRE_WAKE)
+                .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+        legacy?.let(alarmManager::cancel)
+    }
 
     private fun intentIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
         Uri.Builder()
