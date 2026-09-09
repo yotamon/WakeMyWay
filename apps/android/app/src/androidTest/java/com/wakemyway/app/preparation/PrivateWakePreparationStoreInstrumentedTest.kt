@@ -3,13 +3,17 @@ package com.wakemyway.app.preparation
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.work.WorkManager
+import com.wakemyway.core.preparation.PreparedPlanValidation
 import com.wakemyway.core.preparation.PreparedWakePlanPreparer
 import com.wakemyway.core.preparation.TomorrowContract
 import com.wakemyway.core.preparation.TomorrowContractId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
@@ -38,15 +42,7 @@ class PrivateWakePreparationStoreInstrumentedTest {
 
     @Test
     fun credentialProtectedRoundTripPreservesContractAndValidatedPlan() {
-        val contract = TomorrowContract(
-            id = TomorrowContractId("contract:instrumented-occurrence"),
-            wakeOccurrenceId = WakeOccurrenceId("instrumented-occurrence"),
-            rawText = "Tomorrow I want to begin with a deliberate first step.",
-            firstMove = "Open the curtains",
-            revision = 3,
-            createdAtEpochMillis = 1_800_000_000_000L,
-            updatedAtEpochMillis = 1_800_000_010_000L,
-        )
+        val contract = contract("instrumented-occurrence")
         val plan = PreparedWakePlanPreparer.prepare(
             contract = contract,
             preparedAtEpochMillis = 1_800_000_020_000L,
@@ -57,20 +53,31 @@ class PrivateWakePreparationStoreInstrumentedTest {
 
         assertEquals(contract, store.readContract())
         assertEquals(plan, store.readPlan())
-        assertEquals(
-            plan,
-            (PreparedWakePlanPreparer.validate(store.readPlan()!!, store.readContract()!!) as com.wakemyway.core.preparation.PreparedPlanValidation.Valid).plan,
-        )
+        val validation = PreparedWakePlanPreparer.validate(store.readPlan()!!, store.readContract()!!)
+        assertTrue(validation is PreparedPlanValidation.Valid)
+        assertEquals(plan, (validation as PreparedPlanValidation.Valid).plan)
+    }
+
+    @Test
+    fun tamperedPreparedPlanFallsBackAtWakeTime() {
+        val contract = contract("tamper-occurrence")
+        val tampered = PreparedWakePlanPreparer
+            .prepare(contract, 1_800_000_020_000L)
+            .copy(reminderLine = "Modified after preparation")
+        store.writeContract(contract)
+        store.writePlan(tampered)
+
+        val content = WakePreparationManager(context, store).loadForWake(contract.wakeOccurrenceId)
+
+        assertTrue(content is WakeTimePreparedContent.GenericFallback)
+        content as WakeTimePreparedContent.GenericFallback
+        assertEquals(WakePreparationStatus.INVALID_OR_STALE, content.reason)
+        assertEquals(PreparedWakePlanPreparer.genericFallbackLines, content.lines)
     }
 
     @Test
     fun clearRemovesBothPrivateFiles() {
-        val contract = TomorrowContract(
-            id = TomorrowContractId("contract:clear-occurrence"),
-            wakeOccurrenceId = WakeOccurrenceId("clear-occurrence"),
-            rawText = "Private test intention",
-            createdAtEpochMillis = 1_800_000_000_000L,
-        )
+        val contract = contract("clear-occurrence")
         store.writeContract(contract)
         store.writePlan(PreparedWakePlanPreparer.prepare(contract, 1_800_000_020_000L))
 
@@ -95,4 +102,19 @@ class PrivateWakePreparationStoreInstrumentedTest {
             // Expected: raw/private wake context must never enter the Direct-Boot storage boundary.
         }
     }
+
+    @Test
+    fun workManagerCanInitializeOnDemandFromApplicationConfiguration() {
+        assertNotNull(WorkManager.getInstance(context))
+    }
+
+    private fun contract(occurrenceId: String): TomorrowContract = TomorrowContract(
+        id = TomorrowContractId("contract:$occurrenceId"),
+        wakeOccurrenceId = WakeOccurrenceId(occurrenceId),
+        rawText = "Tomorrow I want to begin with a deliberate first step.",
+        firstMove = "Open the curtains",
+        revision = 3,
+        createdAtEpochMillis = 1_800_000_000_000L,
+        updatedAtEpochMillis = 1_800_000_010_000L,
+    )
 }
