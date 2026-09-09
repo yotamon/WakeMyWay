@@ -9,7 +9,6 @@ class CriticalWakeStore(context: Context) {
     private val protectedContext = context.createDeviceProtectedStorageContext()
     private val atomicFile = AtomicFile(
         File(protectedContext.noBackupFilesDir, FILE_NAME),
-        "wake-my-way-critical-state",
     )
 
     @Synchronized
