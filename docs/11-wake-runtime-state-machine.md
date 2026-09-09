@@ -38,15 +38,15 @@ A session may finish with an outcome such as completed, intentionally snoozed, s
 
 ### Alerting
 
-Reliable audible wake stimulus is active. The runtime is trying to obtain first meaningful interaction.
+Reliable audible wake stimulus is active. The runtime begins the wake attempt and establishes the first minimal intervention. This phase does not imply that the user has responded.
 
 ### Engaging
 
-The user has shown initial interaction, but the product does not yet have sufficient behavioral activation evidence. Short conversation and simple physical requests are appropriate.
+The runtime is making a simple engagement attempt such as asking the user to sit up or beginning motion observation. It may be entered because the user responded, because initial speech completed, because speech failed, or because a no-response timer elapsed. **Entering Engaging is intervention progression, not evidence that the user is awake.**
 
 ### Activating
 
-The runtime is actively seeking stronger behavioral evidence, normally movement/continued interaction. Escalation may change here, but **Escalating is not a phase**.
+The runtime is actively seeking stronger behavioral evidence, normally movement/continued interaction. Escalation may change here, but **Escalating is not a phase**. No-response progression can move the intervention here, but silence/time never contributes Activation Evidence.
 
 ### Orienting
 
@@ -153,6 +153,8 @@ Wake Runtime currently combines typed counts for:
 
 The weighted scalar is available only through runtime diagnostics for replay/tuning. It is **not** a public authority seam. Callers ask Wake Runtime what to do next; they do not calculate a score and then decide what to do with it.
 
+Silence, timer expiry, escalation level, speech completion, and speech failure are **not** Activation Evidence. They may cause a stronger intervention, but they cannot move a session into Orienting on their own.
+
 ## Snooze transaction
 
 Snooze uses a durable-effect handshake:
@@ -172,6 +174,8 @@ Alarm Kernel durably creates replacement occurrence
 ```
 
 Out-of-order `SnoozeConfirmed` or `SnoozeScheduled` inputs are no-ops. The runtime never declares snooze complete before exact replacement scheduling succeeds.
+
+While exact snooze scheduling is in flight, it is the exclusive destructive lifecycle transaction. Competing Stop/orientation completion inputs cannot race it. The directive executor must bound the scheduling attempt and feed back success or failure so the session cannot remain stuck indefinitely.
 
 ## Stop transaction
 
@@ -224,7 +228,9 @@ Do not make the persistence schema itself the domain interface.
 - a Finished session never becomes active again
 - network/provider availability never prevents the Alerting path from starting
 - AI output never directly changes Wake Phase
+- no-response may strengthen intervention but never counts as Activation Evidence or wake success
 - snooze does not finish until the replacement exact occurrence is successfully scheduled
+- an in-flight snooze scheduling transaction must resolve before competing destructive lifecycle actions proceed
 - stop does not finish until durable Alarm Kernel execution is confirmed
 - duplicate inputs do not cause duplicate destructive behavior
 - stale activation callbacks cannot re-engage an Orienting session
