@@ -29,10 +29,8 @@ class CriticalWakeStore(context: Context) {
     fun write(snapshot: CriticalWakeSnapshot) {
         val stream = atomicFile.startWrite()
         try {
-            stream.writer(Charsets.UTF_8).use { writer ->
-                writer.write(snapshot.encode())
-                writer.flush()
-            }
+            stream.write(snapshot.encode().toByteArray(Charsets.UTF_8))
+            stream.flush()
             atomicFile.finishWrite(stream)
         } catch (error: Throwable) {
             atomicFile.failWrite(stream)
