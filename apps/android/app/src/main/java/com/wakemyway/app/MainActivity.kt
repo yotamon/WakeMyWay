@@ -10,10 +10,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -34,6 +34,7 @@ import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
@@ -42,36 +43,39 @@ import java.time.ZonedDateTime
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AlarmKernel(this).reconcile()
+        val kernel = AlarmKernel(this)
+        val health = kernel.reconcile()
+        recordCapabilities(WakeTimingTrace(this), health)
         setContent {
             WakeMyWayTheme {
-                AlarmFoundationScreen()
+                WakeAlarmLabScreen()
             }
         }
     }
 }
 
 @Composable
-private fun AlarmFoundationScreen() {
+private fun WakeAlarmLabScreen() {
     val context = LocalContext.current
     val kernel = remember { AlarmKernel(context) }
     val timingTrace = remember { WakeTimingTrace(context) }
     var health by remember { mutableStateOf(kernel.health()) }
-    var timing by remember { mutableStateOf(timingTrace.snapshot()) }
+    var history by remember { mutableStateOf(timingTrace.history(HISTORY_LIMIT)) }
     var message by remember { mutableStateOf<String?>(null) }
 
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) {
         health = kernel.health()
+        recordCapabilities(timingTrace, health)
+        history = timingTrace.history(HISTORY_LIMIT)
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start,
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 28.dp, vertical = 40.dp),
     ) {
         Text(
             text = "Wake My Way",
@@ -81,26 +85,41 @@ private fun AlarmFoundationScreen() {
             ),
         )
         Text(
-            modifier = Modifier.padding(top = 12.dp),
-            text = "Wake up your way.",
-            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 8.dp),
+            text = "Wake Alarm Lab",
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = "Local founder diagnostics. No private wake context is recorded.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
         )
 
         Text(
-            modifier = Modifier.padding(top = 32.dp),
+            modifier = Modifier.padding(top = 28.dp),
             text = if (health.ready) "Wake Ready" else "Wake not ready",
             style = MaterialTheme.typography.headlineSmall,
         )
         HealthFacts(health)
 
         Button(
-            modifier = Modifier.padding(top = 28.dp),
+            modifier = Modifier.padding(top = 24.dp),
             onClick = {
                 runCatching { kernel.commitSchedule(founderTestSchedule()) }
-                    .onSuccess {
-                        health = it
-                        message = "Test wake scheduled for about 2 minutes from now. Lock the phone."
+                    .onSuccess { committedHealth ->
+                        health = committedHealth
+                        committedHealth.nextOccurrence?.let { occurrence ->
+                            timingTrace.expected(
+                                occurrence = occurrence,
+                                scenario = WakeTimingTrace.SCENARIO_NORMAL_T_PLUS_2M,
+                                expectFullScreen = committedHealth.fullScreenIntentAllowed,
+                            )
+                        }
+                        recordCapabilities(timingTrace, committedHealth)
+                        history = timingTrace.history(HISTORY_LIMIT)
+                        message = "One-shot lab wake scheduled for about 2 minutes from now. Lock the phone."
                     }
                     .onFailure {
                         health = kernel.health()
@@ -109,23 +128,55 @@ private fun AlarmFoundationScreen() {
             },
             enabled = health.exactAlarmAllowed,
         ) {
-            Text("Schedule test wake in 2 minutes")
+            Text("Run one-shot T+2m wake")
         }
 
         OutlinedButton(
-            modifier = Modifier.padding(top = 12.dp),
+            modifier = Modifier.padding(top = 10.dp),
             onClick = {
                 health = kernel.reconcile()
-                timing = timingTrace.snapshot()
+                recordCapabilities(timingTrace, health)
+                history = timingTrace.history(HISTORY_LIMIT)
                 message = health.detail
             },
         ) {
-            Text("Refresh Wake Ready + timing")
+            Text("Refresh evidence")
+        }
+
+        OutlinedButton(
+            modifier = Modifier.padding(top = 10.dp),
+            onClick = {
+                val report = timingTrace.reportText()
+                context.startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Wake My Way reliability report")
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        },
+                        "Share reliability report",
+                    ),
+                )
+            },
+            enabled = history.isNotEmpty(),
+        ) {
+            Text("Share reliability report")
+        }
+
+        OutlinedButton(
+            modifier = Modifier.padding(top = 10.dp),
+            onClick = {
+                timingTrace.clearHistory()
+                history = emptyList()
+                message = "Local reliability history cleared."
+            },
+        ) {
+            Text("Clear lab history")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !health.notificationsAllowed) {
             OutlinedButton(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = 10.dp),
                 onClick = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) },
             ) {
                 Text("Allow alarm notifications")
@@ -134,7 +185,7 @@ private fun AlarmFoundationScreen() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !health.fullScreenIntentAllowed) {
             OutlinedButton(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = 10.dp),
                 onClick = {
                     context.startActivity(
                         Intent(
@@ -148,14 +199,31 @@ private fun AlarmFoundationScreen() {
             }
         }
 
-        timing?.let { TimingFacts(it) }
-
         message?.let {
             Text(
-                modifier = Modifier.padding(top = 20.dp),
+                modifier = Modifier.padding(top = 18.dp),
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
             )
+        }
+
+        Text(
+            modifier = Modifier.padding(top = 30.dp),
+            text = "Recent wake evidence",
+            style = MaterialTheme.typography.titleMedium,
+        )
+
+        if (history.isEmpty()) {
+            Text(
+                modifier = Modifier.padding(top = 8.dp),
+                text = "No wake sessions recorded yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        } else {
+            history.forEachIndexed { index, timing ->
+                TimingFacts(index + 1, timing)
+            }
         }
     }
 }
@@ -183,33 +251,66 @@ private fun HealthFacts(health: AlarmHealth) {
 }
 
 @Composable
-private fun TimingFacts(timing: TimingSnapshot) {
+private fun TimingFacts(number: Int, timing: TimingSnapshot) {
     Text(
-        modifier = Modifier.padding(top = 20.dp),
-        text = "Last wake timing",
+        modifier = Modifier.padding(top = 16.dp),
+        text = "#$number · ${timing.scenario ?: timing.occurrenceKind.ifBlank { "unknown" }} · ${timing.state().name}",
         style = MaterialTheme.typography.labelLarge,
     )
     Text(
-        modifier = Modifier.padding(top = 6.dp),
+        modifier = Modifier.padding(top = 4.dp),
         text = buildString {
-            append("trigger delay: ${formatMillis(timing.triggerDelayMillis)}")
-            append("  ·  audio: ${formatMillis(timing.triggerToAudioMillis)}")
-            append("  ·  UI: ${formatMillis(timing.triggerToUiMillis)}")
+            append("trigger ${formatMillis(timing.triggerDelayMillis)}")
+            append("  ·  audio ${formatMillis(timing.triggerToAudioMillis)}")
+            append("  ·  UI ${formatMillis(timing.triggerToUiMillis)}")
         },
         style = MaterialTheme.typography.bodySmall,
     )
+    Text(
+        modifier = Modifier.padding(top = 3.dp),
+        text = buildString {
+            append("terminal ${timing.terminalAction ?: "—"}")
+            append("  ·  recoveries ${timing.serviceRecoveryCount}")
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.secondary,
+    )
+    if (timing.events.isNotEmpty()) {
+        Text(
+            modifier = Modifier.padding(top = 3.dp),
+            text = timing.events.takeLast(5).joinToString(" → ") { it.type },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+    }
 }
 
 private fun founderTestSchedule(): WakeSchedule {
     val target = ZonedDateTime.now().plusMinutes(2).withNano(0)
     return WakeSchedule(
-        id = WakeScheduleId("founder-test"),
+        id = WakeScheduleId("lab-normal-${System.currentTimeMillis()}"),
         zoneId = target.zone,
         timesByDay = DayOfWeek.values().associateWith { target.toLocalTime() },
         revision = System.currentTimeMillis().coerceAtLeast(1),
+        completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+    )
+}
+
+private fun recordCapabilities(
+    timingTrace: WakeTimingTrace,
+    health: AlarmHealth,
+) {
+    val occurrence = health.nextOccurrence ?: health.activeOccurrence ?: return
+    timingTrace.capabilities(
+        occurrenceId = occurrence.id,
+        exactAlarmAllowed = health.exactAlarmAllowed,
+        notificationsAllowed = health.notificationsAllowed,
+        fullScreenIntentAllowed = health.fullScreenIntentAllowed,
     )
 }
 
 private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
 
 private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"
+
+private const val HISTORY_LIMIT = 6

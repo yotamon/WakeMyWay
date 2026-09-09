@@ -58,6 +58,8 @@ jobs:
         run: ./gradlew :wake-core:test --stacktrace
       - name: Android lint
         run: ./gradlew :app:lintDebug --stacktrace
+      - name: Compile instrumentation tests
+        run: ./gradlew :app:assembleDebugAndroidTest --stacktrace
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
       - name: Upload debug APK
@@ -65,5 +67,12 @@ jobs:
         with:
           name: wake-my-way-debug-${{ github.sha }}
           path: apps/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-androidTest-${{ github.sha }}
+          path: apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
           retention-days: 14

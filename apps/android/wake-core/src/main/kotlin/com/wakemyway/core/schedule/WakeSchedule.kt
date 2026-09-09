@@ -20,11 +20,20 @@ value class WakeOccurrenceId(val value: String) {
     }
 }
 
+enum class WakeCompletionPolicy {
+    /** After a primary wake completes or is missed, resolve and register the next primary occurrence. */
+    RECURRING,
+
+    /** After the wake chain completes or is irrecoverably missed, disable the schedule. */
+    ONE_SHOT,
+}
+
 data class WakeSchedule(
     val id: WakeScheduleId,
     val zoneId: ZoneId,
     val timesByDay: Map<DayOfWeek, LocalTime>,
     val revision: Long = 1,
+    val completionPolicy: WakeCompletionPolicy = WakeCompletionPolicy.RECURRING,
 ) {
     init {
         require(timesByDay.isNotEmpty()) { "A WakeSchedule needs at least one active day" }

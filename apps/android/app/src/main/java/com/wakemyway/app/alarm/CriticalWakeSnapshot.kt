@@ -1,6 +1,7 @@
 package com.wakemyway.app.alarm
 
 import com.wakemyway.core.schedule.LocalTimeResolution
+import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeOccurrence
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -81,6 +82,7 @@ data class CriticalWakeSnapshot(
             put("id", id.value)
             put("zoneId", zoneId.id)
             put("revision", revision)
+            put("completionPolicy", completionPolicy.name)
             put("timesByDay", JSONObject().also { times ->
                 timesByDay.forEach { (day, time) -> times.put(day.name, time.toString()) }
             })
@@ -107,6 +109,11 @@ data class CriticalWakeSnapshot(
                 zoneId = ZoneId.of(json.getString("zoneId")),
                 timesByDay = times,
                 revision = json.getLong("revision"),
+                completionPolicy = if (json.has("completionPolicy")) {
+                    WakeCompletionPolicy.valueOf(json.getString("completionPolicy"))
+                } else {
+                    WakeCompletionPolicy.RECURRING
+                },
             )
         }
 
