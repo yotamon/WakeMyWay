@@ -3,9 +3,9 @@
 **Last updated:** 2026-09-10  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** M7 Wake Learning v0 is next; M2 physical-device reliability evidence remains open  
-**Current implementation branch:** `main`  
-**Current PR:** none  
+**Current engineering phase:** M7 Wake Learning v0 core is in PR #26; M2 physical-device reliability evidence remains open  
+**Current implementation branch:** `feat/m7-wake-learning-v0`  
+**Current PR:** #26 — deterministic local Wake Learning v0 core  
 **Current side-track:** optional Vercel AI platform foundation merged in PR #23; no Android wake-path dependency
 
 ## Executive status
@@ -22,6 +22,8 @@ Merged into `main`:
 - M5 Alfred deterministic local character + offline-only Android speech lab
 - M6 Tomorrow Contract + Prepared Wake Plan
 - optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
+
+Active PR #26 implements the first M7 pure-Kotlin adaptive loop: compact Wake Outcome derivation from real Wake Runtime replay, sparse calibration semantics, bounded deterministic policy derivation, annoyance/agency guardrails, versioned self-validating policy snapshots, fail-closed learned-policy resolution and explicit reset. Android persistence, calibration UI, learned-policy selection and dogfood tuning remain the next M7 integration slice.
 
 PR #23 established an isolated `apps/cloud` foundation for future non-critical AI work using Vercel AI SDK 7 + AI Gateway. It does **not** connect Android to cloud AI, move M7 learning to the backend, or select the M9 realtime transport. ADR-008 remains the authority for the M8 measured voice spike; ADR-016 records the default cloud AI access layer and its privacy boundary.
 
@@ -70,6 +72,24 @@ ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
 ```
 
 Wake Runtime remains behavioral authority. Android adapters, characters and future AI cannot calculate a separate confidence score or overrule it.
+
+### Off-session learning path
+
+```text
+finished typed Wake timeline
+          +
+optional calibration / friction feedback
+          ↓
+   WakeOutcomeSummary
+          ↓
+      WakeLearning
+          ↓
+ versioned WakePolicySnapshot
+          ↓
+ future Wake Session only
+```
+
+Wake Learning never mutates the active Wake Session and cannot learn Alarm Kernel delivery, safety, privacy or critical execution boundaries.
 
 ### Motion evidence path
 
@@ -285,6 +305,29 @@ Implemented:
 
 M6 did not introduce cloud/backend preparation, account/auth dependency, private content in Critical Wake Snapshot, WorkManager alarm firing, private production TTS, or Wake Runtime state inside the plan.
 
+### M7 Wake Learning v0
+
+Active in PR #26. Canonical implementation note: [`implementation/m7-wake-learning-v0.md`](implementation/m7-wake-learning-v0.md).
+
+Current PR implements in pure Kotlin:
+
+- `WakeOutcomeSummary` derived by replaying timestamped semantic inputs through the real Wake Runtime;
+- Activation Completion timing at the actual transition into `ORIENTING`;
+- optional `GOT_UP`, `RETURNED_TO_BED`, `GOT_UP_LATER`, `SKIPPED` calibration semantics;
+- missing calibration remains unknown rather than implicit success;
+- annoyance and perceived-agency feedback model;
+- deterministic learning from only the current immutable policy version;
+- v0 learnable surface limited to `activationThreshold` and `maxEscalationLevel`;
+- minimum-evidence/hysteresis rules;
+- one parameter / one bounded step per derivation;
+- safe ranges plus friction/agency guardrails;
+- human-readable explanation for every change or non-change;
+- self-validating source/result policy snapshots;
+- fail-closed learned-policy resolution and explicit reset;
+- deterministic tests for false-positive activation, incomplete activation, excess friction, ordering, fallback and snapshot integrity.
+
+M7 is not yet product-integrated. Local semantic timeline persistence, outcome/history persistence, calibration collection, selected learned-policy storage/application, Wake Lab inspection/reset UI and dogfood tuning remain deferred to the next integration slice.
+
 ## Optional AI platform foundation
 
 Merged in PR #23.
@@ -322,6 +365,8 @@ The Critical Wake Snapshot and reliability logs must never contain:
 
 M6 private state is credential-protected and excluded from Auto Backup through `noBackupFilesDir`. Pre-unlock wake remains generic and locally actionable.
 
+M7 Wake Learning consumes compact semantic outcomes and optional structured calibration/friction feedback. It does not require raw audio, transcripts, raw high-frequency motion streams, Tomorrow Contract text or cloud identity.
+
 The optional cloud service has no persistence/database dependency and must not log prompts, transcripts, raw audio or generated private speech. Its operator key must never be embedded in Android. Private text/embedding routes require ZDR. Non-ZDR audio/realtime experiments remain synthetic-only until a privacy-compliant route is verified.
 
 ## Milestone status
@@ -340,7 +385,7 @@ The optional cloud service has no persistence/database dependency and must not l
 | M5 Alfred local experience | **Merged / complete, PR #17** |
 | M6 Tomorrow Contract | **Merged / complete, PR #20** |
 | Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
-| M7 Wake Learning v0 | **Next roadmap milestone** |
+| M7 Wake Learning v0 | **Core implementation in PR #26; persistence/dogfood integration remains** |
 | M8 Voice architecture spike | Not started |
 | M9 Realtime conversation | Not started |
 | M10 Useful context | Not started |
@@ -349,11 +394,13 @@ The optional cloud service has no persistence/database dependency and must not l
 
 ## Exact next work
 
-1. Begin M7 as bounded, local, explainable off-session Wake Policy derivation with immutable per-session policy versions.
-2. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
-3. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
-4. Keep the optional cloud service undeployed/unconnected to Android until a concrete non-critical feature justifies the API/auth boundary and the required privacy controls are available.
-5. At M8, benchmark realtime transport candidates and use the Vercel AI platform as one candidate/control plane, not as a preselected transport; privacy eligibility is part of the acceptance criteria.
+1. Let repository CI validate PR #26, fix any real integration failure, and merge only when the core is green.
+2. Continue M7 with local typed Wake Session/timing journal persistence, compact Wake Outcome/history persistence, occasional calibration attachment, validated learned-policy storage/selection for a later session, and Wake Lab inspect/reset tooling.
+3. Calibrate the v0 evidence thresholds/ranges through deterministic fixtures and later real dogfood rather than treating the initial constants as product truth.
+4. In parallel, continue issue #9 physical-device reliability scenarios when a real-device execution path is available.
+5. Keep character speech, motion thresholds and richer prepared personalization behind the physical reliability gate.
+6. Keep the optional cloud service undeployed/unconnected to Android until a concrete non-critical feature justifies the API/auth boundary and required privacy controls are available.
+7. At M8, benchmark realtime transport candidates and use the Vercel AI platform as one candidate/control plane, not as a preselected transport; privacy eligibility is part of the acceptance criteria.
 
 ## Cloud / future stack status
 
@@ -373,6 +420,9 @@ There is no blocker to isolated local product/domain development.
 
 Open proof/risk boundaries:
 
+- PR #26 repository integration validation is still pending until CI completes;
+- initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
+- M7 local persistence/application wiring is not implemented by the pure core slice;
 - physical Android reliability evidence (#9);
 - motion threshold calibration on real devices;
 - coexistence of critical alarm audio with optional local character TTS;
