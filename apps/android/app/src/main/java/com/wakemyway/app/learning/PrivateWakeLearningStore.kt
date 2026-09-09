@@ -65,9 +65,9 @@ class PrivateWakeLearningStore(
             output.writeInt(MAGIC)
             output.writeInt(STORAGE_SCHEMA_VERSION)
             output.writeInt(state.outcomes.size)
-            state.outcomes.forEach(output::writeOutcome)
+            state.outcomes.forEach { outcome -> output.writeOutcome(outcome) }
             output.writeBoolean(state.profile != null)
-            state.profile?.let(output::writeProfile)
+            state.profile?.let { profile -> output.writeProfile(profile) }
             output.flush()
             stateFile.finishWrite(stream)
         } catch (error: Throwable) {
