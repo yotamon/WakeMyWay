@@ -182,7 +182,11 @@ private fun ReadyTonightContent(
         Column {
             WmwDetailRow(
                 label = stringResource(R.string.tonight_redesign_row_wake),
-                value = "${state.dateLabel} · ${state.wakeTime}",
+                value = stringResource(
+                    R.string.tonight_redesign_wake_value,
+                    state.dateLabel,
+                    state.wakeTime,
+                ),
             )
             WmwDetailDivider()
             WmwDetailRow(
