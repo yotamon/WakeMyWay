@@ -41,12 +41,15 @@ data class TonightUiState(
     val hasOccurrence: Boolean,
     val wakeReady: Boolean,
     val readinessDetail: String,
+    val hasTomorrowContract: Boolean,
+    val tomorrowContractPrepared: Boolean,
 )
 
 @Composable
 fun TonightScreen(
     state: TonightUiState,
     onOpenWakeSetup: () -> Unit,
+    onOpenTomorrowPlan: () -> Unit,
     onOpenWakeLab: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -158,6 +161,45 @@ fun TonightScreen(
                 }
             }
 
+            if (state.hasOccurrence) {
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tonight_section_contract),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = WmwColors.MorningPaper,
+                            )
+                            WmwStatusPill(
+                                label = stringResource(
+                                    if (state.tomorrowContractPrepared) {
+                                        R.string.tonight_contract_ready
+                                    } else {
+                                        R.string.tonight_contract_optional
+                                    },
+                                ),
+                                positive = state.tomorrowContractPrepared,
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                if (state.tomorrowContractPrepared) {
+                                    R.string.tonight_contract_prepared
+                                } else {
+                                    R.string.tonight_contract_empty
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = WmwColors.QuietText,
+                        )
+                    }
+                }
+            }
+
             WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
                     Row(
@@ -197,10 +239,22 @@ fun TonightScreen(
                 ),
                 onClick = onOpenWakeSetup,
             )
+            if (state.hasOccurrence) {
+                WmwSecondaryAction(
+                    label = stringResource(
+                        if (state.hasTomorrowContract) {
+                            R.string.tonight_edit_contract
+                        } else {
+                            R.string.tonight_add_contract
+                        },
+                    ),
+                    onClick = onOpenTomorrowPlan,
+                    modifier = Modifier.padding(top = WmwSpacing.Xs),
+                )
+            }
             WmwSecondaryAction(
                 label = stringResource(R.string.tonight_open_lab),
                 onClick = onOpenWakeLab,
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
             )
             Text(
                 text = stringResource(R.string.tonight_lab_note),
@@ -232,8 +286,11 @@ private fun TonightReadyPreview() {
                 hasOccurrence = true,
                 wakeReady = true,
                 readinessDetail = "Scheduled locally with critical wake capabilities available.",
+                hasTomorrowContract = true,
+                tomorrowContractPrepared = true,
             ),
             onOpenWakeSetup = {},
+            onOpenTomorrowPlan = {},
             onOpenWakeLab = {},
         )
     }
@@ -255,8 +312,11 @@ private fun TonightEmptyPreview() {
                 hasOccurrence = false,
                 wakeReady = false,
                 readinessDetail = "Create a wake plan before calling tomorrow ready.",
+                hasTomorrowContract = false,
+                tomorrowContractPrepared = false,
             ),
             onOpenWakeSetup = {},
+            onOpenTomorrowPlan = {},
             onOpenWakeLab = {},
         )
     }
