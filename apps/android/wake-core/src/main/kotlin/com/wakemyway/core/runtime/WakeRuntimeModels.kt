@@ -216,6 +216,7 @@ sealed interface SpeechIntent {
     data object InitialWake : SpeechIntent
     data object AskToSitUp : SpeechIntent
     data object AskToMove : SpeechIntent
+    data object KeepEngaging : SpeechIntent
     data class ReEngage(val escalationLevel: Int) : SpeechIntent
     data object SnoozeConfirmation : SpeechIntent
     data object SnoozeFailed : SpeechIntent
