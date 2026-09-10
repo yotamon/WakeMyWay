@@ -45,6 +45,37 @@ class WakeRuntimeVoiceTurnTest {
     }
 
     @Test
+    fun `an activating voice reply continues the conversation until activation is complete`() {
+        val conversationalPolicy = WakePolicy(activationThreshold = 8)
+        var snapshot = runtime.initial(
+            sessionId = WakeSessionId("conversation-loop"),
+            policy = conversationalPolicy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+        snapshot = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("first-reply"), coherent = true),
+            conversationalPolicy,
+        ).snapshot
+        assertEquals(WakePhase.ACTIVATING, snapshot.phase)
+
+        val continued = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("second-reply"), coherent = true),
+            conversationalPolicy,
+        )
+
+        assertEquals(WakePhase.ACTIVATING, continued.snapshot.phase)
+        assertEquals(2, continued.snapshot.activationEvidence.coherentVoiceResponses)
+        assertTrue(WakeDirective.Speak(SpeechIntent.KeepEngaging) in continued.directives)
+        assertTrue(WakeDirective.ObserveMotion in continued.directives)
+    }
+
+    @Test
     fun `motion cannot silently bypass the required spoken reply`() {
         var snapshot = runtime.initial(
             sessionId = WakeSessionId("voice-gate"),
