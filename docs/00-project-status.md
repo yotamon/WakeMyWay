@@ -4,7 +4,7 @@
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** M8 voice architecture spike in progress; provider-neutral harness and first direct WebRTC candidate merged  
-**Current product-design track:** Adaptive Dawn production UI foundation merged in PR #30  
+**Current product-design track:** Adaptive Dawn D0/D1 foundation + D3 production setup flow merged (PR #30, PR #32); visual regression and readiness repair next  
 **Current implementation branch:** `main`  
 **Current integration track:** issue #27, sequenced after physical reliability gate #9  
 **Current M8 track:** issue #28; measurement harness PR #29 and direct OpenAI WebRTC candidate PR #31 merged; comparative physical-device evidence remains open  
@@ -26,12 +26,15 @@ Implemented/merged:
 - M7 deterministic local Wake Learning v0 core (PR #26)
 - optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
 - Adaptive Dawn production design foundation (PR #30)
+- production Wake Schedule + Tomorrow Contract setup flow (PR #32)
 - M8 provider-neutral voice measurement harness (PR #29)
 - M8 direct OpenAI Realtime WebRTC debug candidate (PR #31; synthetic-only)
 
 PR #30 established the first production product-design foundation without changing alarm authority. It introduced the Adaptive Dawn visual system, centralized Compose tokens, semantic WMW components, a native geometric WMW Presence, stable Navigation 3 for normal app destinations, a polished Tonight product home, a rebuilt presentation-only Wake surface, canonical previews and a dark pre-Compose window baseline that avoids bright cold-start flashes.
 
-The design work is intentionally a **parallel presentation track**, not a new behavioral roadmap milestone. M7/M8 numbering and reliability gates remain unchanged.
+PR #32 turned that shell into the first real everyday setup flow. Tonight now routes to a production Wake Setup screen backed directly by the Alarm Kernel, supporting one-shot "Just tomorrow" wakes and recurring weekly schedules with independent per-day times. It also promotes Tomorrow Contract into the normal product path using the existing WakePreparationManager, including local/offline preparation, `FLAG_SECURE` while private text is visible, and explicit migration/cleanup semantics when a schedule edit changes the bound Wake Occurrence ID.
+
+The design work is intentionally a **parallel presentation/product track**, not a new behavioral roadmap milestone. M7/M8 numbering and reliability gates remain unchanged. Product controls are not added merely as visual placeholders: difficulty and character selection remain deferred until their selected values have durable ownership and affect real behavior.
 
 PR #26 merged the first M7 pure-Kotlin adaptive loop: compact Wake Outcome derivation from real Wake Runtime replay, sparse calibration semantics, bounded deterministic policy derivation, annoyance/agency guardrails, versioned self-validating policy snapshots, fail-closed learned-policy resolution and explicit reset.
 
@@ -46,6 +49,8 @@ PR #29 added the provider-neutral M8 evidence contract: deterministic p50/p95 su
 PR #31 added the first runnable M8 transport candidate. A founder-only Android debug lab obtains a short-lived OpenAI Realtime client secret through a WMW broker and exchanges SDP directly with OpenAI over WebRTC. The standard OpenAI API key remains server-side. The RTC dependency and microphone/network permissions are debug-only, event payloads are not persisted, and the configuration remains `synthetic-only` until the exact OpenAI project/account data-control posture is independently verified.
 
 PR #31 passed Cloud typecheck/tests, Android core tests/lint/instrumentation compilation/debug APK assembly, and the dedicated API-36 emulator reliability workflow before merge. These checks prove build/integration compatibility, not physical-device realtime performance.
+
+PR #32 passed documentation validation, `:wake-core:test`, Android lint/Compose compilation, instrumentation-test compilation, debug APK assembly and the dedicated API-36 reliability instrumentation workflow before merge. The first full lint pass surfaced seven Compose configuration-awareness errors in the new setup/private-context UI; they were fixed using observable configuration/resource access rather than suppressed or baselined.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, coexistence of critical alarm audio with optional character speech, or M8 realtime quality under physical network/audio-route changes.
 
@@ -91,14 +96,19 @@ ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
 
 Wake Runtime remains behavioral authority. Android adapters, UI, characters, learning and future AI cannot calculate a separate confidence score or overrule it.
 
-### Presentation path
+### Presentation / product setup path
 
 ```text
 normal application
       ↓
  Navigation 3
       ↓
- Tonight / setup / history / settings / developer lab
+ Tonight
+   ├─ Wake Setup
+   │    └─ AlarmKernel.commitSchedule() / cancelSchedule()
+   ├─ Tomorrow Contract
+   │    └─ WakePreparationManager
+   └─ developer Wake Alarm Lab
 
 active Wake Occurrence
       ↓
@@ -108,6 +118,8 @@ active Wake Occurrence
 ```
 
 `WakeActivity` is deliberately **not** a normal Navigation 3 destination. Its visual richness may degrade without changing Active Wake Execution, Stop, Snooze or Wake Runtime authority.
+
+Wake Setup may read the current enabled product intent through the narrow `AlarmKernel.currentSchedule()` contract, but it never reads Critical Wake Snapshot storage or orchestrates persistence/AlarmManager ordering itself.
 
 The UX consciousness language `Emerging → Engaged → Active → Oriented` remains a presentation/cognition model only. It must not become a second behavioral state machine.
 
@@ -168,7 +180,7 @@ Character speech remains a Wake Alarm Lab capability and does not own critical a
 ```text
 next Wake Occurrence
         ↓
-Tomorrow Contract
+Tomorrow Contract product screen
         ↓
 WakePreparationManager
         ├─ credential-protected noBackupFilesDir
@@ -186,7 +198,9 @@ missing / stale / corrupt / locked / Direct Boot
         → generic local wake UI
 ```
 
-Private prepared content is presentation enrichment only. PR #30 preserves the existing user-unlocked/keyguard gate and `FLAG_SECURE` protection while changing the visual shell.
+Private prepared content is presentation enrichment only. The production Tomorrow Contract screen applies `FLAG_SECURE` while private text is visible and preserves the existing credential-protected/Direct-Boot boundary.
+
+A Tomorrow Contract is bound to one Wake Occurrence. When a schedule edit succeeds and creates a new occurrence identity, same-date edits rebind/reprepare the private contract for the new occurrence; changes that move the next wake to another local date clear the old occurrence-bound private content. This migration is optional enrichment and can never make a successful critical schedule commit fail.
 
 ### Optional cloud AI foundation
 
@@ -249,7 +263,8 @@ WebRTC spike             150.7871.01 (debug-only M8)
 
 ## Product design foundation
 
-Canonical implementation/design note: [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).
+Canonical visual-system note: [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).  
+Canonical production-setup note: [`implementation/d3-product-setup.md`](implementation/d3-product-setup.md).
 
 Merged in PR #30:
 
@@ -269,6 +284,19 @@ Merged in PR #30:
 - resource-backed product-facing copy;
 - canonical synthetic Compose previews for Tonight ready/empty and Wake Emerging.
 
+Merged in PR #32:
+
+- real Wake Setup destination from Tonight;
+- `Just tomorrow` one-shot schedules;
+- recurring weekly schedules with independent enabled days/times;
+- safe edit/disable of the current schedule through Alarm Kernel authority;
+- narrow `AlarmKernel.currentSchedule()` read contract without exposing snapshot storage;
+- real Tomorrow Contract product surface backed by WakePreparationManager;
+- Optional/Prepared status on Tonight;
+- `FLAG_SECURE` while private Tomorrow Contract text is visible;
+- explicit occurrence-ID rebinding/cleanup behavior across schedule edits;
+- consumer product copy kept separate from founder diagnostics.
+
 Explicitly **not** introduced:
 
 - Rive or Lottie as UI architecture;
@@ -277,7 +305,8 @@ Explicitly **not** introduced:
 - Vico before a concrete M7 history visualization exists;
 - cloud/network rendering dependency;
 - a separate design-system Gradle module;
-- a second Wake state machine.
+- a second Wake state machine;
+- fake difficulty or character settings that do not yet own real behavior.
 
 ### Validation for PR #30
 
@@ -291,6 +320,17 @@ Passed before merge:
 - dedicated API-36 reliability instrumentation.
 
 The first CI pass exposed one concrete compile defect in the initial WMW Presence implementation: the `graphics-shapes` `Morph.toPath` extension required an explicit import. The defect was corrected and the complete validation lane then passed before merge.
+
+### Validation for PR #32
+
+Passed before merge:
+
+- documentation validation;
+- `:wake-core:test`;
+- Android lint / Compose compilation;
+- instrumentation-test compilation;
+- debug APK assembly;
+- dedicated API-36 reliability instrumentation, including the new current-schedule read-contract test alongside existing cancellation/stale-trigger/snooze-chain coverage.
 
 ### Visual-regression next gate
 
@@ -326,7 +366,7 @@ Versioned deterministic character model, curated Alfred copy, bounded escalation
 
 ### M6 Tomorrow Contract + Prepared Wake Plan
 
-Versioned contract/plan models, deterministic preparation, occurrence/revision binding, integrity validation, credential-protected atomic storage, on-demand WorkManager refresh and unlocked-only enrichment.
+Versioned contract/plan models, deterministic preparation, occurrence/revision binding, integrity validation, credential-protected atomic storage, on-demand WorkManager refresh and unlocked-only enrichment. PR #32 promotes these existing mechanics into the normal product UI without changing their authority or privacy model.
 
 ### M7 Wake Learning v0 core
 
@@ -358,12 +398,13 @@ No M8 transport is production-selected yet.
 | M3 Wake Runtime | **Pure runtime merged; Android execution integration reliability-gated** |
 | M4 Motion Evidence | **Merged / isolated evidence layer; physical calibration open** |
 | M5 Alfred local experience | **Merged core; production integration gated** |
-| M6 Tomorrow Contract | **Merged / complete** |
+| M6 Tomorrow Contract | **Core + production UI merged; PR #20 + PR #32** |
 | Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
 | M7 Wake Learning v0 | **Core merged, PR #26; live integration tracked by #27 and gated by #9** |
 | Product design D0/D1 foundation | **Merged / complete, PR #30** |
+| Product design D3 setup experience | **Wake Schedule + Tomorrow Contract product flow merged, PR #32** |
 | Product design visual-regression gate | **Next after canonical preview review** |
-| Product design setup experience | Planned next product-UI slice |
+| Product design readiness repair | Not started |
 | M8 Voice architecture spike | **In progress: harness PR #29 + direct OpenAI WebRTC candidate PR #31 merged; comparative measured evidence open (#28)** |
 | M9 Realtime conversation | Not started |
 | M10 Useful context | Not started |
@@ -375,8 +416,8 @@ No M8 transport is production-selected yet.
 1. Add a trustworthy M8 first-audible-speech measurement seam to the direct OpenAI debug lab, without inferring audible latency from protocol/control events or persisting raw audio/transcripts.
 2. Run repeated synthetic physical-device direct-OpenAI measurements for cold connection, audible response, barge-in, reconnect, Wi-Fi/mobile, network transitions and Bluetooth; feed only metadata into the provider-neutral evidence contract.
 3. Introduce a second realtime comparison configuration only when it can materially test a different operational shape; LiveKit remains the likely RTC-layer comparison if direct WebRTC interruption/reconnect complexity justifies it. Do not select a winner before comparison readiness.
-4. Review canonical Tonight/Wake previews on representative device dimensions; then record selected Roborazzi baselines and add visual-regression CI.
-5. Build the production setup/edit flow behind the Tonight shell: wake time, initial wake difficulty, character, Tomorrow Contract and Wake Readiness repair, without moving alarm authority into UI.
+4. Review the canonical Tonight, Wake Setup and Wake previews on representative device dimensions; add a synthetic Tomorrow Contract preview surface if needed, then record selected Roborazzi baselines and visual-regression CI.
+5. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI. Difficulty and character configuration remain deferred until their values have durable product ownership and runtime effect.
 6. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely. Once that gate is satisfied, implement issue #27 local Wake journal/outcome/calibration/learned-policy wiring.
 7. Keep character speech, motion thresholds, state-responsive Wake UI, learned policy application and optional realtime AI outside critical alarm authority until their separate gates are satisfied.
 
@@ -388,7 +429,7 @@ M6 private state is credential-protected and excluded from Auto Backup through `
 
 M7 consumes compact semantic outcomes and optional structured calibration/friction feedback. It does not require raw audio, transcripts, raw high-frequency motion streams, Tomorrow Contract text or cloud identity.
 
-The product-design track adds no telemetry. Screenshot/visual fixtures are synthetic only. Private prepared wake content retains existing `FLAG_SECURE` handling.
+The product-design track adds no telemetry. Screenshot/visual fixtures are synthetic only. The production Tomorrow Contract screen uses `FLAG_SECURE` while private text is visible; its data remains credential-protected local state and never enters the Direct-Boot alarm snapshot.
 
 M8 direct OpenAI experiments remain `synthetic-only`. The standard OpenAI API key stays server-side, Android receives only short-lived credentials, and the debug lab does not persist microphone audio, generated audio, transcripts, prompts, complete Realtime event payloads or private wake context. A successful connection is not privacy evidence.
 
@@ -399,7 +440,7 @@ There is no blocker to isolated local product/domain, product-design or M8 measu
 Open proof/risk boundaries:
 
 - physical Android reliability evidence (#9) is still required before richer live Wake Runtime/character/learning integration;
-- current product setup remains founder/lab-driven behind the new Tonight shell until the next UI slice;
+- production Wake Schedule and Tomorrow Contract setup now exist, but consumer-facing readiness repair and later durable character/difficulty configuration remain open;
 - canonical visual previews exist, but reviewed screenshot goldens/visual-regression CI are not yet established;
 - final bundled typography/icon assets remain a controlled later design decision rather than a remote dependency;
 - the initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
