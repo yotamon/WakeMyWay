@@ -4,7 +4,7 @@
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** M8 voice architecture spike in progress; provider-neutral harness and first direct WebRTC candidate merged  
-**Current product-design track:** Adaptive Dawn D0/D1 foundation + D3 production setup flow merged (PR #30, PR #32); visual regression and readiness repair next  
+**Current product-design track:** Adaptive Dawn D0/D1 foundation + D3 production setup merged (PR #30, PR #32); D2 curated visual regression implemented via PR #34; readiness repair next  
 **Current implementation branch:** `main`  
 **Current integration track:** issue #27, sequenced after physical reliability gate #9  
 **Current M8 track:** issue #28; measurement harness PR #29 and direct OpenAI WebRTC candidate PR #31 merged; comparative physical-device evidence remains open  
@@ -27,12 +27,15 @@ Implemented/merged:
 - optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
 - Adaptive Dawn production design foundation (PR #30)
 - production Wake Schedule + Tomorrow Contract setup flow (PR #32)
+- curated Adaptive Dawn visual-regression implementation (PR #34)
 - M8 provider-neutral voice measurement harness (PR #29)
 - M8 direct OpenAI Realtime WebRTC debug candidate (PR #31; synthetic-only)
 
 PR #30 established the first production product-design foundation without changing alarm authority. It introduced the Adaptive Dawn visual system, centralized Compose tokens, semantic WMW components, a native geometric WMW Presence, stable Navigation 3 for normal app destinations, a polished Tonight product home, a rebuilt presentation-only Wake surface, canonical previews and a dark pre-Compose window baseline that avoids bright cold-start flashes.
 
 PR #32 turned that shell into the first real everyday setup flow. Tonight now routes to a production Wake Setup screen backed directly by the Alarm Kernel, supporting one-shot "Just tomorrow" wakes and recurring weekly schedules with independent per-day times. It also promotes Tomorrow Contract into the normal product path using the existing WakePreparationManager, including local/offline preparation, `FLAG_SECURE` while private text is visible, and explicit migration/cleanup semantics when a schedule edit changes the bound Wake Occurrence ID.
+
+PR #34 implements the first curated visual-regression gate with Roborazzi 1.74.0 + Robolectric 4.16.1. Four deterministic synthetic surfaces are protected: Tonight Ready, Tonight Empty, Wake Setup Weekly and Wake Emerging. Candidate PNGs were rendered and visually reviewed before becoming baselines; the one-time baseline bootstrap was byte-locked to the reviewed SHA-256 values. Normal visual CI is read-only and runs `verifyRoborazziDebug` rather than auto-recording new truth. The first visual review also exposed founder chrome in Tonight, so `Founder build` / Wake Lab affordances are now product-hidden by default and exposed only when Android marks the application debuggable.
 
 The design work is intentionally a **parallel presentation/product track**, not a new behavioral roadmap milestone. M7/M8 numbering and reliability gates remain unchanged. Product controls are not added merely as visual placeholders: difficulty and character selection remain deferred until their selected values have durable ownership and affect real behavior.
 
@@ -51,6 +54,8 @@ PR #31 added the first runnable M8 transport candidate. A founder-only Android d
 PR #31 passed Cloud typecheck/tests, Android core tests/lint/instrumentation compilation/debug APK assembly, and the dedicated API-36 emulator reliability workflow before merge. These checks prove build/integration compatibility, not physical-device realtime performance.
 
 PR #32 passed documentation validation, `:wake-core:test`, Android lint/Compose compilation, instrumentation-test compilation, debug APK assembly and the dedicated API-36 reliability instrumentation workflow before merge. The first full lint pass surfaced seven Compose configuration-awareness errors in the new setup/private-context UI; they were fixed using observable configuration/resource access rather than suppressed or baselined.
+
+PR #34's final merge gate requires read-only Roborazzi verification plus the normal documentation, Android build/lint/instrumentation and API-36 reliability lanes. The visual tooling is test-only and does not participate in alarm delivery.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, coexistence of critical alarm audio with optional character speech, or M8 realtime quality under physical network/audio-route changes.
 
@@ -109,6 +114,7 @@ normal application
    ├─ Tomorrow Contract
    │    └─ WakePreparationManager
    └─ developer Wake Alarm Lab
+        (debuggable app only)
 
 active Wake Occurrence
       ↓
@@ -122,6 +128,24 @@ active Wake Occurrence
 Wake Setup may read the current enabled product intent through the narrow `AlarmKernel.currentSchedule()` contract, but it never reads Critical Wake Snapshot storage or orchestrates persistence/AlarmManager ordering itself.
 
 The UX consciousness language `Emerging → Engaged → Active → Oriented` remains a presentation/cognition model only. It must not become a second behavioral state machine.
+
+### Visual-regression path
+
+```text
+synthetic deterministic product state
+             ↓
+      Compose presentation
+             ↓
+ Roborazzi + Robolectric Native Graphics
+             ↓
+ reviewed PNG baseline in repository
+             ↓
+ read-only PR verification
+      ├─ same pixels → pass
+      └─ drift       → fail + diagnostics
+```
+
+This is a CI presentation contract only. It has no runtime role in scheduling, alarm playback, Wake Runtime behavior or private preparation.
 
 ### Off-session learning path
 
@@ -258,12 +282,15 @@ targetSdk                36
 minSdk                   29
 Navigation 3             1.1.7
 AndroidX graphics-shapes 1.1.0
+Roborazzi                1.74.0 (test-only)
+Robolectric              4.16.1 (test-only)
 WebRTC spike             150.7871.01 (debug-only M8)
 ```
 
 ## Product design foundation
 
 Canonical visual-system note: [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).  
+Canonical visual-regression note: [`implementation/d2-visual-regression.md`](implementation/d2-visual-regression.md).  
 Canonical production-setup note: [`implementation/d3-product-setup.md`](implementation/d3-product-setup.md).
 
 Merged in PR #30:
@@ -297,6 +324,15 @@ Merged in PR #32:
 - explicit occurrence-ID rebinding/cleanup behavior across schedule edits;
 - consumer product copy kept separate from founder diagnostics.
 
+Implemented by PR #34:
+
+- curated Roborazzi visual-regression harness using Robolectric Native Graphics;
+- four human-reviewed synthetic golden PNGs;
+- fixed deterministic visual-fixture environment;
+- read-only `verifyRoborazziDebug` CI gate with diagnostics artifacts;
+- developer/founder chrome gated by Android's debuggable application flag rather than appearing in canonical product presentation;
+- explicit baseline-update procedure that requires visual review rather than automatic acceptance.
+
 Explicitly **not** introduced:
 
 - Rive or Lottie as UI architecture;
@@ -306,7 +342,8 @@ Explicitly **not** introduced:
 - cloud/network rendering dependency;
 - a separate design-system Gradle module;
 - a second Wake state machine;
-- fake difficulty or character settings that do not yet own real behavior.
+- fake difficulty or character settings that do not yet own real behavior;
+- automatic Preview Scanner baseline expansion.
 
 ### Validation for PR #30
 
@@ -332,11 +369,18 @@ Passed before merge:
 - debug APK assembly;
 - dedicated API-36 reliability instrumentation, including the new current-schedule read-contract test alongside existing cancellation/stale-trigger/snooze-chain coverage.
 
-### Visual-regression next gate
+### Visual-regression gate
 
-Roborazzi remains the preferred selected Compose visual-regression tool. It is intentionally introduced only after canonical previews have been reviewed as stable design truth, so the repository does not encode arbitrary first-draft pixels as permanent goldens.
+PR #34 establishes selected, reviewed visual truth rather than freezing every Compose preview.
 
-Visual fixtures must be synthetic and must never include private wake content.
+Initial protected surfaces:
+
+- Tonight Ready;
+- Tonight Empty;
+- Wake Setup Weekly;
+- Wake Emerging.
+
+Normal CI is read-only and verifies those committed PNGs. Visual fixtures are synthetic and must never include private wake content. Large-font, narrow-screen, RTL and reduced-motion fixtures are future deliberate D7 coverage rather than automatic baseline growth.
 
 ## Implemented roadmap milestones
 
@@ -402,8 +446,8 @@ No M8 transport is production-selected yet.
 | Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
 | M7 Wake Learning v0 | **Core merged, PR #26; live integration tracked by #27 and gated by #9** |
 | Product design D0/D1 foundation | **Merged / complete, PR #30** |
+| Product design D2 visual regression | **Implemented / verification gate active, PR #34** |
 | Product design D3 setup experience | **Wake Schedule + Tomorrow Contract product flow merged, PR #32** |
-| Product design visual-regression gate | **Next after canonical preview review** |
 | Product design readiness repair | Not started |
 | M8 Voice architecture spike | **In progress: harness PR #29 + direct OpenAI WebRTC candidate PR #31 merged; comparative measured evidence open (#28)** |
 | M9 Realtime conversation | Not started |
@@ -416,8 +460,8 @@ No M8 transport is production-selected yet.
 1. Add a trustworthy M8 first-audible-speech measurement seam to the direct OpenAI debug lab, without inferring audible latency from protocol/control events or persisting raw audio/transcripts.
 2. Run repeated synthetic physical-device direct-OpenAI measurements for cold connection, audible response, barge-in, reconnect, Wi-Fi/mobile, network transitions and Bluetooth; feed only metadata into the provider-neutral evidence contract.
 3. Introduce a second realtime comparison configuration only when it can materially test a different operational shape; LiveKit remains the likely RTC-layer comparison if direct WebRTC interruption/reconnect complexity justifies it. Do not select a winner before comparison readiness.
-4. Review the canonical Tonight, Wake Setup and Wake previews on representative device dimensions; add a synthetic Tomorrow Contract preview surface if needed, then record selected Roborazzi baselines and visual-regression CI.
-5. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI. Difficulty and character configuration remain deferred until their values have durable product ownership and runtime effect.
+4. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI. Difficulty and character configuration remain deferred until their values have durable product ownership and runtime effect.
+5. Extend visual coverage deliberately during D7 with representative large-font/narrow-device/reduced-motion fixtures; add RTL fixtures when localization is real. Do not auto-freeze every preview.
 6. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely. Once that gate is satisfied, implement issue #27 local Wake journal/outcome/calibration/learned-policy wiring.
 7. Keep character speech, motion thresholds, state-responsive Wake UI, learned policy application and optional realtime AI outside critical alarm authority until their separate gates are satisfied.
 
@@ -440,8 +484,8 @@ There is no blocker to isolated local product/domain, product-design or M8 measu
 Open proof/risk boundaries:
 
 - physical Android reliability evidence (#9) is still required before richer live Wake Runtime/character/learning integration;
-- production Wake Schedule and Tomorrow Contract setup now exist, but consumer-facing readiness repair and later durable character/difficulty configuration remain open;
-- canonical visual previews exist, but reviewed screenshot goldens/visual-regression CI are not yet established;
+- production Wake Schedule and Tomorrow Contract setup exist, but consumer-facing readiness repair and later durable character/difficulty configuration remain open;
+- curated screenshot goldens now protect the initial canonical surfaces, but broader accessibility/responsive coverage is deliberately deferred to D7;
 - final bundled typography/icon assets remain a controlled later design decision rather than a remote dependency;
 - the initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
 - M7 local journal/persistence/application wiring is intentionally not implemented yet (#27);
