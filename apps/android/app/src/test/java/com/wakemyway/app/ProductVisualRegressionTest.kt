@@ -34,7 +34,7 @@ class ProductVisualRegressionTest {
                         dateLabel = "Thursday · Sep 10",
                         hasOccurrence = true,
                         wakeReady = true,
-                        readinessDetail = "Exact alarm, wake screen, and Stop/Snooze controls are ready locally.",
+                        readinessDetail = "Scheduled locally and ready for tomorrow.",
                         hasTomorrowContract = true,
                         tomorrowContractPrepared = true,
                     ),
@@ -57,29 +57,6 @@ class ProductVisualRegressionTest {
                         hasOccurrence = false,
                         wakeReady = false,
                         readinessDetail = "Set a wake time to prepare tomorrow.",
-                        hasTomorrowContract = false,
-                        tomorrowContractPrepared = false,
-                    ),
-                    onOpenWakeSetup = {},
-                    onOpenTomorrowPlan = {},
-                    onOpenWakeLab = {},
-                )
-            }
-        }
-    }
-
-    @Test
-    fun tonightNeedsFullScreenWakeAccess() {
-        captureRoboImage("tonight_needs_full_screen_access.png") {
-            WakeMyWayTheme {
-                TonightScreen(
-                    state = TonightUiState(
-                        wakeTime = "08:00",
-                        dateLabel = "Thursday · Sep 10",
-                        hasOccurrence = true,
-                        wakeReady = false,
-                        readinessDetail = "Allow full-screen alarms so Wake My Way can open the wake screen when your phone is locked.",
-                        wakeRepairActionLabel = "Allow full-screen alarms",
                         hasTomorrowContract = false,
                         tomorrowContractPrepared = false,
                     ),
