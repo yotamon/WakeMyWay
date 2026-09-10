@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +27,7 @@ import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPresence
 import com.wakemyway.app.ui.components.WmwPresenceState
 import com.wakemyway.app.ui.components.WmwPrimaryAction
+import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.components.WmwStatusPill
 import com.wakemyway.app.ui.components.WmwTimeDisplay
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
@@ -45,6 +46,7 @@ data class TonightUiState(
 @Composable
 fun TonightScreen(
     state: TonightUiState,
+    onOpenWakeSetup: () -> Unit,
     onOpenWakeLab: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -137,9 +139,7 @@ fun TonightScreen(
                 color = WmwColors.WarmLight,
             )
 
-            WmwCard(
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-            ) {
+            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Lg)) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
                     Text(
                         text = stringResource(R.string.tonight_section_tomorrow),
@@ -148,7 +148,7 @@ fun TonightScreen(
                     )
                     Text(
                         text = if (state.hasOccurrence) {
-                            state.dateLabel
+                            "${state.dateLabel} · ${state.wakeTime}"
                         } else {
                             stringResource(R.string.tonight_no_occurrence)
                         },
@@ -158,9 +158,7 @@ fun TonightScreen(
                 }
             }
 
-            WmwCard(
-                modifier = Modifier.padding(top = WmwSpacing.Sm),
-            ) {
+            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -194,14 +192,21 @@ fun TonightScreen(
             Spacer(Modifier.height(WmwSpacing.Xl))
 
             WmwPrimaryAction(
+                label = stringResource(
+                    if (state.hasOccurrence) R.string.tonight_edit_wake else R.string.tonight_set_wake,
+                ),
+                onClick = onOpenWakeSetup,
+            )
+            WmwSecondaryAction(
                 label = stringResource(R.string.tonight_open_lab),
                 onClick = onOpenWakeLab,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
             )
             Text(
                 text = stringResource(R.string.tonight_lab_note),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = WmwSpacing.Sm),
+                    .padding(top = WmwSpacing.Xs),
                 style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.QuietText,
             )
@@ -228,6 +233,7 @@ private fun TonightReadyPreview() {
                 wakeReady = true,
                 readinessDetail = "Scheduled locally with critical wake capabilities available.",
             ),
+            onOpenWakeSetup = {},
             onOpenWakeLab = {},
         )
     }
@@ -250,6 +256,7 @@ private fun TonightEmptyPreview() {
                 wakeReady = false,
                 readinessDetail = "Create a wake plan before calling tomorrow ready.",
             ),
+            onOpenWakeSetup = {},
             onOpenWakeLab = {},
         )
     }
