@@ -218,7 +218,9 @@ internal class DirectOpenAiWebRtcSpike(
             )
         } catch (error: Throwable) {
             if (isCurrent(generation)) {
-                emitFailure("webrtc-init", safeMessage(error))
+                // This method is entered on the main thread. Report synchronously before
+                // invalidating the generation so the legitimate failure is not suppressed.
+                listener.onFailure("webrtc-init", safeMessage(error))
                 disconnect()
             }
         }
@@ -461,11 +463,19 @@ internal class DirectOpenAiWebRtcSpike(
         !closed && connectionGeneration.get() == generation
 
     private fun emitStatus(status: String) {
-        mainHandler.post { listener.onStatus(status.take(200)) }
+        val generation = connectionGeneration.get()
+        mainHandler.post {
+            if (isCurrent(generation)) listener.onStatus(status.take(200))
+        }
     }
 
     private fun emitFailure(stage: String, message: String) {
-        mainHandler.post { listener.onFailure(stage.take(64), message.take(200)) }
+        val generation = connectionGeneration.get()
+        mainHandler.post {
+            if (isCurrent(generation)) {
+                listener.onFailure(stage.take(64), message.take(200))
+            }
+        }
     }
 
     private fun safeMessage(error: Throwable): String =
