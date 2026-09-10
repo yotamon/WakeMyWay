@@ -4,8 +4,8 @@
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** M8 voice architecture spike in progress; provider-neutral harness and first direct WebRTC candidate merged  
-**Current product-design track:** Adaptive Dawn D0/D1 foundation + D3 production setup flow merged (PR #30, PR #32); visual regression and readiness repair next  
-**Current implementation branch:** `main`  
+**Current product-design track:** D4 premium Tonight redesign in PR #35; Roborazzi PR #34 must be rebased/re-recorded after visual acceptance; readiness repair follows  
+**Current implementation branch:** `design/tonight-premium-redesign` (PR #35)  
 **Current integration track:** issue #27, sequenced after physical reliability gate #9  
 **Current M8 track:** issue #28; measurement harness PR #29 and direct OpenAI WebRTC candidate PR #31 merged; comparative physical-device evidence remains open  
 **Current side-track:** optional Vercel AI platform foundation merged in PR #23; no Android wake-path dependency
@@ -30,9 +30,18 @@ Implemented/merged:
 - M8 provider-neutral voice measurement harness (PR #29)
 - M8 direct OpenAI Realtime WebRTC debug candidate (PR #31; synthetic-only)
 
+In review:
+
+- PR #35: second-pass premium Tonight redesign, neutral night field, next-wake-first hierarchy, compact morning summary, stronger native WMW Presence, refined shared surfaces/typography and demoted developer chrome.
+- PR #34: curated Roborazzi visual-regression harness. Its current branch was created from pre-PR-#35 pixels and must not freeze the superseded Tonight design; rebase and fresh reviewed goldens are required after PR #35 is accepted.
+
 PR #30 established the first production product-design foundation without changing alarm authority. It introduced the Adaptive Dawn visual system, centralized Compose tokens, semantic WMW components, a native geometric WMW Presence, stable Navigation 3 for normal app destinations, a polished Tonight product home, a rebuilt presentation-only Wake surface, canonical previews and a dark pre-Compose window baseline that avoids bright cold-start flashes.
 
-PR #32 turned that shell into the first real everyday setup flow. Tonight now routes to a production Wake Setup screen backed directly by the Alarm Kernel, supporting one-shot "Just tomorrow" wakes and recurring weekly schedules with independent per-day times. It also promotes Tomorrow Contract into the normal product path using the existing WakePreparationManager, including local/offline preparation, `FLAG_SECURE` while private text is visible, and explicit migration/cleanup semantics when a schedule edit changes the bound Wake Occurrence ID.
+PR #35 replaces the visible first-pass Tonight composition rather than layering polish on it. The next Wake Occurrence is now the hero; a truthful countdown is derived from the concrete occurrence; repeated readiness cards are collapsed into one semantic morning surface; `Founder build` is removed from primary consumer chrome; Wake Lab is demoted to a developer action; and the full-height Clay/brown wash is replaced by a predominantly neutral Ink field with bounded dawn illumination. Shared card/action typography primitives are refined without adding a second design system.
+
+The PR deliberately does not render fake calendar/weather context, a fake wake sequence, generated Alfred insight, bottom navigation without real destinations, or character/difficulty controls without durable ownership. Alarm Kernel, Active Wake Execution, Stop/Snooze, Wake Runtime, Direct Boot and private preparation authority are unchanged.
+
+PR #32 turned the shell into the first real everyday setup flow. Tonight routes to a production Wake Setup screen backed directly by the Alarm Kernel, supporting one-shot "Just tomorrow" wakes and recurring weekly schedules with independent per-day times. It also promotes Tomorrow Contract into the normal product path using the existing WakePreparationManager, including local/offline preparation, `FLAG_SECURE` while private text is visible, and explicit migration/cleanup semantics when a schedule edit changes the bound Wake Occurrence ID.
 
 The design work is intentionally a **parallel presentation/product track**, not a new behavioral roadmap milestone. M7/M8 numbering and reliability gates remain unchanged. Product controls are not added merely as visual placeholders: difficulty and character selection remain deferred until their selected values have durable ownership and affect real behavior.
 
@@ -51,6 +60,8 @@ PR #31 added the first runnable M8 transport candidate. A founder-only Android d
 PR #31 passed Cloud typecheck/tests, Android core tests/lint/instrumentation compilation/debug APK assembly, and the dedicated API-36 emulator reliability workflow before merge. These checks prove build/integration compatibility, not physical-device realtime performance.
 
 PR #32 passed documentation validation, `:wake-core:test`, Android lint/Compose compilation, instrumentation-test compilation, debug APK assembly and the dedicated API-36 reliability instrumentation workflow before merge. The first full lint pass surfaced seven Compose configuration-awareness errors in the new setup/private-context UI; they were fixed using observable configuration/resource access rather than suppressed or baselined.
+
+PR #35 documentation validation passed on its first CI run. Android compile/lint/assembly and API-36 reliability validation remain the merge gate until the current workflow run completes, followed by physical visual review on representative phone dimensions.
 
 **No physical-device reliability percentile claim has been made.** Emulator/device-test evidence is useful, but it does not prove real locked-screen audio latency, Doze, reboot-before-unlock, OEM power management, Android 17 physical behavior, coexistence of critical alarm audio with optional character speech, or M8 realtime quality under physical network/audio-route changes.
 
@@ -173,7 +184,7 @@ WakeDirective.Speak(SpeechIntent)
  Android TextToSpeech
 ```
 
-Character speech remains a Wake Alarm Lab capability and does not own critical alarm audio. Production integration remains physical-reliability gated.
+Character speech remains a Wake Alarm Lab capability and does not own critical alarm audio. Production integration remains physical-reliability gated. Tonight may use Alfred as a presentation label, but it does not claim production character speech or AI-generated behavior.
 
 ### Private preparation path
 
@@ -264,7 +275,8 @@ WebRTC spike             150.7871.01 (debug-only M8)
 ## Product design foundation
 
 Canonical visual-system note: [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).  
-Canonical production-setup note: [`implementation/d3-product-setup.md`](implementation/d3-product-setup.md).
+Canonical production-setup note: [`implementation/d3-product-setup.md`](implementation/d3-product-setup.md).  
+Current Tonight refinement note: [`implementation/d4-tonight-experience-redesign.md`](implementation/d4-tonight-experience-redesign.md).
 
 Merged in PR #30:
 
@@ -297,6 +309,20 @@ Merged in PR #32:
 - explicit occurrence-ID rebinding/cleanup behavior across schedule edits;
 - consumer product copy kept separate from founder diagnostics.
 
+In PR #35:
+
+- next Wake Occurrence is the Tonight visual hero;
+- countdown copy is derived from the concrete resolved occurrence, not a fake sleep-tracking model;
+- full-height Clay/brown wash is replaced with a neutral Ink field plus bounded horizon illumination;
+- WMW Presence gains a stronger native geometric identity with internal state-driven line work, without becoming an orb/avatar;
+- three equivalent Tonight cards collapse into one compact semantic morning surface;
+- shared surfaces become neutral, bordered and intentionally layered rather than translucent brown blocks;
+- display typography gains refined spacing/tabular figures;
+- secondary actions become tactile outlined controls;
+- `Founder build` leaves consumer chrome and Wake Lab is demoted to `Developer tools`;
+- Ready, Attention and Empty preview states are explicit;
+- no fake context/navigation/runtime capability is added.
+
 Explicitly **not** introduced:
 
 - Rive or Lottie as UI architecture;
@@ -306,7 +332,9 @@ Explicitly **not** introduced:
 - cloud/network rendering dependency;
 - a separate design-system Gradle module;
 - a second Wake state machine;
-- fake difficulty or character settings that do not yet own real behavior.
+- fake difficulty or character settings that do not yet own real behavior;
+- bottom navigation before real top-level product destinations exist;
+- fake calendar/weather/wake-sequence/AI content on Tonight.
 
 ### Validation for PR #30
 
@@ -332,11 +360,20 @@ Passed before merge:
 - debug APK assembly;
 - dedicated API-36 reliability instrumentation, including the new current-schedule read-contract test alongside existing cancellation/stale-trigger/snooze-chain coverage.
 
+### Validation for PR #35
+
+Current state:
+
+- documentation validation: **passed**;
+- Android `:wake-core:test`, lint/Compose compile, instrumentation compile and APK assembly: **running/pending** at the time of this status update;
+- dedicated API-36 reliability instrumentation: **running/pending**;
+- visual approval on a representative physical phone: **required before merge**.
+
 ### Visual-regression next gate
 
-Roborazzi remains the preferred selected Compose visual-regression tool. It is intentionally introduced only after canonical previews have been reviewed as stable design truth, so the repository does not encode arbitrary first-draft pixels as permanent goldens.
+Roborazzi is the selected Compose visual-regression tool. PR #34 created the curated record/review harness, but it branched before the D4 Tonight redesign. Its current Tonight output is therefore not canonical design truth and must not be accepted as a permanent golden.
 
-Visual fixtures must be synthetic and must never include private wake content.
+After PR #35 is visually accepted, rebase/update PR #34, record fresh synthetic Ready/Attention-or-Empty/Wake surfaces, inspect the artifacts, then switch selected reviewed baselines to verification. Visual fixtures remain synthetic and must never include private wake content.
 
 ## Implemented roadmap milestones
 
@@ -403,7 +440,8 @@ No M8 transport is production-selected yet.
 | M7 Wake Learning v0 | **Core merged, PR #26; live integration tracked by #27 and gated by #9** |
 | Product design D0/D1 foundation | **Merged / complete, PR #30** |
 | Product design D3 setup experience | **Wake Schedule + Tomorrow Contract product flow merged, PR #32** |
-| Product design visual-regression gate | **Next after canonical preview review** |
+| Product design D4 Tonight refinement | **In review, PR #35; CI + physical visual review required** |
+| Product design visual-regression gate | **Draft PR #34; must rebase/re-record after PR #35 acceptance** |
 | Product design readiness repair | Not started |
 | M8 Voice architecture spike | **In progress: harness PR #29 + direct OpenAI WebRTC candidate PR #31 merged; comparative measured evidence open (#28)** |
 | M9 Realtime conversation | Not started |
@@ -413,13 +451,12 @@ No M8 transport is production-selected yet.
 
 ## Exact next work
 
-1. Add a trustworthy M8 first-audible-speech measurement seam to the direct OpenAI debug lab, without inferring audible latency from protocol/control events or persisting raw audio/transcripts.
-2. Run repeated synthetic physical-device direct-OpenAI measurements for cold connection, audible response, barge-in, reconnect, Wi-Fi/mobile, network transitions and Bluetooth; feed only metadata into the provider-neutral evidence contract.
-3. Introduce a second realtime comparison configuration only when it can materially test a different operational shape; LiveKit remains the likely RTC-layer comparison if direct WebRTC interruption/reconnect complexity justifies it. Do not select a winner before comparison readiness.
-4. Review the canonical Tonight, Wake Setup and Wake previews on representative device dimensions; add a synthetic Tomorrow Contract preview surface if needed, then record selected Roborazzi baselines and visual-regression CI.
-5. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI. Difficulty and character configuration remain deferred until their values have durable product ownership and runtime effect.
-6. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely. Once that gate is satisfied, implement issue #27 local Wake journal/outcome/calibration/learned-policy wiring.
-7. Keep character speech, motion thresholds, state-responsive Wake UI, learned policy application and optional realtime AI outside critical alarm authority until their separate gates are satisfied.
+1. Finish PR #35 Android CI + API-36 reliability validation, install the resulting debug APK on a representative physical phone, and review Ready/Attention/Empty Tonight composition before merge.
+2. Rebase/update PR #34 onto the accepted D4 design, record fresh synthetic visual artifacts, review them, then establish the first canonical Roborazzi verification goldens.
+3. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI. Difficulty and character configuration remain deferred until their values have durable product ownership and runtime effect.
+4. Continue trustworthy M8 first-audible/direct-OpenAI physical measurements and add a meaningful comparison configuration only when it tests a materially different operational shape.
+5. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely. Once that gate is satisfied, implement issue #27 local Wake journal/outcome/calibration/learned-policy wiring.
+6. Keep character speech, motion thresholds, state-responsive Wake UI, learned policy application and optional realtime AI outside critical alarm authority until their separate gates are satisfied.
 
 ## Privacy boundaries
 
@@ -431,6 +468,8 @@ M7 consumes compact semantic outcomes and optional structured calibration/fricti
 
 The product-design track adds no telemetry. Screenshot/visual fixtures are synthetic only. The production Tomorrow Contract screen uses `FLAG_SECURE` while private text is visible; its data remains credential-protected local state and never enters the Direct-Boot alarm snapshot.
 
+PR #35 adds only local presentation/state-derived copy. Its countdown is derived from the already-resolved Wake Occurrence; no new private or cloud data is introduced.
+
 M8 direct OpenAI experiments remain `synthetic-only`. The standard OpenAI API key stays server-side, Android receives only short-lived credentials, and the debug lab does not persist microphone audio, generated audio, transcripts, prompts, complete Realtime event payloads or private wake context. A successful connection is not privacy evidence.
 
 ## Current blockers / risks
@@ -439,9 +478,10 @@ There is no blocker to isolated local product/domain, product-design or M8 measu
 
 Open proof/risk boundaries:
 
+- PR #35 still requires complete Android/API-36 CI and physical visual approval before merge;
+- PR #34 currently represents pre-D4 visual pixels and must be rebased/re-recorded rather than accepted as canonical screenshot truth;
 - physical Android reliability evidence (#9) is still required before richer live Wake Runtime/character/learning integration;
 - production Wake Schedule and Tomorrow Contract setup now exist, but consumer-facing readiness repair and later durable character/difficulty configuration remain open;
-- canonical visual previews exist, but reviewed screenshot goldens/visual-regression CI are not yet established;
 - final bundled typography/icon assets remain a controlled later design decision rather than a remote dependency;
 - the initial M7 evidence thresholds and safe ranges are engineering hypotheses until dogfood calibration;
 - M7 local journal/persistence/application wiring is intentionally not implemented yet (#27);
