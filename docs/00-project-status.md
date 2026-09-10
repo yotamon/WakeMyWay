@@ -4,8 +4,8 @@
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** M7 Wake Learning v0 core merged; live Android integration remains reliability-gated  
-**Current product-design track:** Adaptive Dawn production UI foundation implemented in PR #30  
-**Current implementation branch after merge:** `main`  
+**Current product-design track:** Adaptive Dawn production UI foundation merged in PR #30  
+**Current implementation branch:** `main`  
 **Current integration track:** issue #27, sequenced after physical reliability gate #9  
 **Current side-track:** optional Vercel AI platform foundation merged in PR #23; no Android wake-path dependency
 
@@ -13,7 +13,7 @@
 
 Wake My Way is in active native Android development.
 
-Implemented/merged before the current design track:
+Implemented/merged:
 
 - M0 Foundation
 - M1 Deep Alarm Kernel + Active Wake Execution
@@ -24,8 +24,9 @@ Implemented/merged before the current design track:
 - M6 Tomorrow Contract + Prepared Wake Plan
 - M7 deterministic local Wake Learning v0 core (PR #26)
 - optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
+- Adaptive Dawn production design foundation (PR #30)
 
-PR #30 establishes the first production product-design foundation without changing alarm authority. It introduces the Adaptive Dawn visual system, centralized Compose tokens, semantic WMW components, a native geometric WMW Presence, stable Navigation 3 for normal app destinations, a polished Tonight product home, and a rebuilt presentation-only Wake surface. The existing Wake Alarm Lab remains available as an explicit developer destination.
+PR #30 established the first production product-design foundation without changing alarm authority. It introduced the Adaptive Dawn visual system, centralized Compose tokens, semantic WMW components, a native geometric WMW Presence, stable Navigation 3 for normal app destinations, a polished Tonight product home, a rebuilt presentation-only Wake surface, canonical previews and a dark pre-Compose window baseline that avoids bright cold-start flashes.
 
 The design work is intentionally a **parallel presentation track**, not a new behavioral roadmap milestone. M7/M8 numbering and reliability gates remain unchanged.
 
@@ -202,15 +203,15 @@ There is currently no Android production call to this service. Provider/network/
 ## Current Android toolchain
 
 ```text
-Android Gradle Plugin  9.4.0
-Kotlin                 2.4.20
-Gradle                 9.6.1
-JDK                    17
-Compose BOM            2026.08.00
-compileSdk             37
-targetSdk              36
-minSdk                 29
-Navigation 3           1.1.7
+Android Gradle Plugin    9.4.0
+Kotlin                   2.4.20
+Gradle                   9.6.1
+JDK                      17
+Compose BOM              2026.08.00
+compileSdk               37
+targetSdk                36
+minSdk                   29
+Navigation 3             1.1.7
 AndroidX graphics-shapes 1.1.0
 ```
 
@@ -218,7 +219,7 @@ AndroidX graphics-shapes 1.1.0
 
 Canonical implementation/design note: [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).
 
-Implemented in PR #30:
+Merged in PR #30:
 
 - **Adaptive Dawn** as the canonical production visual direction;
 - centralized WMW color, spacing, size and motion tokens;
@@ -231,6 +232,7 @@ Implemented in PR #30:
 - Tonight as the normal `MainActivity` product surface;
 - Wake Alarm Lab preserved as a developer destination;
 - `WakeActivity` rebuilt visually while preserving Alarm Kernel Stop/Snooze calls, Direct Boot behavior, private-content gating and `FLAG_SECURE`;
+- dark Android window baseline to prevent a bright frame before Compose renders;
 - edge-to-edge normal app shell;
 - resource-backed product-facing copy;
 - canonical synthetic Compose previews for Tonight ready/empty and Wake Emerging.
@@ -244,6 +246,19 @@ Explicitly **not** introduced:
 - cloud/network rendering dependency;
 - a separate design-system Gradle module;
 - a second Wake state machine.
+
+### Validation for PR #30
+
+Passed before merge:
+
+- documentation validation;
+- `:wake-core:test`;
+- Android lint / Compose compilation;
+- instrumentation-test compilation;
+- debug APK assembly;
+- dedicated API-36 reliability instrumentation.
+
+The first CI pass exposed one concrete compile defect in the initial WMW Presence implementation: the `graphics-shapes` `Morph.toPath` extension required an explicit import. The defect was corrected and the complete validation lane then passed before merge.
 
 ### Visual-regression next gate
 
@@ -304,7 +319,7 @@ The critical false-positive fixture remains covered: Activation Completion can b
 | M6 Tomorrow Contract | **Merged / complete** |
 | Optional Vercel AI platform foundation | **Merged / complete, PR #23; no Android dependency** |
 | M7 Wake Learning v0 | **Core merged, PR #26; live integration tracked by #27 and gated by #9** |
-| Product design D0/D1 foundation | **Implemented in PR #30; CI/visual review required before merge** |
+| Product design D0/D1 foundation | **Merged / complete, PR #30** |
 | Product design visual-regression gate | **Next after canonical preview review** |
 | Product design setup experience | Planned next product-UI slice |
 | M8 Voice architecture spike | Not started |
@@ -315,13 +330,12 @@ The critical false-positive fixture remains covered: Activation Completion can b
 
 ## Exact next work
 
-1. Validate PR #30 through Android CI/device-test workflows and merge only if the foundation preserves compile/lint/reliability behavior.
-2. Review canonical Tonight/Wake previews on representative device dimensions; then record selected Roborazzi baselines and add visual-regression CI.
-3. Build the production setup/edit flow behind the Tonight shell: wake time, initial wake difficulty, character, Tomorrow Contract and Wake Readiness repair, without moving alarm authority into UI.
-4. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely.
-5. Once that gate is satisfied, implement issue #27: authoritative local timed semantic Wake journal, compact Wake Outcome history, occasional calibration/friction attachment and learned-policy selection for future sessions.
-6. Keep character speech, motion thresholds, state-responsive Wake UI and richer prepared personalization behind the physical reliability gate where they depend on live runtime facts.
-7. Keep optional cloud services out of wake authority. At M8, benchmark realtime transport candidates rather than preselecting one.
+1. Review canonical Tonight/Wake previews on representative device dimensions; then record selected Roborazzi baselines and add visual-regression CI.
+2. Build the production setup/edit flow behind the Tonight shell: wake time, initial wake difficulty, character, Tomorrow Contract and Wake Readiness repair, without moving alarm authority into UI.
+3. Continue issue #9 physical-device reliability evidence so the deferred M3 Android Wake Runtime/directive-executor path can be connected safely.
+4. Once that gate is satisfied, implement issue #27: authoritative local timed semantic Wake journal, compact Wake Outcome history, occasional calibration/friction attachment and learned-policy selection for future sessions.
+5. Keep character speech, motion thresholds, state-responsive Wake UI and richer prepared personalization behind the physical reliability gate where they depend on live runtime facts.
+6. Keep optional cloud services out of wake authority. At M8, benchmark realtime transport candidates rather than preselecting one.
 
 ## Privacy boundaries
 
