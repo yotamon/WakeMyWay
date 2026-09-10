@@ -92,6 +92,7 @@ class WakeRuntime {
                         WakeDirective.ObserveMotion,
                     )
                 } else {
+                    val wasAlreadyActivating = remembered.phase == WakePhase.ACTIVATING
                     val next = remembered.copy(
                         phase = when (remembered.phase) {
                             WakePhase.ALERTING,
@@ -103,13 +104,17 @@ class WakeRuntime {
                             coherentVoiceResponses = remembered.activationEvidence.coherentVoiceResponses + 1,
                         ),
                     )
-                    val directives = buildList {
-                        add(WakeDirective.ObserveMotion)
-                        if (remembered.phase != WakePhase.ACTIVATING) {
-                            add(WakeDirective.Speak(SpeechIntent.AskToMove))
-                        }
+                    val nextSpeech = if (wasAlreadyActivating) {
+                        SpeechIntent.KeepEngaging
+                    } else {
+                        SpeechIntent.AskToMove
                     }
-                    advanceOr(next, policy, *directives.toTypedArray())
+                    advanceOr(
+                        next,
+                        policy,
+                        WakeDirective.ObserveMotion,
+                        WakeDirective.Speak(nextSpeech),
+                    )
                 }
             }
 
