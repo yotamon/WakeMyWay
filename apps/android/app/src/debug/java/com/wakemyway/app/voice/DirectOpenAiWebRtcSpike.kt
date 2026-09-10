@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import org.json.JSONArray
 import org.json.JSONObject
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
@@ -20,10 +21,12 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Founder-only M8 transport spike. This class exists only in the debug source set.
@@ -55,6 +58,7 @@ internal class DirectOpenAiWebRtcSpike(
         Thread(runnable, "wmw-m8-direct-openai-network").apply { isDaemon = true }
     }
     private val connectedReported = AtomicBoolean(false)
+    private val connectionGeneration = AtomicLong(0L)
 
     private var connectionStartedAtMs: Long = 0L
     private var peerConnectionFactory: PeerConnectionFactory? = null
@@ -62,13 +66,18 @@ internal class DirectOpenAiWebRtcSpike(
     private var audioSource: AudioSource? = null
     private var audioTrack: AudioTrack? = null
     private var dataChannel: DataChannel? = null
+
+    @Volatile
     private var closed = false
 
     fun connect(brokerUrl: String, internalBearerToken: String) {
         check(!closed) { "Voice spike client is closed" }
         require(internalBearerToken.isNotBlank()) { "Internal spike token is required" }
         validateBrokerUrl(brokerUrl)
+
+        // Invalidate any credential/SDP callbacks still in flight from an earlier attempt.
         disconnect()
+        val generation = connectionGeneration.incrementAndGet()
 
         connectionStartedAtMs = SystemClock.elapsedRealtime()
         connectedReported.set(false)
@@ -76,12 +85,61 @@ internal class DirectOpenAiWebRtcSpike(
 
         networkExecutor.execute {
             runCatching { requestBrokerSecret(brokerUrl, internalBearerToken) }
-                .onSuccess { secret -> mainHandler.post { startPeerConnection(secret) } }
-                .onFailure { error -> emitFailure("credential", safeMessage(error)) }
+                .onSuccess { secret ->
+                    mainHandler.post {
+                        if (isCurrent(generation)) startPeerConnection(secret, generation)
+                    }
+                }
+                .onFailure { error ->
+                    if (isCurrent(generation)) emitFailure("credential", safeMessage(error))
+                }
         }
     }
 
+    /**
+     * Sends one fixed, non-sensitive out-of-band audio response request and returns
+     * the local monotonic enqueue timestamp. The caller may use that timestamp as
+     * the origin for an operator-observed first-audible upper-bound measurement.
+     */
+    fun requestSyntheticMeasurementResponse(): Long {
+        check(!closed) { "Voice spike client is closed" }
+        val channel = checkNotNull(dataChannel) { "Realtime data channel is not available" }
+        check(channel.state() == DataChannel.State.OPEN) { "Realtime data channel is not open" }
+
+        val event = JSONObject()
+            .put("type", "response.create")
+            .put(
+                "response",
+                JSONObject()
+                    .put("conversation", "none")
+                    .put("output_modalities", JSONArray().put("audio"))
+                    .put("input", JSONArray())
+                    .put("instructions", SYNTHETIC_FIRST_SPEECH_INSTRUCTIONS),
+            )
+        val bytes = event.toString().toByteArray(StandardCharsets.UTF_8)
+        check(bytes.size <= MAX_CLIENT_EVENT_BYTES) { "Synthetic measurement event exceeds the limit" }
+
+        val requestedAtMs = SystemClock.elapsedRealtime()
+        check(channel.send(DataChannel.Buffer(ByteBuffer.wrap(bytes), false))) {
+            "Realtime data channel rejected the synthetic measurement request"
+        }
+        return requestedAtMs
+    }
+
     fun disconnect() {
+        connectionGeneration.incrementAndGet()
+        disconnectResources()
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        connectionGeneration.incrementAndGet()
+        disconnectResources()
+        networkExecutor.shutdownNow()
+    }
+
+    private fun disconnectResources() {
         connectedReported.set(false)
         runCatching { dataChannel?.unregisterObserver() }
         runCatching { dataChannel?.close() }
@@ -100,20 +158,17 @@ internal class DirectOpenAiWebRtcSpike(
         peerConnectionFactory = null
     }
 
-    override fun close() {
-        if (closed) return
-        closed = true
-        disconnect()
-        networkExecutor.shutdownNow()
-    }
-
-    private fun startPeerConnection(secret: BrokerSecret) {
-        if (closed) return
+    private fun startPeerConnection(secret: BrokerSecret, generation: Long) {
+        if (!isCurrent(generation)) return
         try {
             initializeWebRtcOnce(appContext)
             emitStatus("Creating WebRTC peer connection…")
 
             val factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
+            if (!isCurrent(generation)) {
+                factory.dispose()
+                return
+            }
             peerConnectionFactory = factory
 
             val rtcConfiguration = PeerConnection.RTCConfiguration(emptyList())
@@ -121,8 +176,13 @@ internal class DirectOpenAiWebRtcSpike(
             rtcConfiguration.continualGatheringPolicy =
                 PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
 
-            val peer = factory.createPeerConnection(rtcConfiguration, peerObserver())
+            val peer = factory.createPeerConnection(rtcConfiguration, peerObserver(generation))
                 ?: error("WebRTC could not create a peer connection")
+            if (!isCurrent(generation)) {
+                peer.close()
+                peer.dispose()
+                return
+            }
             peerConnection = peer
 
             val source = factory.createAudioSource(MediaConstraints())
@@ -135,27 +195,32 @@ internal class DirectOpenAiWebRtcSpike(
 
             val channel = peer.createDataChannel("oai-events", DataChannel.Init())
             dataChannel = channel
-            channel.registerObserver(dataChannelObserver(channel))
+            channel.registerObserver(dataChannelObserver(channel, generation))
 
             peer.createOffer(
                 object : SimpleSdpObserver() {
                     override fun onCreateSuccess(description: SessionDescription?) {
+                        if (!isCurrent(generation)) return
                         if (description == null) {
                             emitFailure("offer", "WebRTC returned an empty SDP offer")
                             return
                         }
-                        setLocalDescriptionAndExchange(peer, description, secret)
+                        setLocalDescriptionAndExchange(peer, description, secret, generation)
                     }
 
                     override fun onCreateFailure(error: String?) {
-                        emitFailure("offer", error?.take(160) ?: "SDP offer creation failed")
+                        if (isCurrent(generation)) {
+                            emitFailure("offer", error?.take(160) ?: "SDP offer creation failed")
+                        }
                     }
                 },
                 MediaConstraints(),
             )
         } catch (error: Throwable) {
-            emitFailure("webrtc-init", safeMessage(error))
-            disconnect()
+            if (isCurrent(generation)) {
+                emitFailure("webrtc-init", safeMessage(error))
+                disconnect()
+            }
         }
     }
 
@@ -163,50 +228,64 @@ internal class DirectOpenAiWebRtcSpike(
         peer: PeerConnection,
         offer: SessionDescription,
         secret: BrokerSecret,
+        generation: Long,
     ) {
         peer.setLocalDescription(
             object : SimpleSdpObserver() {
                 override fun onSetSuccess() {
+                    if (!isCurrent(generation)) return
                     emitStatus("Exchanging SDP directly with OpenAI…")
                     networkExecutor.execute {
                         runCatching { exchangeSdp(secret, offer.description) }
                             .onSuccess { answerSdp ->
                                 mainHandler.post {
-                                    if (closed || peerConnection !== peer) return@post
-                                    setRemoteAnswer(peer, answerSdp)
+                                    if (!isCurrent(generation) || peerConnection !== peer) return@post
+                                    setRemoteAnswer(peer, answerSdp, generation)
                                 }
                             }
-                            .onFailure { error -> emitFailure("sdp-exchange", safeMessage(error)) }
+                            .onFailure { error ->
+                                if (isCurrent(generation)) {
+                                    emitFailure("sdp-exchange", safeMessage(error))
+                                }
+                            }
                     }
                 }
 
                 override fun onSetFailure(error: String?) {
-                    emitFailure("local-sdp", error?.take(160) ?: "Setting local SDP failed")
+                    if (isCurrent(generation)) {
+                        emitFailure("local-sdp", error?.take(160) ?: "Setting local SDP failed")
+                    }
                 }
             },
             offer,
         )
     }
 
-    private fun setRemoteAnswer(peer: PeerConnection, answerSdp: String) {
+    private fun setRemoteAnswer(peer: PeerConnection, answerSdp: String, generation: Long) {
+        if (!isCurrent(generation)) return
         peer.setRemoteDescription(
             object : SimpleSdpObserver() {
                 override fun onSetSuccess() {
-                    emitStatus("Remote SDP accepted; waiting for Realtime data channel…")
+                    if (isCurrent(generation)) {
+                        emitStatus("Remote SDP accepted; waiting for Realtime data channel…")
+                    }
                 }
 
                 override fun onSetFailure(error: String?) {
-                    emitFailure("remote-sdp", error?.take(160) ?: "Setting remote SDP failed")
+                    if (isCurrent(generation)) {
+                        emitFailure("remote-sdp", error?.take(160) ?: "Setting remote SDP failed")
+                    }
                 }
             },
             SessionDescription(SessionDescription.Type.ANSWER, answerSdp),
         )
     }
 
-    private fun peerObserver(): PeerConnection.Observer = object : PeerConnection.Observer {
+    private fun peerObserver(generation: Long): PeerConnection.Observer = object : PeerConnection.Observer {
         override fun onSignalingChange(newState: PeerConnection.SignalingState?) = Unit
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
+            if (!isCurrent(generation)) return
             when (newState) {
                 PeerConnection.IceConnectionState.FAILED ->
                     emitFailure("ice", "ICE connection failed")
@@ -226,6 +305,7 @@ internal class DirectOpenAiWebRtcSpike(
         override fun onRenegotiationNeeded() = Unit
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
+            if (!isCurrent(generation)) return
             when (newState) {
                 PeerConnection.PeerConnectionState.CONNECTING -> emitStatus("WebRTC connecting…")
                 PeerConnection.PeerConnectionState.CONNECTED -> emitStatus("WebRTC media connected")
@@ -237,39 +317,48 @@ internal class DirectOpenAiWebRtcSpike(
         }
     }
 
-    private fun dataChannelObserver(channel: DataChannel): DataChannel.Observer =
-        object : DataChannel.Observer {
-            override fun onBufferedAmountChange(previousAmount: Long) = Unit
+    private fun dataChannelObserver(
+        channel: DataChannel,
+        generation: Long,
+    ): DataChannel.Observer = object : DataChannel.Observer {
+        override fun onBufferedAmountChange(previousAmount: Long) = Unit
 
-            override fun onStateChange() {
-                when (channel.state()) {
-                    DataChannel.State.OPEN -> {
-                        val elapsed = SystemClock.elapsedRealtime() - connectionStartedAtMs
-                        if (connectedReported.compareAndSet(false, true)) {
-                            mainHandler.post { listener.onConnected(elapsed) }
+        override fun onStateChange() {
+            if (!isCurrent(generation)) return
+            when (channel.state()) {
+                DataChannel.State.OPEN -> {
+                    val elapsed = SystemClock.elapsedRealtime() - connectionStartedAtMs
+                    if (connectedReported.compareAndSet(false, true)) {
+                        mainHandler.post {
+                            if (isCurrent(generation)) listener.onConnected(elapsed)
                         }
-                        emitStatus("Realtime data channel open")
                     }
-                    DataChannel.State.CLOSED -> emitStatus("Realtime data channel closed")
-                    else -> Unit
+                    emitStatus("Realtime data channel open")
                 }
-            }
-
-            override fun onMessage(buffer: DataChannel.Buffer?) {
-                if (buffer == null || buffer.binary) return
-                val data = buffer.data
-                if (data.remaining() <= 0 || data.remaining() > MAX_EVENT_BYTES) return
-                val bytes = ByteArray(data.remaining())
-                data.get(bytes)
-
-                // Parse only the bounded event type and immediately discard the payload.
-                // Transcripts/audio deltas/private model content are never retained or logged.
-                val type = runCatching {
-                    JSONObject(String(bytes, StandardCharsets.UTF_8)).optString("type")
-                }.getOrNull()?.takeIf { EVENT_TYPE_PATTERN.matches(it) }
-                if (type != null) mainHandler.post { listener.onServerEventType(type) }
+                DataChannel.State.CLOSED -> emitStatus("Realtime data channel closed")
+                else -> Unit
             }
         }
+
+        override fun onMessage(buffer: DataChannel.Buffer?) {
+            if (!isCurrent(generation) || buffer == null || buffer.binary) return
+            val data = buffer.data
+            if (data.remaining() <= 0 || data.remaining() > MAX_EVENT_BYTES) return
+            val bytes = ByteArray(data.remaining())
+            data.get(bytes)
+
+            // Parse only the bounded event type and immediately discard the payload.
+            // Transcripts/audio deltas/private model content are never retained or logged.
+            val type = runCatching {
+                JSONObject(String(bytes, StandardCharsets.UTF_8)).optString("type")
+            }.getOrNull()?.takeIf { EVENT_TYPE_PATTERN.matches(it) }
+            if (type != null) {
+                mainHandler.post {
+                    if (isCurrent(generation)) listener.onServerEventType(type)
+                }
+            }
+        }
+    }
 
     private fun requestBrokerSecret(brokerUrl: String, internalBearerToken: String): BrokerSecret {
         val connection = (URL(brokerUrl).openConnection() as HttpURLConnection).apply {
@@ -368,6 +457,9 @@ internal class DirectOpenAiWebRtcSpike(
         String(output.toByteArray(), StandardCharsets.UTF_8)
     }
 
+    private fun isCurrent(generation: Long): Boolean =
+        !closed && connectionGeneration.get() == generation
+
     private fun emitStatus(status: String) {
         mainHandler.post { listener.onStatus(status.take(200)) }
     }
@@ -396,8 +488,11 @@ internal class DirectOpenAiWebRtcSpike(
         private const val MAX_BROKER_RESPONSE_BYTES = 32 * 1024
         private const val MAX_SDP_BYTES = 512 * 1024
         private const val MAX_EVENT_BYTES = 32 * 1024
+        private const val MAX_CLIENT_EVENT_BYTES = 8 * 1024
         private const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
         private const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-ephemeral-v1"
+        private const val SYNTHETIC_FIRST_SPEECH_INSTRUCTIONS =
+            "This is a synthetic engineering latency probe. Say exactly: Good morning. Voice path ready."
         private val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
 
         @Volatile
