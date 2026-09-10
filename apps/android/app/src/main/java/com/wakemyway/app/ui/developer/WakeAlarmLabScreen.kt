@@ -135,8 +135,26 @@ fun WakeAlarmLabScreen(
             WakeSchedulingBlocker.NONE -> Unit
         }
 
+        OutlinedButton(
+            modifier = Modifier.padding(top = 18.dp),
+            onClick = {
+                runCatching {
+                    context.startActivity(
+                        Intent().setClassName(
+                            context.packageName,
+                            "com.wakemyway.app.voice.VoiceSpikeActivity",
+                        ),
+                    )
+                }.onFailure {
+                    message = "Live conversation setup is available in founder/debug builds only."
+                }
+            },
+        ) {
+            Text("Configure live conversation")
+        }
+
         Button(
-            modifier = Modifier.padding(top = 24.dp),
+            modifier = Modifier.padding(top = 12.dp),
             onClick = {
                 // Re-evaluate immediately before commit. UI state is never authority for safety.
                 val currentHealth = kernel.health()

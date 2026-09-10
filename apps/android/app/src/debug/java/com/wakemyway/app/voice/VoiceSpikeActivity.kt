@@ -1,6 +1,7 @@
 package com.wakemyway.app.voice
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Bundle
@@ -18,7 +19,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 
-/** Debug-only founder lab for the isolated M8 direct OpenAI WebRTC candidate. */
+/** Debug-only founder lab for direct OpenAI WebRTC and conversational Wake setup. */
 class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener {
     private lateinit var brokerUrlInput: EditText
     private lateinit var operatorTokenInput: EditText
@@ -31,6 +32,7 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
     private var pendingBrokerUrl: String? = null
     private var pendingOperatorToken: String? = null
     private lateinit var spike: DirectOpenAiWebRtcSpike
+    private lateinit var founderSettings: FounderRealtimeSettings
     private val measurement = VoiceSpikeMeasurementSession()
 
     private val microphonePermission =
@@ -47,8 +49,13 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         spike = DirectOpenAiWebRtcSpike(applicationContext, this)
+        founderSettings = FounderRealtimeSettings(applicationContext)
         setContentView(buildContent())
         renderMeasurement()
+        founderSettings.load()?.let { saved ->
+            brokerUrlInput.setText(saved.brokerUrl)
+            statusView.text = "Conversational Wake is configured for founder dogfood. The token remains encrypted and hidden."
+        }
     }
 
     override fun onStop() {
@@ -57,7 +64,6 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         operatorTokenInput.text?.clear()
         clearPendingSecret()
         resetMeasurementUi()
-        statusView.text = "Disconnected because the lab left the foreground."
     }
 
     override fun onDestroy() {
@@ -101,46 +107,69 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         )
 
         content.addView(TextView(this).apply {
-            text = "M8 · Direct OpenAI WebRTC Spike"
+            text = "Realtime Founder Lab"
             textSize = 24f
             setTypeface(typeface, Typeface.BOLD)
         })
         content.addView(TextView(this).apply {
             text =
-                "Debug-only, synthetic/non-sensitive engineering lab. It is not connected to the alarm or Wake Runtime. No transcripts or audio are stored."
+                "Configure live conversational Alfred for the debug founder Wake, or run the isolated synthetic WebRTC measurement. Alarm Kernel and Wake Runtime remain local authorities."
             textSize = 15f
             setPadding(0, dp(8), 0, dp(20))
         })
 
         brokerUrlInput = EditText(this).apply {
-            hint = "Token broker endpoint (HTTPS)"
+            hint = "https://…${FounderRealtimeSettings.FOUNDER_WAKE_PATH}"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             setSingleLine(true)
         }
         content.addView(brokerUrlInput, matchWidth())
 
         operatorTokenInput = EditText(this).apply {
-            hint = "Internal operator bearer token"
+            hint = "Internal founder bearer token"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine(true)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         }
         content.addView(operatorTokenInput, matchWidth())
 
+        val saveWakeConversationButton = Button(this).apply {
+            text = "Enable conversational Wake"
+            setOnClickListener { requestSaveFounderWake() }
+        }
+        content.addView(saveWakeConversationButton, matchWidth(topMargin = 16))
+
+        val clearWakeConversationButton = Button(this).apply {
+            text = "Clear conversational Wake setup"
+            setOnClickListener {
+                founderSettings.clear()
+                operatorTokenInput.text?.clear()
+                statusView.text = "Conversational Wake configuration cleared. Local Alfred remains available."
+            }
+        }
+        content.addView(clearWakeConversationButton, matchWidth(topMargin = 8))
+
+        content.addView(TextView(this).apply {
+            text =
+                "Founder dogfood privacy: live microphone audio and model audio use the OpenAI Realtime API. WMW does not persist transcripts or audio and does not send Tomorrow Contract or prepared private context in this phase. API retention may still apply unless the OpenAI project has approved Zero Data Retention."
+            textSize = 13f
+            setPadding(0, dp(10), 0, dp(20))
+        })
+
         val connectButton = Button(this).apply {
-            text = "Connect synthetic voice spike"
+            text = "Connect synthetic voice measurement"
             setOnClickListener { requestConnect() }
         }
-        content.addView(connectButton, matchWidth(topMargin = 16))
+        content.addView(connectButton, matchWidth())
 
         val disconnectButton = Button(this).apply {
-            text = "Disconnect"
+            text = "Disconnect measurement"
             setOnClickListener {
                 spike.disconnect()
                 operatorTokenInput.text?.clear()
                 clearPendingSecret()
                 resetMeasurementUi()
-                statusView.text = "Disconnected."
+                statusView.text = "Synthetic measurement disconnected."
             }
         }
         content.addView(disconnectButton, matchWidth(topMargin = 8))
@@ -173,7 +202,7 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
 
         content.addView(TextView(this).apply {
             text =
-                "First-audible timing uses your tap as a conservative upper bound. Human reaction time is included. Protocol audio/control events are diagnostics only and never substitute for the audible observation."
+                "The synthetic measurement remains non-sensitive and separate from the real Wake Session."
             textSize = 13f
             setPadding(0, dp(8), 0, dp(12))
         })
@@ -185,24 +214,50 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         }
         content.addView(eventView)
 
-        content.addView(TextView(this).apply {
-            text =
-                "Privacy rule: use synthetic content only. Until the exact OpenAI project data-control posture is verified, do not speak Tomorrow Contract, calendar, health, identity, or other private content here."
-            textSize = 13f
-        })
-
         return scroll
     }
 
-    private fun requestConnect() {
+    private fun requestSaveFounderWake() {
         val brokerUrl = brokerUrlInput.text?.toString()?.trim().orEmpty()
         val operatorToken = operatorTokenInput.text?.toString().orEmpty()
         if (brokerUrl.isBlank() || operatorToken.isBlank()) {
+            statusView.text = "Founder wake broker endpoint and bearer token are required."
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Enable live wake conversation?")
+            .setMessage(
+                "During a founder Wake Session, microphone audio and Alfred's responses will use OpenAI Realtime. Wake My Way will not persist audio/transcripts or send Tomorrow Contract context. OpenAI API retention may still apply unless this project has Zero Data Retention enabled. The alarm always remains local and independently controllable.",
+            )
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Enable") { _, _ ->
+                runCatching { founderSettings.save(brokerUrl, operatorToken) }
+                    .onSuccess {
+                        operatorTokenInput.text?.clear()
+                        statusView.text =
+                            "Conversational Wake configured. The founder token is encrypted with Android Keystore."
+                    }
+                    .onFailure { error ->
+                        statusView.text =
+                            "Could not save conversational Wake: ${error.message?.take(160) ?: error.javaClass.simpleName}"
+                    }
+            }
+            .show()
+    }
+
+    private fun requestConnect() {
+        val founderBrokerUrl = brokerUrlInput.text?.toString()?.trim().orEmpty()
+        val operatorToken = operatorTokenInput.text?.toString().orEmpty()
+        if (founderBrokerUrl.isBlank() || operatorToken.isBlank()) {
             statusView.text = "Broker endpoint and operator token are required."
             return
         }
 
-        pendingBrokerUrl = brokerUrl
+        pendingBrokerUrl = founderBrokerUrl.replace(
+            FounderRealtimeSettings.FOUNDER_WAKE_PATH,
+            SYNTHETIC_SPIKE_PATH,
+        )
         pendingOperatorToken = operatorToken
         if (
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -222,8 +277,6 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
             return
         }
 
-        // The operator token is handed to the in-memory client and immediately removed
-        // from the editable UI/pending state. It is never persisted or passed by Intent.
         operatorTokenInput.text?.clear()
         clearPendingSecret()
         resetMeasurementUi()
@@ -298,4 +351,8 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         ).apply { this.topMargin = dp(topMargin) }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val SYNTHETIC_SPIKE_PATH = "/api/internal/voice-spike/direct-openai-token"
+    }
 }

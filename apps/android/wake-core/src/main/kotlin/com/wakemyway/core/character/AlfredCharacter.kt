@@ -5,7 +5,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 2,
+        version = 3,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -34,6 +34,7 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> INITIAL_WAKE
         SpeechIntent.AskToSitUp -> ASK_TO_SIT_UP
         SpeechIntent.AskToMove -> ASK_TO_MOVE
+        SpeechIntent.KeepEngaging -> KEEP_ENGAGING
         is SpeechIntent.ReEngage -> RE_ENGAGE[intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)]
         SpeechIntent.SnoozeConfirmation -> SNOOZE_CONFIRMATION
         SpeechIntent.SnoozeFailed -> SNOOZE_FAILED
@@ -44,6 +45,7 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> "initial-wake"
         SpeechIntent.AskToSitUp -> "ask-to-sit-up"
         SpeechIntent.AskToMove -> "ask-to-move"
+        SpeechIntent.KeepEngaging -> "keep-engaging"
         is SpeechIntent.ReEngage -> "re-engage-${escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)}"
         SpeechIntent.SnoozeConfirmation -> "snooze-confirmation"
         SpeechIntent.SnoozeFailed -> "snooze-failed"
@@ -85,6 +87,13 @@ object AlfredCharacter {
         "A little movement now. Feet down, then answer me.",
         "Next step: feet on the floor. Tell me when you're there.",
         "Let us introduce gravity. Feet down, then tell me.",
+    )
+
+    private val KEEP_ENGAGING = listOf(
+        "Good. Stay with me. One more clear move, then tell me.",
+        "That's it. Keep moving, and tell me when you've done one more thing.",
+        "Good. Keep the momentum. One more small move, then answer me.",
+        "Still with you. Move once more, then tell me you're there.",
     )
 
     private val RE_ENGAGE = listOf(

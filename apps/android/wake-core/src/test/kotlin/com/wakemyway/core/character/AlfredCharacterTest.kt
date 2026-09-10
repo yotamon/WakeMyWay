@@ -11,6 +11,7 @@ class AlfredCharacterTest {
         SpeechIntent.InitialWake,
         SpeechIntent.AskToSitUp,
         SpeechIntent.AskToMove,
+        SpeechIntent.KeepEngaging,
         SpeechIntent.ReEngage(0),
         SpeechIntent.ReEngage(1),
         SpeechIntent.ReEngage(2),
@@ -25,7 +26,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(2, spec.version)
+        assertEquals(3, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)
@@ -51,7 +52,6 @@ class AlfredCharacterTest {
             val key = WakeLineKey("session-42-step-7")
             val first = AlfredCharacter.render(intent, key)
             val replayed = AlfredCharacter.render(intent, key)
-
             assertEquals(first, replayed)
         }
     }
@@ -87,13 +87,9 @@ class AlfredCharacterTest {
     @Test
     fun `snooze confirmation never claims that replacement scheduling already succeeded`() {
         val lines = renderedTexts(SpeechIntent.SnoozeConfirmation)
-
         lines.forEach { line ->
             PREMATURE_SNOOZE_SUCCESS_TERMS.forEach { forbidden ->
-                assertTrue(
-                    forbidden !in line,
-                    "Snooze confirmation over-claimed durable state with '$forbidden': $line",
-                )
+                assertTrue(forbidden !in line, "Snooze confirmation over-claimed durable state with '$forbidden': $line")
             }
         }
     }
@@ -101,13 +97,9 @@ class AlfredCharacterTest {
     @Test
     fun `orientation never claims biological wakefulness or unsupported posture`() {
         val lines = renderedTexts(SpeechIntent.Orientation)
-
         lines.forEach { line ->
             UNSUPPORTED_ORIENTATION_CLAIMS.forEach { forbidden ->
-                assertTrue(
-                    forbidden !in line,
-                    "Orientation line over-claimed wake state with '$forbidden': $line",
-                )
+                assertTrue(forbidden !in line, "Orientation line over-claimed wake state with '$forbidden': $line")
             }
         }
     }
@@ -115,22 +107,16 @@ class AlfredCharacterTest {
     @Test
     fun `curated Alfred catalog never uses shame insult or threat vocabulary`() {
         val renderedCatalog = intents.flatMap(::renderedTexts).toSet()
-
         renderedCatalog.forEach { line ->
             FORBIDDEN_TERMS.forEach { forbidden ->
-                assertTrue(
-                    forbidden !in line,
-                    "Alfred line contains forbidden term '$forbidden': $line",
-                )
+                assertTrue(forbidden !in line, "Alfred line contains forbidden term '$forbidden': $line")
             }
         }
     }
 
     private fun renderedTexts(intent: SpeechIntent): Set<String> =
         (0 until 256)
-            .map { index ->
-                AlfredCharacter.render(intent, WakeLineKey("catalog-$index")).text.lowercase()
-            }
+            .map { index -> AlfredCharacter.render(intent, WakeLineKey("catalog-$index")).text.lowercase() }
             .toSet()
 
     private fun String.wordCount(): Int = trim().split(Regex("\\s+")).size

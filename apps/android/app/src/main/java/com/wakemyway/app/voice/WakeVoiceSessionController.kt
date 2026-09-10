@@ -25,10 +25,11 @@ import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.Duration
 
 /**
- * Production adapter around the pure Wake Runtime.
+ * Android adapter around the pure Wake Runtime.
  *
- * This class owns Android side effects only. Wake Runtime remains the authority for behavioral
- * progression and activation evidence. Raw microphone audio and transcripts are never retained.
+ * Wake Runtime remains the only behavioral authority. This controller may choose an optional
+ * conversational speech renderer when available, but model/network state can never Stop/Snooze,
+ * complete a session, or replace typed activation evidence. Local TTS/STT remains the fallback.
  */
 class WakeVoiceSessionController(
     context: Context,
@@ -61,6 +62,111 @@ class WakeVoiceSessionController(
         character = AlfredCharacter.spec,
         onStateChanged = ::onSpeechStateChanged,
     )
+    private val conversation: WakeConversationEnrichment? = WakeConversationEnrichmentFactory.create(
+        context,
+        object : WakeConversationEnrichment.Listener {
+            override fun onConversationReady() {
+                mainHandler.post {
+                    if (closed) return@post
+                    conversationLive = true
+                    publish()
+                }
+            }
+
+            override fun onAssistantSpeechStarted() {
+                mainHandler.post {
+                    if (closed || !realtimeTurnInFlight) return@post
+                    speaking = true
+                    listening = false
+                    mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
+                        WakeVoiceMode.ORIENTING
+                    } else {
+                        WakeVoiceMode.SPEAKING
+                    }
+                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    publish()
+                }
+            }
+
+            override fun onAssistantSpeechFinished(interrupted: Boolean) {
+                mainHandler.post {
+                    if (closed || !realtimeTurnInFlight || !started) return@post
+                    speaking = false
+                    if (interrupted) {
+                        // VAD will shortly emit the user's completed turn. That VoiceResponseObserved
+                        // becomes the sole runtime transition, preventing a double response.
+                        mode = WakeVoiceMode.LISTENING
+                        publish()
+                        return@post
+                    }
+
+                    val completedIntent = realtimeIntent
+                    realtimeTurnInFlight = false
+                    realtimeIntent = null
+                    dispatch(WakeInput.SpeechFinished(nextInputId("realtime-speech-finished")))
+                    if (
+                        completedIntent == SpeechIntent.Orientation &&
+                        snapshot.phase == WakePhase.ORIENTING
+                    ) {
+                        dispatch(WakeInput.OrientationCompleted(nextInputId("realtime-orientation-complete")))
+                    }
+                }
+            }
+
+            override fun onUserSpeechStarted() {
+                mainHandler.post {
+                    if (closed || !started || !surfaceVisible) return@post
+                    mainHandler.removeCallbacks(realtimeSilenceTimeout)
+                    listening = true
+                    mode = WakeVoiceMode.LISTENING
+                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    publish()
+                }
+            }
+
+            override fun onUserTurnObserved() {
+                mainHandler.post {
+                    if (closed || !started || !surfaceVisible) return@post
+                    mainHandler.removeCallbacks(realtimeSilenceTimeout)
+                    listening = false
+                    speaking = false
+                    realtimeTurnInFlight = false
+                    realtimeIntent = null
+                    dispatch(
+                        WakeInput.VoiceResponseObserved(
+                            id = nextInputId("realtime-voice-response"),
+                            coherent = true,
+                        ),
+                    )
+                }
+            }
+
+            override fun onConversationFailure(stage: String) {
+                mainHandler.post {
+                    if (closed) return@post
+                    conversationLive = false
+                    conversation?.setInputEnabled(false)
+                    mainHandler.removeCallbacks(realtimeSilenceTimeout)
+
+                    val failedIntent = realtimeIntent
+                    val failedDuringTurn = realtimeTurnInFlight && failedIntent != null
+                    realtimeTurnInFlight = false
+                    realtimeIntent = null
+                    speaking = false
+                    listening = false
+                    publish()
+
+                    // Preserve the exact typed runtime intent. A network/provider failure changes
+                    // rendering only; it must not create a parallel behavioral transition.
+                    if (failedDuringTurn && started && snapshot.phase != WakePhase.FINISHED) {
+                        speakLocally(failedIntent)
+                    } else if (started) {
+                        syncWatchdog()
+                    }
+                }
+            }
+        },
+    )
 
     private lateinit var snapshot: WakeSessionSnapshot
     private var started = false
@@ -74,6 +180,9 @@ class WakeVoiceSessionController(
     private var speechSequence = 0L
     private var currentLine: String? = null
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
+    private var conversationLive = false
+    private var realtimeTurnInFlight = false
+    private var realtimeIntent: SpeechIntent? = null
 
     private val startFallback = Runnable {
         if (!started && startRequested && !closed) {
@@ -90,10 +199,30 @@ class WakeVoiceSessionController(
             )
         }
     }
+    private val realtimeSilenceTimeout = Runnable {
+        if (
+            !closed &&
+            started &&
+            surfaceVisible &&
+            conversationLive &&
+            listening &&
+            snapshot.phase != WakePhase.FINISHED
+        ) {
+            listening = false
+            conversation?.setInputEnabled(false)
+            dispatch(
+                WakeInput.SilenceElapsed(
+                    id = nextInputId("realtime-silence"),
+                    interval = REALTIME_LISTEN_INTERVAL,
+                ),
+            )
+        }
+    }
 
     fun onSurfaceVisible() {
         if (closed) return
         surfaceVisible = true
+        conversation?.connect()
         if (!startRequested) {
             startRequested = true
             publish()
@@ -110,6 +239,8 @@ class WakeVoiceSessionController(
     fun onSurfaceHidden() {
         surfaceVisible = false
         mainHandler.removeCallbacks(silenceWatchdog)
+        mainHandler.removeCallbacks(realtimeSilenceTimeout)
+        conversation?.setInputEnabled(false)
         if (listening) {
             listening = false
             voiceListener.cancel(deliverCancellation = false)
@@ -134,9 +265,11 @@ class WakeVoiceSessionController(
         closed = true
         mainHandler.removeCallbacks(startFallback)
         mainHandler.removeCallbacks(silenceWatchdog)
+        mainHandler.removeCallbacks(realtimeSilenceTimeout)
         listening = false
         speaking = false
         voiceListener.close()
+        conversation?.close()
         speaker.close()
         motionObserver.stop()
         if (restoreCriticalAudio) {
@@ -152,7 +285,7 @@ class WakeVoiceSessionController(
             sessionId = WakeSessionId("wake-${occurrenceId.value}"),
             policy = policy,
             capabilities = WakeCapabilities(
-                speechAvailable = speechAvailable,
+                speechAvailable = speechAvailable || conversationLive,
                 voiceInputAvailable = voiceListener.availability() is LocalVoiceAvailability.Ready,
                 motionAvailable = true,
             ),
@@ -165,13 +298,13 @@ class WakeVoiceSessionController(
         if (!started) {
             when (state) {
                 is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
-                is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = false)
+                is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = conversationLive)
                 LocalSpeechState.Initializing -> Unit
             }
             return
         }
 
-        val available = state is LocalSpeechState.Ready
+        val available = state is LocalSpeechState.Ready || conversationLive
         if (snapshot.capabilities.speechAvailable != available) {
             dispatch(
                 WakeInput.CapabilitiesChanged(
@@ -259,6 +392,32 @@ class WakeVoiceSessionController(
 
     private fun speak(intent: SpeechIntent) {
         stopListening()
+        val liveConversation = conversation?.takeIf { conversationLive && it.ready }
+        if (liveConversation != null) {
+            realtimeIntent = intent
+            realtimeTurnInFlight = true
+            speaking = true
+            listening = false
+            currentLine = null
+            mode = if (snapshot.phase == WakePhase.ORIENTING) {
+                WakeVoiceMode.ORIENTING
+            } else {
+                WakeVoiceMode.SPEAKING
+            }
+            liveConversation.setInputEnabled(true)
+            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+            publish()
+            if (liveConversation.respond(intent)) return
+
+            realtimeTurnInFlight = false
+            realtimeIntent = null
+            liveConversation.setInputEnabled(false)
+        }
+        speakLocally(intent)
+    }
+
+    private fun speakLocally(intent: SpeechIntent) {
+        stopListening()
         speaking = true
         mode = if (snapshot.phase == WakePhase.ORIENTING) {
             WakeVoiceMode.ORIENTING
@@ -303,6 +462,19 @@ class WakeVoiceSessionController(
 
     private fun listenForVoiceResponse() {
         if (!surfaceVisible || closed) return
+        if (conversationLive && conversation?.ready == true) {
+            speaking = false
+            listening = true
+            mode = WakeVoiceMode.LISTENING
+            currentLine = null
+            conversation.setInputEnabled(true)
+            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+            mainHandler.removeCallbacks(realtimeSilenceTimeout)
+            mainHandler.postDelayed(realtimeSilenceTimeout, REALTIME_LISTEN_INTERVAL.toMillis())
+            publish()
+            return
+        }
+
         if (voiceListener.availability() !is LocalVoiceAvailability.Ready) {
             degradeVoiceInput()
             return
@@ -341,6 +513,10 @@ class WakeVoiceSessionController(
     }
 
     private fun stopListening() {
+        mainHandler.removeCallbacks(realtimeSilenceTimeout)
+        if (conversationLive) {
+            conversation?.setInputEnabled(realtimeTurnInFlight && speaking)
+        }
         if (!listening) return
         listening = false
         voiceListener.cancel(deliverCancellation = false)
@@ -380,8 +556,9 @@ class WakeVoiceSessionController(
                     spokenLine = currentLine,
                     activationScore = 0,
                     activationThreshold = policy.activationThreshold,
-                    speechAvailable = false,
+                    speechAvailable = speaker.state() is LocalSpeechState.Ready || conversationLive,
                     voiceInputAvailable = voiceListener.availability() is LocalVoiceAvailability.Ready,
+                    conversational = conversationLive,
                 ),
             )
             return
@@ -397,6 +574,7 @@ class WakeVoiceSessionController(
                 activationThreshold = diagnostics.activationThreshold,
                 speechAvailable = snapshot.capabilities.speechAvailable,
                 voiceInputAvailable = snapshot.capabilities.voiceInputAvailable,
+                conversational = conversationLive,
             ),
         )
     }
@@ -420,6 +598,7 @@ class WakeVoiceSessionController(
 
     private companion object {
         val SILENCE_INTERVAL: Duration = Duration.ofSeconds(12)
+        val REALTIME_LISTEN_INTERVAL: Duration = Duration.ofSeconds(10)
         const val TTS_START_BUDGET_MILLIS = 1_200L
     }
 }
@@ -442,4 +621,5 @@ data class WakeVoiceUiState(
     val activationThreshold: Int = WakePolicy().activationThreshold,
     val speechAvailable: Boolean = false,
     val voiceInputAvailable: Boolean = false,
+    val conversational: Boolean = false,
 )
