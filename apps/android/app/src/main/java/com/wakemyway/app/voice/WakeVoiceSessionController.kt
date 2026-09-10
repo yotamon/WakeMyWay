@@ -222,6 +222,13 @@ class WakeVoiceSessionController(
             WakeDirective.PresentOrientation -> {
                 mode = WakeVoiceMode.ORIENTING
                 publish()
+                if (!snapshot.capabilities.speechAvailable) {
+                    mainHandler.post {
+                        if (!closed && started && snapshot.phase == WakePhase.ORIENTING) {
+                            dispatch(WakeInput.OrientationCompleted(nextInputId("orientation-without-speech")))
+                        }
+                    }
+                }
             }
 
             is WakeDirective.CompleteSession -> {
@@ -268,7 +275,11 @@ class WakeVoiceSessionController(
                     }
 
                     is LocalSpeechResult.Failed -> {
-                        dispatch(WakeInput.SpeechFailed(nextInputId("speech-failed")))
+                        if (intent == SpeechIntent.Orientation && snapshot.phase == WakePhase.ORIENTING) {
+                            dispatch(WakeInput.OrientationCompleted(nextInputId("orientation-speech-failed")))
+                        } else {
+                            dispatch(WakeInput.SpeechFailed(nextInputId("speech-failed")))
+                        }
                     }
                 }
             }
