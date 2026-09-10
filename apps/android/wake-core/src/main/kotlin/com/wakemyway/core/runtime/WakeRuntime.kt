@@ -256,6 +256,13 @@ class WakeRuntime {
                     if (previous.voiceInputAvailable && !input.capabilities.voiceInputAvailable) {
                         add(WakeDirective.StopListeningForVoiceResponse)
                     }
+                    if (
+                        !previous.speechAvailable &&
+                        input.capabilities.speechAvailable &&
+                        next.phase == WakePhase.ALERTING
+                    ) {
+                        add(WakeDirective.Speak(SpeechIntent.InitialWake))
+                    }
                     if (previous.motionAvailable && !input.capabilities.motionAvailable) {
                         add(WakeDirective.StopObservingMotion)
                     } else if (
@@ -266,7 +273,11 @@ class WakeRuntime {
                         add(WakeDirective.ObserveMotion)
                     }
                 }
-                transition(next, *directives.toTypedArray())
+                if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
+                    advanceOr(next, policy, *directives.toTypedArray())
+                } else {
+                    transition(next, *directives.toTypedArray())
+                }
             }
 
             is WakeInput.OrientationCompleted -> {
@@ -335,7 +346,7 @@ class WakeRuntime {
         vararg otherwise: WakeDirective,
     ): WakeTransition {
         if (snapshot.phase == WakePhase.ORIENTING) return transition(snapshot)
-        if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) {
+        if (!activationGateSatisfied(snapshot, policy)) {
             return transition(snapshot, *otherwise)
         }
         return transition(
@@ -348,6 +359,22 @@ class WakeRuntime {
             WakeDirective.PresentOrientation,
             WakeDirective.Speak(SpeechIntent.Orientation),
         )
+    }
+
+    private fun activationGateSatisfied(
+        snapshot: WakeSessionSnapshot,
+        policy: WakePolicy,
+    ): Boolean {
+        if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) return false
+
+        val twoWayVoiceAvailable =
+            snapshot.capabilities.speechAvailable && snapshot.capabilities.voiceInputAvailable
+        if (!twoWayVoiceAvailable) return true
+
+        // When WMW can both speak and listen, a real spoken reply is part of the wake contract.
+        // Motion may contribute heavily to activation, but it cannot silently bypass the user's
+        // required conversational turn. Capability degradation removes this gate fail-safely.
+        return snapshot.activationEvidence.coherentVoiceResponses > 0
     }
 
     private fun finish(snapshot: WakeSessionSnapshot, outcome: WakeOutcome): WakeTransition = transition(
