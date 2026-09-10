@@ -16,6 +16,8 @@ import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
@@ -352,10 +354,18 @@ internal class DirectOpenAiWebRtcSpike(
         }
     }
 
-    private fun readBounded(stream: java.io.InputStream, maxBytes: Int): String = stream.use { input ->
-        val bytes = input.readNBytes(maxBytes + 1)
-        check(bytes.size <= maxBytes) { "Network response exceeds the spike limit" }
-        String(bytes, StandardCharsets.UTF_8)
+    private fun readBounded(stream: InputStream, maxBytes: Int): String = stream.use { input ->
+        val output = ByteArrayOutputStream(minOf(maxBytes, 16 * 1024))
+        val buffer = ByteArray(8 * 1024)
+        var totalBytes = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count == -1) break
+            totalBytes += count
+            check(totalBytes <= maxBytes) { "Network response exceeds the spike limit" }
+            output.write(buffer, 0, count)
+        }
+        String(output.toByteArray(), StandardCharsets.UTF_8)
     }
 
     private fun emitStatus(status: String) {
