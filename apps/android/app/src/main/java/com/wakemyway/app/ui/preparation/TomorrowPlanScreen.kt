@@ -29,12 +29,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import com.wakemyway.app.R
 import com.wakemyway.app.preparation.WakePreparationManager
-import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
@@ -47,7 +47,6 @@ import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.preparation.TomorrowContract
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun TomorrowPlanScreen(
@@ -56,6 +55,10 @@ fun TomorrowPlanScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
+    val savedCopy = stringResource(R.string.tomorrow_plan_saved)
+    val saveFailedCopy = stringResource(R.string.tomorrow_plan_save_failed)
+    val clearedCopy = stringResource(R.string.tomorrow_plan_cleared)
     val manager = remember { WakePreparationManager(context) }
     val occurrenceId = wakeOccurrence?.id
     val initialSnapshot = remember(occurrenceId) {
@@ -129,7 +132,7 @@ fun TomorrowPlanScreen(
             }
 
             val wakeLabel = wakeOccurrence.scheduledAt.format(
-                DateTimeFormatter.ofPattern("EEEE · MMM d · HH:mm", Locale.getDefault()),
+                DateTimeFormatter.ofPattern("EEEE · MMM d · HH:mm", locale),
             )
             Text(
                 text = wakeLabel,
@@ -223,10 +226,10 @@ fun TomorrowPlanScreen(
                         )
                     }.onSuccess {
                         snapshot = it
-                        message = context.getString(R.string.tomorrow_plan_saved)
+                        message = savedCopy
                     }.onFailure {
                         snapshot = manager.snapshotFor(wakeOccurrence.id)
-                        message = context.getString(R.string.tomorrow_plan_save_failed)
+                        message = saveFailedCopy
                     }
                 },
             )
@@ -268,7 +271,7 @@ fun TomorrowPlanScreen(
                         rawText = ""
                         firstMove = ""
                         snapshot = manager.snapshotFor(wakeOccurrence.id)
-                        message = context.getString(R.string.tomorrow_plan_cleared)
+                        message = clearedCopy
                         showClearConfirmation = false
                     },
                 ) {
