@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.navigation
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,7 +12,6 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import com.wakemyway.app.BuildConfig
 import com.wakemyway.app.R
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
@@ -48,6 +48,9 @@ fun WakeMyWayApp() {
     val context = LocalContext.current
     val alarmKernel = remember { AlarmKernel(context) }
     val preparationManager = remember { WakePreparationManager(context) }
+    val showDeveloperTools = remember(context) {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     val backStack = rememberNavBackStack(TonightRoute)
 
@@ -72,7 +75,7 @@ fun WakeMyWayApp() {
                         alarmHealth = alarmKernel.reconcile()
                         backStack.add(WakeLabRoute)
                     },
-                    showDeveloperTools = BuildConfig.DEBUG,
+                    showDeveloperTools = showDeveloperTools,
                 )
             }
             entry<WakeSetupRoute> {
