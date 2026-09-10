@@ -117,7 +117,19 @@ class WakeVoiceSessionController(
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
     }
 
+    /**
+     * Use immediately before a terminal AlarmPlaybackService command such as Stop or Snooze.
+     * No restore-volume command is sent because the terminal command itself owns playback teardown.
+     */
+    fun closeForTerminalAction() {
+        closeInternal(restoreCriticalAudio = false)
+    }
+
     override fun close() {
+        closeInternal(restoreCriticalAudio = true)
+    }
+
+    private fun closeInternal(restoreCriticalAudio: Boolean) {
         if (closed) return
         closed = true
         mainHandler.removeCallbacks(startFallback)
@@ -127,7 +139,9 @@ class WakeVoiceSessionController(
         voiceListener.close()
         speaker.close()
         motionObserver.stop()
-        AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        if (restoreCriticalAudio) {
+            AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        }
     }
 
     private fun beginRuntime(speechAvailable: Boolean) {
@@ -235,6 +249,7 @@ class WakeVoiceSessionController(
                 if (directive.outcome == WakeOutcome.COMPLETED) {
                     mode = WakeVoiceMode.COMPLETE
                     publish()
+                    closeInternal(restoreCriticalAudio = false)
                     AlarmPlaybackService.requestStop(appContext, occurrenceId)
                     onCompleted()
                 }
