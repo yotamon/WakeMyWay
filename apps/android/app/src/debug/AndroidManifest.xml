@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <application android:usesCleartextTraffic="true">
+    <application android:networkSecurityConfig="@xml/debug_network_security_config">
         <!--
             Exported only in debug builds so the founder can launch it with adb.
             The activity accepts no secret Intent extras; credentials are entered
