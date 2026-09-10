@@ -1,5 +1,6 @@
 package com.wakemyway.app.ui.home
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,6 +36,7 @@ import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
+import com.wakemyway.app.voice.ConversationalAlfredState
 
 data class TonightUiState(
     val wakeTime: String,
@@ -64,6 +67,8 @@ fun TonightScreen(
     onEnableVoiceReplies: () -> Unit = {},
     onRepairWakeSystem: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+
     WmwCircadianSurface(
         stage = WmwCircadianStage.ENGAGED,
         modifier = modifier,
@@ -275,6 +280,51 @@ fun TonightScreen(
                                 onClick = onEnableVoiceReplies,
                             )
                         }
+                    }
+                }
+            }
+
+            if (showDeveloperTools) {
+                val conversationReady = ConversationalAlfredState.isReady(context)
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Conversational Alfred",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = WmwColors.MorningPaper,
+                            )
+                            WmwStatusPill(
+                                label = if (conversationReady) "Ready" else "Optional",
+                                positive = conversationReady,
+                            )
+                        }
+                        Text(
+                            text = if (conversationReady) {
+                                "Natural Realtime conversation is connected for this phone. Local Alfred remains the automatic fallback."
+                            } else {
+                                "Connect once for natural back-and-forth conversation. Alarm safety and Wake Ready remain completely local."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = WmwColors.QuietText,
+                        )
+                        WmwSecondaryAction(
+                            label = if (conversationReady) "Review connection" else "Connect Alfred",
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent().setClassName(
+                                            context.packageName,
+                                            ConversationalAlfredState.DEBUG_SETUP_ACTIVITY,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
                     }
                 }
             }
