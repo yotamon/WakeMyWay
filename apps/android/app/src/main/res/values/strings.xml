@@ -12,6 +12,13 @@
     <string name="tonight_character_waiting">Alfred is waiting</string>
     <string name="tonight_section_tomorrow">Tomorrow</string>
     <string name="tonight_section_wake_system">Wake system</string>
+    <string name="tonight_section_contract">Tomorrow Contract</string>
+    <string name="tonight_contract_optional">Optional</string>
+    <string name="tonight_contract_ready">Prepared</string>
+    <string name="tonight_contract_empty">Give morning-you one reason to get up, plus an optional first move.</string>
+    <string name="tonight_contract_prepared">Your private morning context is prepared locally for this wake.</string>
+    <string name="tonight_add_contract">Add Tomorrow Contract</string>
+    <string name="tonight_edit_contract">Edit Tomorrow Contract</string>
     <string name="tonight_wake_ready">Wake Ready</string>
     <string name="tonight_wake_not_ready">Needs attention</string>
     <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
@@ -45,6 +52,28 @@
     <string name="setup_disable_confirm">Turn off</string>
     <string name="setup_disable_cancel">Keep it</string>
     <string name="setup_disable_failed">The schedule could not be turned off.</string>
+
+    <string name="tomorrow_plan_back">Back</string>
+    <string name="tomorrow_plan_private_badge">Private · local</string>
+    <string name="tomorrow_plan_title">Give morning-you a reason</string>
+    <string name="tomorrow_plan_subtitle">A short note from tonight can become useful context in the morning. Keep it specific and kind.</string>
+    <string name="tomorrow_plan_no_wake">Set a wake time first. A Tomorrow Contract belongs to one concrete upcoming wake.</string>
+    <string name="tomorrow_plan_reason_label">Why tomorrow matters / what to remember</string>
+    <string name="tomorrow_plan_first_move_label">First move (optional)</string>
+    <string name="tomorrow_plan_ready_title">Morning context is ready</string>
+    <string name="tomorrow_plan_ready_body">Prepared locally for this wake and available without the network.</string>
+    <string name="tomorrow_plan_ready_badge">Ready offline</string>
+    <string name="tomorrow_plan_save">Save &amp; prepare</string>
+    <string name="tomorrow_plan_done">Done</string>
+    <string name="tomorrow_plan_saved">Saved and prepared locally for this wake.</string>
+    <string name="tomorrow_plan_save_failed">Could not save private morning context. The alarm itself remains safe and local.</string>
+    <string name="tomorrow_plan_clear">Clear Tomorrow Contract</string>
+    <string name="tomorrow_plan_privacy_note">This private text stays in credential-protected local storage and never enters the Direct-Boot alarm snapshot.</string>
+    <string name="tomorrow_plan_clear_title">Clear private morning context?</string>
+    <string name="tomorrow_plan_clear_body">The Tomorrow Contract and its prepared local plan will be deleted.</string>
+    <string name="tomorrow_plan_clear_confirm">Clear</string>
+    <string name="tomorrow_plan_clear_cancel">Keep it</string>
+    <string name="tomorrow_plan_cleared">Private morning context cleared.</string>
 
     <string name="wake_character_name">Alfred</string>
     <string name="wake_presence_description">Wake My Way alarm is active</string>
