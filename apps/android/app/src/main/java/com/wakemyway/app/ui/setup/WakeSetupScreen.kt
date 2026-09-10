@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.setup
 
 import android.app.TimePickerDialog
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
@@ -343,8 +345,8 @@ private fun PatternButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier,
-        border = androidx.compose.foundation.BorderStroke(
-            width = androidx.compose.ui.unit.dp(1f),
+        border = BorderStroke(
+            width = 1.dp,
             color = if (selected) WmwColors.SoftEmber else WmwColors.QuietText.copy(alpha = 0.28f),
         ),
     ) {
