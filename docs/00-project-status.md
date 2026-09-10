@@ -3,489 +3,419 @@
 **Last updated:** 2026-09-10  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** production local voice-wake integration in PR #36; M8 realtime comparison remains a separate measurement track  
-**Current product-design track:** Adaptive Dawn foundation + production setup + curated visual gate merged; premium Tonight refinement continues separately  
-**Current implementation branch:** `feature/production-voice-wake-session`  
-**Current integration track:** PR #36 connects M3/M4/M5 into the real morning WakeActivity while preserving Alarm Kernel authority  
-**Current M8 track:** issue #28; provider-neutral harness PR #29 and direct OpenAI WebRTC candidate PR #31 merged; comparative physical-device evidence remains open  
-**Current side-track:** optional Vercel AI platform foundation merged in PR #23; no critical wake-path dependency
+**Current engineering phase:** local production voice wake merged in PR #36; physical-device dogfood is the next reliability gate  
+**Current product-design track:** Adaptive Dawn foundation, production setup and curated visual regression are merged; dynamic voice-state visual review remains open  
+**Current implementation branch:** `main`  
+**Current realtime track:** M8 issue #28 remains separate; provider-neutral harness PR #29 and direct OpenAI WebRTC debug candidate PR #31 are merged, comparative physical evidence remains open  
+**Current learning track:** M7 deterministic core is merged; real morning journal/persistence/application wiring remains open under issue #27
 
 ## Executive status
 
-Wake My Way is in active native Android development.
+Wake My Way is now a real local-first conversational Android wake product in founder dogfood form.
 
-The product already has a local-first alarm core, deterministic wake behavior, motion evidence, a deterministic Alfred character, private Tomorrow Contract preparation, local Wake Learning v0, production setup UI, a curated visual-regression gate and a debug-only realtime measurement path.
+PR #36 merged the first production connection of the deterministic Wake Runtime, Alfred local speech, on-device voice replies and motion evidence into the real `WakeActivity` while preserving the existing Alarm Kernel / Active Wake Execution reliability boundary.
 
-PR #36 is the first production integration of the **local conversational wake**. It changes the real morning experience from “critical alarm + passive presentation” to:
-
-```text
-critical local alarm
-      +
-Alfred speaks locally
-      ↓
-Wake Runtime requests a reply
-      ↓
-on-device speech recognition
-      ↓
-typed VoiceResponseObserved evidence
-      +
-motion evidence
-      ↓
-Wake Runtime progression
-      ↓
-orientation / completion
-```
-
-The critical alarm still does not depend on voice, microphone, AI, network, WakeActivity, motion, Tomorrow Contract, Wake Learning or cloud infrastructure.
-
-### Implemented / merged foundations
-
-- M0 Foundation
-- M1 Deep Alarm Kernel + Active Wake Execution
-- M2 automated reliability harness + dedicated API-36 emulator lane
-- M3 deterministic Wake Runtime
-- M4 bounded Motion Evidence extraction + thin Android sensor adapter
-- M5 Alfred deterministic local character + offline-only Android speech adapter
-- M6 Tomorrow Contract + Prepared Wake Plan
-- M7 deterministic local Wake Learning v0 core (PR #26)
-- optional Vercel AI SDK 7 + AI Gateway cloud foundation (PR #23)
-- Adaptive Dawn production design foundation (PR #30)
-- production Wake Schedule + Tomorrow Contract setup flow (PR #32)
-- curated Adaptive Dawn visual-regression implementation (PR #34)
-- M8 provider-neutral voice measurement harness (PR #29)
-- M8 direct OpenAI Realtime WebRTC debug candidate (PR #31; synthetic-only)
-
-### Active PR #36 production voice work
-
-PR #36 adds:
-
-- real `WakeActivity` execution through `WakeVoiceSessionController`;
-- production Alfred speech through the existing verified offline-only TTS path;
-- Alfred v2 copy that explicitly asks for a spoken answer when a listen turn follows;
-- typed `ListenForVoiceResponse` / `StopListeningForVoiceResponse` Wake Runtime directives;
-- Android on-device-only speech recognition for short wake replies;
-- transcript minimization: only `VoiceResponseObserved(coherent)` crosses the adapter boundary;
-- simultaneous bounded motion evidence;
-- speaking/listening/moving/orienting/degraded Wake Surface states;
-- product microphone-permission primer with explicit local/privacy wording;
-- `RECORD_AUDIO` in the product manifest while release builds retain no `INTERNET` permission;
-- service-owned fail-safe alarm ducking during voice turns;
-- deterministic degradation when local TTS, on-device STT, permission or sensors are unavailable;
-- ADR 017 and a dedicated implementation note.
-
-The production voice path is local and deterministic. It is **not** the M8 realtime provider selection and does not make a cloud model authoritative.
-
-### Validation boundary
-
-PR #36 automated checks are running on the active branch. Earlier branch heads have already passed the new pure-Kotlin voice-turn tests and documentation validation, but final-head Android lint/build/visual/device-workflow results must be reviewed before merge.
-
-**No physical-device reliability claim has been made for PR #36.** Real locked-screen TTS/STT coexistence, alarm ducking, Bluetooth routing, OEM power management, silence recovery and Stop/Snooze during a voice turn remain physical-device gates.
-
-Emulator/device-test evidence is useful but cannot prove the physical morning experience.
-
-## Canonical architecture
-
-Root [`../CONTEXT.md`](../CONTEXT.md) owns vocabulary and invariants.
-
-### Trust-critical wake path
+The production morning path is now:
 
 ```text
 Wake Schedule
     ↓
 Alarm Kernel
     ↓
-Critical Wake Snapshot
-(device-protected, non-sensitive)
-    ↓
 AlarmManager.setAlarmClock()
     ↓
 AlarmReceiver
     ↓
-Active Wake Execution
 AlarmPlaybackService
-    ├─ USAGE_ALARM bundled local audio
-    ├─ notification / full-screen wake intent
-    ├─ durable Stop / Snooze
-    └─ bounded voice-window volume lease
-```
-
-`AlarmPlaybackService` remains the owner of critical alarm audio. `WakeActivity` may enrich the experience but cannot become recovery authority.
-
-Cloud, Vercel, Supabase, AI, WorkManager, Tomorrow Contract, Prepared Wake Plan, Wake Learning, speech recognition and visual/navigation frameworks do not participate in alarm delivery.
-
-### Production local conversational path
-
-Canonical decision: [`adr/017-local-production-voice-wake.md`](adr/017-local-production-voice-wake.md).  
-Implementation note: [`implementation/m8-local-production-voice-wake.md`](implementation/m8-local-production-voice-wake.md).
-
-```text
-Active Wake Occurrence
-        ↓
+critical local alarm starts first
+    ↓
 WakeActivity
-        ↓
+    ↓
 WakeVoiceSessionController
-        ↓
+    ↓
 WakeRuntime
+    ├─ Speak(InitialWake)
+    ├─ Speak(AskToSitUp)
+    ├─ ListenForVoiceResponse
+    ├─ ObserveMotion
+    ├─ Speak(AskToMove / ReEngage)
+    └─ PresentOrientation / CompleteSession
+```
+
+Critical alarm delivery still does **not** depend on voice, microphone permission, AI, network, WakeActivity lifetime, motion, Tomorrow Contract, Wake Learning, Vercel or Supabase.
+
+## What is implemented
+
+### M0–M2: foundation, Alarm Kernel and reliability harness
+
+Implemented and merged:
+
+- native Android application and pure-Kotlin `:wake-core`;
+- one active Wake Schedule with exact local Wake Occurrences;
+- `AlarmManager.setAlarmClock()` registration;
+- device-protected Critical Wake Snapshot;
+- Direct-Boot-aware recovery/reconciliation;
+- foreground Active Wake Execution;
+- bundled `USAGE_ALARM` audio;
+- durable Stop and Snooze replacement occurrences;
+- stale-trigger rejection and idempotent active execution;
+- automated API-36 reliability instrumentation and timing evidence.
+
+Physical-device evidence remains distinct from emulator evidence.
+
+### M3: deterministic Wake Runtime
+
+Merged and now connected to the real morning path.
+
+Wake Runtime remains the only in-session behavioral authority:
+
+```text
 ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
+```
+
+It owns:
+
+- typed Wake Inputs and Wake Directives;
+- Activation Evidence and thresholding;
+- bounded escalation;
+- capability degradation;
+- Stop/Snooze handshakes;
+- deterministic replay behavior.
+
+PR #36 added typed voice-listening directives:
+
+```text
+ListenForVoiceResponse
+StopListeningForVoiceResponse
+```
+
+### Mandatory spoken-reply gate
+
+When the device can both speak locally and listen locally, reaching the numeric activation threshold is no longer sufficient by itself.
+
+Wake Runtime requires:
+
+```text
+activation score >= threshold
+        +
+at least one coherent spoken reply
         ↓
- typed WakeDirective
-  ├─ Speak(intent)
-  ├─ ListenForVoiceResponse
-  ├─ ObserveMotion
-  ├─ PresentOrientation
-  └─ CompleteSession
+ORIENTING
+```
+
+This prevents motion events from silently completing the wake while Alfred is still speaking or before the user has actually answered.
+
+If local TTS or on-device recognition becomes unavailable, the voice requirement is removed deliberately so degraded capability cannot trap an active alarm forever. If the score was already sufficient when voice input disappears, Wake Runtime may orient immediately without waiting for another sensor event.
+
+### M4: motion evidence
+
+The existing bounded motion extractor and Android sensor adapter are now connected to production Wake Sessions.
+
+Current evidence types include:
+
+- device pickup;
+- orientation change;
+- sustained movement.
+
+Raw high-frequency sensor streams are not persisted. Thresholds remain tuning hypotheses until physical-device calibration.
+
+### M5: Alfred local character
+
+Alfred is now production-connected rather than lab-only.
+
+Alfred v2:
+
+- uses deterministic curated wording;
+- uses a verified offline Android TTS voice when available;
+- explicitly asks the user to answer when a listening turn follows;
+- remains concise, non-shaming and non-authoritative;
+- cannot advance Wake Runtime, dismiss the alarm or decide Wake Success.
+
+Example interaction shape:
+
+```text
+Alfred: “Sit up, then tell me when you're sitting.”
         ↓
-Android adapters
-  ├─ AlfredCharacter → LocalCharacterSpeaker
-  ├─ LocalVoiceListener → on-device SpeechRecognizer
-  └─ AndroidMotionObserver
-```
-
-Wake Runtime remains behavioral authority. Android adapters emit facts and execute typed directives; they do not maintain a second confidence model.
-
-### Local voice privacy boundary
-
-```text
-microphone
-    ↓
-Android on-device SpeechRecognizer
-    ↓
-ephemeral recognized candidate text
-(adapter scope only)
-    ↓
-coherent? boolean
-    ↓
-VoiceResponseObserved
-    ↓
-WakeRuntime
-```
-
-The production local voice adapter does not persist raw microphone audio or recognized transcript text. Release builds do not gain network access for this baseline.
-
-If on-device recognition is unavailable, the app fails closed to motion/critical-alarm behavior rather than silently using a remote recognizer.
-
-### Alarm / voice coexistence
-
-A full-volume siren makes speech output/input difficult, but muting critical audio from the Activity would create a reliability hazard. The foreground service therefore owns a bounded lease:
-
-```text
-normal alarm playback     100%
-        ↓ voice turn
-bundled alarm bed          12%
-        ↓ max 12 seconds
-automatic restoration     100%
-```
-
-The Activity may request/refresh the window. It cannot create an indefinite mute. Activity loss requests immediate restoration, lease expiry restores without an Activity callback, and service recovery starts at full volume.
-
-The emergency `ToneGenerator` fallback is never ducked.
-
-The 12% / 12-second values are tuning hypotheses until physical dogfood confirms intelligibility and safety.
-
-### Character path
-
-```text
-WakeDirective.Speak(SpeechIntent)
-           ↓
-      AlfredCharacter v2
- deterministic curated wording
-           ↓
-    RenderedWakeLine
-           ↓
- OfflineVoiceSelector
-           ↓
- LocalCharacterSpeaker
- Android TextToSpeech
-   USAGE_ALARM + speech content
-```
-
-Alfred owns wording only. He cannot advance the session, calculate wake confidence, stop the alarm or claim durable snooze success.
-
-Character-copy changes that alter replay semantics require a character-version bump.
-
-### Motion evidence path
-
-```text
-Android sensors
-      ↓
-AndroidMotionObserver
-      ↓
-MotionEvidenceExtractor
-      ↓
-MotionObserved(kind)
-      ↓
-WakeRuntime
-```
-
-Current thresholds remain tuning hypotheses until calibrated on physical devices.
-
-### Private preparation path
-
-```text
-next Wake Occurrence
+LISTENING
         ↓
-Tomorrow Contract product screen
+spoken reply
         ↓
-WakePreparationManager
-        ├─ credential-protected noBackupFilesDir
-        ├─ AtomicFile persistence
-        ├─ deterministic local preparation
-        ├─ SHA-256 integrity validation
-        └─ on-demand WorkManager refresh
-        ↓
-Prepared Wake Plan
-        ↓
-valid + user/keyguard unlocked
-        → optional WakeActivity text enrichment
-
-missing / stale / corrupt / locked / Direct Boot
-        → generic local wake UI
+VoiceResponseObserved(coherent)
 ```
 
-Private preparation is optional enrichment and cannot make a critical schedule commit or alarm fire fail.
+`LocalCharacterSpeaker` uses `USAGE_ALARM` with speech content attributes and still fails closed when no suitable offline voice exists.
 
-### Off-session learning path
+### Production local voice input
+
+PR #36 added `LocalVoiceListener`, a one-turn adapter around Android on-device speech recognition.
+
+Properties:
+
+- Android API 31+ on-device recognizer only;
+- `RECORD_AUDIO` permission required;
+- no fallback to the platform default recognizer when that could cross the network/privacy boundary;
+- one bounded recognition turn at a time;
+- nine-second turn timeout;
+- no transcript persistence;
+- no raw microphone-audio persistence;
+- only a compact `VoiceResponseObserved(coherent)` fact crosses into Wake Runtime.
+
+The release Android path still has no `INTERNET` permission for this local voice baseline.
+
+### Voice / critical-alarm coexistence
+
+`AlarmPlaybackService` remains owner of critical sound.
+
+To make Alfred and the microphone intelligible without allowing UI/voice code to mute the alarm indefinitely, the service owns a bounded voice-window lease:
 
 ```text
-finished typed Wake timeline
-          +
-optional calibration / friction feedback
-          ↓
-   WakeOutcomeSummary
-          ↓
-      WakeLearning
-          ↓
- versioned WakePolicySnapshot
-          ↓
- future Wake Session only
+normal bundled alarm       100%
+       ↓ voice turn
+voice window                12%
+       ↓ max 12 seconds
+automatic restoration      100%
 ```
 
-M7 core is merged but is not yet wired to real morning-session persistence/application. Wake Learning never mutates an active Wake Session and never learns Alarm Kernel delivery/safety boundaries.
+Important invariants:
 
-### Product setup / presentation path
+- the Activity can request/refresh a voice window but cannot create an indefinite mute;
+- lease expiry restores full volume independently of Activity callbacks;
+- Activity loss cancels microphone capture and restores critical volume;
+- the emergency `ToneGenerator` fallback is never ducked;
+- service/process recovery begins from critical full-volume ownership;
+- Stop, Snooze and successful completion use terminal-safe voice shutdown so a late restore command cannot race/restart the foreground service.
+
+The 12% level, nine-second recognition turn and 12-second lease are engineering hypotheses pending physical dogfood tuning.
+
+### Voice permission and readiness UX
+
+Tonight now exposes persistent `Voice replies` readiness rather than showing a one-shot launch permission dialog.
+
+States:
+
+- **Ready** — on-device speech recognition is exposed and microphone permission is granted;
+- **Setup needed** — on-device recognition exists but microphone permission is not granted;
+- **Unavailable** — the device/API does not expose the required on-device recognizer.
+
+The user explicitly taps **Enable voice replies** before the privacy primer and Android permission request.
+
+If permission is denied, the setup affordance remains visible. If Android no longer permits another in-app request, the same action opens the app's Android Settings page. Returning to the app refreshes readiness.
+
+Voice permission never determines `Wake Ready`; the critical alarm remains independently usable.
+
+### Wake Surface
+
+The production `WakeActivity` now has live presentation modes:
 
 ```text
-normal application
-      ↓
- Navigation 3
-      ↓
- Tonight
-   ├─ Wake Setup
-   │    └─ AlarmKernel.commitSchedule() / cancelSchedule()
-   ├─ Tomorrow Contract
-   │    └─ WakePreparationManager
-   └─ developer Wake Alarm Lab
-        (debuggable app only)
-
-active Wake Occurrence
-      ↓
- dedicated WakeActivity
-      ↓
- Adaptive Dawn + live voice-state presentation
+STARTING
+SPEAKING
+LISTENING
+MOVING
+ORIENTING
+DEGRADED
+COMPLETE
 ```
 
-`WakeActivity` is deliberately not a normal Navigation 3 destination.
+The UI shows Alfred's product-owned scripted line but never displays a microphone-derived transcript.
 
-The UX language `Emerging → Engaged → Active → Oriented` remains presentation/cognition language only; it is not a second behavioral state machine.
+The previously reviewed Wake Emerging Roborazzi golden remains unchanged intentionally. Production always supplies live voice state; the synthetic legacy fixture preserves the existing golden until dynamic voice states receive their own explicit visual review.
 
-### Visual-regression path
+### M6: Tomorrow Contract + Prepared Wake Plan
 
-```text
-synthetic deterministic product state
-             ↓
-      Compose presentation
-             ↓
- Roborazzi + Robolectric Native Graphics
-             ↓
- reviewed PNG baseline
-             ↓
- read-only PR verification
-```
+Merged and production-connected before PR #36.
 
-The existing Wake Emerging golden remains intentionally unchanged in PR #36. Production `WakeActivity` explicitly supplies live voice state, while the golden fixture renders the previously reviewed state until new dynamic voice-state PNGs receive separate visual review. No test automatically records new truth.
+Private night-before context remains:
 
-### Optional cloud AI foundation
+- credential-protected;
+- stored outside the Direct-Boot critical snapshot;
+- integrity-validated;
+- optional enrichment only;
+- unavailable pre-unlock without affecting the alarm.
 
-```text
-future non-critical WMW feature
-             ↓
-       apps/cloud
-             ↓
-      AI platform
-      ├─ fast/smart text policy
-      ├─ structured outputs
-      ├─ embeddings
-      ├─ STT / TTS spike adapters
-      └─ M8 realtime token experiments
-             ↓
-   Vercel AI SDK 7 / provider adapters
-```
+### M7: Wake Learning v0
 
-There is no Android production dependency on this service for alarm delivery or PR #36 local voice turns.
+The deterministic local learning core is merged.
 
-### M8 direct realtime spike path
+It supports:
 
-```text
-Android debug Voice Spike Lab
-            ↓
- WMW internal operator authorization
-            ↓
-WMW direct OpenAI client-secret broker
-            ↓
-server-only OPENAI_API_KEY
-            ↓
-short-lived ephemeral credential
-            ↓
-SDP to OpenAI /v1/realtime/calls
-            ↓
-WebRTC media + bounded event-type metadata
-```
+- compact Wake Outcome derivation;
+- optional calibration;
+- bounded deterministic policy updates;
+- annoyance/agency guardrails;
+- versioned policy snapshots;
+- fail-closed learned-policy resolution;
+- reset/reversibility.
 
-This remains an engineering measurement surface only. It does not own wake behavior and remains `synthetic-only` until the required privacy and physical evidence exists.
+Live morning journal/persistence/application wiring is still not connected. Wake Learning must never mutate an active Wake Session or become required for alarm delivery.
 
-## Current Android toolchain
+### Product design
 
-```text
-Android Gradle Plugin    9.4.0
-Kotlin                   2.4.20
-Gradle                   9.6.1
-JDK                      17
-Compose BOM              2026.08.00
-compileSdk               37
-targetSdk                36
-minSdk                   29
-Navigation 3             1.1.7
-AndroidX graphics-shapes 1.1.0
-Roborazzi                1.74.0 (test-only)
-Robolectric              4.16.1 (test-only)
-WebRTC spike             150.7871.01 (debug-only M8)
-```
+Merged product-design foundations include:
 
-## Product-design foundation
+- Adaptive Dawn visual system;
+- centralized Compose tokens;
+- semantic WMW components;
+- native WMW Presence;
+- Navigation 3 for normal product destinations;
+- production Tonight, Wake Setup and Tomorrow Contract flows;
+- curated Roborazzi visual regression with read-only reviewed goldens.
 
-Canonical notes:
+Canonical design notes:
 
 - [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md)
 - [`implementation/d2-visual-regression.md`](implementation/d2-visual-regression.md)
 - [`implementation/d3-product-setup.md`](implementation/d3-product-setup.md)
 
-The current production design system is Adaptive Dawn with centralized Compose tokens, WMW semantic components, native WMW Presence, Navigation 3 for normal product destinations and a dark pre-Compose window baseline.
+## Canonical architecture
 
-Design infrastructure must remain presentation-only. It cannot become alarm authority or invent durable product settings that do not yet affect real behavior.
+Root [`../CONTEXT.md`](../CONTEXT.md) owns domain vocabulary and invariants.
 
-## Implemented roadmap milestones
+### Trust-critical path
 
-### M0 Foundation
+```text
+Wake Occurrence
+      ↓
+Alarm Kernel
+      ↓
+Critical Wake Snapshot
+      ↓
+AlarmManager
+      ↓
+AlarmReceiver
+      ↓
+AlarmPlaybackService
+      ├─ critical local audio
+      ├─ notification / full-screen intent
+      └─ durable Stop / Snooze
+```
 
-Native Android project, minimal modules, deterministic schedule/recurrence/DST behavior and CI baseline.
+### Behavioral path
 
-### M1 Deep Alarm Kernel
+```text
+platform/user facts
+      ↓
+typed WakeInput
+      ↓
+WakeRuntime
+      ↓
+typed WakeDirective
+      ↓
+Android adapters
+```
 
-Exact `setAlarmClock()` registration, foreground Active Wake Execution, bundled local alarm audio, Direct-Boot-aware wake UI, atomic device-protected Critical Wake Snapshot, durable Stop/Snooze, stale occurrence rejection and reconciliation.
+Android adapters execute decisions and report facts. They do not own a second activation score or behavioral state machine.
 
-### M2 Reliability Harness
+### Local conversational path
 
-Founder T+2m tests, bounded timing history, trigger/audio/UI/terminal facts, sanitized reports, instrumentation coverage and dedicated API-36 emulator workflow. Physical-device evidence remains open in issue #9.
+```text
+WakeRuntime
+   ├─ Speak(intent)
+   │      ↓
+   │ AlfredCharacter v2
+   │      ↓
+   │ LocalCharacterSpeaker
+   │      ↓
+   │ verified offline TTS
+   │
+   ├─ ListenForVoiceResponse
+   │      ↓
+   │ LocalVoiceListener
+   │      ↓
+   │ on-device SpeechRecognizer
+   │      ↓
+   │ coherent? boolean only
+   │
+   └─ ObserveMotion
+          ↓
+     AndroidMotionObserver
+```
 
-### M3 Wake Runtime
+Canonical production voice decision: [`adr/017-local-production-voice-wake.md`](adr/017-local-production-voice-wake.md).  
+Implementation note: [`implementation/m8-local-production-voice-wake.md`](implementation/m8-local-production-voice-wake.md).
 
-Pure Kotlin phases, typed Wake Inputs/Directives, versioned Wake Policy, internal Activation Evidence authority, deterministic escalation, capability degradation, Stop/Snooze handshakes and replay invariants.
+### Optional realtime path
 
-PR #36 is the first real-morning Android directive execution path; Alarm Kernel ownership remains unchanged.
+Realtime remains a separate M8 measurement track:
 
-### M4 Motion Evidence
+```text
+Android debug Voice Spike Lab
+        ↓
+short-lived credential broker
+        ↓
+direct OpenAI Realtime WebRTC candidate
+        ↓
+provider-neutral measurement evidence
+```
 
-Bounded pickup/orientation/sustained-movement extraction, correlated-evidence protection, thin Android sensor observer and no raw sensor persistence. PR #36 connects the observer to a real Wake Runtime session. Threshold calibration remains open.
+It is debug/synthetic measurement work, not production alarm authority and not selected as the production conversational transport.
 
-### M5 Alfred local character
+## Automated validation for PR #36
 
-Versioned deterministic character model, curated Alfred copy, bounded escalation, offline voice selection and Android TTS adapter. PR #36 promotes this from founder lab to optional production wake enrichment and bumps Alfred to v2 for explicit reply prompts.
+The final PR #36 head `6a9694a959de1eff4a1f3125c00ed11838bfde3a` passed before merge:
 
-### M6 Tomorrow Contract + Prepared Wake Plan
+- documentation validation;
+- all `:wake-core` tests, including mandatory spoken-reply gate coverage;
+- Android lint;
+- instrumentation-test compilation;
+- debug APK assembly;
+- APK artifact upload;
+- curated visual-regression verification;
+- API-36 reliability instrumentation.
 
-Versioned contract/plan models, deterministic preparation, occurrence/revision binding, integrity validation, credential-protected atomic storage, on-demand refresh and unlocked-only enrichment. Production UI is merged.
+PR #36 was squash-merged to `main` as commit `0f5ca78777a8282d17cf4d3fe0df00f218efff51`.
 
-### M7 Wake Learning v0 core
+The Vercel GitHub status observed during the PR hit the Hobby deployment daily-rate limit after more than 100 deployments. That status was unrelated to the Android build/voice implementation and did not block the merge. Vercel remains outside the critical Android wake path.
 
-Merged in PR #26. Deterministic compact outcome derivation, optional calibration, bounded policy adaptation, agency/friction guardrails, immutable/self-validating policy snapshots, fail-closed resolution and reset are implemented. Live journal/application wiring remains open.
+## Reliability truth
 
-### M8 Voice architecture spike
+**No physical-device reliability claim is made from PR #36's CI results.**
 
-In progress under issue #28.
+Automated tests prove deterministic behavior, integration compatibility and emulator coverage. They do not prove the real sleeping-user experience under locked-screen audio routing, OEM power management, local TTS/STT coexistence or Bluetooth conditions.
 
-PR #29 merged the provider-neutral evidence harness. PR #31 merged the first runnable transport candidate: direct OpenAI Realtime over WebRTC in a debug-only Android founder lab with server-minted ephemeral credentials.
-
-PR #36 does **not** select or replace M8. It establishes the production local voice baseline against which later realtime enrichment must justify its latency, quality, privacy, operational and failure-mode costs.
-
-### Later milestones
-
-M9 realtime conversation, M10 useful context, M11 dogfood hardening and M12 closed beta remain future work. Realtime AI may enrich wording/turn quality but cannot replace Wake Runtime or Alarm Kernel authority.
-
-## Milestone / track status
-
-| Milestone / track | Status |
-|---|---|
-| Discovery / product definition | Complete v1 |
-| UX psychology / flows | Complete v1 |
-| Brand direction | Complete v1 |
-| Architecture review / plan hardening | Complete |
-| M0 Foundation | **Merged / complete** |
-| M1 Deep Alarm Kernel + Active Wake Execution | **Merged / implementation complete** |
-| M2 Reliability Harness | **Automated harness + emulator lane merged; physical-device evidence open (#9)** |
-| M3 Wake Runtime | **Core merged; real-morning local execution implemented in PR #36, physical gate pending** |
-| M4 Motion Evidence | **Core merged; production-session connection in PR #36, calibration open** |
-| M5 Alfred local experience | **Core merged; production local speech integration in PR #36, physical gate pending** |
-| M6 Tomorrow Contract | **Core + production UI merged; PR #20 + PR #32** |
-| Optional Vercel AI platform | **Merged / no critical Android dependency** |
-| M7 Wake Learning v0 | **Core merged; live persistence/application open (#27)** |
-| Product design D0/D1 foundation | **Merged / complete, PR #30** |
-| Product design D2 visual regression | **Merged / read-only curated gate active, PR #34** |
-| Product design D3 setup experience | **Merged, PR #32** |
-| Local production voice wake | **Implemented in draft PR #36; automated + physical validation pending** |
-| M8 realtime voice architecture spike | **In progress; comparative measured evidence open (#28)** |
-| M9 Realtime conversation | Not started |
-| M10 Useful context | Not started |
-| M11 Dogfood hardening | Not started |
-| M12 Closed beta | Not started |
+Before promoting this behavior beyond founder dogfood or claiming physical reliability, validate on representative real phones.
 
 ## Exact next work
 
-1. Get PR #36 to a clean final-head documentation, core-test, Android lint/build, visual-regression and API-36 reliability result.
-2. Install the PR #36 APK on a representative physical phone and run scheduled locked-screen morning dogfood with voice permission granted, denied, silence, Activity interruption, Stop/Snooze and common audio routes.
-3. Tune the 12% alarm-bed level, 9-second listen turn and 12-second fail-safe lease only from physical evidence; do not tune from aesthetics alone.
-4. Add deliberately reviewed dynamic Wake visual fixtures after production states are physically inspected. Do not auto-record goldens.
-5. Continue M8 first-audible-speech, barge-in, reconnect, network-transition, Bluetooth, cost and privacy measurements independently of the local production path.
-6. Introduce a second realtime comparison only when it materially tests another operational shape; do not select a winner before comparison readiness.
-7. Continue issue #27 local Wake journal/outcome/calibration/learned-policy wiring only after the active-session reliability boundary is proven.
-8. Build consumer-facing Wake Readiness repair for recoverable notification/full-screen/exact-alarm capability problems without moving capability authority into UI.
+1. Install the PR #36 debug APK on a representative physical Android phone.
+2. Open Wake My Way and enable **Voice replies** from Tonight; confirm readiness becomes **Ready**.
+3. Schedule a near-term exact wake and lock the phone before fire time.
+4. Verify critical alarm starts first and the full-screen Wake Surface appears.
+5. Verify Alfred becomes audible and the alarm bed ducks without becoming unsafe.
+6. Verify Alfred explicitly requests a spoken reply and the session does not complete from movement alone while two-way voice is healthy.
+7. Answer aloud and confirm the response is accepted without rendering/persisting transcript text.
+8. Verify silence/no-match restores/re-escalates safely and the alarm returns to full volume when the voice lease expires.
+9. Exercise Stop and Snooze while Alfred is speaking and while the microphone is listening.
+10. Exercise Activity interruption/backgrounding during a voice window and verify critical audio ownership returns to the service.
+11. Repeat with microphone permission denied/revoked and confirm safe degraded alarm + motion behavior.
+12. Test normal speaker plus common Bluetooth/audio-route conditions.
+13. Tune alarm-bed level, listen timeout and lease duration only from measured physical evidence.
+14. After physical voice reliability is established, continue M8 realtime comparison and M7 live learning/journal integration as separate tracks.
+
+## Current risks / open proof boundaries
+
+- physical-device wake reliability evidence remains open;
+- on-device recognition availability varies by Android device/API and installed speech components;
+- local TTS voice availability/quality varies by device;
+- alarm-bed ducking and listen/lease timing need real-device calibration;
+- Bluetooth/audio-route behavior is unproven for the new production voice path;
+- motion thresholds remain uncalibrated on representative phones;
+- M7 live journal/persistence/application wiring remains open under issue #27;
+- M8 realtime comparison lacks sufficient physical comparative evidence for provider/transport selection;
+- dynamic production voice UI states do not yet have separate reviewed golden screenshots;
+- consumer-facing repair UX for all recoverable critical Android readiness problems remains future work.
 
 ## Privacy boundaries
 
-The Critical Wake Snapshot and reliability logs must never contain Tomorrow Contract raw text, calendar content, transcripts/microphone audio, prompts, secrets/tokens, private generated speech or raw high-frequency motion streams.
+Never place any of the following in Critical Wake Snapshot or reliability/analytics logs:
 
-M6 private state remains credential-protected and excluded from Auto Backup. Pre-unlock wake remains generic and locally actionable.
+- raw microphone audio;
+- recognized transcript text;
+- Tomorrow Contract raw text;
+- calendar descriptions;
+- prompts;
+- secrets/tokens;
+- private generated speech;
+- raw high-frequency motion streams.
 
-M7 consumes compact semantic outcomes and optional structured calibration/friction feedback. It does not require raw audio, transcript text, raw sensor streams or cloud identity.
-
-PR #36 local voice recognition is intentionally transcript-minimized. Raw audio is owned transiently by the Android recognizer; recognized text is discarded inside `LocalVoiceListener`; Wake Runtime receives only compact typed evidence. There is no release `INTERNET` permission for this baseline.
-
-M8 direct OpenAI experiments remain separate and `synthetic-only`. Standard provider credentials stay server-side and complete realtime event/audio/transcript payloads are not persisted by WMW's debug measurement path.
-
-A successful voice connection or automated build is never treated as privacy/reliability evidence by itself.
-
-## Current blockers / risks
-
-There is no blocker to isolated implementation work, but PR #36 is not ready for an unconditional reliability claim until final CI and physical dogfood are complete.
-
-Open proof/risk boundaries:
-
-- physical Android reliability evidence (#9) remains open;
-- local TTS + critical alarm coexistence is implemented but still unproven on representative physical devices;
-- on-device speech-recognition behavior while locked, under OEM power management and across common audio routes needs physical evidence;
-- the alarm-bed ducking level/lease duration are deliberate fail-safe hypotheses, not calibrated constants;
-- motion thresholds remain uncalibrated on real devices;
-- M7 local journal/persistence/application wiring remains open (#27);
-- consumer-facing readiness repair remains open;
-- broader accessibility/responsive visual fixtures remain deliberately outside the initial curated golden set;
-- M8 still lacks comparative measured evidence sufficient for ADR-008 provider/transport selection;
-- selected cloud audio/realtime routes remain subject to WMW privacy/data-control requirements and cannot become critical alarm dependencies.
+The production local voice baseline intentionally minimizes microphone-derived data to a compact typed coherence observation. Network/cloud/realtime enrichment must remain optional and must not weaken Alarm Kernel or Wake Runtime authority.
