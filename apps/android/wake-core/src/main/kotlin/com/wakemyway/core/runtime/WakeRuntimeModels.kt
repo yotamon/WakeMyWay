@@ -50,7 +50,7 @@ enum class MotionEvidenceKind {
 
 data class WakeCapabilities(
     val speechAvailable: Boolean = true,
-    val voiceInputAvailable: Boolean = true,
+    val voiceInputAvailable: Boolean = false,
     val motionAvailable: Boolean = true,
 )
 
