@@ -26,6 +26,26 @@ data class AlarmPresentationCapabilities(
         get() = notificationsAllowed && highImportanceChannel && fullScreenIntentAllowed
 }
 
+enum class AlarmRepairTarget {
+    EXACT_ALARM,
+    NOTIFICATIONS,
+    ACTIVE_WAKE_CHANNEL,
+    FULL_SCREEN_INTENT,
+    NONE,
+}
+
+/**
+ * One canonical priority for critical wake repair. Product copy and the action it launches must
+ * never disagree when more than one Android capability is missing.
+ */
+fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
+    !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
+    !notificationsAllowed -> AlarmRepairTarget.NOTIFICATIONS
+    !notificationChannelHighImportance -> AlarmRepairTarget.ACTIVE_WAKE_CHANNEL
+    !fullScreenIntentAllowed -> AlarmRepairTarget.FULL_SCREEN_INTENT
+    else -> AlarmRepairTarget.NONE
+}
+
 object AlarmPresentationAccess {
     const val CHANNEL_ID = "active-wake"
 
