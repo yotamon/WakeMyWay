@@ -207,6 +207,10 @@ fun WakeMyWayApp(
                             alarmHealth = alarmKernel.reconcile()
                             backStack.removeLastOrNull()
                         },
+                        voiceWakeReadiness = voiceWakeReadiness,
+                        readinessRevision = wakeSystemRevision,
+                        onRepairWakeSystem = onRepairWakeSystem,
+                        onEnableVoiceReplies = onEnableVoiceReplies,
                     )
                 }
             }
