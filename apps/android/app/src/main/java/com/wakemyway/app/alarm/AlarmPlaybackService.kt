@@ -38,8 +38,7 @@ class AlarmPlaybackService : Service() {
         val trace = WakeTimingTrace(this)
 
         // Android can recreate a service without redelivering its previous Intent. The durable
-        // active occurrence is the recovery authority, so a process restart cannot silently
-        // convert an already-firing alarm into silence.
+        // active occurrence is the recovery authority, but only while the wake remains controllable.
         if (intent == null) {
             val active = kernel.activeOccurrence()
             if (active == null) {
@@ -111,6 +110,15 @@ class AlarmPlaybackService : Service() {
         kernel: AlarmKernel,
         occurrenceId: WakeOccurrenceId,
     ): Int {
+        // Defense in depth for service recreation / redelivered START intents. If notification,
+        // channel, exact-alarm or full-screen access is no longer healthy, never start or resurrect
+        // critical audio that may be impossible for the user to control.
+        if (kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
+            kernel.cancelSchedule()
+            stopExecution()
+            return START_NOT_STICKY
+        }
+
         val beginResult = kernel.beginActive(occurrenceId)
         if (beginResult == BeginActiveResult.STALE) {
             stopSelf()
