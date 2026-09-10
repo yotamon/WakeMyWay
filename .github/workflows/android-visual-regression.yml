@@ -1,0 +1,49 @@
+name: Android Visual Regression
+
+on:
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android-visual-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+      - name: Install Android 17 SDK
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Record curated product goldens
+        run: ./gradlew :app:recordRoborazziDebug --stacktrace
+      - name: Upload recorded goldens and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-visual-record-${{ github.sha }}
+          path: |
+            apps/android/app/src/test/screenshots/**
+            apps/android/app/build/reports/roborazzi/**
+            apps/android/app/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
