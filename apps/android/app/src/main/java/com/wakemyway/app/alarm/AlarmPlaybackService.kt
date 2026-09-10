@@ -1,7 +1,5 @@
 package com.wakemyway.app.alarm
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -29,7 +27,7 @@ class AlarmPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        AlarmPresentationAccess.ensureChannel(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -192,28 +190,31 @@ class AlarmPlaybackService : Service() {
         toneFallback = null
     }
 
-    private fun alarmNotification(occurrenceId: WakeOccurrenceId) = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-        .setContentTitle("Wake My Way")
-        .setContentText("Time to wake up")
-        .setCategory(NotificationCompat.CATEGORY_ALARM)
-        .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        .setOngoing(true)
-        .setAutoCancel(false)
-        .setContentIntent(wakeActivityIntent(occurrenceId))
-        .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
-        .addAction(
-            android.R.drawable.ic_lock_idle_alarm,
-            "Snooze 5 min",
-            commandIntent(ACTION_SNOOZE, occurrenceId),
-        )
-        .addAction(
-            android.R.drawable.ic_menu_close_clear_cancel,
-            "Stop",
-            commandIntent(ACTION_STOP, occurrenceId),
-        )
-        .build()
+    private fun alarmNotification(occurrenceId: WakeOccurrenceId) =
+        NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle("Wake My Way")
+            .setContentText("Time to wake up")
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setContentIntent(wakeActivityIntent(occurrenceId))
+            .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
+            .addAction(
+                android.R.drawable.ic_lock_idle_alarm,
+                "Snooze 5 min",
+                commandIntent(ACTION_SNOOZE, occurrenceId),
+            )
+            .addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "Stop",
+                commandIntent(ACTION_STOP, occurrenceId),
+            )
+            .build()
 
     private fun wakeActivityIntent(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getActivity(
         this,
@@ -246,24 +247,7 @@ class AlarmPlaybackService : Service() {
             .appendPath(occurrenceId.value)
             .build()
 
-    private fun createNotificationChannel() {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "Active wake alarms",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = "Critical Wake My Way alarm playback"
-                setSound(null, null)
-                enableVibration(false)
-                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-            },
-        )
-    }
-
     companion object {
-        private const val CHANNEL_ID = "active-wake"
         private const val NOTIFICATION_ID = 4100
         private const val ACTION_START = "com.wakemyway.action.START_WAKE"
         private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
