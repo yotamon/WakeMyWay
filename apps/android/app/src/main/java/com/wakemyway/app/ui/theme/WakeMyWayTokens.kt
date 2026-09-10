@@ -12,12 +12,17 @@ object WmwColors {
     val WarmLight = Color(0xFFF7F3EC)
     val Sage = Color(0xFF8EA18B)
 
-    val NightSurface = Color(0xFF1A191E)
-    val ElevatedNightSurface = Color(0xFF2E2930)
-    val QuietText = Color(0xFFB9B0A7)
-    val Hairline = Color(0x33F1E8DC)
-    val EmberGlow = Color(0x66E4A17F)
-    val ClayGlow = Color(0x44B9755A)
+    // Night surfaces stay neutral. Warmth belongs to bounded dawn illumination and actions,
+    // not to a full-screen brown wash.
+    val NightSurface = Color(0xFF15161A)
+    val ElevatedNightSurface = Color(0xFF1D1D22)
+    val QuietSurface = Color(0xFF18191E)
+    val RaisedSurface = Color(0xFF222228)
+    val QuietText = Color(0xFFA8A5A2)
+    val Hairline = Color(0x26F1E8DC)
+    val StrongHairline = Color(0x40F1E8DC)
+    val EmberGlow = Color(0x33E4A17F)
+    val ClayGlow = Color(0x2EB9755A)
 }
 
 object WmwSpacing {
@@ -37,6 +42,7 @@ object WmwSizes {
     val MinimumTouchTarget = 48.dp
     val SleepyTouchTarget = 56.dp
     val PrimaryActionHeight = 60.dp
+    val PresenceCompact = 52.dp
     val PresenceSmall = 72.dp
     val PresenceLarge = 104.dp
 }

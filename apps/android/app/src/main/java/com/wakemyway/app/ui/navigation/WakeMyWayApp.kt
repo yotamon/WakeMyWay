@@ -27,6 +27,8 @@ import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.core.schedule.WakeOccurrence
 import kotlinx.serialization.Serializable
+import java.time.Duration
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -194,11 +196,30 @@ private fun AlarmHealth.toTonightUiState(
         ready -> context.getString(R.string.tonight_readiness_ready)
         else -> context.getString(R.string.tonight_readiness_attention)
     }
+    val countdownCopy = occurrence?.let {
+        val remainingMinutes = Duration.between(
+            Instant.now(),
+            it.scheduledAt.toInstant(),
+        ).toMinutes().coerceAtLeast(0)
+        if (remainingMinutes >= 60) {
+            context.getString(
+                R.string.tonight_redesign_countdown_hours,
+                remainingMinutes / 60,
+                remainingMinutes % 60,
+            )
+        } else {
+            context.getString(
+                R.string.tonight_redesign_countdown_minutes,
+                remainingMinutes.coerceAtLeast(1),
+            )
+        }
+    }.orEmpty()
 
     return TonightUiState(
         wakeTime = occurrence?.scheduledAt?.format(timeFormatter) ?: "--:--",
         dateLabel = occurrence?.scheduledAt?.format(dateFormatter)
-            ?: context.getString(R.string.tonight_section_tomorrow),
+            ?: context.getString(R.string.tonight_redesign_next_wake),
+        countdownLabel = countdownCopy,
         hasOccurrence = occurrence != null,
         wakeReady = ready,
         readinessDetail = readinessCopy,

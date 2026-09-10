@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -26,6 +28,11 @@ enum class WmwPresenceState {
     COMPLETE,
 }
 
+/**
+ * WMW's signature presence is intentionally geometric and non-anthropomorphic. It is not an
+ * AI orb, mascot or behavioral authority. The internal horizon stroke gives the shape a stable
+ * identity while the outer contour can still resolve with presentation state.
+ */
 @Composable
 fun WmwPresence(
     state: WmwPresenceState,
@@ -58,8 +65,8 @@ fun WmwPresence(
             .drawWithCache {
                 val radius = this.size.minDimension * 0.46f
                 val rounding = CornerRounding(
-                    radius = radius * 0.22f,
-                    smoothing = 0.72f,
+                    radius = radius * 0.24f,
+                    smoothing = 0.78f,
                 )
                 val start = RoundedPolygon(
                     numVertices = 6,
@@ -83,18 +90,39 @@ fun WmwPresence(
                     WmwPresenceState.MOVING -> WmwColors.SoftEmber
                     WmwPresenceState.COMPLETE -> WmwColors.Sage
                 }
+                val horizonY = this.size.height * (0.56f - (progress.value * 0.05f))
+                val horizonStart = Offset(this.size.width * 0.27f, horizonY)
+                val horizonEnd = Offset(this.size.width * 0.73f, horizonY)
+                val resolvedEnd = Offset(
+                    x = this.size.width * (0.42f + (0.24f * progress.value)),
+                    y = horizonY,
+                )
 
                 onDrawBehind {
                     drawPath(
                         path = path,
-                        color = accent.copy(alpha = 0.16f),
+                        color = WmwColors.DeepDawn.copy(alpha = 0.78f),
                     )
                     drawPath(
                         path = path,
-                        color = accent.copy(alpha = 0.58f),
+                        color = accent.copy(alpha = 0.62f),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = this.size.minDimension * 0.018f,
+                            width = this.size.minDimension * 0.017f,
                         ),
+                    )
+                    drawLine(
+                        color = accent.copy(alpha = 0.28f),
+                        start = horizonStart,
+                        end = horizonEnd,
+                        strokeWidth = this.size.minDimension * 0.014f,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = accent.copy(alpha = 0.86f),
+                        start = horizonStart,
+                        end = resolvedEnd,
+                        strokeWidth = this.size.minDimension * 0.018f,
+                        cap = StrokeCap.Round,
                     )
                 }
             },

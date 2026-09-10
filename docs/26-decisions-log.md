@@ -267,3 +267,33 @@ Do not adopt Rive, Lottie or an AI-orb metaphor as the default identity system. 
 Roborazzi is the preferred visual-regression tool, but goldens are introduced only after canonical synthetic previews stabilize enough to represent reviewed design truth.
 
 The first foundation slice therefore creates canonical previews first; the next design gate records reviewed baselines and protects selected surfaces in CI. Private wake data is never used in visual fixtures.
+
+# Tonight experience refinement — 2026-09-10
+
+## Neutral night field over full-screen warm wash
+
+Adaptive Dawn remains canonical, but the normal Tonight background must stay predominantly Ink/neutral charcoal. Clay and Soft Ember are bounded dawn/state accents rather than a full-height brown/sepia wallpaper.
+
+Decision: `WmwCircadianSurface` uses restrained local illumination on a neutral field. Visual atmosphere remains non-critical presentation enrichment.
+
+## Wake time is the Tonight hero
+
+Tonight answers the concrete next wake before it communicates generic reassurance.
+
+Decision: the visual order is next wake time → date/time remaining → compact WMW Presence/Alfred cue → one morning summary surface → real edit actions. Repeated large `Tomorrow is ready` cards/headlines are removed.
+
+## WMW Presence remains the signature object
+
+Do not replace the canonical geometric WMW Presence with a Wake Arc, glowing orb, robot, avatar or decorative circular progress meter. Strengthen the existing presence with restrained state-driven internal line work and better composition.
+
+## Consumer chrome excludes founder diagnostics
+
+`Founder build` is removed from primary Tonight chrome. Wake Lab remains accessible through a visually subordinate developer action.
+
+## No fake navigation or context
+
+Do not add a persistent bottom navigation bar merely to make the app look complete. Add top-level navigation only when durable consumer destinations earn it.
+
+Do not render calendar agenda, weather, generated Alfred insight, a `Light → Music → Alfred` sequence, difficulty controls or character selection until those values/capabilities have real product ownership and runtime effect.
+
+See [`implementation/d4-tonight-experience-redesign.md`](implementation/d4-tonight-experience-redesign.md).
