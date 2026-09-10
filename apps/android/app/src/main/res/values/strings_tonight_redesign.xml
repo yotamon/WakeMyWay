@@ -11,6 +11,7 @@
     <string name="tonight_redesign_alfred_empty">Ready when you are.</string>
     <string name="tonight_redesign_morning_title">For the morning</string>
     <string name="tonight_redesign_row_wake">Wake</string>
+    <string name="tonight_redesign_wake_value">%1$s · %2$s</string>
     <string name="tonight_redesign_row_context">Private context</string>
     <string name="tonight_redesign_row_system">Wake system</string>
     <string name="tonight_redesign_context_prepared">Prepared locally</string>
