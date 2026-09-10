@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -27,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,11 +38,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.ui.components.WmwCard
+import com.wakemyway.app.ui.components.WmwCardEmphasis
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwSecondaryAction
-import com.wakemyway.app.ui.components.WmwStatusPill
 import com.wakemyway.app.ui.components.WmwTimeDisplay
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
@@ -124,23 +127,19 @@ fun WakeSetupScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Lg),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            TextButton(
+                onClick = onBack,
+                colors = ButtonDefaults.textButtonColors(contentColor = WmwColors.MorningPaper),
             ) {
-                TextButton(onClick = onBack) {
-                    Text(stringResource(R.string.setup_back))
-                }
-                WmwStatusPill(
-                    label = stringResource(R.string.setup_local_badge),
-                    positive = true,
+                Text(
+                    text = stringResource(R.string.setup_back),
+                    style = MaterialTheme.typography.labelLarge,
                 )
             }
 
             Text(
                 text = stringResource(R.string.setup_title),
-                modifier = Modifier.padding(top = WmwSpacing.Xl),
+                modifier = Modifier.padding(top = WmwSpacing.Md),
                 style = MaterialTheme.typography.headlineLarge,
                 color = WmwColors.WarmLight,
             )
@@ -151,65 +150,78 @@ fun WakeSetupScreen(
                 color = WmwColors.QuietText,
             )
 
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xxl)) {
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                    Text(
-                        text = stringResource(R.string.setup_pattern_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = WmwColors.QuietText,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
-                    ) {
-                        PatternButton(
-                            label = stringResource(R.string.setup_just_tomorrow),
-                            selected = mode == WakeSetupMode.TOMORROW_ONLY,
-                            onClick = { mode = WakeSetupMode.TOMORROW_ONLY },
-                            modifier = Modifier.weight(1f),
-                        )
-                        PatternButton(
-                            label = stringResource(R.string.setup_repeat_weekly),
-                            selected = mode == WakeSetupMode.WEEKLY,
-                            onClick = { mode = WakeSetupMode.WEEKLY },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            Spacer(Modifier.height(WmwSpacing.Xxl))
+
+            Text(
+                text = stringResource(R.string.setup_pattern_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.QuietText,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
+            ) {
+                PatternButton(
+                    label = stringResource(R.string.setup_just_tomorrow),
+                    selected = mode == WakeSetupMode.TOMORROW_ONLY,
+                    onClick = { mode = WakeSetupMode.TOMORROW_ONLY },
+                    modifier = Modifier.weight(1f),
+                )
+                PatternButton(
+                    label = stringResource(R.string.setup_repeat_weekly),
+                    selected = mode == WakeSetupMode.WEEKLY,
+                    onClick = { mode = WakeSetupMode.WEEKLY },
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             when (mode) {
                 WakeSetupMode.TOMORROW_ONLY -> {
-                    WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = tomorrow.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = WmwColors.QuietText,
-                            )
-                            WmwTimeDisplay(
-                                time = tomorrowTime.format(TIME_FORMAT),
-                                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                            )
-                            OutlinedButton(
-                                onClick = { pickTime(tomorrowTime) { tomorrowTime = it } },
-                                modifier = Modifier.padding(top = WmwSpacing.Sm),
-                            ) {
-                                Text(stringResource(R.string.setup_change_time))
-                            }
-                            Text(
-                                text = stringResource(R.string.setup_tomorrow_hint),
-                                modifier = Modifier.padding(top = WmwSpacing.Md),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = WmwColors.QuietText,
-                                textAlign = TextAlign.Center,
-                            )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = WmwSpacing.Xxxl),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = tomorrow.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.QuietText,
+                        )
+                        WmwTimeDisplay(
+                            time = tomorrowTime.format(TIME_FORMAT),
+                            modifier = Modifier.padding(top = WmwSpacing.Xxs),
+                        )
+                        OutlinedButton(
+                            onClick = { pickTime(tomorrowTime) { tomorrowTime = it } },
+                            modifier = Modifier
+                                .padding(top = WmwSpacing.Md)
+                                .heightIn(min = 48.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            border = BorderStroke(1.dp, WmwColors.Hairline),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = WmwColors.MorningPaper,
+                            ),
+                        ) {
+                            Text(stringResource(R.string.setup_change_time))
                         }
+                        Text(
+                            text = stringResource(R.string.setup_tomorrow_hint),
+                            modifier = Modifier.padding(top = WmwSpacing.Md),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WmwColors.QuietText,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
 
                 WakeSetupMode.WEEKLY -> {
-                    WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
+                    WmwCard(
+                        modifier = Modifier.padding(top = WmwSpacing.Xl),
+                        emphasis = WmwCardEmphasis.QUIET,
+                    ) {
                         Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
                             Text(
                                 text = stringResource(R.string.setup_weekly_label),
@@ -254,12 +266,17 @@ fun WakeSetupScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
+            Spacer(Modifier.height(WmwSpacing.Xxxl))
 
             WmwPrimaryAction(
-                label = stringResource(
-                    if (existingSchedule == null) R.string.setup_save_new else R.string.setup_save_changes,
-                ),
+                label = when {
+                    existingSchedule != null -> stringResource(R.string.setup_save_changes)
+                    mode == WakeSetupMode.TOMORROW_ONLY -> stringResource(
+                        R.string.setup_save_tomorrow,
+                        tomorrowTime.format(TIME_FORMAT),
+                    )
+                    else -> stringResource(R.string.setup_save_weekly)
+                },
                 enabled = mode != WakeSetupMode.WEEKLY || weeklyTimes.isNotEmpty(),
                 onClick = {
                     val schedule = WakeSchedule(
@@ -289,19 +306,9 @@ fun WakeSetupScreen(
                 WmwSecondaryAction(
                     label = stringResource(R.string.setup_turn_off),
                     onClick = { showDisableConfirmation = true },
-                    modifier = Modifier.padding(top = WmwSpacing.Xs),
+                    modifier = Modifier.padding(top = WmwSpacing.Sm),
                 )
             }
-
-            Text(
-                text = stringResource(R.string.setup_reliability_note),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Md),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
-                textAlign = TextAlign.Center,
-            )
 
             Spacer(Modifier.height(WmwSpacing.Xxl))
         }
@@ -347,15 +354,20 @@ private fun PatternButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = 52.dp),
+        shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
             width = 1.dp,
-            color = if (selected) WmwColors.SoftEmber else WmwColors.QuietText.copy(alpha = 0.28f),
+            color = if (selected) WmwColors.SoftEmber else WmwColors.Hairline,
+        ),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = if (selected) WmwColors.DeepDawn else Color.Transparent,
+            contentColor = if (selected) WmwColors.WarmLight else WmwColors.QuietText,
         ),
     ) {
         Text(
             text = label,
-            color = if (selected) WmwColors.WarmLight else WmwColors.MorningPaper,
+            style = MaterialTheme.typography.labelLarge,
             textAlign = TextAlign.Center,
         )
     }
