@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- M8 founder lab only. These permissions are absent from release builds. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <application android:networkSecurityConfig="@xml/debug_network_security_config">
+        <!--
+            Exported only in debug builds so the founder can launch it with adb.
+            The activity accepts no secret Intent extras; credentials are entered
+            interactively and remain in memory only.
+        -->
+        <activity
+            android:name=".voice.VoiceSpikeActivity"
+            android:exported="true"
+            android:label="WMW Voice Spike" />
+    </application>
+</manifest>
