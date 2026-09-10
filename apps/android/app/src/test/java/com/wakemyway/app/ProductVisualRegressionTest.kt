@@ -6,6 +6,8 @@ import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.voice.WakeVoiceMode
+import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
@@ -99,6 +101,12 @@ class ProductVisualRegressionTest {
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = null,
+                    voiceState = WakeVoiceUiState(
+                        mode = WakeVoiceMode.LISTENING,
+                        spokenLine = "Sit up first, if you please.",
+                        speechAvailable = true,
+                        voiceInputAvailable = true,
+                    ),
                     onSnooze = {},
                     onStop = {},
                     displayTime = "08:00",
