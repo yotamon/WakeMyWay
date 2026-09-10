@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="docs/brand/assets/wake-my-way-brand-board.png" alt="Wake My Way brand" width="820" />
-
 # Wake My Way
 
 ### Wake up your way.
