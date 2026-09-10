@@ -1,18 +1,19 @@
 # Project status
 
-**Last updated:** 2026-09-10  
+**Last updated:** 2026-09-11  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** founder dogfood of natural conversational Wake  
-**Merged foundations:** PR #36 local Voice Wake; PR #37 modern Android presentation/BAL hardening; PR #38 permission-gated controllability; PR #39 founder conversational Realtime enrichment  
-**Current reliability rule:** a wake may not be armed or resurrected without verified terminal controllability  
-**Realtime rule:** cloud conversation is enrichment only; Alarm Kernel and WakeRuntime remain authoritative
+**Active work:** PR #40, seamless server-safe Conversational Alfred pairing  
+**Merged foundations:** PR #36 local Voice Wake; PR #37 modern Android presentation/BAL hardening; PR #38 permission-gated controllability; PR #39 founder Realtime conversation foundation  
+**Reliability rule:** a wake may not be armed or resurrected without verified local terminal controllability  
+**Realtime rule:** cloud conversation is optional enrichment only; Alarm Kernel and WakeRuntime remain authoritative
 
-## Current physical truth
+## Physical truth
 
-The permission/control regression exposed by founder testing has been corrected and subsequently passed a physical phone test: the wake screen opens again and the alarm is controllable.
+The permission/control regression found during founder testing was corrected by PR #38 and then passed a physical Android phone wake test: the wake screen opened and the alarm was controllable.
 
-The stable wake path remains:
+The critical path remains local:
 
 ```text
 Wake Setup
@@ -39,66 +40,102 @@ AlarmPlaybackService safety recheck
 
 `Wake Ready` requires exact-alarm capability, notifications, HIGH alarm channel, full-screen alarm access, microphone permission and on-device speech recognition. Unsafe planned/active occurrences fail closed rather than starting an uncontrollable foreground alarm.
 
-## Conversational Wake
+## Conversational Wake foundation
 
-PR #39 adds a founder/debug Realtime speech-enrichment path while preserving the stable alarm boundary.
-
-Canonical decision: [`adr/020-conversational-wake-enrichment.md`](adr/020-conversational-wake-enrichment.md).  
-Implementation note: [`implementation/conversational-wake.md`](implementation/conversational-wake.md).  
-Dogfood checklist: [`implementation/conversational-wake-testing.md`](implementation/conversational-wake-testing.md).
+PR #39 added an optional founder/debug OpenAI Realtime WebRTC speech-enrichment path.
 
 ```text
 WakeRuntime
     ↓ typed SpeechIntent
 WakeConversationEnrichment
     ├─ debug/founder OpenAI Realtime WebRTC
-    │      ↕ audio conversation
+    │      ↕ natural audio conversation
     └─ deterministic local Alfred fallback
 ```
 
-The Realtime model owns wording/audio quality only. It cannot schedule/cancel alarms, Stop/Snooze, mutate WakePolicy, directly write activation evidence, decide wake completion or become a Wake Ready dependency.
+A `SpeechIntent.KeepEngaging` allows repeated `Alfred → user → Alfred` turns while activation remains below threshold. The Realtime model may provide natural wording/audio and turn-boundary observations, but it cannot schedule/cancel alarms, Stop/Snooze, mutate WakePolicy, directly write activation evidence, decide completion, or become a Wake Ready dependency.
 
-A new `SpeechIntent.KeepEngaging` allows WakeRuntime to explicitly continue the conversation after a coherent spoken reply while activation remains below threshold:
+## PR #40: seamless founder pairing
+
+The initial PR #39 founder setup exposed a broker URL and reusable internal bearer credential. PR #40 replaces that developer-only form with a one-field product flow.
+
+Canonical decision: [`adr/020-founder-realtime-pairing.md`](adr/020-founder-realtime-pairing.md).
 
 ```text
-Alfred speaks
+Tonight
    ↓
-user replies
+Conversational Alfred · Connect
    ↓
-VoiceResponseObserved
+founder access code (once)
+   ↓ HTTPS
+WakeMyWay pairing endpoint
    ↓
-WakeRuntime
-   ├─ activation below threshold → Speak(KeepEngaging) → listen again
-   └─ activation satisfied       → orientation → completion
+scoped + expiring installation credential
+   ↓ encrypted with Android Keystore
+future Wake Session
+   ↓
+WakeMyWay Realtime broker
+   ↓
+short-lived OpenAI Realtime client secret
+   ↓
+WebRTC conversation
 ```
 
-The founder Realtime adapter uses WebRTC audio-to-audio, server VAD for turn-boundary observation, automatic provider response creation disabled, and barge-in enabled. If Realtime is unavailable or fails, the current typed speech intent falls back to local Alfred.
+Security/product invariants:
 
-Founder broker configuration is debug-only. The operator token is encrypted locally with Android Keystore and must never be treated as consumer authentication. No Tomorrow Contract, calendar or other private wake context is sent in this founder slice.
+- `OPENAI_API_KEY` remains server-side only.
+- `WMW_INTERNAL_API_KEY` remains server-side only.
+- the Android app has a fixed WakeMyWay backend URL and never asks for infrastructure URLs;
+- founder pairing uses a separate high-entropy access code and returns a scope-limited 90-day installation credential;
+- Android encrypts the installation credential with Android Keystore;
+- before showing Conversational Alfred as Ready, Android probes the complete WakeMyWay → OpenAI client-secret path;
+- rotating the server signing key revokes paired founder installations;
+- Realtime setup does not alter `Wake Ready` and cannot block the local alarm;
+- failure/expiry/network loss falls back to local Alfred;
+- no Tomorrow Contract or prepared private context is sent to Realtime in this founder slice;
+- WMW does not persist Realtime audio or transcripts.
 
-## Current validation boundary
+## Server configuration required for founder dogfood
 
-PR #38 passed Android CI, visual regression, API-36 device reliability and a successful physical founder-phone wake test.
+The Vercel backend must provide:
 
-PR #39 was merged as founder/debug conversational dogfood. Cloud CI had already passed before merge; Android workflows were running on the PR head at merge time. Physical Realtime behavior is still a separate proof gate.
+- `OPENAI_API_KEY`
+- `WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD=true`
+- `WMW_OPENAI_SAFETY_IDENTIFIER`
+- `WMW_INTERNAL_API_KEY` (server auth/signing key)
+- `WMW_FOUNDER_PAIRING_CODE` (one-time founder bootstrap code)
 
-Do not promote remote conversation to release builds until physical testing verifies:
+`GET /api/founder/realtime/status` exposes only safe missing-configuration labels, never secret values.
 
-1. locked-screen alarm presentation remains reliable;
-2. Realtime connection never delays critical alarm audio;
-3. at least two natural `user → Alfred → user` turns work;
-4. barge-in works without deadlock;
-5. network/provider failure immediately falls back to local Alfred;
-6. Stop and Snooze remain immediate and local;
-7. audio routing is restored after terminal action;
-8. no transcript/private wake content is persisted by WMW.
+## Validation before physical dogfood
 
-## Open proof boundaries
+PR #40 must pass on one final head:
 
-- physical founder-phone validation of PR #39 Realtime conversation;
-- provider/account privacy and data-control posture before any broader product rollout;
-- production-grade consumer authorization for remote speech;
-- Bluetooth/audio-route behavior;
-- motion threshold calibration;
-- M7 live learning/journal wiring;
-- provider/transport cost and latency evidence before permanent Realtime selection.
+1. Cloud AI Platform typecheck + unit tests, including pairing/auth tests;
+2. Android wake-core tests;
+3. Android lint;
+4. instrumentation-test compile + debug APK assembly;
+5. curated visual regression without weakening existing baselines;
+6. API-36 device reliability suite;
+7. deployed backend status/probe validation.
+
+Then physical founder testing must verify:
+
+1. Tonight exposes only `Connect Alfred`, never broker/internal/OpenAI credentials;
+2. one access-code pairing succeeds once and persists securely;
+3. status changes to Ready only after server → OpenAI probing succeeds;
+4. a locked-screen wake still opens and remains immediately controllable;
+5. at least two natural user/Alfred turns work;
+6. barge-in does not deadlock;
+7. provider/network failure falls back to local Alfred;
+8. Stop/Snooze remain immediate and local;
+9. audio route is restored after terminal action.
+
+## Open boundaries
+
+- production Vercel environment must be configured before founder Realtime can report Ready;
+- broader consumer authentication is not solved by founder pairing and remains future work;
+- OpenAI project privacy/data-control posture must be reviewed before broader rollout;
+- release Android still intentionally has no Internet permission and no remote Realtime implementation;
+- Bluetooth/audio-route behavior and motion calibration remain physical-device proof items;
+- M7 live learning/journal wiring remains open.
