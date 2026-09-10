@@ -32,32 +32,39 @@ private val WakeMyWayTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Light,
-        fontSize = 84.sp,
-        lineHeight = 88.sp,
+        fontSize = 88.sp,
+        lineHeight = 92.sp,
+        letterSpacing = (-2.2).sp,
+        fontFeatureSettings = "tnum",
     ),
     displayMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Light,
         fontSize = 64.sp,
         lineHeight = 68.sp,
+        letterSpacing = (-1.4).sp,
+        fontFeatureSettings = "tnum",
     ),
     headlineLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 38.sp,
-        lineHeight = 44.sp,
+        fontSize = 36.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-0.7).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 30.sp,
-        lineHeight = 36.sp,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.35).sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
+        fontSize = 23.sp,
+        lineHeight = 29.sp,
+        letterSpacing = (-0.15).sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -94,21 +101,30 @@ private val WakeMyWayTypography = Typography(
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 20.sp,
+        letterSpacing = 0.05.sp,
     ),
     labelMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 18.sp,
+        letterSpacing = 0.15.sp,
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.8.sp,
     ),
 )
 
 private val WakeMyWayShapes = Shapes(
     extraSmall = RoundedCornerShape(14.dp),
     small = RoundedCornerShape(18.dp),
-    medium = RoundedCornerShape(24.dp),
-    large = RoundedCornerShape(30.dp),
-    extraLarge = RoundedCornerShape(36.dp),
+    medium = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(34.dp),
 )
 
 @Composable
