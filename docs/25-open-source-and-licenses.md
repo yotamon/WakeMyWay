@@ -44,6 +44,18 @@ training/data terms
 
 LiveKit-related turn detection/models were specifically flagged during discovery as an example where model license may differ from core project license.
 
+## Current experimental RTC dependency
+
+M8 currently pins:
+
+```text
+io.github.webrtc-sdk:android:150.7871.01
+```
+
+The Maven artifact declares the 3-Clause BSD License, which fits the current green license posture.
+
+It is intentionally included through `debugImplementation` only. It is an M8 engineering-spike dependency, not yet an approved production/release dependency. Promotion to production would still require dependency/vulnerability review, binary-size review, notices, physical-device evidence and an M8 architecture decision.
+
 ## Weather
 
 Open-Meteo was considered for prototypes. Its data/server/commercial terms must be reviewed before production use.
