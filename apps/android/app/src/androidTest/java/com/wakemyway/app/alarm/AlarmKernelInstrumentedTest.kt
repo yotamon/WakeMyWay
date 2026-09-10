@@ -45,6 +45,19 @@ class AlarmKernelInstrumentedTest {
     }
 
     @Test
+    fun currentScheduleTracksEnabledAlarmAuthority() {
+        val schedule = oneShotSchedule("current-schedule")
+        val committed = kernel.commitSchedule(schedule)
+        committed.nextOccurrence?.id?.let(registeredIds::add)
+
+        assertEquals(schedule, kernel.currentSchedule())
+
+        kernel.cancelSchedule()
+
+        assertNull(kernel.currentSchedule())
+    }
+
+    @Test
     fun cancellationTombstonePreventsStaleOccurrenceResurrection() {
         val committed = kernel.commitSchedule(oneShotSchedule("cancel"))
         val primary = requireNotNull(committed.nextOccurrence)

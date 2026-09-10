@@ -14,11 +14,18 @@ import androidx.navigation3.ui.NavDisplay
 import com.wakemyway.app.R
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.preparation.WakePreparationManager
+import com.wakemyway.app.preparation.WakePreparationSnapshot
+import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.setup.WakeSetupCommitResult
+import com.wakemyway.app.ui.setup.WakeSetupScreen
+import com.wakemyway.core.schedule.WakeOccurrence
 import kotlinx.serialization.Serializable
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -27,12 +34,19 @@ import java.util.Locale
 private data object TonightRoute : NavKey
 
 @Serializable
+private data object WakeSetupRoute : NavKey
+
+@Serializable
+private data object TomorrowPlanRoute : NavKey
+
+@Serializable
 private data object WakeLabRoute : NavKey
 
 @Composable
 fun WakeMyWayApp() {
     val context = LocalContext.current
     val alarmKernel = remember { AlarmKernel(context) }
+    val preparationManager = remember { WakePreparationManager(context) }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     val backStack = rememberNavBackStack(TonightRoute)
 
@@ -41,11 +55,83 @@ fun WakeMyWayApp() {
         onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
             entry<TonightRoute> {
+                val preparation = alarmHealth.nextOccurrence
+                    ?.let { preparationManager.snapshotFor(it.id) }
                 TonightScreen(
-                    state = alarmHealth.toTonightUiState(context),
+                    state = alarmHealth.toTonightUiState(context, preparation),
+                    onOpenWakeSetup = {
+                        alarmHealth = alarmKernel.reconcile()
+                        backStack.add(WakeSetupRoute)
+                    },
+                    onOpenTomorrowPlan = {
+                        alarmHealth = alarmKernel.health()
+                        backStack.add(TomorrowPlanRoute)
+                    },
                     onOpenWakeLab = {
                         alarmHealth = alarmKernel.reconcile()
                         backStack.add(WakeLabRoute)
+                    },
+                )
+            }
+            entry<WakeSetupRoute> {
+                WakeSetupScreen(
+                    existingSchedule = alarmKernel.currentSchedule(),
+                    onBack = {
+                        alarmHealth = alarmKernel.health()
+                        backStack.removeLastOrNull()
+                    },
+                    onCommit = { schedule ->
+                        val previousHealth = alarmKernel.health()
+                        val previousOccurrence = previousHealth.nextOccurrence
+                        val previousPreparation = previousOccurrence
+                            ?.let { preparationManager.snapshotFor(it.id) }
+
+                        runCatching { alarmKernel.commitSchedule(schedule) }
+                            .fold(
+                                onSuccess = { health ->
+                                    reconcilePreparationAfterScheduleChange(
+                                        previousOccurrence = previousOccurrence,
+                                        newOccurrence = health.nextOccurrence,
+                                        previousPreparation = previousPreparation,
+                                        preparationManager = preparationManager,
+                                    )
+                                    alarmHealth = health
+                                    WakeSetupCommitResult(committed = true)
+                                },
+                                onFailure = { error ->
+                                    WakeSetupCommitResult(
+                                        committed = false,
+                                        detail = error.message,
+                                    )
+                                },
+                            )
+                    },
+                    onDisable = {
+                        runCatching {
+                            alarmKernel.cancelSchedule()
+                            runCatching { preparationManager.clear() }
+                            alarmKernel.health()
+                        }.fold(
+                            onSuccess = { health ->
+                                alarmHealth = health
+                                WakeSetupCommitResult(committed = true)
+                            },
+                            onFailure = { error ->
+                                WakeSetupCommitResult(
+                                    committed = false,
+                                    detail = error.message,
+                                )
+                            },
+                        )
+                    },
+                )
+            }
+            entry<TomorrowPlanRoute> {
+                TomorrowPlanScreen(
+                    wakeOccurrence = alarmKernel.health().nextOccurrence,
+                    onBack = {
+                        alarmHealth = alarmKernel.health()
+                        backStack.removeLastOrNull()
                     },
                 )
             }
@@ -63,7 +149,42 @@ fun WakeMyWayApp() {
     )
 }
 
-private fun AlarmHealth.toTonightUiState(context: Context): TonightUiState {
+private fun reconcilePreparationAfterScheduleChange(
+    previousOccurrence: WakeOccurrence?,
+    newOccurrence: WakeOccurrence?,
+    previousPreparation: WakePreparationSnapshot?,
+    preparationManager: WakePreparationManager,
+) {
+    val contract = previousPreparation?.contract ?: return
+    if (newOccurrence == null) {
+        runCatching { preparationManager.clear() }
+        return
+    }
+
+    val sameWakeDate = previousOccurrence?.scheduledAt?.toLocalDate() ==
+        newOccurrence.scheduledAt.toLocalDate()
+    if (!sameWakeDate) {
+        runCatching { preparationManager.clear() }
+        return
+    }
+
+    val rebound = runCatching {
+        preparationManager.saveAndPrepare(
+            wakeOccurrenceId = newOccurrence.id,
+            rawText = contract.rawText,
+            firstMove = contract.firstMove,
+        )
+    }.isSuccess
+
+    if (!rebound) {
+        runCatching { preparationManager.clear() }
+    }
+}
+
+private fun AlarmHealth.toTonightUiState(
+    context: Context,
+    preparation: WakePreparationSnapshot?,
+): TonightUiState {
     val occurrence = nextOccurrence
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
@@ -81,5 +202,7 @@ private fun AlarmHealth.toTonightUiState(context: Context): TonightUiState {
         hasOccurrence = occurrence != null,
         wakeReady = ready,
         readinessDetail = readinessCopy,
+        hasTomorrowContract = preparation?.contract != null,
+        tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
     )
 }

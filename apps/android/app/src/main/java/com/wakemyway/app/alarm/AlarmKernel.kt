@@ -116,6 +116,13 @@ class AlarmKernel(
         return snooze
     }
 
+    /**
+     * Returns the current enabled Wake Schedule without exposing Critical Wake Snapshot/storage
+     * details to product UI. Reading schedule intent remains part of the Alarm Kernel contract.
+     */
+    fun currentSchedule(): WakeSchedule? =
+        store.read()?.takeIf { it.enabled }?.schedule
+
     fun activeOccurrence(): WakeOccurrence? =
         store.read()?.takeIf { it.enabled }?.activeOccurrence
 
