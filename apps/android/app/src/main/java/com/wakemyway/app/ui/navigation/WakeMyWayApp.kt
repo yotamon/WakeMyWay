@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.wakemyway.app.R
+import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmRepairTarget
@@ -30,6 +31,7 @@ import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
+import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -104,33 +106,65 @@ fun WakeMyWayApp(
                         backStack.removeLastOrNull()
                     },
                     onCommit = { schedule ->
-                        val previousHealth = alarmKernel.health()
-                        val previousOccurrence = previousHealth.nextOccurrence
-                        val previousPreparation = previousOccurrence
-                            ?.let { preparationManager.snapshotFor(it.id) }
+                        val preflightHealth = alarmKernel.health()
+                        when (wakeSchedulingBlocker(preflightHealth, voiceWakeReadiness)) {
+                            WakeSchedulingBlocker.ALARM_SYSTEM -> {
+                                // Nothing is persisted before the user explicitly repairs the next
+                                // required Android capability.
+                                onRepairWakeSystem()
+                                WakeSetupCommitResult(
+                                    committed = false,
+                                    detail = context.getString(R.string.tonight_readiness_attention),
+                                    wakeReady = false,
+                                )
+                            }
 
-                        runCatching { alarmKernel.commitSchedule(schedule) }
-                            .fold(
-                                onSuccess = { health ->
-                                    reconcilePreparationAfterScheduleChange(
-                                        previousOccurrence = previousOccurrence,
-                                        newOccurrence = health.nextOccurrence,
-                                        previousPreparation = previousPreparation,
-                                        preparationManager = preparationManager,
+                            WakeSchedulingBlocker.VOICE_PERMISSION -> {
+                                onRepairWakeSystem()
+                                WakeSetupCommitResult(
+                                    committed = false,
+                                    detail = context.getString(R.string.tonight_voice_wake_setup_detail),
+                                    wakeReady = false,
+                                )
+                            }
+
+                            WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
+                                WakeSetupCommitResult(
+                                    committed = false,
+                                    detail = context.getString(R.string.tonight_voice_wake_unavailable_detail),
+                                    wakeReady = false,
+                                )
+                            }
+
+                            WakeSchedulingBlocker.NONE -> {
+                                val previousOccurrence = preflightHealth.nextOccurrence
+                                val previousPreparation = previousOccurrence
+                                    ?.let { preparationManager.snapshotFor(it.id) }
+
+                                runCatching { alarmKernel.commitSchedule(schedule) }
+                                    .fold(
+                                        onSuccess = { health ->
+                                            reconcilePreparationAfterScheduleChange(
+                                                previousOccurrence = previousOccurrence,
+                                                newOccurrence = health.nextOccurrence,
+                                                previousPreparation = previousPreparation,
+                                                preparationManager = preparationManager,
+                                            )
+                                            alarmHealth = health
+                                            WakeSetupCommitResult(
+                                                committed = true,
+                                                wakeReady = health.ready,
+                                            )
+                                        },
+                                        onFailure = { error ->
+                                            WakeSetupCommitResult(
+                                                committed = false,
+                                                detail = error.message,
+                                            )
+                                        },
                                     )
-                                    alarmHealth = health
-                                    WakeSetupCommitResult(
-                                        committed = true,
-                                        wakeReady = health.ready,
-                                    )
-                                },
-                                onFailure = { error ->
-                                    WakeSetupCommitResult(
-                                        committed = false,
-                                        detail = error.message,
-                                    )
-                                },
-                            )
+                            }
+                        }
                     },
                     onDisable = {
                         runCatching {
