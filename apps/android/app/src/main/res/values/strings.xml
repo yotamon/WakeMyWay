@@ -31,11 +31,11 @@
     <string name="tonight_lab_note">Founder diagnostics stay separate from the everyday wake experience.</string>
     <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
     <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan</string>
-    <string name="tonight_voice_wake_title">Voice wake</string>
+    <string name="tonight_voice_wake_title">Voice replies</string>
     <string name="tonight_voice_wake_ready">Ready</string>
     <string name="tonight_voice_wake_setup">Setup needed</string>
     <string name="tonight_voice_wake_unavailable">Unavailable</string>
-    <string name="tonight_voice_wake_ready_detail">Alfred can speak and wait for a real on-device voice reply during your wake.</string>
+    <string name="tonight_voice_wake_ready_detail">On-device voice replies are enabled. Alfred will use a verified offline voice when one is available at wake time.</string>
     <string name="tonight_voice_wake_setup_detail">Enable microphone access so Alfred can wait for your spoken reply. Recognition stays on-device.</string>
     <string name="tonight_voice_wake_unavailable_detail">This device does not expose on-device speech recognition. Critical alarm and motion wake still work.</string>
     <string name="tonight_voice_wake_enable">Enable voice replies</string>
