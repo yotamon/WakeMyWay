@@ -155,44 +155,20 @@ fun TonightScreen(
                 color = WmwColors.WarmLight,
             )
 
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Lg)) {
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.tonight_section_wake_system),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = WmwColors.MorningPaper,
-                        )
-                        WmwStatusPill(
-                            label = stringResource(
-                                when {
-                                    !state.hasOccurrence -> R.string.tonight_wake_waiting
-                                    state.wakeReady -> R.string.tonight_wake_ready
-                                    else -> R.string.tonight_wake_not_ready
-                                },
-                            ),
-                            positive = state.wakeReady,
-                        )
-                    }
-                    Text(
-                        text = state.readinessDetail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = WmwColors.QuietText,
-                    )
-                    state.wakeRepairActionLabel?.let { repairLabel ->
-                        WmwPrimaryAction(
-                            label = repairLabel,
-                            onClick = onRepairWakeSystem,
-                        )
-                    }
-                }
+            val showCriticalRepairFirst = state.hasOccurrence && !state.wakeReady
+            if (showCriticalRepairFirst) {
+                WakeSystemCard(
+                    state = state,
+                    onRepairWakeSystem = onRepairWakeSystem,
+                    modifier = Modifier.padding(top = WmwSpacing.Lg),
+                )
             }
 
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
+            WmwCard(
+                modifier = Modifier.padding(
+                    top = if (showCriticalRepairFirst) WmwSpacing.Sm else WmwSpacing.Lg,
+                ),
+            ) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
                     Text(
                         text = stringResource(R.string.tonight_section_tomorrow),
@@ -248,6 +224,14 @@ fun TonightScreen(
                         )
                     }
                 }
+            }
+
+            if (!showCriticalRepairFirst) {
+                WakeSystemCard(
+                    state = state,
+                    onRepairWakeSystem = onRepairWakeSystem,
+                    modifier = Modifier.padding(top = WmwSpacing.Sm),
+                )
             }
 
             voiceWakeReadiness?.let { readiness ->
@@ -336,6 +320,50 @@ fun TonightScreen(
     }
 }
 
+@Composable
+private fun WakeSystemCard(
+    state: TonightUiState,
+    onRepairWakeSystem: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WmwCard(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.tonight_section_wake_system),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = WmwColors.MorningPaper,
+                )
+                WmwStatusPill(
+                    label = stringResource(
+                        if (state.wakeReady) {
+                            R.string.tonight_wake_ready
+                        } else {
+                            R.string.tonight_wake_not_ready
+                        },
+                    ),
+                    positive = state.wakeReady,
+                )
+            }
+            Text(
+                text = state.readinessDetail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.QuietText,
+            )
+            state.wakeRepairActionLabel?.let { repairLabel ->
+                WmwPrimaryAction(
+                    label = repairLabel,
+                    onClick = onRepairWakeSystem,
+                )
+            }
+        }
+    }
+}
+
 @Preview(
     name = "Tonight ready",
     widthDp = 393,
@@ -351,7 +379,7 @@ private fun TonightReadyPreview() {
                 dateLabel = "Thursday · Sep 10",
                 hasOccurrence = true,
                 wakeReady = true,
-                readinessDetail = "Exact alarm, wake screen, and Stop/Snooze controls are ready locally.",
+                readinessDetail = "Scheduled locally and ready for tomorrow.",
                 hasTomorrowContract = true,
                 tomorrowContractPrepared = true,
             ),
