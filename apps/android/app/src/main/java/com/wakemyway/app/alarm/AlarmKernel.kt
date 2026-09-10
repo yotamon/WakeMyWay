@@ -1,11 +1,6 @@
 package com.wakemyway.app.alarm
 
-import android.Manifest
-import android.app.NotificationManager
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.content.ContextCompat
 import com.wakemyway.core.schedule.NextWakeOccurrenceResolver
 import com.wakemyway.core.schedule.SnoozeOccurrenceFactory
 import com.wakemyway.core.schedule.WakeCompletionPolicy
@@ -175,29 +170,30 @@ class AlarmKernel(
     fun health(): AlarmHealth {
         val snapshot = store.read()
         val exactAllowed = registrar.canScheduleExactAlarms()
-        val notificationAllowed = notificationsAllowed()
-        val fullScreenAllowed = fullScreenIntentAllowed()
+        val presentation = AlarmPresentationAccess.snapshot(appContext)
         val enabled = snapshot?.enabled == true
         val registered = enabled && snapshot?.nextOccurrence != null &&
             snapshot.registeredOccurrenceId == snapshot.nextOccurrence.id
         val active = enabled && snapshot?.activeOccurrence != null
-        val ready = exactAllowed && (registered || active)
+        val ready = exactAllowed && presentation.ready && (registered || active)
 
         return AlarmHealth(
             ready = ready,
             exactAlarmAllowed = exactAllowed,
-            notificationsAllowed = notificationAllowed,
-            fullScreenIntentAllowed = fullScreenAllowed,
+            notificationsAllowed = presentation.notificationsAllowed,
+            notificationChannelHighImportance = presentation.highImportanceChannel,
+            fullScreenIntentAllowed = presentation.fullScreenIntentAllowed,
             nextOccurrence = snapshot?.takeIf { it.enabled }?.nextOccurrence,
             activeOccurrence = snapshot?.takeIf { it.enabled }?.activeOccurrence,
             detail = when {
                 snapshot == null -> "No wake schedule configured"
                 !snapshot.enabled -> "Wake schedule disabled"
                 !exactAllowed -> "Exact alarm capability unavailable"
+                !presentation.notificationsAllowed -> "Notification access required for alarm controls"
+                !presentation.highImportanceChannel -> "Active wake alerts must be high priority"
+                !presentation.fullScreenIntentAllowed -> "Full-screen alarm access required"
                 active -> "Wake execution is active"
                 !registered -> "Wake occurrence needs reconciliation"
-                !notificationAllowed -> "Ready with degraded notification presentation"
-                !fullScreenAllowed -> "Ready with degraded full-screen presentation"
                 else -> "Wake Ready"
             },
         )
@@ -257,16 +253,6 @@ class AlarmKernel(
             ),
         )
     }
-
-    private fun notificationsAllowed(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-
-    private fun fullScreenIntentAllowed(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
-        return appContext.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
-    }
 }
 
 enum class BeginActiveResult {
@@ -279,6 +265,7 @@ data class AlarmHealth(
     val ready: Boolean,
     val exactAlarmAllowed: Boolean,
     val notificationsAllowed: Boolean,
+    val notificationChannelHighImportance: Boolean,
     val fullScreenIntentAllowed: Boolean,
     val nextOccurrence: WakeOccurrence?,
     val activeOccurrence: WakeOccurrence?,

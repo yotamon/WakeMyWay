@@ -47,9 +47,11 @@ It lives in device-protected storage so it can be read during Direct Boot. It mu
 
 ### Wake Ready
 
-User-facing readiness state meaning the next Wake Occurrence has the required critical Android capabilities and local data to fire inside the documented reliability envelope.
+User-facing readiness state meaning the next Wake Occurrence has the required critical Android capabilities and local data for a **controllable** wake inside the documented reliability envelope.
 
-Optional microphone, calendar, weather, and cloud capabilities do not determine Wake Ready.
+Wake Ready requires the exact occurrence to be scheduled/recoverable **and** the platform capabilities needed to expose the active wake to the user: alarm notifications, an alarm notification channel at the required high importance, and full-screen alarm access on Android versions that gate it. Audible-only emergency fallback is valuable but is not sufficient for Wake Ready.
+
+Optional microphone/on-device speech recognition, Alfred voice availability, Tomorrow Contract, calendar, weather, realtime AI, and cloud capabilities do not determine base Wake Ready. They are reported separately and may degrade without preventing the critical alarm/control path.
 
 ### Active Wake Execution
 

@@ -62,7 +62,17 @@ class AlarmKernelInstrumentedTest {
         val committed = kernel.commitSchedule(oneShotSchedule("cancel"))
         val primary = requireNotNull(committed.nextOccurrence)
         registeredIds += primary.id
-        assertTrue(committed.ready)
+
+        // This test runs on a clean CI emulator where notification/full-screen special access is
+        // intentionally not guaranteed. Wake Ready must therefore match the real device
+        // capabilities rather than assuming that exact registration alone is sufficient.
+        assertEquals(
+            committed.exactAlarmAllowed &&
+                committed.notificationsAllowed &&
+                committed.notificationChannelHighImportance &&
+                committed.fullScreenIntentAllowed,
+            committed.ready,
+        )
 
         kernel.cancelSchedule()
 
