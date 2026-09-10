@@ -11,7 +11,23 @@ class AlarmReconcileReceiver : BroadcastReceiver() {
         val trackedOccurrence = before.nextOccurrence ?: before.activeOccurrence
         val afterBoot = intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
-        val after = kernel.reconcile(afterBoot = afterBoot)
+        var after = kernel.reconcile(afterBoot = afterBoot)
+
+        // Permissions/special access can change after a schedule was created. Never preserve an
+        // occurrence that would later be able to start critical audio without reachable controls.
+        if (
+            (after.nextOccurrence != null || after.activeOccurrence != null) &&
+            after.repairTarget() != AlarmRepairTarget.NONE
+        ) {
+            val hadActiveExecution = after.activeOccurrence != null
+            kernel.cancelSchedule()
+            if (hadActiveExecution) {
+                // cancelSchedule() invalidates durable authority first; stopping the component then
+                // releases any currently playing MediaPlayer/ToneGenerator immediately.
+                context.stopService(Intent(context, AlarmPlaybackService::class.java))
+            }
+            after = kernel.health()
+        }
 
         trackedOccurrence?.let { occurrence ->
             WakeTimingTrace(context).reconciled(

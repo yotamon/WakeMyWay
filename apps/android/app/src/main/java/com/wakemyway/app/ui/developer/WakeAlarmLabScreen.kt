@@ -1,12 +1,6 @@
 package com.wakemyway.app.ui.developer
 
-import android.Manifest
 import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -17,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.TimingSnapshot
@@ -33,7 +29,9 @@ import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.character.AlfredCharacterLab
 import com.wakemyway.app.preparation.TomorrowContractLab
 import com.wakemyway.app.ui.components.WmwSecondaryAction
+import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.theme.WmwColors
+import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -44,6 +42,10 @@ import java.time.ZonedDateTime
 fun WakeAlarmLabScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    voiceWakeReadiness: VoiceWakeReadiness? = null,
+    readinessRevision: Int = 0,
+    onRepairWakeSystem: () -> Unit = {},
+    onEnableVoiceReplies: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val kernel = remember { AlarmKernel(context) }
@@ -52,13 +54,13 @@ fun WakeAlarmLabScreen(
     var history by remember { mutableStateOf(timingTrace.history(HISTORY_LIMIT)) }
     var message by remember { mutableStateOf<String?>(null) }
 
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) {
-        health = kernel.health()
+    LaunchedEffect(readinessRevision, voiceWakeReadiness) {
+        health = kernel.reconcile()
         recordCapabilities(timingTrace, health)
         history = timingTrace.history(HISTORY_LIMIT)
     }
+
+    val blocker = wakeSchedulingBlocker(health, voiceWakeReadiness)
 
     Column(
         modifier = modifier
@@ -86,21 +88,64 @@ fun WakeAlarmLabScreen(
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "Local founder diagnostics. No private wake context is recorded.",
+            text = "This lab uses the same preflight as production. It cannot arm an unsafe Voice Wake.",
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
 
         Text(
             modifier = Modifier.padding(top = 28.dp),
-            text = if (health.ready) "Wake Ready" else "Wake not ready",
+            text = if (blocker == WakeSchedulingBlocker.NONE) {
+                "Voice Wake preflight ready"
+            } else {
+                "Voice Wake preflight blocked"
+            },
             style = MaterialTheme.typography.headlineSmall,
         )
-        HealthFacts(health)
+        HealthFacts(health, voiceWakeReadiness)
+
+        when (blocker) {
+            WakeSchedulingBlocker.ALARM_SYSTEM -> {
+                OutlinedButton(
+                    modifier = Modifier.padding(top = 14.dp),
+                    onClick = onRepairWakeSystem,
+                ) {
+                    Text("Repair next alarm prerequisite")
+                }
+            }
+
+            WakeSchedulingBlocker.VOICE_PERMISSION -> {
+                OutlinedButton(
+                    modifier = Modifier.padding(top = 14.dp),
+                    onClick = onEnableVoiceReplies,
+                ) {
+                    Text("Enable microphone for voice replies")
+                }
+            }
+
+            WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
+                Text(
+                    modifier = Modifier.padding(top = 14.dp),
+                    text = "On-device speech recognition is unavailable. This build will not arm a Voice Wake silently without it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+
+            WakeSchedulingBlocker.NONE -> Unit
+        }
 
         Button(
             modifier = Modifier.padding(top = 24.dp),
             onClick = {
+                // Re-evaluate immediately before commit. UI state is never authority for safety.
+                val currentHealth = kernel.health()
+                if (wakeSchedulingBlocker(currentHealth, voiceWakeReadiness) != WakeSchedulingBlocker.NONE) {
+                    health = currentHealth
+                    message = "Preflight changed. Repair required before the lab can schedule."
+                    return@Button
+                }
+
                 runCatching { kernel.commitSchedule(founderTestSchedule()) }
                     .onSuccess { committedHealth ->
                         health = committedHealth
@@ -113,14 +158,14 @@ fun WakeAlarmLabScreen(
                         }
                         recordCapabilities(timingTrace, committedHealth)
                         history = timingTrace.history(HISTORY_LIMIT)
-                        message = "One-shot lab wake scheduled for about 2 minutes from now. Lock the phone."
+                        message = "One-shot production-path wake scheduled for about 2 minutes from now. Lock the phone."
                     }
                     .onFailure {
                         health = kernel.health()
                         message = "Could not schedule: ${it.message ?: it::class.simpleName}"
                     }
             },
-            enabled = health.exactAlarmAllowed,
+            enabled = blocker == WakeSchedulingBlocker.NONE,
         ) {
             Text("Run one-shot T+2m wake")
         }
@@ -168,31 +213,6 @@ fun WakeAlarmLabScreen(
             Text("Clear lab history")
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !health.notificationsAllowed) {
-            OutlinedButton(
-                modifier = Modifier.padding(top = 10.dp),
-                onClick = { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) },
-            ) {
-                Text("Allow alarm notifications")
-            }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !health.fullScreenIntentAllowed) {
-            OutlinedButton(
-                modifier = Modifier.padding(top = 10.dp),
-                onClick = {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
-                            Uri.parse("package:${context.packageName}"),
-                        ),
-                    )
-                },
-            ) {
-                Text("Allow full-screen alarms")
-            }
-        }
-
         message?.let {
             Text(
                 modifier = Modifier.padding(top = 18.dp),
@@ -230,7 +250,10 @@ fun WakeAlarmLabScreen(
 }
 
 @Composable
-private fun HealthFacts(health: AlarmHealth) {
+private fun HealthFacts(
+    health: AlarmHealth,
+    voiceWakeReadiness: VoiceWakeReadiness?,
+) {
     Text(
         modifier = Modifier.padding(top = 10.dp),
         text = health.detail,
@@ -239,7 +262,17 @@ private fun HealthFacts(health: AlarmHealth) {
     )
     Text(
         modifier = Modifier.padding(top = 8.dp),
-        text = "Exact alarm: ${yesNo(health.exactAlarmAllowed)}  ·  Notifications: ${yesNo(health.notificationsAllowed)}  ·  Full screen: ${yesNo(health.fullScreenIntentAllowed)}",
+        text = buildString {
+            append("Exact alarm: ${yesNo(health.exactAlarmAllowed)}")
+            append("  ·  Notifications: ${yesNo(health.notificationsAllowed)}")
+            append("  ·  HIGH channel: ${yesNo(health.notificationChannelHighImportance)}")
+            append("  ·  Full screen: ${yesNo(health.fullScreenIntentAllowed)}")
+        },
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Text(
+        modifier = Modifier.padding(top = 4.dp),
+        text = "Voice replies: ${voiceWakeReadiness?.name?.lowercase() ?: "unknown"}",
         style = MaterialTheme.typography.bodySmall,
     )
     health.nextOccurrence?.let {

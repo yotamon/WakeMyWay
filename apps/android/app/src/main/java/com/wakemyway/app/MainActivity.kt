@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
                     voiceWakeReadiness = voiceWakeReadiness,
                     onEnableVoiceReplies = ::beginVoicePermissionSetup,
                     wakeSystemRevision = wakeSystemRevision,
-                    onRepairWakeSystem = ::repairWakeSystem,
+                    onRepairWakeSystem = ::repairNextWakePrerequisite,
                 )
 
                 if (showNotificationPermissionPrimer) {
@@ -127,25 +127,44 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshProductReadiness()
-        resumeActiveWakeIfNeeded()
+        recoverOrResumeActiveWake()
     }
 
     private fun refreshProductReadiness() {
         refreshVoiceWakeReadiness()
-        alarmKernel.reconcile()
+        val health = alarmKernel.reconcile()
+
+        // Schedules created by older builds, or schedules whose permissions were later revoked,
+        // must not survive as future uncontrollable alarms. Voice Wake is the product contract for
+        // this build, so microphone/on-device recognition is part of pre-scheduling readiness too.
+        if (
+            health.nextOccurrence != null &&
+            wakeSchedulingBlocker(health, voiceWakeReadiness) != WakeSchedulingBlocker.NONE
+        ) {
+            alarmKernel.cancelSchedule()
+        }
+
         wakeSystemRevision++
     }
 
     /**
-     * Last-resort user recovery path.
+     * Opening the app during an active alarm is always a recovery action.
      *
-     * Full-screen intents are the correct background alarm mechanism. If Android/OEM presentation
-     * access is nevertheless missing, opening Wake My Way manually while an occurrence is active
-     * must never strand the user on Tonight with an unstoppable alarm. Because MainActivity is now
-     * foreground, it can safely hand the active occurrence to the real WakeActivity.
+     * If critical presentation access has disappeared, clear durable authority and stop the service
+     * component directly. Do not route through the normal recurring Stop path because an unsafe wake
+     * must not create a replacement occurrence. If presentation is healthy, continue into the real
+     * WakeActivity as the normal foreground rescue path.
      */
-    private fun resumeActiveWakeIfNeeded() {
-        val active = alarmKernel.activeOccurrence() ?: return
+    private fun recoverOrResumeActiveWake() {
+        val health = alarmKernel.health()
+        val active = health.activeOccurrence ?: return
+
+        if (health.repairTarget() != AlarmRepairTarget.NONE) {
+            alarmKernel.cancelSchedule()
+            stopService(Intent(this, AlarmPlaybackService::class.java))
+            return
+        }
+
         startActivity(
             Intent(this, WakeActivity::class.java)
                 .setData(
@@ -160,13 +179,23 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun repairWakeSystem() {
+    /**
+     * Repairs exactly one prerequisite per user action. Repeated Save attempts naturally walk the
+     * user through the required Android special-access/runtime-permission sequence without ever
+     * committing an alarm before the sequence is complete.
+     */
+    private fun repairNextWakePrerequisite() {
         when (alarmKernel.health().repairTarget()) {
             AlarmRepairTarget.EXACT_ALARM -> openAppDetailsSettings()
             AlarmRepairTarget.NOTIFICATIONS -> beginNotificationPermissionSetup()
             AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> openActiveWakeChannelSettings()
             AlarmRepairTarget.FULL_SCREEN_INTENT -> openFullScreenAlarmSettings()
-            AlarmRepairTarget.NONE -> Unit
+            AlarmRepairTarget.NONE -> when (voiceWakeReadiness) {
+                VoiceWakeReadiness.SETUP_REQUIRED -> beginVoicePermissionSetup()
+                VoiceWakeReadiness.READY,
+                VoiceWakeReadiness.UNAVAILABLE,
+                -> Unit
+            }
         }
     }
 
