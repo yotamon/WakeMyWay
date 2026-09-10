@@ -1,6 +1,6 @@
 # D3 product setup — Wake Schedule + Tomorrow Contract
 
-**Status:** implementation in PR #32  
+**Status:** merged in PR #32  
 **Track:** Adaptive Dawn product-design track, parallel to the M7/M8 behavioral roadmap  
 **Authority:** Alarm Kernel remains the only owner of durable wake scheduling and exact Android registration
 
@@ -158,7 +158,7 @@ Turning the schedule off also clears the occurrence-bound Tomorrow Contract best
 
 ## Reliability boundary
 
-This work must not change the trust-critical chain:
+This work does not change the trust-critical chain:
 
 ```text
 AlarmManager trigger
@@ -183,7 +183,7 @@ The Alarm Kernel instrumentation suite adds coverage that:
 
 Existing cancellation, stale-trigger and snooze-chain instrumentation remains unchanged.
 
-PR acceptance still requires:
+PR #32 passed before merge:
 
 - docs validation;
 - `wake-core` tests;
@@ -191,6 +191,8 @@ PR acceptance still requires:
 - instrumentation compilation;
 - debug APK assembly;
 - API-36 reliability instrumentation.
+
+The first full lint pass found seven Compose configuration-awareness errors in the new setup/private-context UI. They were fixed using observable `LocalConfiguration` / `stringResource` access; no lint baseline or suppression was added.
 
 ## Remaining D3 work after this slice
 
