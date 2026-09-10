@@ -6,7 +6,6 @@
     <string name="tonight_redesign_ready_status">Wake Ready</string>
     <string name="tonight_redesign_attention_status">Check wake</string>
     <string name="tonight_redesign_alfred_name">Alfred</string>
-    <string name="tonight_redesign_alfred_role">Default character</string>
     <string name="tonight_redesign_alfred_ready">Everything critical is set on this device.</string>
     <string name="tonight_redesign_alfred_attention">Your next wake needs one quick check.</string>
     <string name="tonight_redesign_alfred_empty">Ready when you are.</string>
@@ -15,6 +14,7 @@
     <string name="tonight_redesign_row_context">Private context</string>
     <string name="tonight_redesign_row_system">Wake system</string>
     <string name="tonight_redesign_context_prepared">Prepared locally</string>
+    <string name="tonight_redesign_context_needs_preparation">Needs preparation</string>
     <string name="tonight_redesign_context_optional">Optional</string>
     <string name="tonight_redesign_system_ready">Ready</string>
     <string name="tonight_redesign_system_attention">Needs attention</string>
