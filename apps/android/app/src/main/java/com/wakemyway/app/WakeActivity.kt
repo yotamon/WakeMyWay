@@ -129,11 +129,12 @@ class WakeActivity : ComponentActivity() {
 }
 
 @Composable
-private fun WakeSurface(
+internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
     onSnooze: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
+    displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
 ) {
     WmwCircadianSurface(
         stage = WmwCircadianStage.EMERGING,
@@ -149,7 +150,7 @@ private fun WakeSurface(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             WmwTimeDisplay(
-                time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+                time = displayTime,
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
@@ -240,6 +241,7 @@ private fun WakeEmergingPreview() {
             preparedPlan = null,
             onSnooze = {},
             onStop = {},
+            displayTime = "08:00",
         )
     }
 }
