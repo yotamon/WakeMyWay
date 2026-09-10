@@ -16,6 +16,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.wakemyway.app.R
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.alarm.AlarmRepairTarget
+import com.wakemyway.app.alarm.repairTarget
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
@@ -214,22 +216,22 @@ private fun AlarmHealth.toTonightUiState(
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE · MMM d", locale)
+    val target = if (occurrence != null && !ready) repairTarget() else AlarmRepairTarget.NONE
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
         ready -> context.getString(R.string.tonight_readiness_ready)
-        !exactAlarmAllowed -> context.getString(R.string.tonight_readiness_exact_alarm)
-        !notificationsAllowed -> context.getString(R.string.tonight_readiness_notifications)
-        !notificationChannelHighImportance -> context.getString(R.string.tonight_readiness_channel)
-        !fullScreenIntentAllowed -> context.getString(R.string.tonight_readiness_full_screen)
+        target == AlarmRepairTarget.EXACT_ALARM -> context.getString(R.string.tonight_readiness_exact_alarm)
+        target == AlarmRepairTarget.NOTIFICATIONS -> context.getString(R.string.tonight_readiness_notifications)
+        target == AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> context.getString(R.string.tonight_readiness_channel)
+        target == AlarmRepairTarget.FULL_SCREEN_INTENT -> context.getString(R.string.tonight_readiness_full_screen)
         else -> context.getString(R.string.tonight_readiness_reconcile)
     }
-    val repairLabel = when {
-        occurrence == null || ready -> null
-        !exactAlarmAllowed -> context.getString(R.string.tonight_repair_alarm_access)
-        !notificationsAllowed -> context.getString(R.string.tonight_repair_notifications)
-        !notificationChannelHighImportance -> context.getString(R.string.tonight_repair_channel)
-        !fullScreenIntentAllowed -> context.getString(R.string.tonight_repair_full_screen)
-        else -> null
+    val repairLabel = when (target) {
+        AlarmRepairTarget.EXACT_ALARM -> context.getString(R.string.tonight_repair_alarm_access)
+        AlarmRepairTarget.NOTIFICATIONS -> context.getString(R.string.tonight_repair_notifications)
+        AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> context.getString(R.string.tonight_repair_channel)
+        AlarmRepairTarget.FULL_SCREEN_INTENT -> context.getString(R.string.tonight_repair_full_screen)
+        AlarmRepairTarget.NONE -> null
     }
 
     return TonightUiState(
