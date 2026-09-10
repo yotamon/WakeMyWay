@@ -26,7 +26,9 @@ import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.AlarmPresentationAccess
+import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.WakeTimingTrace
+import com.wakemyway.app.alarm.repairTarget
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.navigation.WakeMyWayApp
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
@@ -159,12 +161,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun repairWakeSystem() {
-        val health = alarmKernel.health()
-        when {
-            !health.notificationsAllowed -> beginNotificationPermissionSetup()
-            !health.notificationChannelHighImportance -> openActiveWakeChannelSettings()
-            !health.fullScreenIntentAllowed -> openFullScreenAlarmSettings()
-            !health.exactAlarmAllowed -> openAppDetailsSettings()
+        when (alarmKernel.health().repairTarget()) {
+            AlarmRepairTarget.EXACT_ALARM -> openAppDetailsSettings()
+            AlarmRepairTarget.NOTIFICATIONS -> beginNotificationPermissionSetup()
+            AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> openActiveWakeChannelSettings()
+            AlarmRepairTarget.FULL_SCREEN_INTENT -> openFullScreenAlarmSettings()
+            AlarmRepairTarget.NONE -> Unit
         }
     }
 
