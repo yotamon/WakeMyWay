@@ -18,10 +18,33 @@
     <string name="tonight_readiness_ready">Scheduled locally and ready for tomorrow.</string>
     <string name="tonight_readiness_attention">One system setting needs attention before tomorrow is Wake Ready.</string>
     <string name="tonight_readiness_empty">Set a wake time to prepare tomorrow.</string>
+    <string name="tonight_set_wake">Set wake time</string>
+    <string name="tonight_edit_wake">Edit wake plan</string>
     <string name="tonight_open_lab">Open Wake Lab</string>
-    <string name="tonight_lab_note">Founder diagnostics remain available while the production setup flow is being built.</string>
+    <string name="tonight_lab_note">Founder diagnostics stay separate from the everyday wake experience.</string>
     <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
     <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan</string>
+
+    <string name="setup_back">Back</string>
+    <string name="setup_local_badge">Local wake</string>
+    <string name="setup_title">Set your wake</string>
+    <string name="setup_subtitle">Choose when you want to get up. Wake My Way turns this into the next exact local wake occurrence.</string>
+    <string name="setup_pattern_label">Schedule pattern</string>
+    <string name="setup_just_tomorrow">Just tomorrow</string>
+    <string name="setup_repeat_weekly">Repeat weekly</string>
+    <string name="setup_change_time">Change time</string>
+    <string name="setup_tomorrow_hint">This wake ends after tomorrow. Nothing repeats unless you choose it.</string>
+    <string name="setup_weekly_label">Active days and times</string>
+    <string name="setup_save_new">Make tomorrow ready</string>
+    <string name="setup_save_changes">Save wake plan</string>
+    <string name="setup_save_failed">The wake plan could not be saved. Your previous schedule is unchanged.</string>
+    <string name="setup_turn_off">Turn off wake schedule</string>
+    <string name="setup_reliability_note">The schedule and alarm are committed locally. Network and AI are not required for the alarm to fire.</string>
+    <string name="setup_disable_title">Turn off this wake schedule?</string>
+    <string name="setup_disable_body">No future Wake My Way occurrence will be scheduled until you create a new wake plan.</string>
+    <string name="setup_disable_confirm">Turn off</string>
+    <string name="setup_disable_cancel">Keep it</string>
+    <string name="setup_disable_failed">The schedule could not be turned off.</string>
 
     <string name="wake_character_name">Alfred</string>
     <string name="wake_presence_description">Wake My Way alarm is active</string>
