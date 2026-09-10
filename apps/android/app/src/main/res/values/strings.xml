@@ -51,7 +51,7 @@
     <string name="setup_disable_body">No future Wake My Way occurrence will be scheduled until you create a new wake plan.</string>
     <string name="setup_disable_confirm">Turn off</string>
     <string name="setup_disable_cancel">Keep it</string>
-    <string name="setup_disable_failed">The schedule could not be turned off.</string>
+    <string name="setup_disable_failed">The wake schedule could not be turned off.</string>
 
     <string name="tomorrow_plan_back">Back</string>
     <string name="tomorrow_plan_private_badge">Private · local</string>
@@ -75,12 +75,26 @@
     <string name="tomorrow_plan_clear_cancel">Keep it</string>
     <string name="tomorrow_plan_cleared">Private morning context cleared.</string>
 
+    <string name="voice_permission_title">Let Alfred hear your reply?</string>
+    <string name="voice_permission_body">Wake My Way can listen for short spoken answers during an active wake. Recognition stays on-device, and raw audio or transcripts are not saved.</string>
+    <string name="voice_permission_enable">Enable voice replies</string>
+    <string name="voice_permission_not_now">Not now</string>
+
     <string name="wake_character_name">Alfred</string>
     <string name="wake_presence_description">Wake My Way alarm is active</string>
     <string name="wake_default_greeting">Morning.</string>
     <string name="wake_default_instruction">Just get upright first.</string>
     <string name="wake_private_context_locked">Unlock for private morning context, if available.</string>
     <string name="wake_private_context_ready">Prepared locally. No network required.</string>
+    <string name="wake_voice_starting">Preparing your wake conversation</string>
+    <string name="wake_voice_speaking">Alfred is speaking</string>
+    <string name="wake_voice_listening">Listening for your reply</string>
+    <string name="wake_voice_moving">Good. Keep moving.</string>
+    <string name="wake_voice_orienting">Almost there</string>
+    <string name="wake_voice_degraded">Voice reply unavailable · keep moving</string>
+    <string name="wake_voice_complete">Morning started</string>
+    <string name="wake_voice_answer_prompt">Answer out loud. A real reply is part of this wake.</string>
+    <string name="wake_voice_privacy_note">Voice replies are recognized on-device. Audio and transcripts are not saved.</string>
     <string name="wake_snooze_five">I need five more minutes</string>
     <string name="wake_stop_alarm">Stop alarm</string>
 </resources>
