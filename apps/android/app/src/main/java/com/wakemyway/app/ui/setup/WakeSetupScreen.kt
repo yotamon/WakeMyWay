@@ -63,6 +63,7 @@ private enum class WakeSetupMode {
 data class WakeSetupCommitResult(
     val committed: Boolean,
     val detail: String? = null,
+    val wakeReady: Boolean = true,
 )
 
 @Composable
@@ -72,6 +73,7 @@ fun WakeSetupScreen(
     onCommit: (WakeSchedule) -> WakeSetupCommitResult,
     onDisable: () -> WakeSetupCommitResult,
     modifier: Modifier = Modifier,
+    onWakeAccessRequired: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
@@ -279,6 +281,9 @@ fun WakeSetupScreen(
                         .getOrElse { WakeSetupCommitResult(false, it.message) }
                     if (result.committed) {
                         onBack()
+                        if (!result.wakeReady) {
+                            onWakeAccessRequired()
+                        }
                     } else {
                         errorMessage = result.detail ?: saveFailedCopy
                     }
