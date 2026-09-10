@@ -82,12 +82,12 @@ class WakeActivity : ComponentActivity() {
                 WakeSurface(
                     preparedPlan = preparedPlan,
                     onSnooze = {
-                        voiceController?.close()
+                        voiceController?.closeForTerminalAction()
                         AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
                     onStop = {
-                        voiceController?.close()
+                        voiceController?.closeForTerminalAction()
                         AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
