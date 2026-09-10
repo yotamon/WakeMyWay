@@ -41,6 +41,7 @@ data class TonightUiState(
     val hasOccurrence: Boolean,
     val wakeReady: Boolean,
     val readinessDetail: String,
+    val wakeRepairActionLabel: String? = null,
     val hasTomorrowContract: Boolean,
     val tomorrowContractPrepared: Boolean,
 )
@@ -61,6 +62,7 @@ fun TonightScreen(
     showDeveloperTools: Boolean = false,
     voiceWakeReadiness: VoiceWakeReadiness? = null,
     onEnableVoiceReplies: () -> Unit = {},
+    onRepairWakeSystem: () -> Unit = {},
 ) {
     WmwCircadianSurface(
         stage = WmwCircadianStage.ENGAGED,
@@ -154,6 +156,43 @@ fun TonightScreen(
             )
 
             WmwCard(modifier = Modifier.padding(top = WmwSpacing.Lg)) {
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tonight_section_wake_system),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.MorningPaper,
+                        )
+                        WmwStatusPill(
+                            label = stringResource(
+                                if (state.wakeReady) {
+                                    R.string.tonight_wake_ready
+                                } else {
+                                    R.string.tonight_wake_not_ready
+                                },
+                            ),
+                            positive = state.wakeReady,
+                        )
+                    }
+                    Text(
+                        text = state.readinessDetail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.QuietText,
+                    )
+                    state.wakeRepairActionLabel?.let { repairLabel ->
+                        WmwPrimaryAction(
+                            label = repairLabel,
+                            onClick = onRepairWakeSystem,
+                        )
+                    }
+                }
+            }
+
+            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
                     Text(
                         text = stringResource(R.string.tonight_section_tomorrow),
@@ -208,37 +247,6 @@ fun TonightScreen(
                             color = WmwColors.QuietText,
                         )
                     }
-                }
-            }
-
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.tonight_section_wake_system),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = WmwColors.MorningPaper,
-                        )
-                        WmwStatusPill(
-                            label = stringResource(
-                                if (state.wakeReady) {
-                                    R.string.tonight_wake_ready
-                                } else {
-                                    R.string.tonight_wake_not_ready
-                                },
-                            ),
-                            positive = state.wakeReady,
-                        )
-                    }
-                    Text(
-                        text = state.readinessDetail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = WmwColors.QuietText,
-                    )
                 }
             }
 
@@ -356,21 +364,22 @@ private fun TonightReadyPreview() {
 }
 
 @Preview(
-    name = "Tonight empty",
+    name = "Tonight needs wake access",
     widthDp = 393,
     heightDp = 852,
     showBackground = true,
 )
 @Composable
-private fun TonightEmptyPreview() {
+private fun TonightNeedsWakeAccessPreview() {
     WakeMyWayTheme {
         TonightScreen(
             state = TonightUiState(
-                wakeTime = "--:--",
-                dateLabel = "Tomorrow",
-                hasOccurrence = false,
+                wakeTime = "08:00",
+                dateLabel = "Thursday · Sep 10",
+                hasOccurrence = true,
                 wakeReady = false,
-                readinessDetail = "Create a wake plan before calling tomorrow ready.",
+                readinessDetail = "Allow full-screen alarms so Wake My Way can open the wake screen when your phone is locked.",
+                wakeRepairActionLabel = "Allow full-screen alarms",
                 hasTomorrowContract = false,
                 tomorrowContractPrepared = false,
             ),
