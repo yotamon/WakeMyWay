@@ -11,6 +11,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.wakemyway.app.BuildConfig
 import com.wakemyway.app.R
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
@@ -26,9 +27,9 @@ import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.core.schedule.WakeOccurrence
-import kotlinx.serialization.Serializable
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.serialization.Serializable
 
 @Serializable
 private data object TonightRoute : NavKey
@@ -71,6 +72,7 @@ fun WakeMyWayApp() {
                         alarmHealth = alarmKernel.reconcile()
                         backStack.add(WakeLabRoute)
                     },
+                    showDeveloperTools = BuildConfig.DEBUG,
                 )
             }
             entry<WakeSetupRoute> {
