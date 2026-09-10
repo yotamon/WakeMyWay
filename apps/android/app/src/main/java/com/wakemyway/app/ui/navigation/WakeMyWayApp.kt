@@ -3,6 +3,7 @@ package com.wakemyway.app.ui.navigation
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,8 @@ private data object WakeLabRoute : NavKey
 fun WakeMyWayApp(
     voiceWakeReadiness: VoiceWakeReadiness? = null,
     onEnableVoiceReplies: () -> Unit = {},
+    wakeSystemRevision: Int = 0,
+    onRepairWakeSystem: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val alarmKernel = remember { AlarmKernel(context) }
@@ -57,6 +60,12 @@ fun WakeMyWayApp(
     }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     val backStack = rememberNavBackStack(TonightRoute)
+
+    // Returning from Android permission/special-access settings must immediately refresh the
+    // product truth. MainActivity bumps this revision on resume and after runtime permission results.
+    LaunchedEffect(wakeSystemRevision) {
+        alarmHealth = alarmKernel.reconcile()
+    }
 
     NavDisplay(
         backStack = backStack,
@@ -82,6 +91,7 @@ fun WakeMyWayApp(
                     showDeveloperTools = showDeveloperTools,
                     voiceWakeReadiness = voiceWakeReadiness,
                     onEnableVoiceReplies = onEnableVoiceReplies,
+                    onRepairWakeSystem = onRepairWakeSystem,
                 )
             }
             entry<WakeSetupRoute> {
@@ -203,7 +213,19 @@ private fun AlarmHealth.toTonightUiState(
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
         ready -> context.getString(R.string.tonight_readiness_ready)
-        else -> context.getString(R.string.tonight_readiness_attention)
+        !exactAlarmAllowed -> context.getString(R.string.tonight_readiness_exact_alarm)
+        !notificationsAllowed -> context.getString(R.string.tonight_readiness_notifications)
+        !notificationChannelHighImportance -> context.getString(R.string.tonight_readiness_channel)
+        !fullScreenIntentAllowed -> context.getString(R.string.tonight_readiness_full_screen)
+        else -> context.getString(R.string.tonight_readiness_reconcile)
+    }
+    val repairLabel = when {
+        occurrence == null || ready -> null
+        !exactAlarmAllowed -> context.getString(R.string.tonight_repair_alarm_access)
+        !notificationsAllowed -> context.getString(R.string.tonight_repair_notifications)
+        !notificationChannelHighImportance -> context.getString(R.string.tonight_repair_channel)
+        !fullScreenIntentAllowed -> context.getString(R.string.tonight_repair_full_screen)
+        else -> null
     }
 
     return TonightUiState(
@@ -213,6 +235,7 @@ private fun AlarmHealth.toTonightUiState(
         hasOccurrence = occurrence != null,
         wakeReady = ready,
         readinessDetail = readinessCopy,
+        wakeRepairActionLabel = repairLabel,
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
     )
