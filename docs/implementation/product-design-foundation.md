@@ -7,7 +7,7 @@
 
 ## Why this track exists
 
-Wake My Way has a mature product thesis and trust-critical Android architecture, but its current visible Android surfaces are intentionally founder/lab UI. The design track turns the existing product model into a coherent production interface without moving behavioral authority into presentation code.
+Wake My Way has a mature product thesis and trust-critical Android architecture, but its visible Android surfaces began as intentionally founder/lab UI. The design track turns the existing product model into a coherent production interface without moving behavioral authority into presentation code.
 
 The UI must make the product feel finished while preserving the core invariant:
 
@@ -17,14 +17,14 @@ The UI must make the product feel finished while preserving the core invariant:
 
 Before this track:
 
-- `MainActivity` is primarily a scrollable Wake Alarm Lab.
-- `WakeActivity` is a static time/text surface with basic Snooze and Stop buttons.
-- the theme defines a small dark Material color scheme but no complete type, shape, spacing, motion or component system.
-- product flows are already documented in `04-ux-psychology.md` and `05-ux-flows.md`.
-- brand direction is already documented in `06-brand.md`.
-- the canonical visual thesis in `07-design-system.md` is strong but is not yet represented as reusable Compose architecture.
+- `MainActivity` was primarily a scrollable Wake Alarm Lab.
+- `WakeActivity` was a static time/text surface with basic Snooze and Stop buttons.
+- the theme defined a small dark Material color scheme but no complete type, shape, spacing, motion or component system.
+- product flows were already documented in `04-ux-psychology.md` and `05-ux-flows.md`.
+- brand direction was already documented in `06-brand.md`.
+- the canonical visual thesis in `07-design-system.md` was strong but not yet represented as reusable Compose architecture.
 
-This is the correct moment to establish the design system before more product screens accumulate ad-hoc styling.
+The production design track was therefore established before more product screens accumulated ad-hoc styling.
 
 # Design thesis: Adaptive Dawn
 
@@ -216,7 +216,7 @@ Tonight / Ready
 └── Settings
 ```
 
-The founder Wake Alarm Lab remains available as an explicitly internal/developer surface. It must no longer define the product's visual home.
+The founder Wake Alarm Lab remains available as an explicitly internal/developer surface. It must no longer define the product's visual home. Product presentation hides founder affordances by default; debug builds expose them through Android's debuggable application flag.
 
 ## Wake session
 
@@ -313,18 +313,18 @@ A component is created only where repeated behavior/visual semantics justify it.
 
 Dependency adoption follows `09-stack-and-dependencies.md`: add by current leverage, not by wishlist.
 
-## Adopt now
+## Adopted now
 
 ### Navigation 3 `1.1.7`
 
 Official stable AndroidX release as of 2026-08-26.
 
-Why now:
+Why adopted:
 
-- the product now has real normal-app destinations.
+- the product has real normal-app destinations.
 - it gives Compose-first back-stack ownership.
 - it keeps `WakeActivity` explicitly outside normal navigation.
-- it creates a clean route from current founder UI to product Home, setup, history and settings.
+- it creates a clean route from founder tooling to product Home, setup, history and settings.
 
 Use only the core runtime/UI artifacts initially. Do not add adaptive navigation/ViewModel add-ons until a screen earns them.
 
@@ -332,33 +332,28 @@ Use only the core runtime/UI artifacts initially. Do not add adaptive navigation
 
 Official stable release.
 
-Why now:
+Why adopted:
 
 - provides substantial leverage for the signature WMW Presence.
 - keeps shape/morph rendering native and local.
 - does not become behavioral authority or alarm-critical execution.
 
+### Roborazzi `1.74.0` + Robolectric `4.16.1`
+
+Adopted in D2 after the canonical Adaptive Dawn surfaces were stable enough to deserve a pixel contract.
+
+The gate is deliberately curated rather than using automatic Preview Scanner coverage. The initial reviewed baselines protect:
+
+- Tonight Ready;
+- Tonight Empty;
+- Wake Setup Weekly;
+- Wake Emerging.
+
+Normal CI runs `verifyRoborazziDebug` with repository `contents: read` permission. Baselines are synthetic and manually reviewed before update. See [`d2-visual-regression.md`](d2-visual-regression.md) for the canonical update procedure and privacy contract.
+
+Future large-font, narrow-screen, RTL and reduced-motion fixtures belong to deliberate D7 coverage rather than automatic baseline expansion.
+
 ## Planned, not blindly installed
-
-### Roborazzi
-
-Preferred visual-regression tool once canonical previews/screens are established.
-
-Why not make the plugin itself a prerequisite for the first visual commit:
-
-- trusted goldens need stable canonical preview states first.
-- the first design slice should establish those preview surfaces.
-- once baselines exist, add Roborazzi and make selected previews CI-protected.
-
-Target coverage:
-
-- Tonight/default
-- Tonight/not-ready
-- Wake Emerging
-- Wake with private prepared context
-- large font
-- narrow phone
-- reduced-motion/static states where meaningful
 
 ### Vico
 
@@ -414,13 +409,17 @@ Required from the first production components:
 
 ## D0 — Design foundation
 
-- finalize tokens and visual architecture.
-- establish semantic Compose components.
-- add canonical previews.
-- establish normal-app route architecture.
-- preserve the Lab as internal tooling.
+**Implemented in PR #30.**
+
+- finalized initial tokens and visual architecture.
+- established semantic Compose components.
+- added canonical previews.
+- established normal-app route architecture.
+- preserved the Lab as internal tooling.
 
 ## D1 — Tonight product home
+
+**Implemented in PR #30 and extended by PR #32.**
 
 - polished real-data projection of next Wake Occurrence and Wake Ready.
 - empty/not-ready/ready states.
@@ -429,18 +428,36 @@ Required from the first production components:
 
 ## D2 — Visual regression gate
 
-- add Roborazzi after canonical previews settle.
-- record selected synthetic goldens.
-- CI verify selected surfaces.
+**Implemented in PR #34.**
+
+- Roborazzi/Robolectric test-only visual infrastructure.
+- four deliberately reviewed synthetic goldens.
+- read-only CI verification for selected surfaces.
+- diagnostics artifact on verification runs.
+- no automatic baseline recording in normal CI.
+
+Canonical detail: [`d2-visual-regression.md`](d2-visual-regression.md).
 
 ## D3 — Setup experience
 
-- wake-time editor.
-- wake difficulty.
-- character selection.
-- Tomorrow Contract.
-- permissions/readiness repair.
+**Partially implemented in PR #32.**
+
+Implemented:
+
+- real wake-time editor;
+- one-shot and recurring weekly schedule modes;
+- independent weekday times;
+- Tomorrow Contract product flow;
+- local Wake Readiness projection.
+
+Still gated on real durable ownership/evidence rather than placeholder controls:
+
+- wake difficulty/intensity selection;
+- character selection;
+- consumer-facing permissions/readiness repair;
 - optional Safety Backup only if product evidence still supports it.
+
+Canonical detail: [`d3-product-setup.md`](d3-product-setup.md).
 
 ## D4 — Wake experience
 
@@ -487,13 +504,14 @@ Required from the first production components:
 The first implementation slice is accepted only when:
 
 - `MainActivity` presents a product shell rather than defaulting to the diagnostics feed.
-- Wake Alarm Lab remains reachable and behaviorally intact.
+- Wake Alarm Lab remains reachable and behaviorally intact in developer/debug surfaces.
 - `WakeActivity` is visually rebuilt without changing Alarm Kernel ownership of playback/Stop/Snooze.
 - color, type, spacing, shapes and motion values are centralized.
 - signature WMW Presence uses native local geometry.
 - new product-facing text is resource-backed rather than hard-coded in Compose.
 - navigation is Compose-first and `WakeActivity` is not a normal destination.
 - canonical previews exist for major new components/screens.
+- selected stable surfaces are protected by curated read-only visual-regression CI.
 - no network/cloud/image dependency is introduced for rendering.
 - CI compile/lint/tests remain green.
 
