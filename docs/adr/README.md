@@ -23,3 +23,4 @@ ADRs preserve durable engineering constraints. Canonical terminology lives in [`
 | [`017`](017-local-production-voice-wake.md) | Production wake uses local TTS + on-device voice replies behind deterministic Wake Runtime, with service-owned fail-safe alarm ducking |
 | [`018`](018-controllable-wake-presentation-readiness.md) | Wake Ready requires controllable full-screen/notification presentation and modern Android BAL-safe launch |
 | [`019`](019-permission-gated-wake-scheduling.md) | Voice Wake schedules are committed only after required alarm and voice permissions are ready, with fire/restart safety rechecks |
+| [`020`](020-founder-realtime-pairing.md) | Founder Realtime uses fixed WakeMyWay backend routing plus scoped, expiring installation pairing; reusable server/OpenAI keys never enter Android |

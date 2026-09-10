@@ -1,11 +1,6 @@
+import { requireFounderRealtimeAuthorization } from '../../../src/founder-realtime-auth';
+import { errorResponse, json, methodNotAllowed, requestId } from '../../../src/http';
 import { createFounderWakeRealtimeClientSecret } from '../../../src/voice-spike/direct-openai';
-import {
-  errorResponse,
-  json,
-  methodNotAllowed,
-  requestId,
-  requireInternalAuthorization,
-} from '../../../src/http';
 
 export default {
   async fetch(request: Request): Promise<Response> {
@@ -13,7 +8,9 @@ export default {
     if (request.method !== 'POST') return methodNotAllowed(['POST'], id);
 
     try {
-      requireInternalAuthorization(request);
+      // Existing internal bearer auth remains valid for diagnostics, while the founder app uses a
+      // scoped installation credential obtained through the explicit pairing flow.
+      requireFounderRealtimeAuthorization(request);
       const secret = await createFounderWakeRealtimeClientSecret();
       return json(
         {

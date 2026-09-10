@@ -1,11 +1,10 @@
 package com.wakemyway.app.voice
 
-import android.Manifest
 import android.app.AlertDialog
-import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Bundle
-import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
@@ -13,90 +12,71 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
-/** Debug-only founder lab for direct OpenAI WebRTC and conversational Wake setup. */
-class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener {
-    private lateinit var brokerUrlInput: EditText
-    private lateinit var operatorTokenInput: EditText
-    private lateinit var requestSpeechButton: Button
-    private lateinit var markAudibleButton: Button
-    private lateinit var statusView: TextView
-    private lateinit var metricView: TextView
-    private lateinit var eventView: TextView
+/**
+ * Founder-only conversational Alfred setup.
+ *
+ * Infrastructure URLs, OpenAI credentials and WMW internal bearer secrets are intentionally absent
+ * from this surface. The founder enters one access code once; the app exchanges it for an expiring
+ * installation credential and stores that credential encrypted with Android Keystore.
+ */
+class VoiceSpikeActivity : ComponentActivity() {
+    private lateinit var settings: FounderRealtimeSettings
+    private val pairingClient = FounderRealtimePairingClient()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "wmw-founder-pairing").apply { isDaemon = true }
+    }
 
-    private var pendingBrokerUrl: String? = null
-    private var pendingOperatorToken: String? = null
-    private lateinit var spike: DirectOpenAiWebRtcSpike
-    private lateinit var founderSettings: FounderRealtimeSettings
-    private val measurement = VoiceSpikeMeasurementSession()
+    private lateinit var statusPill: TextView
+    private lateinit var statusTitle: TextView
+    private lateinit var statusBody: TextView
+    private lateinit var codeInput: EditText
+    private lateinit var primaryButton: Button
+    private lateinit var disconnectButton: Button
+    private lateinit var progress: ProgressBar
 
-    private val microphonePermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                connectWithPendingValues()
-            } else {
-                clearPendingSecret()
-                onFailure("permission", "Microphone permission is required for the voice spike")
-            }
-        }
+    @Volatile
+    private var destroyed = false
+    private var serverReady = false
+    private var firstResume = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        spike = DirectOpenAiWebRtcSpike(applicationContext, this)
-        founderSettings = FounderRealtimeSettings(applicationContext)
+        settings = FounderRealtimeSettings(applicationContext)
         setContentView(buildContent())
-        renderMeasurement()
-        founderSettings.load()?.let { saved ->
-            brokerUrlInput.setText(saved.brokerUrl)
-            statusView.text = "Conversational Wake is configured for founder dogfood. The token remains encrypted and hidden."
-        }
     }
 
-    override fun onStop() {
-        super.onStop()
-        spike.disconnect()
-        operatorTokenInput.text?.clear()
-        clearPendingSecret()
-        resetMeasurementUi()
+    override fun onResume() {
+        super.onResume()
+        if (!firstResume && settings.configured()) {
+            // Returning to the screen after another foreground transition should refresh the
+            // server truth, but do not create duplicate startup requests from onCreate + onResume.
+            refreshState()
+            return
+        }
+        firstResume = false
+        refreshState()
     }
 
     override fun onDestroy() {
-        spike.close()
+        destroyed = true
+        executor.shutdownNow()
         super.onDestroy()
-    }
-
-    override fun onStatus(status: String) {
-        statusView.text = status
-    }
-
-    override fun onConnected(coldConnectionMs: Long) {
-        measurement.recordColdConnection(coldConnectionMs)
-        requestSpeechButton.isEnabled = true
-        markAudibleButton.isEnabled = false
-        renderMeasurement()
-        statusView.text =
-            "Connected. For first-audible timing, stay quiet and request the fixed synthetic response."
-    }
-
-    override fun onServerEventType(type: String) {
-        eventView.text = "Last server event type: $type"
-    }
-
-    override fun onFailure(stage: String, message: String) {
-        statusView.text = "Failed at $stage: $message"
     }
 
     private fun buildContent(): ScrollView {
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(24), dp(24), dp(40))
+            setPadding(dp(28), dp(36), dp(28), dp(48))
         }
         scroll.addView(
             content,
@@ -107,242 +87,308 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
         )
 
         content.addView(TextView(this).apply {
-            text = "Realtime Founder Lab"
-            textSize = 24f
+            text = "Conversational Alfred"
+            textSize = 30f
             setTypeface(typeface, Typeface.BOLD)
         })
         content.addView(TextView(this).apply {
-            text =
-                "Configure live conversational Alfred for the debug founder Wake, or run the isolated synthetic WebRTC measurement. Alarm Kernel and Wake Runtime remain local authorities."
-            textSize = 15f
-            setPadding(0, dp(8), 0, dp(20))
+            text = "Natural, two-way morning conversation with the same local alarm safety underneath."
+            textSize = 16f
+            alpha = 0.75f
+            setPadding(0, dp(8), 0, dp(24))
         })
 
-        brokerUrlInput = EditText(this).apply {
-            hint = "https://…${FounderRealtimeSettings.FOUNDER_WAKE_PATH}"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setSingleLine(true)
+        statusPill = TextView(this).apply {
+            text = "CHECKING"
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
         }
-        content.addView(brokerUrlInput, matchWidth())
+        content.addView(statusPill)
 
-        operatorTokenInput = EditText(this).apply {
-            hint = "Internal founder bearer token"
+        statusTitle = TextView(this).apply {
+            text = "Checking Alfred…"
+            textSize = 22f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(8), 0, 0)
+        }
+        content.addView(statusTitle)
+
+        statusBody = TextView(this).apply {
+            textSize = 15f
+            alpha = 0.78f
+            setPadding(0, dp(6), 0, dp(18))
+        }
+        content.addView(statusBody)
+
+        progress = ProgressBar(this).apply {
+            isIndeterminate = true
+        }
+        content.addView(progress, wrapContent())
+
+        codeInput = EditText(this).apply {
+            hint = "Founder access code"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine(true)
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
         }
-        content.addView(operatorTokenInput, matchWidth())
+        content.addView(codeInput, matchWidth(topMargin = 18))
 
-        val saveWakeConversationButton = Button(this).apply {
-            text = "Enable conversational Wake"
-            setOnClickListener { requestSaveFounderWake() }
-        }
-        content.addView(saveWakeConversationButton, matchWidth(topMargin = 16))
-
-        val clearWakeConversationButton = Button(this).apply {
-            text = "Clear conversational Wake setup"
+        primaryButton = Button(this).apply {
+            text = "Connect Alfred"
+            isEnabled = false
             setOnClickListener {
-                founderSettings.clear()
-                operatorTokenInput.text?.clear()
-                statusView.text = "Conversational Wake configuration cleared. Local Alfred remains available."
+                if (settings.configured()) {
+                    verifyExistingConnection()
+                } else {
+                    requestPairingConsent()
+                }
             }
         }
-        content.addView(clearWakeConversationButton, matchWidth(topMargin = 8))
+        content.addView(primaryButton, matchWidth(topMargin = 12))
 
-        content.addView(TextView(this).apply {
-            text =
-                "Founder dogfood privacy: live microphone audio and model audio use the OpenAI Realtime API. WMW does not persist transcripts or audio and does not send Tomorrow Contract or prepared private context in this phase. API retention may still apply unless the OpenAI project has approved Zero Data Retention."
-            textSize = 13f
-            setPadding(0, dp(10), 0, dp(20))
-        })
-
-        val connectButton = Button(this).apply {
-            text = "Connect synthetic voice measurement"
-            setOnClickListener { requestConnect() }
-        }
-        content.addView(connectButton, matchWidth())
-
-        val disconnectButton = Button(this).apply {
-            text = "Disconnect measurement"
+        disconnectButton = Button(this).apply {
+            text = "Disconnect conversational Alfred"
+            visibility = View.GONE
             setOnClickListener {
-                spike.disconnect()
-                operatorTokenInput.text?.clear()
-                clearPendingSecret()
-                resetMeasurementUi()
-                statusView.text = "Synthetic measurement disconnected."
+                settings.clear()
+                codeInput.text?.clear()
+                refreshState()
             }
         }
         content.addView(disconnectButton, matchWidth(topMargin = 8))
 
-        statusView = TextView(this).apply {
-            text = "Idle."
-            textSize = 16f
-            setPadding(0, dp(24), 0, dp(8))
-        }
-        content.addView(statusView)
-
-        metricView = TextView(this).apply {
-            textSize = 15f
-        }
-        content.addView(metricView)
-
-        requestSpeechButton = Button(this).apply {
-            text = "1 · Request fixed synthetic response"
-            isEnabled = false
-            setOnClickListener { requestSyntheticFirstSpeechProbe() }
-        }
-        content.addView(requestSpeechButton, matchWidth(topMargin = 16))
-
-        markAudibleButton = Button(this).apply {
-            text = "2 · I heard the first syllable"
-            isEnabled = false
-            setOnClickListener { markFirstAudibleSpeech() }
-        }
-        content.addView(markAudibleButton, matchWidth(topMargin = 8))
-
         content.addView(TextView(this).apply {
-            text =
-                "The synthetic measurement remains non-sensitive and separate from the real Wake Session."
-            textSize = 13f
-            setPadding(0, dp(8), 0, dp(12))
+            text = "What stays local"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(30), 0, dp(6))
+        })
+        content.addView(TextView(this).apply {
+            text = "Alarm timing, critical alarm audio, Stop, Snooze, motion evidence and the decision that the wake is complete never depend on OpenAI or the network. If Realtime is unavailable, Alfred falls back to the local voice path."
+            textSize = 14f
+            alpha = 0.75f
         })
 
-        eventView = TextView(this).apply {
-            text = "Last server event type: none"
+        content.addView(TextView(this).apply {
+            text = "Privacy"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, dp(24), 0, dp(6))
+        })
+        content.addView(TextView(this).apply {
+            text = "During a conversational wake, live microphone audio and Alfred's generated audio use OpenAI Realtime. Wake My Way does not persist the audio or transcripts, and this founder build does not send Tomorrow Contract or prepared private context to Realtime."
             textSize = 14f
-            setPadding(0, dp(8), 0, dp(16))
-        }
-        content.addView(eventView)
+            alpha = 0.75f
+        })
 
+        val back = Button(this).apply {
+            text = "Back"
+            setOnClickListener { finish() }
+        }
+        content.addView(back, matchWidth(topMargin = 30))
         return scroll
     }
 
-    private fun requestSaveFounderWake() {
-        val brokerUrl = brokerUrlInput.text?.toString()?.trim().orEmpty()
-        val operatorToken = operatorTokenInput.text?.toString().orEmpty()
-        if (brokerUrl.isBlank() || operatorToken.isBlank()) {
-            statusView.text = "Founder wake broker endpoint and bearer token are required."
+    private fun refreshState() {
+        showLoading("Checking Alfred…", "Verifying the WakeMyWay Realtime service.")
+        executor.execute {
+            val result = runCatching { pairingClient.status() }
+            mainHandler.post {
+                if (destroyed) return@post
+                result.fold(
+                    onSuccess = { status ->
+                        serverReady = status.available
+                        renderIdle(status)
+                    },
+                    onFailure = {
+                        serverReady = false
+                        renderUnavailable(
+                            "WakeMyWay cloud is unreachable",
+                            "Your alarm remains fully local and safe. Check your connection and try again.",
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    private fun renderIdle(status: FounderRealtimePairingClient.ServerStatus) {
+        progress.visibility = View.GONE
+        primaryButton.visibility = View.VISIBLE
+        primaryButton.isEnabled = true
+        disconnectButton.isEnabled = true
+        val configured = settings.configured()
+        disconnectButton.visibility = if (configured) View.VISIBLE else View.GONE
+        codeInput.visibility = if (configured) View.GONE else View.VISIBLE
+
+        when {
+            configured && status.available -> {
+                statusPill.text = "READY"
+                statusTitle.text = "Alfred is connected"
+                statusBody.text = "Realtime conversation is configured for this phone. The local wake path remains the automatic fallback."
+                primaryButton.text = "Re-check connection"
+            }
+            configured && !status.available -> {
+                statusPill.text = "SERVER SETUP"
+                statusTitle.text = "Alfred is paired, but cloud setup is incomplete"
+                statusBody.text = missingCopy(status.missing)
+                primaryButton.text = "Check again"
+            }
+            !configured && status.available -> {
+                statusPill.text = "ONE-TIME SETUP"
+                statusTitle.text = "Connect Alfred"
+                statusBody.text = "Enter the founder access code once. Wake My Way handles the server and OpenAI connection automatically after that."
+                primaryButton.text = "Connect Alfred"
+            }
+            else -> renderUnavailable(
+                "Conversational Alfred needs server setup",
+                missingCopy(status.missing),
+            )
+        }
+    }
+
+    private fun requestPairingConsent() {
+        if (!serverReady) {
+            refreshState()
+            return
+        }
+        val code = codeInput.text?.toString()?.trim().orEmpty()
+        if (code.length < 12) {
+            statusBody.text = "Enter the founder access code first."
             return
         }
 
         AlertDialog.Builder(this)
-            .setTitle("Enable live wake conversation?")
+            .setTitle("Enable conversational Alfred?")
             .setMessage(
-                "During a founder Wake Session, microphone audio and Alfred's responses will use OpenAI Realtime. Wake My Way will not persist audio/transcripts or send Tomorrow Contract context. OpenAI API retention may still apply unless this project has Zero Data Retention enabled. The alarm always remains local and independently controllable.",
+                "During a conversational wake, live microphone audio and Alfred's generated audio use OpenAI Realtime. Wake My Way does not save the audio or transcripts. Alarm delivery and Stop/Snooze remain local even if the network fails.",
             )
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Enable") { _, _ ->
-                runCatching { founderSettings.save(brokerUrl, operatorToken) }
-                    .onSuccess {
-                        operatorTokenInput.text?.clear()
-                        statusView.text =
-                            "Conversational Wake configured. The founder token is encrypted with Android Keystore."
-                    }
-                    .onFailure { error ->
-                        statusView.text =
-                            "Could not save conversational Wake: ${error.message?.take(160) ?: error.javaClass.simpleName}"
-                    }
-            }
+            .setPositiveButton("Enable") { _, _ -> pair(code) }
             .show()
     }
 
-    private fun requestConnect() {
-        val founderBrokerUrl = brokerUrlInput.text?.toString()?.trim().orEmpty()
-        val operatorToken = operatorTokenInput.text?.toString().orEmpty()
-        if (founderBrokerUrl.isBlank() || operatorToken.isBlank()) {
-            statusView.text = "Broker endpoint and operator token are required."
-            return
-        }
-
-        pendingBrokerUrl = founderBrokerUrl.replace(
-            FounderRealtimeSettings.FOUNDER_WAKE_PATH,
-            SYNTHETIC_SPIKE_PATH,
-        )
-        pendingOperatorToken = operatorToken
-        if (
-            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            connectWithPendingValues()
-        } else {
-            microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-
-    private fun connectWithPendingValues() {
-        val brokerUrl = pendingBrokerUrl
-        val operatorToken = pendingOperatorToken
-        if (brokerUrl.isNullOrBlank() || operatorToken.isNullOrBlank()) {
-            onFailure("configuration", "Spike configuration was cleared")
-            return
-        }
-
-        operatorTokenInput.text?.clear()
-        clearPendingSecret()
-        resetMeasurementUi()
-        runCatching { spike.connect(brokerUrl, operatorToken) }
-            .onFailure { error ->
-                onFailure(
-                    "configuration",
-                    error.message?.take(160) ?: error.javaClass.simpleName,
+    private fun pair(code: String) {
+        showLoading("Connecting Alfred…", "Creating a secure credential for this installation and verifying OpenAI Realtime.")
+        val installationId = settings.installationId()
+        executor.execute {
+            val result = runCatching {
+                val paired = pairingClient.pair(code, installationId)
+                pairingClient.probe(paired.deviceToken)
+                paired
+            }
+            mainHandler.post {
+                if (destroyed) return@post
+                result.fold(
+                    onSuccess = { paired ->
+                        settings.saveInstallationCredential(
+                            deviceToken = paired.deviceToken,
+                            expiresAtEpochSeconds = paired.expiresAtEpochSeconds,
+                        )
+                        codeInput.text?.clear()
+                        renderConnected()
+                    },
+                    onFailure = { error -> renderPairingFailure(error) },
                 )
             }
-    }
-
-    private fun requestSyntheticFirstSpeechProbe() {
-        runCatching { spike.requestSyntheticMeasurementResponse() }
-            .onSuccess { requestedAtMs ->
-                measurement.recordSyntheticResponseRequested(requestedAtMs)
-                requestSpeechButton.isEnabled = false
-                markAudibleButton.isEnabled = true
-                renderMeasurement()
-                statusView.text =
-                    "Synthetic response requested. Tap the second button at the first audible syllable."
-            }
-            .onFailure { error ->
-                onFailure("first-speech", error.message?.take(160) ?: error.javaClass.simpleName)
-            }
-    }
-
-    private fun markFirstAudibleSpeech() {
-        runCatching {
-            measurement.recordFirstAudibleObserved(SystemClock.elapsedRealtime())
-        }.onSuccess { elapsedMs ->
-            markAudibleButton.isEnabled = false
-            requestSpeechButton.isEnabled = true
-            renderMeasurement()
-            statusView.text =
-                "First audible upper bound recorded: ${elapsedMs} ms. This smoke result is not persisted."
-        }.onFailure { error ->
-            onFailure("first-speech", error.message?.take(160) ?: error.javaClass.simpleName)
         }
     }
 
-    private fun resetMeasurementUi() {
-        measurement.reset()
-        if (::requestSpeechButton.isInitialized) requestSpeechButton.isEnabled = false
-        if (::markAudibleButton.isInitialized) markAudibleButton.isEnabled = false
-        if (::metricView.isInitialized) renderMeasurement()
-    }
-
-    private fun renderMeasurement() {
-        val snapshot = measurement.snapshot()
-        val cold = snapshot.coldConnectionMs?.let { "$it ms" } ?: "not measured"
-        val firstSpeech = snapshot.firstSpeechMs?.let { "$it ms" }
-            ?: if (snapshot.responseProbePending) "waiting for audible tap" else "not measured"
-        metricView.text = buildString {
-            append("Cold connection: ").append(cold)
-            append("\nFirst audible response: ").append(firstSpeech)
-            append("\nObservation: operator tap upper bound")
-            append("\nProtocol: ").append(snapshot.protocolId)
-            append("\nIn-memory smoke evidence only; no automatic benchmark sample is written.")
+    private fun verifyExistingConnection() {
+        val config = settings.load()
+        if (config == null) {
+            refreshState()
+            return
+        }
+        showLoading("Checking Alfred…", "Verifying the complete WakeMyWay → OpenAI Realtime path.")
+        executor.execute {
+            val result = runCatching { pairingClient.probe(config.operatorToken) }
+            mainHandler.post {
+                if (destroyed) return@post
+                result.fold(
+                    onSuccess = { renderConnected() },
+                    onFailure = { error ->
+                        if (
+                            error is FounderRealtimePairingClient.PairingException &&
+                            error.kind == FounderRealtimePairingClient.PairingException.Kind.ACCESS_CODE_REJECTED
+                        ) {
+                            settings.clear()
+                        }
+                        renderPairingFailure(error)
+                    },
+                )
+            }
         }
     }
 
-    private fun clearPendingSecret() {
-        pendingOperatorToken = null
-        pendingBrokerUrl = null
+    private fun renderConnected() {
+        progress.visibility = View.GONE
+        serverReady = true
+        statusPill.text = "READY"
+        statusTitle.text = "Alfred is connected"
+        statusBody.text = "This phone is ready for natural Realtime conversation. If the cloud path is slow or unavailable at wake time, Alfred falls back locally without affecting the alarm."
+        codeInput.visibility = View.GONE
+        primaryButton.visibility = View.VISIBLE
+        primaryButton.text = "Re-check connection"
+        primaryButton.isEnabled = true
+        disconnectButton.visibility = View.VISIBLE
+        disconnectButton.isEnabled = true
     }
+
+    private fun renderPairingFailure(error: Throwable) {
+        progress.visibility = View.GONE
+        primaryButton.visibility = View.VISIBLE
+        primaryButton.isEnabled = true
+        disconnectButton.isEnabled = true
+        val pairingError = error as? FounderRealtimePairingClient.PairingException
+        when (pairingError?.kind) {
+            FounderRealtimePairingClient.PairingException.Kind.ACCESS_CODE_REJECTED -> {
+                statusPill.text = "NOT CONNECTED"
+                statusTitle.text = "That access code wasn't accepted"
+                statusBody.text = "Check the founder access code and try again. No alarm settings were changed."
+                codeInput.visibility = View.VISIBLE
+                disconnectButton.visibility = View.GONE
+            }
+            FounderRealtimePairingClient.PairingException.Kind.SERVER_NOT_READY -> renderUnavailable(
+                "Conversational Alfred needs server setup",
+                "The WakeMyWay backend is reachable, but its OpenAI Realtime configuration is not complete yet.",
+            )
+            else -> renderUnavailable(
+                "Alfred couldn't connect",
+                "The local alarm and local Alfred fallback are unaffected. Check the network and try again.",
+            )
+        }
+    }
+
+    private fun renderUnavailable(title: String, body: String) {
+        progress.visibility = View.GONE
+        statusPill.text = "NOT READY"
+        statusTitle.text = title
+        statusBody.text = body
+        val configured = settings.configured()
+        codeInput.visibility = if (configured) View.GONE else View.VISIBLE
+        primaryButton.visibility = View.VISIBLE
+        primaryButton.text = if (configured) "Check again" else "Connect Alfred"
+        primaryButton.isEnabled = configured || serverReady
+        disconnectButton.visibility = if (configured) View.VISIBLE else View.GONE
+        disconnectButton.isEnabled = true
+    }
+
+    private fun showLoading(title: String, body: String) {
+        statusPill.text = "CHECKING"
+        statusTitle.text = title
+        statusBody.text = body
+        progress.visibility = View.VISIBLE
+        primaryButton.isEnabled = false
+        disconnectButton.isEnabled = false
+    }
+
+    private fun missingCopy(missing: List<String>): String =
+        if (missing.isEmpty()) {
+            "The WakeMyWay Realtime service is not ready yet."
+        } else {
+            "Server setup still needs: ${missing.joinToString(", ")}. Your local alarm remains unaffected."
+        }
 
     private fun matchWidth(topMargin: Int = 0): LinearLayout.LayoutParams =
         LinearLayout.LayoutParams(
@@ -350,9 +396,11 @@ class VoiceSpikeActivity : ComponentActivity(), DirectOpenAiWebRtcSpike.Listener
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { this.topMargin = dp(topMargin) }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+    private fun wrapContent(): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
 
-    private companion object {
-        const val SYNTHETIC_SPIKE_PATH = "/api/internal/voice-spike/direct-openai-token"
-    }
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
