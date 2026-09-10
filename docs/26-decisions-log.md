@@ -216,3 +216,54 @@ It is not a second adaptive Wake Schedule and must not pull generic multi-alarm 
 ## Voice/backend numbering amendment
 
 ADR-008 and ADR-012 are amended: the measured realtime voice decision now occurs in **M8**, after M7 Wake Learning v0.
+
+# Product design foundation — 2026-09-10
+
+## Adaptive Dawn is the canonical visual direction
+
+Wake My Way should feel like a premium bedside object that wakes with the user rather than a generic alarm utility, chatbot, wellness product or SaaS dashboard.
+
+The visual experience follows the existing UX consciousness model with progressively increasing definition and information density:
+
+```text
+Night → Emerging → Engaged → Active → Oriented → Morning
+```
+
+This remains a presentation model. It does not create a second behavioral state machine and does not rename canonical Wake Runtime phases.
+
+The signature visual language is based on darkness-to-warmth, restrained geometry, tactile surfaces, excellent typography and calm motion. Purple/blue AI gradients, glowing AI orbs, robots, cartoon alarm clocks, generic sunrise art and engagement-style gamification remain explicitly excluded.
+
+See [`implementation/product-design-foundation.md`](implementation/product-design-foundation.md).
+
+## Product home becomes Tonight
+
+The normal application entry surface becomes a focused **Tonight** experience centered on the next wake time, character presence and Wake Ready reassurance.
+
+The founder Wake Alarm Lab remains available as an explicit developer destination rather than defining the consumer-facing home.
+
+## Wake visual richness cannot become wake authority
+
+`WakeActivity` may become visually rich and state-responsive, but it remains presentation only.
+
+- Alarm Kernel remains critical playback/Stop/Snooze authority.
+- Wake Runtime remains behavioral authority.
+- Direct Boot and private prepared-content gating remain unchanged.
+- animation/shape/gradient failure must degrade visually without preventing a locally actionable alarm.
+
+## Navigation 3 adoption is now earned
+
+The normal app now has real destination complexity: Tonight plus preserved founder/developer surfaces, with setup/history/settings to follow.
+
+Decision: adopt stable Navigation 3 for normal Compose navigation while keeping dedicated `WakeActivity` outside the navigation graph. Use only the minimal runtime/UI artifacts initially.
+
+## Native WMW Presence over animation-framework identity
+
+Adopt AndroidX `graphics-shapes` for a restrained, local, geometric WMW Presence that can morph with presentation state.
+
+Do not adopt Rive, Lottie or an AI-orb metaphor as the default identity system. Native Compose state-driven animation remains the primary motion architecture. Re-evaluate authored-animation runtimes only for a concrete future capability gap.
+
+## Visual regression follows canonical previews
+
+Roborazzi is the preferred visual-regression tool, but goldens are introduced only after canonical synthetic previews stabilize enough to represent reviewed design truth.
+
+The first foundation slice therefore creates canonical previews first; the next design gate records reviewed baselines and protects selected surfaces in CI. Private wake data is never used in visual fixtures.

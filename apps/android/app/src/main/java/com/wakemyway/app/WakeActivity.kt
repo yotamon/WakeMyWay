@@ -6,13 +6,17 @@ import android.os.UserManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,14 +24,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakeTimePreparedContent
+import com.wakemyway.app.ui.components.WmwCircadianStage
+import com.wakemyway.app.ui.components.WmwCircadianSurface
+import com.wakemyway.app.ui.components.WmwIntentionalStopAction
+import com.wakemyway.app.ui.components.WmwPresence
+import com.wakemyway.app.ui.components.WmwPresenceState
+import com.wakemyway.app.ui.components.WmwSecondaryAction
+import com.wakemyway.app.ui.components.WmwTimeDisplay
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.ui.theme.WmwColors
+import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.LocalTime
@@ -120,57 +133,113 @@ private fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
     onSnooze: () -> Unit,
     onStop: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start,
+    WmwCircadianSurface(
+        stage = WmwCircadianStage.EMERGING,
+        modifier = modifier,
     ) {
-        Text(
-            text = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
-            style = MaterialTheme.typography.displayLarge.copy(
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Light,
-            ),
-        )
-        Text(
-            modifier = Modifier.padding(top = 12.dp),
-            text = preparedPlan?.orientationLeadIn ?: "Morning.",
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Text(
-            modifier = Modifier.padding(top = 8.dp),
-            text = preparedPlan?.reminderLine ?: "Just get upright first.",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        preparedPlan?.firstMoveLine?.let { firstMove ->
-            Text(
-                modifier = Modifier.padding(top = 10.dp),
-                text = firstMove,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
-        Text(
-            modifier = Modifier.padding(top = 8.dp, bottom = 40.dp),
-            text = if (preparedPlan == null) {
-                "Unlock for private morning context, if available."
-            } else {
-                "Prepared locally. No network required."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        Button(onClick = onSnooze) {
-            Text("I need 5 more minutes")
-        }
-        OutlinedButton(
-            modifier = Modifier.padding(top = 12.dp),
-            onClick = onStop,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("Stop")
+            WmwTimeDisplay(
+                time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = stringResource(R.string.wake_character_name),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.QuietText,
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Huge))
+
+            WmwPresence(
+                state = WmwPresenceState.QUIET,
+                contentDescription = stringResource(R.string.wake_presence_description),
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Xxl))
+
+            Text(
+                text = preparedPlan?.orientationLeadIn
+                    ?: stringResource(R.string.wake_default_greeting),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium,
+                color = WmwColors.WarmLight,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = preparedPlan?.reminderLine
+                    ?: stringResource(R.string.wake_default_instruction),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.titleMedium,
+                color = WmwColors.MorningPaper,
+                textAlign = TextAlign.Center,
+            )
+            preparedPlan?.firstMoveLine?.let { firstMove ->
+                Text(
+                    text = firstMove,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Md),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = WmwColors.QuietText,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Spacer(Modifier.height(WmwSpacing.Hero))
+
+            Text(
+                text = if (preparedPlan == null) {
+                    stringResource(R.string.wake_private_context_locked)
+                } else {
+                    stringResource(R.string.wake_private_context_ready)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.QuietText,
+                textAlign = TextAlign.Center,
+            )
+
+            WmwSecondaryAction(
+                label = stringResource(R.string.wake_snooze_five),
+                onClick = onSnooze,
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+            )
+            WmwIntentionalStopAction(
+                label = stringResource(R.string.wake_stop_alarm),
+                onClick = onStop,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Xl))
         }
+    }
+}
+
+@Preview(
+    name = "Wake emerging",
+    widthDp = 393,
+    heightDp = 852,
+    showBackground = true,
+)
+@Composable
+private fun WakeEmergingPreview() {
+    WakeMyWayTheme {
+        WakeSurface(
+            preparedPlan = null,
+            onSnooze = {},
+            onStop = {},
+        )
     }
 }
