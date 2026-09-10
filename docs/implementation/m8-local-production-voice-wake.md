@@ -1,6 +1,6 @@
 # M8 local production voice wake
 
-**Status:** implementation in PR #36; automated and physical validation pending  
+**Status:** implementation in PR #36; physical-device validation required before reliability claims  
 **Date:** 2026-09-10  
 **Decision:** [`../adr/017-local-production-voice-wake.md`](../adr/017-local-production-voice-wake.md)
 
@@ -56,6 +56,8 @@ VoiceResponseObserved(coherent)
 
 The wording is still curated/deterministic. Open-ended model-generated morning dialog remains outside this production baseline.
 
+If the Android TTS engine becomes ready shortly after the initial start budget, Wake Runtime immediately emits the initial wake prompt rather than waiting for a later silence escalation.
+
 ## Voice input
 
 `LocalVoiceListener` is a one-turn adapter around Android on-device speech recognition.
@@ -73,9 +75,31 @@ Properties:
 
 The initial coherence heuristic is deliberately small and conservative: non-trivial alphanumeric content plus an acceptable confidence value when Android supplies one. It is evidence, not semantic truth and not a wake score.
 
+## Mandatory conversational gate
+
+A score threshold alone is not enough when the device can both speak and listen.
+
+When `speechAvailable == true` and `voiceInputAvailable == true`, Wake Runtime requires at least one coherent `VoiceResponseObserved` before it may enter `ORIENTING`. Motion can still contribute to the activation score, but it cannot silently bypass the promised spoken interaction.
+
+```text
+enough motion score
+      +
+zero coherent voice replies
+      ↓
+stay ACTIVATING / keep listening
+
+coherent reply arrives
+      ↓
+score + voice gate satisfied
+      ↓
+ORIENTING
+```
+
+If speech or on-device voice input becomes unavailable, the conversational gate is removed deliberately so capability degradation cannot trap the alarm forever. If the activation score was already sufficient when voice input is lost, Wake Runtime may orient immediately without requiring another motion event.
+
 ## Runtime changes
 
-`WakeCapabilities` now distinguishes:
+`WakeCapabilities` distinguishes:
 
 ```text
 speechAvailable
@@ -111,7 +135,7 @@ These values are product hypotheses until physical-device testing confirms intel
 
 ## Wake Surface states
 
-The real `WakeActivity` now surfaces the active conversational state using the existing WMW Presence language:
+The real `WakeActivity` surfaces the active conversational state using the existing WMW Presence language:
 
 | Mode | User meaning |
 |---|---|
@@ -119,19 +143,31 @@ The real `WakeActivity` now surfaces the active conversational state using the e
 | `SPEAKING` | Alfred is talking |
 | `LISTENING` | a spoken answer is expected |
 | `MOVING` | motion evidence is being gathered |
-| `ORIENTING` | activation threshold was reached; session is closing |
+| `ORIENTING` | activation gates were reached; session is closing |
 | `DEGRADED` | voice input is unavailable; alarm/motion continue |
 | `COMPLETE` | deterministic runtime completed the wake |
 
 No transcript is rendered. The screen may show Alfred's current scripted line because that content is product-owned, not microphone-derived.
 
-## Permission experience
+## Permission and Tonight readiness experience
 
-The ordinary app asks for microphone permission before the morning wake where possible. A privacy primer explains:
+Voice permission is not requested opportunistically on launch. Tonight owns a persistent, recoverable `Voice replies` readiness surface:
+
+- `Ready` when the device exposes on-device recognition and microphone permission is granted;
+- `Setup needed` when on-device recognition exists but `RECORD_AUDIO` is not granted;
+- `Unavailable` when this device/API does not expose the required on-device recognizer.
+
+The user explicitly taps `Enable voice replies` before the privacy primer and Android permission request appear.
+
+The privacy primer explains:
 
 - why the microphone is useful;
 - recognition is on-device for this production baseline;
 - raw audio and transcripts are not saved.
+
+A normal denial keeps the setup affordance visible. If Android no longer permits another in-app permission request, the same affordance opens the application's Android Settings page so the feature is never left in an unrecoverable one-shot state.
+
+Returning from Android Settings refreshes readiness automatically.
 
 Denying permission does not invalidate the wake schedule and cannot prevent the alarm from firing.
 
@@ -155,23 +191,29 @@ PR #36 adds pure-Kotlin coverage for:
 
 - sit-up speech completion producing a listen directive;
 - coherent reply becoming typed evidence;
+- motion reaching the numeric threshold but being unable to bypass the mandatory voice-reply gate;
 - incoherent reply earning no evidence and producing bounded re-engagement;
-- voice-input-unavailable fallback preserving movement progression.
+- voice-input-unavailable fallback preserving movement progression;
+- losing voice input releasing an already-satisfied score without requiring another motion event;
+- late local TTS readiness producing the initial wake prompt immediately.
 
-Existing runtime/reliability tests remain authoritative for Alarm Kernel invariants. Roborazzi's Wake Emerging fixture is updated to represent the listening product state, but any new visual baseline must go through the repository's review/record gate rather than being silently overwritten.
+Existing runtime/reliability tests remain authoritative for Alarm Kernel invariants.
 
-## Physical-device merge gate
+The existing reviewed Wake Emerging Roborazzi golden remains read-only. Production `WakeActivity` explicitly supplies live voice state; the synthetic golden intentionally uses the pre-existing reviewed surface until dynamic voice states receive a separate human-reviewed baseline update.
 
-Before calling this production behavior reliable, dogfood at least one real scheduled wake on a representative phone and explicitly exercise:
+## Physical-device validation gate
+
+Before calling this production behavior physically reliable, dogfood real scheduled wakes on a representative phone and explicitly exercise:
 
 1. locked-screen fire with microphone permission granted;
 2. audible Alfred greeting and sit-up prompt;
 3. successful spoken response while the alarm bed is ducked;
-4. alarm volume restoration after intentional silence;
-5. motion evidence while voice is active;
-6. Stop and Snooze during speaking/listening;
-7. permission denied / on-device recognizer unavailable fallback;
-8. app backgrounding or Activity interruption during a voice window;
-9. speaker and common Bluetooth-route behavior.
+4. proof that sufficient movement alone does not bypass the required spoken reply while two-way voice is available;
+5. alarm volume restoration after intentional silence;
+6. motion evidence while voice is active;
+7. Stop and Snooze during speaking/listening;
+8. permission denied / on-device recognizer unavailable fallback;
+9. app backgrounding or Activity interruption during a voice window;
+10. speaker and common Bluetooth-route behavior.
 
-Do not convert those checks into percentile/reliability claims from emulator evidence alone.
+Do not convert emulator or CI evidence into physical-device percentile/reliability claims.
