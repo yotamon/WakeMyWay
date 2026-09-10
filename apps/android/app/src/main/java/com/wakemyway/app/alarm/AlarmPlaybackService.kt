@@ -1,5 +1,6 @@
 package com.wakemyway.app.alarm
 
+import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -9,6 +10,8 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.ToneGenerator
 import android.net.Uri
+import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -216,6 +219,15 @@ class AlarmPlaybackService : Service() {
             )
             .build()
 
+    /**
+     * Android 15+ no longer grants a PendingIntent creator's background-activity-launch privilege
+     * by default. A full-screen alarm is one of the narrow cases that genuinely must be able to
+     * start while WMW itself is not visible, so opt this PendingIntent into creator BAL explicitly.
+     *
+     * API 36 split the old ALLOWED mode. For a user-scheduled locked-screen alarm we need the
+     * background-capable ALLOW_ALWAYS mode; ALLOW_IF_VISIBLE would defeat the full-screen alarm
+     * because the app is intentionally not visible before wake time.
+     */
     private fun wakeActivityIntent(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getActivity(
         this,
         0,
@@ -224,7 +236,22 @@ class AlarmPlaybackService : Service() {
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        wakeActivityPendingIntentOptions(),
     )
+
+    @Suppress("DEPRECATION")
+    private fun wakeActivityPendingIntentOptions(): Bundle? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
+
+        val backgroundStartMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+        } else {
+            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+        }
+        return ActivityOptions.makeBasic()
+            .setPendingIntentCreatorBackgroundActivityStartMode(backgroundStartMode)
+            .toBundle()
+    }
 
     private fun commandIntent(
         action: String,
