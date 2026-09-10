@@ -20,6 +20,7 @@
     <string name="tonight_add_contract">Add Tomorrow Contract</string>
     <string name="tonight_edit_contract">Edit Tomorrow Contract</string>
     <string name="tonight_wake_ready">Wake Ready</string>
+    <string name="tonight_wake_waiting">Waiting</string>
     <string name="tonight_wake_not_ready">Needs attention</string>
     <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
     <string name="tonight_readiness_ready">Exact alarm, wake screen, and Stop/Snooze controls are ready locally.</string>
@@ -39,7 +40,7 @@
     <string name="tonight_open_lab">Open Wake Lab</string>
     <string name="tonight_lab_note">Founder diagnostics stay separate from the everyday wake experience.</string>
     <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
-    <string name="tonight_presence_waiting_description">Wake My Way needs attention before tomorrow</string>
+    <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan or required setup</string>
     <string name="tonight_voice_wake_title">Voice replies</string>
     <string name="tonight_voice_wake_ready">Ready</string>
     <string name="tonight_voice_wake_setup">Setup needed</string>
