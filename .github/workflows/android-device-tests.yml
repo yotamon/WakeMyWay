@@ -38,7 +38,11 @@ jobs:
 
       - name: Pre-build app and instrumentation APKs
         working-directory: apps/android
-        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+        shell: bash
+        run: |
+          mkdir -p app/build/reports
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace 2>&1 | tee app/build/reports/device-prebuild-ci.log
 
       - name: Enable KVM
         run: |
@@ -66,6 +70,7 @@ jobs:
         with:
           name: wake-my-way-device-test-evidence-${{ github.sha }}
           path: |
+            apps/android/app/build/reports/device-prebuild-ci.log
             apps/android/app/build/reports/androidTests/connected/**
             apps/android/app/build/outputs/androidTest-results/connected/**
             adb-devices.txt
