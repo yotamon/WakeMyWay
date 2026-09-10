@@ -3,18 +3,16 @@
 **Last updated:** 2026-09-10  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** physical dogfood hardening after an audible-only presentation regression  
-**Active implementation:** PR #37 `fix/critical-wake-presentation-readiness`  
+**Current engineering phase:** physical dogfood verification after controllable-wake hardening  
+**Merged implementation:** PR #37, squash commit `0f0afa920b649baf41d4047732267e8ef6b57f54`  
 **Local voice baseline:** PR #36 merged; Alfred local TTS + on-device voice replies + motion + deterministic Wake Runtime  
-**Current reliability priority:** prove a controllable locked-screen wake on the representative physical phone before further voice sophistication  
+**Current reliability priority:** re-prove a controllable locked-screen wake on the representative physical phone before further voice sophistication  
 **Realtime track:** M8 issue #28 remains separate and non-authoritative  
 **Learning track:** M7 deterministic core merged; live journal/policy wiring remains open under issue #27
 
 ## Executive status
 
-Wake My Way has a functioning local critical alarm and a production-connected local conversational Wake Session, but physical dogfood on 2026-09-10 exposed a serious locked-screen presentation defect after PR #36.
-
-Observed on the founder phone:
+Physical dogfood on 2026-09-10 exposed a serious locked-screen presentation defect after PR #36:
 
 ```text
 scheduled wake fired
@@ -23,21 +21,21 @@ critical alarm audio played
       ↓
 WakeActivity did NOT appear
       ↓
-Alfred / voice controller never started
+Alfred never started
       ↓
-no visible Stop / Snooze controls
+Stop / Snooze were not reachable
       ↓
 user had to terminate the app to stop audio
 ```
 
-The audio path worked while the presentation/control path failed.
+The audio fallback worked while the presentation/control path failed.
 
-Investigation found two independent Android/platform gaps:
+Investigation found two independent gaps:
 
-1. `AlarmKernel.health().ready` treated notification and full-screen presentation capability as optional degradation. The product could claim **Wake Ready** even when Android could not present a controllable wake.
+1. `AlarmKernel.health().ready` treated notification and full-screen presentation capability as optional degradation. Wake My Way could claim **Wake Ready** even when Android could not present a controllable wake.
 2. Wake My Way targets SDK 36. Android 15+ no longer grants a `PendingIntent` creator background-activity-launch privilege by default. The full-screen `WakeActivity` PendingIntent still used the pre-Android-15 creation shape.
 
-PR #37 fixes both. Audible-only remains the emergency fallback, but it is not considered Wake Ready. The full-screen PendingIntent now explicitly follows Android 15/16 creator-BAL rules.
+PR #37 fixed both and is merged. Audible-only remains an emergency fallback, but it is no longer considered Wake Ready. The scheduled wake PendingIntent now explicitly follows Android 15/16 creator-BAL rules.
 
 Canonical decision: [`adr/018-controllable-wake-presentation-readiness.md`](adr/018-controllable-wake-presentation-readiness.md).
 
@@ -70,7 +68,7 @@ WakeVoiceSessionController
 
 Critical audio remains service-owned and does not depend on Activity, microphone, TTS, network, AI, Tomorrow Contract, Wake Learning, Vercel or Supabase.
 
-## PR #37: controllable wake presentation hardening
+## Merged controllable-wake hardening
 
 ### Strict Wake Ready
 
@@ -88,13 +86,13 @@ full-screen alarm special access where required
                Wake Ready
 ```
 
-This deliberately distinguishes **safe fallback audio** from **a wake that is ready to be controlled by a sleeping user**.
+This distinguishes safe audible fallback from a wake that is ready to be controlled by a sleeping user.
 
 Microphone/voice, private morning context and cloud enrichment remain optional and are surfaced separately.
 
 ### Android 15/16 full-screen launch contract
 
-Wake My Way targets SDK 36, so the full-screen Activity PendingIntent explicitly opts into creator background-activity-start privilege.
+The full-screen Activity PendingIntent explicitly opts into creator background-activity-start privilege:
 
 ```text
 API < 34     default legacy creation
@@ -102,22 +100,22 @@ API 34–35    MODE_BACKGROUND_ACTIVITY_START_ALLOWED
 API 36+      MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
 ```
 
-`ALLOW_IF_VISIBLE` is deliberately not used for the scheduled wake surface because the app is expected to be invisible/locked immediately before alarm fire. The privilege is scoped only to the PendingIntent that launches `WakeActivity`; arbitrary application navigation does not receive this opt-in.
+`ALLOW_IF_VISIBLE` is not used because the app is expected to be invisible/locked immediately before alarm fire. The privilege is scoped only to the PendingIntent that launches `WakeActivity`.
 
 ### Presentation capability owner
 
-`AlarmPresentationAccess` / `AlarmPresentationCapabilities` owns the Android platform facts for:
+`AlarmPresentationAccess` / `AlarmPresentationCapabilities` owns:
 
 - notification permission/system enablement;
 - creation and inspection of the `active-wake` channel;
 - high-importance channel requirement;
 - Android 14+ `NotificationManager.canUseFullScreenIntent()`.
 
-The active-wake channel is created during application startup before readiness is evaluated, rather than for the first time after an alarm is already firing.
+The alarm channel is created before readiness evaluation rather than for the first time at alarm fire.
 
-### One canonical repair target
+### Canonical repair target
 
-When more than one capability is missing, copy and action must never disagree. `AlarmHealth.repairTarget()` is the single source of truth for repair priority:
+`AlarmHealth.repairTarget()` is the single source of truth for repair priority:
 
 ```text
 exact alarm
@@ -131,72 +129,49 @@ full-screen intent access
 none
 ```
 
-Both `Tonight` copy and `MainActivity` repair behavior consume that same target. Unit coverage locks the priority so a CTA cannot say one thing and open an unrelated Settings screen.
+Tonight copy and MainActivity actions consume the same target, preventing a CTA from naming one problem while opening a different Settings screen.
 
-### Repair-first Tonight UX
+### Repair-first UX
 
 The approved normal Tonight hierarchy remains unchanged when the wake is ready or when no Wake Occurrence exists.
 
-Only when a **scheduled occurrence exists and is not Wake Ready** does the critical **Wake system** repair card move directly below the page title, ahead of optional Tomorrow Contract content. It names the actual missing capability and exposes a direct repair action.
+Only when a scheduled occurrence exists and is not Wake Ready does the critical Wake system repair card move directly below the page title, ahead of optional content. Returning from Android Settings immediately recomputes Alarm Health.
 
-Repair routes include:
+After saving a schedule, if the occurrence is registered but presentation access is incomplete, setup continues directly into the canonical repair flow instead of presenting complete readiness.
 
-- notifications → explanatory permission flow / Android notification settings;
-- channel priority → active-wake notification-channel settings;
-- full-screen alarm access → Android full-screen-intent special access;
-- exact alarm anomaly → app/platform settings review.
+### Active-alarm rescue
 
-Returning from Android Settings immediately recomputes Alarm Health.
-
-### Save → repair continuation
-
-A Wake Schedule can be stored and exactly registered while presentation access is incomplete. After save, the setup flow checks resulting Alarm Health.
-
-If `wakeReady == false`, the product continues directly into the canonical repair flow rather than letting “Make tomorrow ready” appear successful while a critical capability is missing.
-
-### Active-alarm rescue path
-
-If full-screen presentation still fails because of Android/OEM behavior and the user manually opens Wake My Way while an occurrence is active:
+If full-screen presentation still fails and the user manually opens Wake My Way while an occurrence is active:
 
 ```text
 MainActivity foregrounded
        ↓
-AlarmKernel.activeOccurrence()
+active occurrence detected
        ↓
-explicit WakeActivity rescue
+WakeActivity rescue
        ↓
 Stop / Snooze + local voice surface
 ```
 
-The user must not be stranded on Tonight while alarm audio continues. This rescue happens from a user-foregrounded context and is not a raw background `startActivity()` workaround.
+The user must not be stranded on Tonight while critical audio continues.
 
 ### Notification fallback
 
-The active foreground notification remains persistent and contains Stop/Snooze actions. It requests immediate foreground-service presentation and uses the same high-priority channel checked by readiness.
+The foreground alarm notification remains persistent/immediate and contains Stop/Snooze actions. It uses the same high-priority channel checked by readiness.
 
-If Android intentionally chooses a heads-up alarm notification while the device is actively in use, reachable controls remain the invariant. The physical locked-screen test remains the proof gate for full wake-surface presentation.
+## Local conversational wake baseline
 
-## Local conversational wake baseline from PR #36
-
-PR #36 remains the production local voice foundation.
+PR #36 remains the production voice foundation:
 
 ```text
 ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
 ```
 
-When local TTS and on-device voice input are healthy, orientation requires:
+When local TTS and on-device voice input are healthy, orientation requires both the activation threshold and at least one coherent spoken reply. Motion cannot silently bypass the spoken-reply gate.
 
-```text
-activation score >= threshold
-        +
-at least one coherent spoken reply
-```
+`LocalVoiceListener` uses Android on-device recognition only. Raw audio and transcript text are not persisted. The adapter emits compact typed evidence such as `VoiceResponseObserved(coherent = true/false)`.
 
-Motion cannot silently bypass the spoken-reply requirement. If local voice capability disappears, Wake Runtime deliberately removes the voice gate so optional capability loss cannot trap a critical alarm forever.
-
-`LocalVoiceListener` uses Android on-device recognition only. Raw audio and recognized transcript text are not persisted. The adapter emits only compact typed evidence such as `VoiceResponseObserved(coherent = true/false)`.
-
-`AlarmPlaybackService` owns a bounded voice-window lease so Alfred and the microphone remain intelligible without surrendering alarm safety:
+`AlarmPlaybackService` owns the bounded voice-window lease:
 
 ```text
 critical alarm 100%
@@ -206,50 +181,55 @@ bundled alarm bed 12%
 automatic restore 100%
 ```
 
-The emergency tone fallback is never ducked. Stop, Snooze and successful completion use terminal-safe voice shutdown.
+The emergency tone fallback is never ducked. Stop, Snooze and successful completion use terminal-safe shutdown.
 
-## Validation strategy for PR #37
+## Automated validation for PR #37
 
-Earlier PR heads intentionally exposed two stale assumptions:
+Final reviewed head:
 
-- visual verification failed when the entire normal Tonight hierarchy was moved; the actual repair presentation was inspected manually, then the implementation was refined so only a real scheduled-not-ready state promotes the repair card. Existing curated ready/empty goldens remain unchanged rather than blanket-approving unrelated layout churn;
-- the first API-36 run failed one old assertion that exact registration alone implied Wake Ready. The device artifact confirmed this was the only failing assertion. The test now checks the stricter real capability contract instead of weakening production readiness.
+`37cac84973e3b210b8747a47ec64d3b85f16d2e1`
 
-Additional automated coverage now locks:
+Before merge, the same head passed:
 
-- every critical presentation capability is required for presentation readiness;
-- canonical multi-capability repair priority;
-- existing curated product goldens;
-- API-36 alarm-kernel behavior;
-- normal Android build, lint, instrumentation compilation and APK assembly.
+- documentation validation;
+- `:wake-core` tests;
+- Android lint;
+- instrumentation-test compilation;
+- debug APK assembly and artifact upload;
+- curated Roborazzi visual regression without accepting new baselines;
+- API-36 device reliability instrumentation;
+- review-thread check with no open review threads.
 
-The final PR head must pass all Android CI, visual regression and API-36 device reliability gates before merge.
+PR #37 was squash-merged to `main` as:
+
+`0f0afa920b649baf41d4047732267e8ef6b57f54`
+
+Earlier failing PR runs were investigated rather than bypassed. The API-36 failure was an old assertion that exact registration alone implied Wake Ready; its artifact confirmed no alarm-code crash. The earlier visual failure came from an overly broad hierarchy change and was refined so repair is promoted only for an actual scheduled-not-ready state.
 
 ## Physical reliability truth
 
-PR #36's previous green emulator/device workflow did **not** prove the physical locked-screen experience. The 2026-09-10 founder test is explicit counter-evidence to any such claim.
+Automated gates are green, but they do not prove OEM locked-screen behavior. The failed physical test on 2026-09-10 remains explicit evidence that the old build was not physically reliable.
 
-Do not call the wake physically reliable until the corrected PR #37 build passes the representative phone test.
+Do not claim the corrected behavior is physically proven until the merged PR #37 build passes the representative phone test.
 
 The next physical test begins only after Tonight says **Wake Ready** and Voice replies separately says **Ready**.
 
-The existing debug **Wake Alarm Lab** can schedule a real one-shot T+2m Wake Occurrence through the production Alarm Kernel. It is the preferred fast physical verification path after installing the corrected APK.
+The debug **Wake Alarm Lab** schedules a real one-shot T+2m occurrence through the production Alarm Kernel and is the preferred fast verification path.
 
 ## Exact next work
 
-1. Finish final-head Android CI, curated visual regression and API-36 device reliability for PR #37.
-2. Merge PR #37 only when all automated gates are green and review threads are clean.
-3. Install the exact final-head debug APK on the founder phone.
-4. Follow every Wake system repair until Tonight reports **Wake Ready**.
-5. Enable **Voice replies** separately and confirm **Ready**.
-6. Use Wake Alarm Lab T+2m, lock the phone before fire time, and verify `WakeActivity` appears.
-7. Verify Stop and Snooze are reachable from both Wake Surface and notification.
-8. Verify Alfred speaks, asks for a reply, listens and accepts a spoken response.
-9. Verify motion alone cannot finish the wake while healthy two-way voice is required.
-10. Intentionally test fallback: remove full-screen access, fire a wake, then manually open Wake My Way and confirm immediate rescue into `WakeActivity`.
-11. Test silence/timeout and critical volume restoration.
-12. Test speaker/Bluetooth routing after the baseline locked-screen path passes.
-13. Tune voice/alarm coexistence constants only from physical measurements.
+1. Install the exact PR #37 final-head debug APK on the representative phone.
+2. Open Wake My Way and follow every Wake system repair until Tonight reports **Wake Ready**.
+3. Enable **Voice replies** separately and confirm **Ready**.
+4. Use Wake Alarm Lab T+2m and lock the phone before fire time.
+5. Verify `WakeActivity` appears over the locked screen.
+6. Verify Stop and Snooze are reachable from both Wake Surface and notification.
+7. Verify Alfred speaks, asks for a reply, listens and accepts the spoken response.
+8. Verify motion alone cannot finish the wake while healthy two-way voice is required.
+9. Intentionally test fallback by removing full-screen access, firing a wake, then manually opening Wake My Way and confirming immediate rescue into `WakeActivity`.
+10. Test silence/timeout and critical volume restoration.
+11. Test speaker/Bluetooth routing after the baseline locked-screen path passes.
+12. Tune voice/alarm coexistence constants only from physical measurements.
 
 ## Current risks / open proof boundaries
 
