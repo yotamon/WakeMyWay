@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -73,7 +74,9 @@ fun WakeSetupScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val locale = Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0]
+    val saveFailedCopy = stringResource(R.string.setup_save_failed)
+    val disableFailedCopy = stringResource(R.string.setup_disable_failed)
     val zoneId = ZoneId.systemDefault()
     val tomorrow = ZonedDateTime.now(zoneId).plusDays(1)
     val initialMode = if (existingSchedule?.completionPolicy == WakeCompletionPolicy.RECURRING) {
@@ -277,7 +280,7 @@ fun WakeSetupScreen(
                     if (result.committed) {
                         onBack()
                     } else {
-                        errorMessage = result.detail ?: context.getString(R.string.setup_save_failed)
+                        errorMessage = result.detail ?: saveFailedCopy
                     }
                 },
             )
@@ -319,7 +322,7 @@ fun WakeSetupScreen(
                             onBack()
                         } else {
                             showDisableConfirmation = false
-                            errorMessage = result.detail ?: context.getString(R.string.setup_disable_failed)
+                            errorMessage = result.detail ?: disableFailedCopy
                         }
                     },
                 ) {
