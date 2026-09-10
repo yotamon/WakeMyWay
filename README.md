@@ -1,74 +1,246 @@
+<div align="center">
+
+<img src="docs/brand/assets/wake-my-way-brand-board.png" alt="Wake My Way brand" width="820" />
+
 # Wake My Way
 
-**Wake My Way (WMW)** is an adaptive conversational alarm for Android that learns the least aggressive, most effective way to move a person from sleep inertia toward meaningful activity and the start of their morning.
+### Wake up your way.
 
-> **Wake up your way.**
->
-> An alarm that learns what works for you.
+**A local-first conversational alarm for Android that does more than make noise. It helps you move from sleep inertia into action, then learns which wake strategy works best for you.**
 
-## Product thesis
+[![Android CI](https://github.com/yotamon/WakeMyWay/actions/workflows/android-ci.yml/badge.svg)](https://github.com/yotamon/WakeMyWay/actions/workflows/android-ci.yml)
+[![Device Tests](https://github.com/yotamon/WakeMyWay/actions/workflows/android-device-tests.yml/badge.svg)](https://github.com/yotamon/WakeMyWay/actions/workflows/android-device-tests.yml)
+[![Visual Regression](https://github.com/yotamon/WakeMyWay/actions/workflows/android-visual-regression.yml/badge.svg)](https://github.com/yotamon/WakeMyWay/actions/workflows/android-visual-regression.yml)
+![Android](https://img.shields.io/badge/Android-native-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)
+![Status](https://img.shields.io/badge/status-founder%20dogfood-F59E0B)
 
-Traditional alarms know **when** to make noise. Wake My Way learns **how** to help a particular person actually start moving.
+[Product vision](docs/01-product-vision.md) · [Architecture](docs/08-android-architecture.md) · [Project status](docs/00-project-status.md) · [Roadmap](docs/21-roadmap-implementation-plan.md)
 
-People respond differently to sound, conversation, humor, self-supplied context, movement, urgency, and snooze. WMW combines a reliable native Android Alarm Kernel with a deterministic Wake Runtime, physical activation signals, local explainable Wake Learning, conversational characters, and gradual personalization.
+</div>
 
-The product is deliberately narrow:
+---
+
+## An alarm that learns how to wake *you*
+
+Traditional alarms know **when** to make noise. Wake My Way is built around a different question:
+
+> **What is the least aggressive, most effective sequence that gets this person genuinely moving?**
+
+Different mornings need different interventions. Sometimes sound is enough. Sometimes a short conversation, a request to sit up, a movement cue, or context about tomorrow is what breaks sleep inertia.
+
+Wake My Way combines a reliability-first native Android alarm with a deterministic behavioral runtime, local voice interaction, physical activation evidence, private night-before context, and explainable local learning.
+
+It is deliberately narrow. It is **not** a general productivity assistant, sleep tracker, or AI companion.
 
 > **I set an alarm because I genuinely want to get moving at this time. Help me succeed.**
 
-It is not a general productivity assistant, sleep tracker, or AI companion.
+## The product today
 
-## Current status
+<table>
+  <tr>
+    <td width="25%" align="center"><img src="apps/android/app/src/test/screenshots/tonight_empty.png" alt="Wake My Way Tonight screen" /></td>
+    <td width="25%" align="center"><img src="apps/android/app/src/test/screenshots/tonight_ready.png" alt="Wake My Way ready state" /></td>
+    <td width="25%" align="center"><img src="apps/android/app/src/test/screenshots/wake_setup_weekly.png" alt="Wake My Way weekly setup" /></td>
+    <td width="25%" align="center"><img src="apps/android/app/src/test/screenshots/wake_emerging.png" alt="Wake My Way active wake screen" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Tonight</sub></td>
+    <td align="center"><sub>Wake ready</sub></td>
+    <td align="center"><sub>Schedule setup</sub></td>
+    <td align="center"><sub>Active wake</sub></td>
+  </tr>
+</table>
 
-Wake My Way is in **active native Android development**.
+Wake My Way is currently a **real local-first conversational Android wake product in founder dogfood form**.
 
-Merged into `main`:
+The production morning path already connects the alarm kernel, deterministic Wake Runtime, Alfred's local speech, on-device voice replies, and motion evidence. The next trust gate is measured physical-device reliability across locked screens, Doze, OEM power management, audio routing, Bluetooth, local TTS and on-device recognition.
 
-- **M0 Foundation** — Android project, pure schedule domain, recurrence/DST tests and CI baseline
-- **M1 Deep Alarm Kernel + Active Wake Execution** — exact local alarm registration, durable Direct-Boot critical state, foreground alarm playback, stop/snooze/reconciliation
-- **M2 automated reliability harness** — Wake Alarm Lab, timing evidence, instrumentation coverage and dedicated emulator lane; physical-device proof remains open
-- **M3 deterministic Wake Runtime** — typed inputs/directives, activation evidence, escalation and replayable session behavior
-- **M4 Motion Evidence** — bounded local sensor evidence extraction without raw sensor persistence
-- **M5 Alfred local character** — deterministic curated character rendering plus offline-only local Android TTS lab
+| Capability | State |
+| --- | --- |
+| Native exact alarm + Direct Boot recovery | ✅ Implemented |
+| Durable foreground Active Wake Execution | ✅ Implemented |
+| Deterministic Wake Runtime | ✅ Implemented |
+| Motion evidence | ✅ Implemented |
+| Alfred local character + offline TTS | ✅ Production-connected |
+| On-device spoken replies | ✅ Production-connected |
+| Tomorrow Contract + prepared wake plan | ✅ Production-connected |
+| Deterministic Wake Learning v0 | ✅ Core merged, live journal/application wiring still open |
+| Realtime conversational voice | 🧪 Experimental measurement track only |
+| Physical overnight reliability proof | 🔬 Next validation gate |
 
-**M6 Tomorrow Contract + Prepared Wake Plan is currently in implementation in PR #20.** It adds optional private night-before context, deterministic local preparation, credential-protected storage, integrity validation and offline fallback without putting personalization on the critical alarm path.
+The living source of truth is [`docs/00-project-status.md`](docs/00-project-status.md).
 
-The main unresolved trust boundary is physical-device reliability evidence. CI/emulator success does not prove real overnight behavior across locked screens, Doze, reboot-before-unlock, OEM power management or audio coexistence.
+## The hard rule
 
-Current architectural decisions include:
+> ### Intelligence may fail. The alarm may not.
 
-- Canonical domain context: [`CONTEXT.md`](CONTEXT.md)
-- Native Android first: Kotlin + Jetpack Compose
-- Deep Alarm Kernel owns scheduling **and Active Wake Execution**
-- `WakeActivity` is presentation, not critical playback lifetime authority
-- deterministic pure-Kotlin Wake Runtime owns in-session behavioral decisions
-- `Activation Completion` is distinct from calibrated `Confirmed Wake Success`
-- motion/character/prepared personalization remain subordinate to alarm reliability
-- Direct Boot stores only a minimal non-sensitive Critical Wake Snapshot
-- Tomorrow Contract/private prepared content remains credential-protected
-- deterministic local **Wake Learning v0 is M7**, before realtime voice
-- realtime voice architecture is a measured M8 spike, not a current dependency
-- non-critical future cloud direction remains **Vercel + Supabase**, outside wake authority
+The critical wake path is intentionally independent from AI, network access, microphone permission, motion sensors, personalization, cloud services, and even the lifetime of the wake UI.
 
-See [`docs/00-project-status.md`](docs/00-project-status.md) for the living implementation truth.
+```text
+Wake Schedule
+      ↓
+Alarm Kernel
+      ↓
+Critical Wake Snapshot
+      ↓
+AlarmManager.setAlarmClock()
+      ↓
+AlarmReceiver
+      ↓
+AlarmPlaybackService
+      ├─ critical local audio
+      ├─ notification / full-screen intent
+      └─ durable Stop / Snooze
+```
 
-## Start here
+Only after critical local alarm delivery starts does the adaptive wake experience join the session:
 
-1. [`CONTEXT.md`](CONTEXT.md) — canonical terms, product invariants, reliability language
-2. [`AGENTS.md`](AGENTS.md) — engineering rules for humans/agents
-3. [`docs/README.md`](docs/README.md) — documentation map
-4. [`docs/00-project-status.md`](docs/00-project-status.md) — current state and exact next work
-5. [`docs/01-product-vision.md`](docs/01-product-vision.md) — product thesis
-6. [`docs/04-ux-psychology.md`](docs/04-ux-psychology.md) — behavioral design rationale
-7. [`docs/08-android-architecture.md`](docs/08-android-architecture.md) — architecture
-8. [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) — trust-critical scheduling + active wake execution
-9. [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) — deterministic in-session behavior
-10. [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) — local explainable adaptation
-11. [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) — evidence-driven build order
-12. [`docs/implementation/m6-tomorrow-contract.md`](docs/implementation/m6-tomorrow-contract.md) — current M6 implementation boundary
-13. [`docs/32-testing-and-deployment-topology.md`](docs/32-testing-and-deployment-topology.md) — testing, dogfood and future cloud topology
+```text
+WakeActivity
+      ↓
+WakeVoiceSessionController
+      ↓
+WakeRuntime
+      ├─ Speak(InitialWake)
+      ├─ Speak(AskToSitUp)
+      ├─ ListenForVoiceResponse
+      ├─ ObserveMotion
+      ├─ Speak(AskToMove / ReEngage)
+      └─ PresentOrientation / CompleteSession
+```
 
-## Non-negotiable engineering principles
+**AI may express wake behavior. It never owns wake behavior.** The pure-Kotlin Wake Runtime remains the only in-session behavioral authority.
+
+## What makes Wake My Way interesting
+
+### 🛡️ Reliability-first alarm architecture
+
+The Deep Alarm Kernel owns exact scheduling and active wake execution, including Direct-Boot-aware recovery, foreground playback, stale-trigger rejection, durable stop/snooze behavior, and reconciliation after device state changes.
+
+### 🧠 Deterministic behavioral runtime
+
+Wake behavior is modeled as a replayable state machine rather than a pile of UI callbacks:
+
+```text
+ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
+```
+
+Typed `WakeInput` facts enter the runtime. Typed `WakeDirective` decisions come out. Android adapters execute those decisions and report facts back.
+
+### 🗣️ Local conversational wake
+
+Alfred can speak using a verified offline Android TTS voice and listen using Android's on-device speech recognizer. When both capabilities are healthy, motion alone cannot silently finish the wake sequence: at least one coherent spoken reply is required before orientation.
+
+The microphone path does **not** persist raw audio or recognized transcript text. The release Android baseline also does not require `INTERNET` permission for local voice.
+
+### 📱 Physical activation evidence
+
+Wake My Way extracts bounded evidence such as device pickup, orientation change, and sustained movement. Raw high-frequency sensor streams are not persisted.
+
+The goal is not to pretend the app can biologically prove wakefulness. It observes meaningful activation signals and keeps those claims calibrated.
+
+### 🌅 Adaptive Dawn design system
+
+The product uses a purpose-built Compose visual system designed for the unusual context of half-awake interaction: low cognitive load, clear hierarchy, gentle presence, explicit state, and strong critical actions.
+
+Reviewed product states are protected with curated Roborazzi visual regression.
+
+### 🔁 Explainable local learning
+
+Wake Learning v0 is deterministic, bounded, versioned, reversible, and local-first. It is designed to adapt strategy without silently mutating an active wake session or becoming a dependency for alarm delivery.
+
+## Architecture in one picture
+
+```text
+                         WAKE MY WAY
+
+  Reliability authority                    Behavioral authority
+  ─────────────────────                    ────────────────────
+
+  Wake Schedule                            platform + user facts
+       │                                          │
+       ▼                                          ▼
+  Alarm Kernel                              typed WakeInput
+       │                                          │
+       ▼                                          ▼
+  Critical Wake Snapshot                    WakeRuntime
+       │                                          │
+       ▼                                          ▼
+  Android AlarmManager                     typed WakeDirective
+       │                                          │
+       ▼                                          ▼
+  AlarmPlaybackService                     Android adapters
+       │                                      │    │    │
+       │                                      │    │    └─ motion
+       │                                      │    └────── local voice input
+       │                                      └─────────── Alfred / local TTS
+       │
+       └──── critical audio stays authoritative
+```
+
+The separation is intentional: adaptive behavior can degrade without weakening the alarm's critical execution boundary.
+
+## Technology
+
+| Area | Stack |
+| --- | --- |
+| Android app | Kotlin 2.4.20 · Jetpack Compose · Navigation 3 · Android AlarmManager · Direct Boot |
+| Wake behavior | Pure Kotlin deterministic runtime · local preparation · motion evidence · local learning |
+| Voice | Android TextToSpeech · on-device SpeechRecognizer · bounded alarm/voice coexistence |
+| Quality | JUnit · Android instrumentation · API-36 reliability lane · Roborazzi visual regression · GitHub Actions |
+| Experimental cloud | TypeScript · Vercel · provider-neutral AI/voice measurement harness |
+
+**Android toolchain:** JDK 17 · Gradle 9.6.1 · Android Gradle Plugin 9.4.0 · `compileSdk = 37` · `targetSdk = 36` · `minSdk = 29`
+
+## Repository shape
+
+```text
+WakeMyWay/
+├── apps/
+│   ├── android/
+│   │   ├── app/          # Compose UI, Alarm Kernel, platform adapters, production wake path
+│   │   ├── wake-core/    # pure Kotlin runtime, schedule, motion, character, learning, preparation
+│   │   └── benchmark/    # startup / wake-path performance host
+│   └── cloud/            # non-critical AI and realtime measurement infrastructure
+├── docs/
+│   ├── adr/              # durable architecture decisions
+│   ├── implementation/   # implementation notes and evidence boundaries
+│   └── research/         # platform, psychology and competitor research
+├── tooling/
+├── AGENTS.md             # engineering rules for humans and coding agents
+├── CONTEXT.md            # canonical domain vocabulary and invariants
+└── README.md
+```
+
+## Build locally
+
+```bash
+cd apps/android
+./gradlew test lint assembleDebug
+```
+
+The project intentionally keeps the trust-critical Android path local. Cloud capabilities live outside alarm authority and can be unavailable without preventing the device from waking the user.
+
+## Start reading here
+
+| If you care about... | Read... |
+| --- | --- |
+| What is actually implemented today | [`docs/00-project-status.md`](docs/00-project-status.md) |
+| Product thesis and scope | [`docs/01-product-vision.md`](docs/01-product-vision.md) |
+| UX and behavioral rationale | [`docs/04-ux-psychology.md`](docs/04-ux-psychology.md) |
+| Android architecture | [`docs/08-android-architecture.md`](docs/08-android-architecture.md) |
+| Critical alarm reliability | [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) |
+| Wake state machine | [`docs/11-wake-runtime-state-machine.md`](docs/11-wake-runtime-state-machine.md) |
+| Voice and character architecture | [`docs/13-ai-voice-character-system.md`](docs/13-ai-voice-character-system.md) |
+| Learning strategy | [`docs/14-wake-strategy-learning.md`](docs/14-wake-strategy-learning.md) |
+| Privacy and security | [`docs/16-privacy-security.md`](docs/16-privacy-security.md) |
+| Evidence-driven roadmap | [`docs/21-roadmap-implementation-plan.md`](docs/21-roadmap-implementation-plan.md) |
+
+For the full documentation map, see [`docs/README.md`](docs/README.md).
+
+<details>
+<summary><strong>Non-negotiable engineering principles</strong></summary>
 
 1. **Android is our first client, not our product architecture.**
 2. **Intelligence may fail. The alarm may not, inside the documented platform reliability envelope.**
@@ -80,37 +252,28 @@ See [`docs/00-project-status.md`](docs/00-project-status.md) for the living impl
 8. **Activation Completion is not circular proof of real Wake Success.**
 9. **User dignity and agency are product requirements.**
 
-## Current implementation shape
+</details>
 
-The physical codebase deliberately remains small:
+## Reliability truth
 
-```text
-wake-my-way/
-├── apps/
-│   └── android/
-│       ├── app/          # Android composition root, UI, Alarm Kernel + platform adapters
-│       ├── wake-core/    # pure Kotlin schedule/runtime/motion/character/preparation behavior
-│       └── benchmark/    # startup / wake-path performance
-├── docs/
-├── tooling/
-├── AGENTS.md
-├── CONTEXT.md
-└── README.md
-```
+Wake My Way is intentionally conservative about reliability claims.
 
-Backend/service directories are created only when a cloud capability is actually implemented. OpenAPI remains the chosen cross-platform contract once that boundary exists.
+Automated tests can prove deterministic behavior, integration compatibility, timing evidence and emulator coverage. They **cannot** prove the real overnight experience across locked screens, Doze, reboot-before-unlock, OEM power management, Bluetooth routing, local TTS/STT availability, or every physical device.
 
-## Brand
+That physical evidence is the current next gate before broader reliability claims.
 
-**Name:** Wake My Way  
-**Short mark:** WMW  
-**Primary tagline:** Wake up your way.  
-**Secondary line:** An alarm that learns what works for you.
+## Project discipline
 
-`wakemyway.com` was verified as available via a live Namecheap lookup on 2026-09-09. Availability is time-sensitive; the repository does not imply registration.
+Documentation is project memory, not aspirational marketing. Changes distinguish **Decided**, **Planned**, **Implemented**, **Tested**, and **Hypothesis**.
 
-## Documentation discipline
+Canonical terminology lives in [`CONTEXT.md`](CONTEXT.md). Durable decisions live in [`docs/adr/`](docs/adr/). Current implementation truth lives in [`docs/00-project-status.md`](docs/00-project-status.md).
 
-Documentation is project memory, not aspirational marketing. Changes must distinguish **Decided**, **Planned**, **Implemented**, **Tested**, and **Hypothesis**.
+---
 
-Canonical terminology lives in [`CONTEXT.md`](CONTEXT.md). Durable engineering decisions live under [`docs/adr/`](docs/adr/). Current implementation truth lives in [`docs/00-project-status.md`](docs/00-project-status.md).
+<div align="center">
+
+**Wake My Way** · **WMW** · *Wake up your way.*
+
+Built around one promise: **help the user get moving without making intelligence a reliability dependency.**
+
+</div>
