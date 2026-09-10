@@ -7,10 +7,8 @@ on:
       - ".github/workflows/android-visual-regression.yml"
   workflow_dispatch:
 
-# Temporary write permission for the reviewed-baseline bootstrap only.
-# This workflow is switched back to read-only verification before merge.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-visual-${{ github.event.pull_request.number || github.ref }}
@@ -24,10 +22,6 @@ jobs:
         working-directory: apps/android
     steps:
       - uses: actions/checkout@v6
-        with:
-          # Work from the real PR head so a reviewed golden commit can be pushed
-          # without merging the synthetic pull-request ref into the branch.
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -40,38 +34,17 @@ jobs:
       - name: Install Android 17 SDK
         run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
       - uses: gradle/actions/setup-gradle@v5
-      - name: Record curated product goldens
-        run: ./gradlew :app:recordRoborazziDebug --stacktrace
-      - name: Assert reviewed golden bytes
-        shell: bash
-        run: |
-          cat <<'EOF' | sha256sum --check --strict -
-          824c751b5b3c9362b4a529bc38752df037d07f1fc0d7c15e222eac36b8ee79b1  app/src/test/screenshots/tonight_empty.png
-          1219dc9d9508d86ed379e43d1b5b3ac308afaf9ac934c5ed8edaba0e31acef3f  app/src/test/screenshots/tonight_ready.png
-          1e50aa8806d3504a4ba4e7385795e24324e38f06a146b31805237ca9003ba960  app/src/test/screenshots/wake_emerging.png
-          bf551a33dbe630305526c359796aaffed14b46689d791cace8ee15e4efc918dc  app/src/test/screenshots/wake_setup_weekly.png
-          EOF
-      - name: Commit reviewed goldens to PR branch
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/test/screenshots/*.png
-          if git diff --cached --quiet; then
-            echo "Reviewed goldens already committed."
-            exit 0
-          fi
-          git commit -m "Add reviewed visual goldens"
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
-      - name: Upload recorded goldens and report
+      - name: Verify curated product goldens
+        run: ./gradlew :app:verifyRoborazziDebug --stacktrace
+      - name: Upload visual verification diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wake-my-way-visual-record-${{ github.sha }}
+          name: wake-my-way-visual-verify-${{ github.sha }}
           path: |
             apps/android/app/src/test/screenshots/**
+            apps/android/app/build/outputs/roborazzi/**
             apps/android/app/build/reports/roborazzi/**
             apps/android/app/build/test-results/**
-          if-no-files-found: warn
+          if-no-files-found: ignore
           retention-days: 14
