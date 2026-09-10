@@ -12,6 +12,15 @@ class AlarmReceiver : BroadcastReceiver() {
         val occurrenceId = WakeOccurrenceId(rawId)
         val kernel = AlarmKernel(context)
 
+        // An alarm that can make noise but cannot expose immediate controls is not safe to start.
+        // This is a last-line runtime guard for old schedules and permissions revoked after setup.
+        // Product scheduling preflight should normally make this branch unreachable.
+        val preflight = kernel.health()
+        if (preflight.repairTarget() != AlarmRepairTarget.NONE) {
+            kernel.cancelSchedule()
+            return
+        }
+
         when (kernel.beginActive(occurrenceId)) {
             BeginActiveResult.STARTED -> {
                 kernel.health().activeOccurrence
