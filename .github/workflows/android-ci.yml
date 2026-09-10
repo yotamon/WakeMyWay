@@ -58,6 +58,17 @@ jobs:
         run: ./gradlew :wake-core:test --stacktrace
       - name: Android lint
         run: ./gradlew :app:lintDebug --stacktrace
+      - name: Upload lint diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-lint-${{ github.sha }}
+          path: |
+            apps/android/app/build/reports/lint-results-debug.txt
+            apps/android/app/build/reports/lint-results-debug.html
+            apps/android/app/build/reports/lint-results-debug.xml
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Compile instrumentation tests
         run: ./gradlew :app:assembleDebugAndroidTest --stacktrace
       - name: Assemble debug APK
