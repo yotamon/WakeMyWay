@@ -22,15 +22,24 @@
     <string name="tonight_wake_ready">Wake Ready</string>
     <string name="tonight_wake_not_ready">Needs attention</string>
     <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
-    <string name="tonight_readiness_ready">Scheduled locally and ready for tomorrow.</string>
+    <string name="tonight_readiness_ready">Exact alarm, wake screen, and Stop/Snooze controls are ready locally.</string>
     <string name="tonight_readiness_attention">One system setting needs attention before tomorrow is Wake Ready.</string>
     <string name="tonight_readiness_empty">Set a wake time to prepare tomorrow.</string>
+    <string name="tonight_readiness_exact_alarm">Exact-alarm access is unavailable. Wake My Way cannot promise the selected wake time until Android allows it.</string>
+    <string name="tonight_readiness_notifications">Allow alarm notifications so an active wake always exposes visible Stop and Snooze controls.</string>
+    <string name="tonight_readiness_channel">Active wake alerts are not high priority. Android requires a high-priority alarm channel for the wake screen to appear reliably.</string>
+    <string name="tonight_readiness_full_screen">Allow full-screen alarms so Wake My Way can open the wake screen when your phone is locked.</string>
+    <string name="tonight_readiness_reconcile">The wake schedule needs repair before tomorrow. Reopen Wake My Way to reconcile it.</string>
+    <string name="tonight_repair_alarm_access">Review alarm access</string>
+    <string name="tonight_repair_notifications">Allow alarm notifications</string>
+    <string name="tonight_repair_channel">Enable high-priority alerts</string>
+    <string name="tonight_repair_full_screen">Allow full-screen alarms</string>
     <string name="tonight_set_wake">Set wake time</string>
     <string name="tonight_edit_wake">Edit wake plan</string>
     <string name="tonight_open_lab">Open Wake Lab</string>
     <string name="tonight_lab_note">Founder diagnostics stay separate from the everyday wake experience.</string>
     <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
-    <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan</string>
+    <string name="tonight_presence_waiting_description">Wake My Way needs attention before tomorrow</string>
     <string name="tonight_voice_wake_title">Voice replies</string>
     <string name="tonight_voice_wake_ready">Ready</string>
     <string name="tonight_voice_wake_setup">Setup needed</string>
@@ -82,6 +91,10 @@
     <string name="tomorrow_plan_clear_confirm">Clear</string>
     <string name="tomorrow_plan_clear_cancel">Keep it</string>
     <string name="tomorrow_plan_cleared">Private morning context cleared.</string>
+
+    <string name="notification_permission_title">Keep Stop and Snooze reachable?</string>
+    <string name="notification_permission_body">Wake My Way needs alarm notifications so every active wake has visible Stop and Snooze controls, even if Android does not open the full wake screen.</string>
+    <string name="notification_permission_enable">Allow alarm notifications</string>
 
     <string name="voice_permission_title">Let Alfred hear your reply?</string>
     <string name="voice_permission_body">Wake My Way can listen for short spoken answers during an active wake. Recognition stays on-device, and raw audio or transcripts are not saved.</string>
