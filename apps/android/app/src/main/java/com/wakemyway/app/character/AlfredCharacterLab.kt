@@ -118,7 +118,7 @@ fun AlfredCharacterLab(modifier: Modifier = Modifier) {
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "This lab never waits for network speech and is not wired into Active Wake Execution yet.",
+            text = "Production Wake now uses the same offline speech adapter; this screen remains diagnostics only.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
