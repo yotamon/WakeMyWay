@@ -12,11 +12,13 @@ The persistence was explainable by the existing alarm reliability design: `Alarm
 
 Android 13+ can run a foreground service even when notification permission is denied; the foreground-service notice may not be visible in the notification drawer. Therefore a design that persists an alarm first and asks the user to repair notification/full-screen access later can still create an uncontrollable alarm.
 
+The second regression also exposed a testing bypass: the developer Wake Alarm Lab could directly call `AlarmKernel.commitSchedule()` while checking only exact-alarm capability. A fresh install could therefore arm a T+2m wake before notification, full-screen and microphone setup was complete even though the normal product UI had become stricter.
+
 ## Decision
 
 For the current product, scheduling a Voice Wake is a **preflight transaction**.
 
-No Wake Occurrence may be committed from the normal product flow until all of these are true:
+No Wake Occurrence may be committed from any user-accessible scheduling path until all of these are true:
 
 ```text
 exact-alarm capability
@@ -36,6 +38,10 @@ Voice Wake may be scheduled
 
 The product repairs one missing prerequisite at a time. The schedule is not written first and then repaired.
 
+Wake My Way currently declares `USE_EXACT_ALARM` because precise alarms are core product functionality. On supported Android versions that permission is granted automatically rather than requested as a normal runtime permission. Exact-alarm capability remains a fail-closed health fact in case device/platform policy makes it unavailable.
+
+The developer Wake Alarm Lab consumes the same `WakeSchedulingGate` as the production setup flow, receives the same current voice readiness, and re-checks immediately before its T+2m commit. Diagnostic surfaces are not allowed to bypass production safety invariants.
+
 ## Defense in depth
 
 Permissions can be revoked after scheduling, old builds can leave durable occurrences behind, and Android may recreate a foreground service after process death. Therefore preflight is not sufficient by itself.
@@ -50,11 +56,13 @@ Permissions can be revoked after scheduling, old builds can leave durable occurr
 
 ### Reconciliation / package replacement / boot
 
-`AlarmReconcileReceiver` invalidates planned or active unsafe occurrences. If an unsafe active service is running, the service component is explicitly stopped after durable authority is cleared.
+`AlarmReconcileReceiver` invalidates planned or active unsafe occurrences. If an unsafe active service is running, durable authority is cleared first and the service component is explicitly stopped so playback resources are released.
 
 ### Manual app-open recovery
 
-If the user opens Wake My Way while an occurrence is active and presentation access is unhealthy, `MainActivity` sends the terminal Stop command instead of attempting another Wake Surface launch.
+If the user opens Wake My Way while an occurrence is active and presentation access is unhealthy, `MainActivity` clears durable schedule authority and stops `AlarmPlaybackService` directly. It does not use the normal recurring Stop path, because an unsafe wake must not create a replacement occurrence, and it does not attempt another Wake Surface launch that Android may still refuse to present.
+
+If presentation access is healthy, manual app-open remains a foreground rescue into the real `WakeActivity`.
 
 ## Why task dismissal does not stop a healthy alarm
 
@@ -70,8 +78,9 @@ The safety invariant is not “task dismissal stops the alarm.” The invariant 
 - Existing schedules from older builds may be invalidated after upgrade if current prerequisites are incomplete.
 - Revoking critical presentation access after scheduling may cause the affected wake to be cancelled rather than produce an uncontrollable siren.
 - On-device voice recognition is required by the current Voice Wake product contract. A future explicit non-voice alarm mode may define a separate prerequisite set.
+- Offline TTS availability remains a separately observed runtime capability for now; it is not falsely described as a permission. Whether to hard-gate scheduling on an installed Alfred-compatible offline voice requires a separate product decision after presentation reliability is physically re-proven.
 - Critical alarm reliability remains local, but controllability is now treated as a safety precondition rather than post-commit enrichment.
 
 ## Validation
 
-Automated coverage must verify scheduling blocker priority and existing Alarm Kernel behavior. Physical validation must start from a clean install/upgrade state, grant each requested capability, confirm that scheduling remains impossible until all required access is ready, then exercise a locked-screen near-term wake.
+Automated coverage must verify scheduling blocker priority, the shared production/lab preflight, existing Alarm Kernel behavior, lint/build, visual regression and API-36 device reliability. Physical validation must start from a clean install/upgrade state, verify that both production setup and the Wake Alarm Lab refuse to schedule with missing prerequisites, grant each requested capability, then exercise a locked-screen near-term wake.
