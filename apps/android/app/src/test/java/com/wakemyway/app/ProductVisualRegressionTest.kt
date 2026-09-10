@@ -21,7 +21,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
     sdk = [35],
-    qualifiers = "w393dp-h852dp-mdpi-en-rUS-night",
+    qualifiers = "en-rUS-w393dp-h852dp-night-mdpi",
 )
 class ProductVisualRegressionTest {
     @Test
