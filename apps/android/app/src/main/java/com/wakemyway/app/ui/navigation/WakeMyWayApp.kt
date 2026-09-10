@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -57,6 +58,9 @@ fun WakeMyWayApp(
     onRepairWakeSystem: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val alarmSetupRequiredCopy = stringResource(R.string.tonight_readiness_attention)
+    val voiceSetupRequiredCopy = stringResource(R.string.tonight_voice_wake_setup_detail)
+    val voiceUnavailableCopy = stringResource(R.string.tonight_voice_wake_unavailable_detail)
     val alarmKernel = remember { AlarmKernel(context) }
     val preparationManager = remember { WakePreparationManager(context) }
     val showDeveloperTools = remember(context) {
@@ -114,7 +118,7 @@ fun WakeMyWayApp(
                                 onRepairWakeSystem()
                                 WakeSetupCommitResult(
                                     committed = false,
-                                    detail = context.getString(R.string.tonight_readiness_attention),
+                                    detail = alarmSetupRequiredCopy,
                                     wakeReady = false,
                                 )
                             }
@@ -123,7 +127,7 @@ fun WakeMyWayApp(
                                 onRepairWakeSystem()
                                 WakeSetupCommitResult(
                                     committed = false,
-                                    detail = context.getString(R.string.tonight_voice_wake_setup_detail),
+                                    detail = voiceSetupRequiredCopy,
                                     wakeReady = false,
                                 )
                             }
@@ -131,7 +135,7 @@ fun WakeMyWayApp(
                             WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
                                 WakeSetupCommitResult(
                                     committed = false,
-                                    detail = context.getString(R.string.tonight_voice_wake_unavailable_detail),
+                                    detail = voiceUnavailableCopy,
                                     wakeReady = false,
                                 )
                             }
