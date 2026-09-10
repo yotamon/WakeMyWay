@@ -169,10 +169,10 @@ fun TonightScreen(
                         )
                         WmwStatusPill(
                             label = stringResource(
-                                if (state.wakeReady) {
-                                    R.string.tonight_wake_ready
-                                } else {
-                                    R.string.tonight_wake_not_ready
+                                when {
+                                    !state.hasOccurrence -> R.string.tonight_wake_waiting
+                                    state.wakeReady -> R.string.tonight_wake_ready
+                                    else -> R.string.tonight_wake_not_ready
                                 },
                             ),
                             positive = state.wakeReady,
@@ -351,7 +351,7 @@ private fun TonightReadyPreview() {
                 dateLabel = "Thursday · Sep 10",
                 hasOccurrence = true,
                 wakeReady = true,
-                readinessDetail = "Scheduled locally with critical wake capabilities available.",
+                readinessDetail = "Exact alarm, wake screen, and Stop/Snooze controls are ready locally.",
                 hasTomorrowContract = true,
                 tomorrowContractPrepared = true,
             ),
