@@ -19,12 +19,17 @@ import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.setup.WakeSetupCommitResult
+import com.wakemyway.app.ui.setup.WakeSetupScreen
 import kotlinx.serialization.Serializable
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Serializable
 private data object TonightRoute : NavKey
+
+@Serializable
+private data object WakeSetupRoute : NavKey
 
 @Serializable
 private data object WakeLabRoute : NavKey
@@ -43,9 +48,54 @@ fun WakeMyWayApp() {
             entry<TonightRoute> {
                 TonightScreen(
                     state = alarmHealth.toTonightUiState(context),
+                    onOpenWakeSetup = {
+                        alarmHealth = alarmKernel.reconcile()
+                        backStack.add(WakeSetupRoute)
+                    },
                     onOpenWakeLab = {
                         alarmHealth = alarmKernel.reconcile()
                         backStack.add(WakeLabRoute)
+                    },
+                )
+            }
+            entry<WakeSetupRoute> {
+                WakeSetupScreen(
+                    existingSchedule = alarmKernel.currentSchedule(),
+                    onBack = {
+                        alarmHealth = alarmKernel.health()
+                        backStack.removeLastOrNull()
+                    },
+                    onCommit = { schedule ->
+                        runCatching { alarmKernel.commitSchedule(schedule) }
+                            .fold(
+                                onSuccess = { health ->
+                                    alarmHealth = health
+                                    WakeSetupCommitResult(committed = true)
+                                },
+                                onFailure = { error ->
+                                    WakeSetupCommitResult(
+                                        committed = false,
+                                        detail = error.message,
+                                    )
+                                },
+                            )
+                    },
+                    onDisable = {
+                        runCatching {
+                            alarmKernel.cancelSchedule()
+                            alarmKernel.health()
+                        }.fold(
+                            onSuccess = { health ->
+                                alarmHealth = health
+                                WakeSetupCommitResult(committed = true)
+                            },
+                            onFailure = { error ->
+                                WakeSetupCommitResult(
+                                    committed = false,
+                                    detail = error.message,
+                                )
+                            },
+                        )
                     },
                 )
             }
