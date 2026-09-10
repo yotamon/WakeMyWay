@@ -150,16 +150,18 @@ class MainActivity : ComponentActivity() {
     /**
      * Opening the app during an active alarm is always a recovery action.
      *
-     * If critical presentation access has disappeared, terminate the alarm immediately rather than
-     * trying to navigate into a surface Android may not be allowed to present. If presentation is
-     * healthy, continue into the real WakeActivity as the normal rescue path.
+     * If critical presentation access has disappeared, clear durable authority and stop the service
+     * component directly. Do not route through the normal recurring Stop path because an unsafe wake
+     * must not create a replacement occurrence. If presentation is healthy, continue into the real
+     * WakeActivity as the normal foreground rescue path.
      */
     private fun recoverOrResumeActiveWake() {
         val health = alarmKernel.health()
         val active = health.activeOccurrence ?: return
 
         if (health.repairTarget() != AlarmRepairTarget.NONE) {
-            AlarmPlaybackService.requestStop(this, active.id)
+            alarmKernel.cancelSchedule()
+            stopService(Intent(this, AlarmPlaybackService::class.java))
             return
         }
 
