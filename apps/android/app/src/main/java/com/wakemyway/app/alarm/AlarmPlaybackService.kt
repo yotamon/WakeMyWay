@@ -11,7 +11,9 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.ToneGenerator
 import android.net.Uri
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.wakemyway.app.R
@@ -22,6 +24,8 @@ import java.time.Duration
 class AlarmPlaybackService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var toneFallback: ToneGenerator? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val restoreAlarmVolume = Runnable { setCriticalPlaybackVolume(FULL_VOLUME) }
 
     override fun onCreate() {
         super.onCreate()
@@ -73,6 +77,24 @@ class AlarmPlaybackService : Service() {
                 START_NOT_STICKY
             }
 
+            ACTION_VOICE_WINDOW -> {
+                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                    beginVoiceWindow()
+                    START_STICKY
+                } else {
+                    START_NOT_STICKY
+                }
+            }
+
+            ACTION_RESTORE_CRITICAL_VOLUME -> {
+                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                    endVoiceWindow()
+                    START_STICKY
+                } else {
+                    START_NOT_STICKY
+                }
+            }
+
             else -> START_NOT_STICKY
         }
     }
@@ -118,6 +140,7 @@ class AlarmPlaybackService : Service() {
                     setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
                     isLooping = true
                     prepare()
+                    setVolume(FULL_VOLUME, FULL_VOLUME)
                     start()
                 }
             }
@@ -125,11 +148,32 @@ class AlarmPlaybackService : Service() {
         }.onFailure {
             mediaPlayer?.release()
             mediaPlayer = null
+            // The tone fallback intentionally stays at full alarm volume. We only duck the bundled
+            // MediaPlayer path because a degraded playback path must remain maximally reliable.
             toneFallback = ToneGenerator(AudioManager.STREAM_ALARM, 100).also { tone ->
                 tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
             }
             WakeTimingTrace(this).audioStarted(occurrenceId)
         }
+    }
+
+    /**
+     * Makes a spoken/listening turn intelligible without surrendering alarm ownership.
+     * The service, not WakeActivity, owns the lease and restores full volume automatically.
+     */
+    private fun beginVoiceWindow() {
+        setCriticalPlaybackVolume(VOICE_WINDOW_VOLUME)
+        mainHandler.removeCallbacks(restoreAlarmVolume)
+        mainHandler.postDelayed(restoreAlarmVolume, VOICE_WINDOW_MAX_MILLIS)
+    }
+
+    private fun endVoiceWindow() {
+        mainHandler.removeCallbacks(restoreAlarmVolume)
+        setCriticalPlaybackVolume(FULL_VOLUME)
+    }
+
+    private fun setCriticalPlaybackVolume(volume: Float) {
+        mediaPlayer?.runCatching { setVolume(volume, volume) }
     }
 
     private fun stopExecution() {
@@ -139,6 +183,7 @@ class AlarmPlaybackService : Service() {
     }
 
     private fun releasePlayback() {
+        mainHandler.removeCallbacks(restoreAlarmVolume)
         mediaPlayer?.runCatching { stop() }
         mediaPlayer?.release()
         mediaPlayer = null
@@ -223,6 +268,11 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_START = "com.wakemyway.action.START_WAKE"
         private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
+        private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
+        private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
+        private const val FULL_VOLUME = 1f
+        private const val VOICE_WINDOW_VOLUME = 0.12f
+        private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
         private val DEFAULT_SNOOZE: Duration = Duration.ofMinutes(5)
 
@@ -237,19 +287,31 @@ class AlarmPlaybackService : Service() {
         }
 
         fun requestStop(context: Context, occurrenceId: WakeOccurrenceId) {
-            context.startService(
-                Intent(context, AlarmPlaybackService::class.java)
-                    .setAction(ACTION_STOP)
-                    .setData(commandIdentity("stop", occurrenceId))
-                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
-            )
+            sendCommand(context, ACTION_STOP, "stop", occurrenceId)
         }
 
         fun requestSnooze(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_SNOOZE, "snooze", occurrenceId)
+        }
+
+        fun requestVoiceWindow(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_VOICE_WINDOW, "voice-window", occurrenceId)
+        }
+
+        fun requestCriticalVolume(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_RESTORE_CRITICAL_VOLUME, "critical-volume", occurrenceId)
+        }
+
+        private fun sendCommand(
+            context: Context,
+            action: String,
+            kind: String,
+            occurrenceId: WakeOccurrenceId,
+        ) {
             context.startService(
                 Intent(context, AlarmPlaybackService::class.java)
-                    .setAction(ACTION_SNOOZE)
-                    .setData(commandIdentity("snooze", occurrenceId))
+                    .setAction(action)
+                    .setData(commandIdentity(kind, occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
