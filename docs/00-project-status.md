@@ -12,7 +12,7 @@
 
 ## Executive status
 
-Wake My Way has a functioning local critical alarm and a production-connected local conversational Wake Session, but physical dogfood on 2026-09-10 exposed a serious readiness defect after PR #36.
+Wake My Way has a functioning local critical alarm and a production-connected local conversational Wake Session, but physical dogfood on 2026-09-10 exposed a serious locked-screen presentation defect after PR #36.
 
 Observed on the founder phone:
 
@@ -32,9 +32,12 @@ user had to terminate the app to stop audio
 
 The audio path therefore worked while the presentation/control path failed.
 
-The root cause was not the voice reducer. `AlarmKernel.health().ready` incorrectly treated notification and full-screen presentation capability as optional degradation. The product could claim **Wake Ready** even when Android was not able to present a controllable wake.
+Investigation found two independent Android/platform gaps in the implementation:
 
-PR #37 changes that contract. Audible-only remains a valuable emergency fallback, but it is no longer considered Wake Ready.
+1. `AlarmKernel.health().ready` incorrectly treated notification and full-screen presentation capability as optional degradation. The product could claim **Wake Ready** even when Android was not able to present a controllable wake.
+2. Wake My Way targets SDK 36. Android 15+ blocks a `PendingIntent` creator from granting background-activity-launch privilege by default unless the creator explicitly opts in. The full-screen WakeActivity PendingIntent still used the pre-Android-15 creation shape.
+
+PR #37 fixes both. Audible-only remains a valuable emergency fallback, but it is no longer considered Wake Ready, and the full-screen PendingIntent now explicitly follows Android 15/16 BAL rules.
 
 Canonical decision: [`adr/018-controllable-wake-presentation-readiness.md`](adr/018-controllable-wake-presentation-readiness.md).
 
@@ -55,11 +58,14 @@ AlarmPlaybackService
     ├─ bundled local USAGE_ALARM audio
     ├─ immediate high-priority alarm notification
     ├─ Stop / Snooze actions
-    └─ full-screen PendingIntent → WakeActivity
-                               ↓
-                     WakeVoiceSessionController
-                               ↓
-                          WakeRuntime
+    └─ full-screen PendingIntent
+          + explicit creator BAL opt-in on Android 14+
+          ↓
+       WakeActivity
+          ↓
+WakeVoiceSessionController
+          ↓
+      WakeRuntime
 ```
 
 Critical audio remains service-owned and does not depend on Activity, microphone, TTS, network, AI, Tomorrow Contract, Wake Learning, Vercel or Supabase.
@@ -85,6 +91,20 @@ full-screen alarm special access where required
 This deliberately distinguishes **safe fallback audio** from **a wake that is ready to be controlled by a sleeping user**.
 
 Microphone/voice, private morning context and cloud enrichment remain optional and are surfaced separately.
+
+### Android 15/16 full-screen launch contract
+
+Wake My Way targets SDK 36, so the full-screen Activity PendingIntent must explicitly opt into creator background-activity-start privilege.
+
+The wake-surface PendingIntent now uses:
+
+```text
+API < 34     default legacy creation
+API 34–35    MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+API 36+      MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+```
+
+`ALLOW_IF_VISIBLE` is deliberately not used for the scheduled wake surface because the app is expected to be invisible/locked immediately before alarm fire. The privilege is scoped only to the PendingIntent that launches `WakeActivity`; arbitrary application navigation does not receive this opt-in.
 
 ### Presentation capability owner
 
@@ -138,7 +158,7 @@ This is a rescue from a user-foregrounded context, not an attempt to bypass Andr
 
 ### Notification fallback
 
-The active foreground notification remains persistent and contains Stop/Snooze actions. It is now requested as immediate foreground-service presentation and uses the same high-priority channel checked by readiness.
+The active foreground notification remains persistent and contains Stop/Snooze actions. It is requested as immediate foreground-service presentation and uses the same high-priority channel checked by readiness.
 
 If Android intentionally chooses a heads-up notification while the device is actively in use, controls remain the important invariant. The physical locked-screen test remains the proof gate for full wake-surface presentation.
 
@@ -207,7 +227,7 @@ The 12% level, nine-second listen turn and 12-second lease remain tuning hypothe
 
 ## Validation status for PR #37
 
-### Confirmed on earlier PR #37 head
+### Confirmed on earlier PR #37 heads
 
 - documentation validation: passed;
 - `:wake-core` tests: passed;
@@ -219,15 +239,15 @@ The 12% level, nine-second listen turn and 12-second lease remain tuning hypothe
 
 The first PR #37 visual run failed because the critical Wake system card was intentionally moved ahead of optional content and existing reviewed goldens no longer matched. The actual screenshots were inspected manually. A dedicated missing-full-screen-access visual fixture has been added so this exact critical state receives regression coverage.
 
-The first API-36 device run had exactly one failing test: `AlarmKernelInstrumentedTest.cancellationTombstonePreventsStaleOccurrenceResurrection`. Its old `assertTrue(committed.ready)` assumed exact registration alone implied Wake Ready. The test has been updated to assert the stricter real capability contract rather than weakening production readiness.
+The first API-36 device run had exactly one failing test: `AlarmKernelInstrumentedTest.cancellationTombstonePreventsStaleOccurrenceResurrection`. Its old `assertTrue(committed.ready)` assumed exact registration alone implied Wake Ready. The failure artifact confirmed that exact assertion. The test has been updated to assert the stricter real capability contract rather than weakening production readiness.
 
-A new final-head CI pass is required after the current hardening/docs/golden updates.
+After reviewing current Android 15/16 platform guidance, the full-screen Activity PendingIntent was additionally hardened with the required creator BAL opt-in. A new final-head CI pass is required after that change and the reviewed golden update.
 
 ## Physical reliability truth
 
-PR #36's previous green emulator/device workflow did **not** prove the physical locked-screen experience. The 2026-09-10 founder test is now explicit counter-evidence to any such claim.
+PR #36's previous green emulator/device workflow did **not** prove the physical locked-screen experience. The 2026-09-10 founder test is explicit counter-evidence to any such claim.
 
-Do not call the wake physically reliable until the corrected build passes the representative phone test.
+Do not call the wake physically reliable until the corrected PR #37 build passes the representative phone test.
 
 The next physical test must begin only after Tonight says **Wake Ready** and Voice replies separately says **Ready**.
 
@@ -251,8 +271,8 @@ The next physical test must begin only after Tonight says **Wake Ready** and Voi
 
 ## Current risks / open proof boundaries
 
-- the corrected full-screen path is not yet re-proven on the founder phone;
-- OxygenOS/OnePlus may add OEM-specific presentation or lock-screen behavior beyond the standard Android capability APIs;
+- the corrected Android 15/16 full-screen path is not yet re-proven on the founder phone;
+- OxygenOS/OnePlus may add OEM-specific presentation or lock-screen behavior beyond standard Android capability APIs;
 - on-device recognition availability varies by device and installed speech components;
 - local TTS availability/quality varies by device;
 - Bluetooth/audio-route behavior remains unproven;
