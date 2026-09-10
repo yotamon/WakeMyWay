@@ -54,10 +54,15 @@ class FounderRealtimeSettings(context: Context) {
     fun configured(): Boolean = load() != null
 
     private fun validateBrokerUrl(raw: String): String {
-        val value = raw.trim()
+        val value = raw.trim().trimEnd('/')
         val uri = Uri.parse(value)
-        val valid = uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()
-        require(valid) { "Wake conversation broker must use HTTPS" }
+        val valid =
+            uri.scheme.equals("https", ignoreCase = true) &&
+                !uri.host.isNullOrBlank() &&
+                uri.path.orEmpty().endsWith(FOUNDER_WAKE_PATH)
+        require(valid) {
+            "Wake conversation broker must be HTTPS and end with $FOUNDER_WAKE_PATH"
+        }
         return value
     }
 
@@ -102,13 +107,15 @@ class FounderRealtimeSettings(context: Context) {
         return generator.generateKey()
     }
 
-    private companion object {
-        const val PREFS = "founder-realtime-dogfood-v1"
-        const val KEY_BROKER_URL = "broker-url"
-        const val KEY_OPERATOR_TOKEN = "operator-token-aes-gcm"
-        const val KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "wmw-founder-realtime-token-v1"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
-        const val MIN_TOKEN_LENGTH = 24
+    companion object {
+        const val FOUNDER_WAKE_PATH = "/api/internal/voice-spike/founder-wake-token"
+
+        private const val PREFS = "founder-realtime-dogfood-v1"
+        private const val KEY_BROKER_URL = "broker-url"
+        private const val KEY_OPERATOR_TOKEN = "operator-token-aes-gcm"
+        private const val KEYSTORE = "AndroidKeyStore"
+        private const val KEY_ALIAS = "wmw-founder-realtime-token-v1"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val MIN_TOKEN_LENGTH = 24
     }
 }
