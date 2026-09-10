@@ -2,9 +2,9 @@
 
 ## Status
 
-Implementation started in issue #28 after M7 Wake Learning v0 demonstrated a bounded and explainable policy adaptation from fixture Wake Outcomes.
+Implementation is active in issue #28. The provider-neutral evidence harness is merged, the first direct OpenAI WebRTC candidate is runnable in a debug-only Android lab, and the first operator-observed audible smoke-measurement seam is being added.
 
-This first M8 slice does **not** choose a realtime provider and does **not** connect realtime voice to a production wake. It creates the evidence contract that every candidate must satisfy before ADR-008 can move from a process decision to a measured architecture decision.
+M8 still does **not** choose a realtime provider and does **not** connect realtime voice to a production wake. The evidence contract must be satisfied before ADR-008 can move from a process decision to a measured architecture decision.
 
 ## Purpose
 
@@ -72,6 +72,43 @@ It has no field for:
 
 The M8 measurement layer therefore cannot become a convenient accidental store for private voice content.
 
+## Metric clock semantics
+
+Candidate implementations may expose many convenient protocol timestamps. Only timestamps that map to the defined user-visible metric may populate the canonical timing fields.
+
+### Cold connection
+
+`coldConnectionMs` measures from the local start of a fresh candidate connection attempt until the local candidate transport is ready for the controlled speech experiment.
+
+For `direct-openai:webrtc-ephemeral-v1`, the current ready point is the `oai-events` WebRTC data channel reaching `OPEN` after credential minting and SDP exchange.
+
+### First speech
+
+`firstSpeechMs` measures from an **explicit local response request origin** to the **first physically audible response observation**.
+
+It must not be populated from a server/control event such as an audio-delta event merely because that event is correlated with generated audio. A network event proves protocol progress, not that sound reached the listener.
+
+The first direct-OpenAI smoke method is:
+
+```text
+protocolId         m8-direct-openai-manual-audible-v1
+origin             local enqueue of fixed synthetic response.create
+audio observation  operator tap at first audible syllable
+quality             conservative upper bound; includes human reaction time
+```
+
+This manual method is suitable for smoke characterization and for discovering gross latency problems. It is **not automatically architecture-decision-grade evidence**. Before mixing such values into a final provider comparison, the same declared method must be used across candidates or replaced/supplemented by a more precise non-content audible-output signal.
+
+Missing/uncertain audible observations remain `null`; they are never replaced with protocol-event latency.
+
+### Barge-in
+
+`bargeInMs` begins at a repeatable local interruption action and ends when ongoing output is actually observed to stop/respond. A provider acknowledgement alone is not equivalent to audible interruption.
+
+### Reconnect
+
+`reconnectMs` begins when the controlled reconnect attempt starts and ends when the candidate is again usable for speech under the same declared measurement protocol.
+
 ## Network scenarios
 
 The normalized scenarios are:
@@ -130,6 +167,8 @@ A privacy evidence reference is also required by the default evidence floor. Thi
 
 The existing Vercel AI Gateway realtime-token path remains explicitly gated for synthetic/non-sensitive experiments in the current cloud foundation. M8 measurements through that route must therefore use `synthetic-only` until the exact measured configuration has an acceptable private-data posture.
 
+The current direct OpenAI candidate is also `synthetic-only` until the exact OpenAI organization/project data-control configuration used by WMW is independently verified.
+
 ## Operational footprint
 
 The configuration captures objective topology facts instead of an arbitrary "complexity score":
@@ -177,6 +216,8 @@ The initial smoke-level evidence floor requires one exact candidate configuratio
 - a privacy evidence reference;
 - an explicit operational footprint.
 
+Successful samples also require both cold-connection and first-speech measurements.
+
 These numbers are **not** production SLAs, statistical confidence claims, or final benchmark sizes. They are a centralized engineering floor that prevents ADR-008 from being decided from one attractive demo. They live in `DEFAULT_VOICE_SPIKE_REQUIREMENTS` and can be tightened after the first real spike runs.
 
 ## Comparison readiness
@@ -201,29 +242,33 @@ For each exact candidate configuration:
 
 1. Assign a stable `configurationId` before testing. Record model, privacy classification/evidence, and topology footprint.
 2. Use only synthetic, non-sensitive phrases until the configuration is explicitly private-data-eligible.
-3. Perform cold-start runs on Wi-Fi and mobile separately. Capture connection-ready and first-audible-response elapsed times from one monotonic clock domain where possible.
-4. Exercise barge-in by interrupting generated speech at a repeatable point and capture the time until output is actually interrupted/responding.
-5. Exercise reconnect by intentionally dropping/recreating the realtime session and measure until usable speech resumes.
-6. Exercise at least one Wi-Fi ↔ mobile transition without changing the candidate configuration.
-7. Exercise speaker and Bluetooth routes; record failed routing as failures rather than deleting the run.
-8. Capture the actual provider/session cost if available; otherwise mark cost null rather than inventing a number.
-9. Keep raw audio/transcripts out of the benchmark record. Temporary provider-side content handling must follow the candidate's declared privacy classification.
-10. Summarize only samples that match the exact candidate + configuration identity. Do not merge model/provider/topology revisions into one distribution.
-11. If readiness reports missing evidence, collect that evidence. Do not lower the requirement merely to obtain a provider decision.
+3. Perform cold-start runs on Wi-Fi and mobile separately. Capture the connection-ready time from the declared local connection origin.
+4. For first speech, use a repeatable explicit local response request. Observe first physically audible output under the declared measurement method. Do **not** substitute an audio-delta/control event for audible output.
+5. Record the measurement method/protocol alongside the experimental run notes. The current direct candidate's manual operator tap is an upper bound and must not be silently mixed with a more precise method as though they were identical.
+6. Exercise barge-in by interrupting generated speech at a repeatable point and capture the time until output is actually interrupted/responding.
+7. Exercise reconnect by intentionally dropping/recreating the realtime session and measure until usable speech resumes.
+8. Exercise at least one Wi-Fi ↔ mobile transition without changing the candidate configuration.
+9. Exercise speaker and Bluetooth routes; record failed routing as failures rather than deleting the run.
+10. Capture the actual provider/session cost if available; otherwise mark cost null rather than inventing a number.
+11. Keep raw audio/transcripts out of the benchmark record. Temporary provider-side content handling must follow the candidate's declared privacy classification.
+12. Summarize only samples that match the exact candidate + configuration identity. Do not merge model/provider/topology revisions into one distribution.
+13. If readiness reports missing evidence, collect that evidence. Do not lower the requirement merely to obtain a provider decision.
 
 ## First candidate sequencing
 
-ADR-008 currently prefers direct OpenAI realtime as the first prototype, not as the final architecture choice.
+ADR-008 uses direct OpenAI realtime as the first prototype, not as the final architecture choice.
 
-The intended order is:
+Current sequence:
 
 ```text
-1. direct OpenAI isolated prototype + measurements
-2. inspect what complexity/failures remain
-3. add LiveKit candidate only if RTC/session management could materially improve them
-4. measure the existing Vercel control-plane/gateway shape as a separate candidate where useful
-5. evaluate ElevenLabs separately for character/voice quality, cost and licensing rather than treating it as the transport answer
-6. amend ADR-008 only after comparable evidence exists
+1. provider-neutral harness                         merged PR #29
+2. direct OpenAI isolated WebRTC prototype          merged PR #31
+3. direct candidate measurement seams + runs        in progress
+4. inspect what complexity/failures remain
+5. add LiveKit candidate only if RTC/session management could materially improve them
+6. measure the Vercel control-plane/gateway shape separately where useful
+7. evaluate ElevenLabs separately for character/voice quality, cost and licensing
+8. amend ADR-008 only after comparable evidence exists
 ```
 
 The order keeps the experiment economical while preserving the requirement that the final decision be evidence-driven.
@@ -245,13 +290,25 @@ Network/provider failure must therefore be recoverable by falling back to the al
 
 ## Current completion boundary
 
-This first slice is complete when:
+Completed:
 
-- the provider-neutral model compiles under strict TypeScript;
-- deterministic tests cover distributions, failures, coverage, identity isolation and comparison readiness;
-- the reproducible protocol is documented;
-- CI is green.
+- provider-neutral metadata-only model and validation;
+- deterministic distributions/failure/coverage/readiness tests;
+- reproducible comparison protocol;
+- direct OpenAI WebRTC debug candidate with server-minted ephemeral credentials;
+- debug-only Android RTC/permission isolation;
+- first in-memory operator-observed first-audible smoke seam;
+- lifecycle generation guard preventing stale credential/SDP callbacks from reviving a disconnected attempt.
 
-It does **not** claim that any provider has been measured yet.
+Still open before M8 architecture decision:
 
-The next slice is an isolated first candidate prototype and real measurement capture. Bluetooth/network-transition evidence ultimately requires representative physical Android devices and cannot be proven by TypeScript tests or a desktop-only transport spike.
+- representative physical Android measurements;
+- enough repeated first-speech samples under a comparable declared method;
+- barge-in/reconnect/network-transition/Bluetooth evidence;
+- cost observations;
+- exact privacy/data-control proof;
+- operational-footprint completion;
+- at least one meaningful second comparison configuration;
+- explicit ADR-008 decision after evidence review.
+
+Bluetooth/network-transition evidence ultimately requires representative physical Android devices and cannot be proven by TypeScript tests or emulator-only transport validation.
