@@ -81,7 +81,6 @@ class WakeActivity : ComponentActivity() {
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = preparedPlan,
-                    voiceState = voiceState,
                     onSnooze = {
                         voiceController?.close()
                         AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
@@ -92,6 +91,7 @@ class WakeActivity : ComponentActivity() {
                         AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
+                    voiceState = voiceState,
                 )
             }
         }
@@ -153,14 +153,49 @@ class WakeActivity : ComponentActivity() {
     }
 }
 
+/**
+ * `voiceState == null` intentionally renders the previously reviewed synthetic Wake Emerging
+ * fixture. Production WakeActivity always supplies a live voice state. This preserves the curated
+ * visual baseline until the new dynamic states receive their own explicit visual-review gate.
+ */
 @Composable
 internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
-    voiceState: WakeVoiceUiState,
     onSnooze: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+    voiceState: WakeVoiceUiState? = null,
+) {
+    if (voiceState == null) {
+        LegacyWakeEmergingSurface(
+            preparedPlan = preparedPlan,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            modifier = modifier,
+            displayTime = displayTime,
+        )
+        return
+    }
+
+    VoiceWakeSurface(
+        preparedPlan = preparedPlan,
+        voiceState = voiceState,
+        onSnooze = onSnooze,
+        onStop = onStop,
+        modifier = modifier,
+        displayTime = displayTime,
+    )
+}
+
+@Composable
+private fun VoiceWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    voiceState: WakeVoiceUiState,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+    displayTime: String,
 ) {
     val presenceState = when (voiceState.mode) {
         WakeVoiceMode.LISTENING -> WmwPresenceState.LISTENING
@@ -299,6 +334,106 @@ internal fun WakeSurface(
     }
 }
 
+@Composable
+private fun LegacyWakeEmergingSurface(
+    preparedPlan: PreparedWakePlan?,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+    displayTime: String,
+) {
+    WmwCircadianSurface(
+        stage = WmwCircadianStage.EMERGING,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            WmwTimeDisplay(
+                time = displayTime,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                text = stringResource(R.string.wake_character_name),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.QuietText,
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Huge))
+
+            WmwPresence(
+                state = WmwPresenceState.QUIET,
+                contentDescription = stringResource(R.string.wake_presence_description),
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Xxl))
+
+            Text(
+                text = preparedPlan?.orientationLeadIn
+                    ?: stringResource(R.string.wake_default_greeting),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium,
+                color = WmwColors.WarmLight,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = preparedPlan?.reminderLine
+                    ?: stringResource(R.string.wake_default_instruction),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.titleMedium,
+                color = WmwColors.MorningPaper,
+                textAlign = TextAlign.Center,
+            )
+            preparedPlan?.firstMoveLine?.let { firstMove ->
+                Text(
+                    text = firstMove,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Md),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = WmwColors.QuietText,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Spacer(Modifier.height(WmwSpacing.Hero))
+
+            Text(
+                text = if (preparedPlan == null) {
+                    stringResource(R.string.wake_private_context_locked)
+                } else {
+                    stringResource(R.string.wake_private_context_ready)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.QuietText,
+                textAlign = TextAlign.Center,
+            )
+
+            WmwSecondaryAction(
+                label = stringResource(R.string.wake_snooze_five),
+                onClick = onSnooze,
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+            )
+            WmwIntentionalStopAction(
+                label = stringResource(R.string.wake_stop_alarm),
+                onClick = onStop,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+            )
+
+            Spacer(Modifier.height(WmwSpacing.Xl))
+        }
+    }
+}
+
 @Preview(
     name = "Wake listening",
     widthDp = 393,
@@ -310,15 +445,15 @@ private fun WakeListeningPreview() {
     WakeMyWayTheme {
         WakeSurface(
             preparedPlan = null,
-            voiceState = WakeVoiceUiState(
-                mode = WakeVoiceMode.LISTENING,
-                spokenLine = "Sit up first, if you please.",
-                speechAvailable = true,
-                voiceInputAvailable = true,
-            ),
             onSnooze = {},
             onStop = {},
             displayTime = "08:00",
+            voiceState = WakeVoiceUiState(
+                mode = WakeVoiceMode.LISTENING,
+                spokenLine = "Sit up, then tell me when you're sitting.",
+                speechAvailable = true,
+                voiceInputAvailable = true,
+            ),
         )
     }
 }
