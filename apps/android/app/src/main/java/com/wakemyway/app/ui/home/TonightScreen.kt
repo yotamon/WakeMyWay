@@ -52,6 +52,7 @@ fun TonightScreen(
     onOpenTomorrowPlan: () -> Unit,
     onOpenWakeLab: () -> Unit,
     modifier: Modifier = Modifier,
+    showDeveloperTools: Boolean = false,
 ) {
     WmwCircadianSurface(
         stage = WmwCircadianStage.ENGAGED,
@@ -77,11 +78,13 @@ fun TonightScreen(
                     color = WmwColors.WarmLight,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(
-                    text = stringResource(R.string.wmw_founder_build),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = WmwColors.QuietText,
-                )
+                if (showDeveloperTools) {
+                    Text(
+                        text = stringResource(R.string.wmw_founder_build),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = WmwColors.QuietText,
+                    )
+                }
             }
 
             Spacer(Modifier.height(WmwSpacing.Hero))
@@ -252,18 +255,20 @@ fun TonightScreen(
                     modifier = Modifier.padding(top = WmwSpacing.Xs),
                 )
             }
-            WmwSecondaryAction(
-                label = stringResource(R.string.tonight_open_lab),
-                onClick = onOpenWakeLab,
-            )
-            Text(
-                text = stringResource(R.string.tonight_lab_note),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
-            )
+            if (showDeveloperTools) {
+                WmwSecondaryAction(
+                    label = stringResource(R.string.tonight_open_lab),
+                    onClick = onOpenWakeLab,
+                )
+                Text(
+                    text = stringResource(R.string.tonight_lab_note),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Xs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.QuietText,
+                )
+            }
 
             Spacer(Modifier.height(WmwSpacing.Xxl))
         }

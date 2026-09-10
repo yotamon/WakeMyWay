@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.navigation
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,9 +27,9 @@ import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.core.schedule.WakeOccurrence
-import kotlinx.serialization.Serializable
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.serialization.Serializable
 
 @Serializable
 private data object TonightRoute : NavKey
@@ -47,6 +48,9 @@ fun WakeMyWayApp() {
     val context = LocalContext.current
     val alarmKernel = remember { AlarmKernel(context) }
     val preparationManager = remember { WakePreparationManager(context) }
+    val showDeveloperTools = remember(context) {
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     val backStack = rememberNavBackStack(TonightRoute)
 
@@ -71,6 +75,7 @@ fun WakeMyWayApp() {
                         alarmHealth = alarmKernel.reconcile()
                         backStack.add(WakeLabRoute)
                     },
+                    showDeveloperTools = showDeveloperTools,
                 )
             }
             entry<WakeSetupRoute> {
