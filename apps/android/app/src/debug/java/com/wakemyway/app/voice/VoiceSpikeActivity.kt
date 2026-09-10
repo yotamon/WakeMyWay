@@ -45,18 +45,25 @@ class VoiceSpikeActivity : ComponentActivity() {
     @Volatile
     private var destroyed = false
     private var serverReady = false
+    private var firstResume = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         settings = FounderRealtimeSettings(applicationContext)
         setContentView(buildContent())
-        refreshState()
     }
 
     override fun onResume() {
         super.onResume()
-        if (::settings.isInitialized) refreshState()
+        if (!firstResume && settings.configured()) {
+            // Returning to the screen after another foreground transition should refresh the
+            // server truth, but do not create duplicate startup requests from onCreate + onResume.
+            refreshState()
+            return
+        }
+        firstResume = false
+        refreshState()
     }
 
     override fun onDestroy() {
@@ -207,6 +214,9 @@ class VoiceSpikeActivity : ComponentActivity() {
 
     private fun renderIdle(status: FounderRealtimePairingClient.ServerStatus) {
         progress.visibility = View.GONE
+        primaryButton.visibility = View.VISIBLE
+        primaryButton.isEnabled = true
+        disconnectButton.isEnabled = true
         val configured = settings.configured()
         disconnectButton.visibility = if (configured) View.VISIBLE else View.GONE
         codeInput.visibility = if (configured) View.GONE else View.VISIBLE
@@ -217,21 +227,18 @@ class VoiceSpikeActivity : ComponentActivity() {
                 statusTitle.text = "Alfred is connected"
                 statusBody.text = "Realtime conversation is configured for this phone. The local wake path remains the automatic fallback."
                 primaryButton.text = "Re-check connection"
-                primaryButton.isEnabled = true
             }
             configured && !status.available -> {
                 statusPill.text = "SERVER SETUP"
                 statusTitle.text = "Alfred is paired, but cloud setup is incomplete"
                 statusBody.text = missingCopy(status.missing)
                 primaryButton.text = "Check again"
-                primaryButton.isEnabled = true
             }
             !configured && status.available -> {
                 statusPill.text = "ONE-TIME SETUP"
                 statusTitle.text = "Connect Alfred"
                 statusBody.text = "Enter the founder access code once. Wake My Way handles the server and OpenAI connection automatically after that."
                 primaryButton.text = "Connect Alfred"
-                primaryButton.isEnabled = true
             }
             else -> renderUnavailable(
                 "Conversational Alfred needs server setup",
@@ -301,7 +308,8 @@ class VoiceSpikeActivity : ComponentActivity() {
                 result.fold(
                     onSuccess = { renderConnected() },
                     onFailure = { error ->
-                        if (error is FounderRealtimePairingClient.PairingException &&
+                        if (
+                            error is FounderRealtimePairingClient.PairingException &&
                             error.kind == FounderRealtimePairingClient.PairingException.Kind.ACCESS_CODE_REJECTED
                         ) {
                             settings.clear()
@@ -324,12 +332,14 @@ class VoiceSpikeActivity : ComponentActivity() {
         primaryButton.text = "Re-check connection"
         primaryButton.isEnabled = true
         disconnectButton.visibility = View.VISIBLE
+        disconnectButton.isEnabled = true
     }
 
     private fun renderPairingFailure(error: Throwable) {
         progress.visibility = View.GONE
         primaryButton.visibility = View.VISIBLE
         primaryButton.isEnabled = true
+        disconnectButton.isEnabled = true
         val pairingError = error as? FounderRealtimePairingClient.PairingException
         when (pairingError?.kind) {
             FounderRealtimePairingClient.PairingException.Kind.ACCESS_CODE_REJECTED -> {
@@ -361,6 +371,7 @@ class VoiceSpikeActivity : ComponentActivity() {
         primaryButton.text = if (configured) "Check again" else "Connect Alfred"
         primaryButton.isEnabled = configured || serverReady
         disconnectButton.visibility = if (configured) View.VISIBLE else View.GONE
+        disconnectButton.isEnabled = true
     }
 
     private fun showLoading(title: String, body: String) {
