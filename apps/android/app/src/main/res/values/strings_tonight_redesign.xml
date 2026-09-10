@@ -6,12 +6,11 @@
     <string name="tonight_redesign_ready_status">Wake Ready</string>
     <string name="tonight_redesign_attention_status">Check wake</string>
     <string name="tonight_redesign_alfred_name">Alfred</string>
-    <string name="tonight_redesign_alfred_ready">Everything critical is set on this device.</string>
-    <string name="tonight_redesign_alfred_attention">Your next wake needs one quick check.</string>
+    <string name="tonight_redesign_alfred_ready">Your wake is set and ready.</string>
+    <string name="tonight_redesign_alfred_attention">One setting needs your attention before morning.</string>
     <string name="tonight_redesign_alfred_empty">Ready when you are.</string>
     <string name="tonight_redesign_morning_title">For the morning</string>
     <string name="tonight_redesign_row_wake">Wake</string>
-    <string name="tonight_redesign_wake_value">%1$s · %2$s</string>
     <string name="tonight_redesign_row_context">Private context</string>
     <string name="tonight_redesign_row_system">Wake system</string>
     <string name="tonight_redesign_context_prepared">Prepared locally</string>
@@ -21,9 +20,10 @@
     <string name="tonight_redesign_system_attention">Needs attention</string>
     <string name="tonight_redesign_empty_eyebrow">No wake set</string>
     <string name="tonight_redesign_empty_title">Give tomorrow a starting point.</string>
-    <string name="tonight_redesign_empty_body">Set the next wake. The critical alarm stays local and does not need an account or network.</string>
-    <string name="tonight_redesign_developer_tools">Developer tools</string>
+    <string name="tonight_redesign_empty_body">Choose when tomorrow starts. Wake My Way takes care of the alarm on this device.</string>
+    <string name="tonight_redesign_developer_tools">Wake Lab</string>
     <string name="tonight_redesign_presence_ready_description">WMW presence, next wake ready</string>
     <string name="tonight_redesign_presence_attention_description">WMW presence, next wake needs attention</string>
     <string name="tonight_redesign_presence_empty_description">WMW presence, no wake set</string>
+    <string name="tonight_redesign_wake_value">%1$s · %2$s</string>
 </resources>
