@@ -22,6 +22,20 @@ Initial brand tokens:
 
 These are initial brand tokens and must be accessibility-tested against actual text usage.
 
+### Night-field refinement
+
+The palette is **not** permission to wash an entire screen in Clay/brown. The default product field stays neutral Ink/charcoal. Warmth appears as a bounded, low horizon illumination, a state accent, or a deliberate action.
+
+For normal Tonight surfaces:
+
+- keep the upper and middle field predominantly neutral;
+- use a restrained warm source near the lower horizon rather than a full-height warm gradient;
+- use surface boundaries, typography and spacing before adding blur or glow;
+- never turn a local dawn cue into a purple/blue multicolor AI gradient;
+- visual atmosphere must remain non-critical presentation enrichment.
+
+This keeps Adaptive Dawn from reading as a muddy wallpaper while preserving the night-to-morning metaphor.
+
 ## Circadian visual state
 
 Do not think only in conventional dark mode vs light mode.
@@ -60,6 +74,42 @@ The interface visually gains form as the user wakes.
 - conventional hierarchy returns
 - context and choices become readable
 
+## Tonight composition
+
+Tonight is an **experience around one upcoming wake**, not a stack of status cards.
+
+First-glance order:
+
+```text
+WMW + Wake Ready state
+        ↓
+next wake time
+        ↓
+calendar date + time remaining
+        ↓
+WMW Presence / Alfred presentation cue
+        ↓
+one compact morning summary
+        ↓
+primary edit action + optional private context action
+```
+
+Rules:
+
+- the wake time is the hero, not a generic `Tomorrow is ready` headline;
+- do not repeat the same readiness fact in several large cards;
+- `Founder build` and diagnostic vocabulary do not belong in the primary header;
+- developer tools remain reachable but visually subordinate;
+- the private Tomorrow Contract is described truthfully as optional/prepared local context;
+- do not invent calendar events, weather, a Wake Sequence, character behavior or AI insight before those capabilities have real product ownership;
+- do not add a persistent bottom navigation bar until there are enough durable top-level consumer destinations to justify it.
+
+### WMW Presence, not Wake Arc/orb
+
+The signature object remains the native geometric **WMW Presence**. It may gain internal state-driven line work and stronger composition, but it must not become a glowing AI orb, robot, fake avatar or decorative circular progress meter.
+
+The presence communicates presentation state and character identity only. It never communicates behavioral authority that belongs to Alarm Kernel or Wake Runtime.
+
 ## Typography
 
 Direction:
@@ -76,6 +126,8 @@ Requirements:
 - Hebrew/RTL future compatibility
 - German and English support paths
 - no hard-coded text in Compose
+
+Time numerals should use tabular figures where the platform/font supports them. Editorial hierarchy should come from scale, weight, spacing and alignment before introducing a bundled display font.
 
 ## Information hierarchy during wake
 
