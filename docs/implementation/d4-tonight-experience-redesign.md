@@ -224,3 +224,31 @@ The redesign is acceptable only when all are true:
 3. apply the same editorial discipline to Wake Setup and Tomorrow Contract based on physical-phone review;
 4. only add new top-level navigation when real consumer destinations earn it;
 5. continue the richer morning Wake presentation only behind its existing reliability/runtime gates.
+
+## Physical phone review 01
+
+The first APK review on a real portrait phone confirmed that the D4 Tonight direction is materially stronger, but also exposed where inherited D3 setup composition was still visible as engineering UI rather than a finished consumer experience.
+
+Observed on device:
+
+- the empty Tonight state is cleaner and correctly dominated by one setup action, but technical wording still leaked into the body copy;
+- the small Alfred/WMW Presence reads better as a supporting identity than the old standalone object, but should stay secondary to the wake decision;
+- Wake Setup still looked like a settings form because `Local wake`, `Schedule pattern`, two large bordered cards, explanatory paragraphs and the reliability footer were all visible at once;
+- the time itself was visually strong, but unnecessarily trapped inside a large bordered card;
+- the primary CTA copy `Make tomorrow ready` was less direct than naming the concrete wake being committed.
+
+Changes made from that review in the same PR:
+
+- removed the `Local wake` badge from Wake Setup;
+- replaced the technical setup subtitle with concise consumer copy;
+- flattened the schedule-mode selector out of its own card;
+- reduced mode labels to `Tomorrow` / `Weekly`;
+- removed the one-shot time hero from a containing card so the time can act as the visual object itself;
+- reduced one-shot helper copy to `One wake. It won’t repeat.`;
+- removed the technical reliability footer from the primary setup path;
+- changed the new one-shot CTA to name the selected time (`Set wake for 08:00` shape);
+- kept weekly editing in one quiet surface because seven day/time rows genuinely benefit from grouping;
+- softened Tonight empty/Alfred wording so architecture facts remain true without reading like implementation documentation;
+- renamed the low-priority founder escape hatch from generic `Developer tools` to the concrete `Wake Lab`.
+
+This review reinforces a product rule for subsequent screens: **local-first architecture should create trust through behavior and concise reassurance, not through engineering vocabulary on every surface.**
