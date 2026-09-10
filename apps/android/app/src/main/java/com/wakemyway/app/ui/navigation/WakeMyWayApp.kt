@@ -117,7 +117,10 @@ fun WakeMyWayApp(
                                         preparationManager = preparationManager,
                                     )
                                     alarmHealth = health
-                                    WakeSetupCommitResult(committed = true)
+                                    WakeSetupCommitResult(
+                                        committed = true,
+                                        wakeReady = health.ready,
+                                    )
                                 },
                                 onFailure = { error ->
                                     WakeSetupCommitResult(
@@ -145,6 +148,7 @@ fun WakeMyWayApp(
                             },
                         )
                     },
+                    onWakeAccessRequired = onRepairWakeSystem,
                 )
             }
             entry<TomorrowPlanRoute> {
