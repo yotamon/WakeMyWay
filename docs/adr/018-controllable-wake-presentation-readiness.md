@@ -10,9 +10,12 @@ PR #36 proved that the Alarm Kernel could start critical local audio while the n
 
 Physical dogfood then exposed a dangerous product gap: the alarm audio fired, but Android did not present `WakeActivity`; no Alfred voice session started; visible Stop/Snooze controls were not reachable; the user had to terminate the app to silence the alarm.
 
-The implementation was technically following the previous readiness definition. `AlarmKernel.health().ready` required exact-alarm registration but treated notification and full-screen presentation failures as degraded optional presentation.
+The implementation had two platform/readiness gaps:
 
-That definition was wrong for Wake My Way.
+1. `AlarmKernel.health().ready` required exact-alarm registration but treated notification and full-screen presentation failures as optional degradation.
+2. Wake My Way targets SDK 36. Android 15+ no longer grants a `PendingIntent` creator's background-activity-launch privilege by default, while the full-screen wake `PendingIntent` had not explicitly opted into creator BAL.
+
+That combination allowed critical audio to work while the wake surface failed to appear.
 
 A fallback alarm that can make sound is valuable as the final safety layer, but a scheduled wake must not be called **Wake Ready** when the user may be left with critical audio and no immediately reachable wake surface or terminal controls.
 
@@ -38,6 +41,22 @@ These are **critical controllability capabilities**, not optional personalizatio
 
 Microphone permission, on-device speech recognition, Alfred TTS availability, Tomorrow Contract, calendar, weather, realtime AI and cloud access remain optional richness and do not determine base Wake Ready.
 
+## Android 15+ full-screen PendingIntent creation
+
+The full-screen `PendingIntent` that targets `WakeActivity` must explicitly grant creator background-activity-start privileges on Android 14+ because the application targets SDK 36.
+
+For the alarm use case, the app is intentionally not visible at fire time. Therefore the creator mode cannot be `ALLOW_IF_VISIBLE`.
+
+```text
+API < 34     system/default PendingIntent behavior
+API 34–35    MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+API 36+      MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+```
+
+This opt-in is scoped to the PendingIntent that opens the user-scheduled wake surface. It is not applied as a general permission for arbitrary app navigation.
+
+The choice is intentionally narrow: a user explicitly scheduled the alarm, and full-screen alarm presentation is the platform-supported interruption mechanism for that event.
+
 ## Repair behavior
 
 The normal Tonight surface must expose the exact missing critical capability and a direct repair action before bedtime.
@@ -51,7 +70,7 @@ Saving a schedule may persist/register the occurrence first, but if the resultin
 
 ## Active-alarm rescue
 
-Full-screen intent remains the correct background alarm presentation mechanism. Wake My Way does not attempt to bypass Android background-activity restrictions.
+Full-screen intent remains the correct background alarm presentation mechanism. Wake My Way does not attempt to bypass Android background-activity restrictions with a raw background `startActivity()`.
 
 However, if Android/OEM presentation still fails and the user manually opens Wake My Way while a Wake Occurrence is active, `MainActivity` must route immediately to the real `WakeActivity` for that occurrence. The user must not land on Tonight while critical audio continues elsewhere.
 
@@ -79,6 +98,7 @@ Lower layers preserve wake safety, but the existence of an audible fallback does
 
 - Wake Ready becomes truthful to the sleeping-user experience rather than only alarm registration.
 - The exact physical failure observed on 2026-09-10 is detectable before the next wake.
+- The full-screen PendingIntent follows Android 15/16 creator-BAL rules instead of relying on pre-Android-15 defaults.
 - Notification/full-screen problems become repairable product states instead of morning surprises.
 - The user retains at least two control recovery paths even if full-screen presentation fails: notification actions and manual-open rescue.
 - Voice failure remains decoupled from critical audio reliability.
@@ -88,6 +108,7 @@ Lower layers preserve wake safety, but the existence of an audible fallback does
 - A schedule can be successfully stored and exactly registered while Tonight still says **Needs attention** until presentation access is repaired.
 - Sideloaded/debug builds and OEM Android variants may require explicit user action for special access.
 - Android may intentionally show a heads-up alarm notification rather than force a full-screen takeover while the device is already actively in use. That is not considered a locked-screen wake failure if controls remain reachable.
+- Background launch privilege is deliberately granted only to the wake-surface PendingIntent because a locked-screen scheduled alarm is one of the narrow cases where background launch is necessary.
 
 ## Validation
 
