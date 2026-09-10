@@ -23,6 +23,7 @@ import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
@@ -44,7 +45,10 @@ private data object TomorrowPlanRoute : NavKey
 private data object WakeLabRoute : NavKey
 
 @Composable
-fun WakeMyWayApp() {
+fun WakeMyWayApp(
+    voiceWakeReadiness: VoiceWakeReadiness? = null,
+    onEnableVoiceReplies: () -> Unit = {},
+) {
     val context = LocalContext.current
     val alarmKernel = remember { AlarmKernel(context) }
     val preparationManager = remember { WakePreparationManager(context) }
@@ -76,6 +80,8 @@ fun WakeMyWayApp() {
                         backStack.add(WakeLabRoute)
                     },
                     showDeveloperTools = showDeveloperTools,
+                    voiceWakeReadiness = voiceWakeReadiness,
+                    onEnableVoiceReplies = onEnableVoiceReplies,
                 )
             }
             entry<WakeSetupRoute> {

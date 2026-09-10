@@ -45,6 +45,12 @@ data class TonightUiState(
     val tomorrowContractPrepared: Boolean,
 )
 
+enum class VoiceWakeReadiness {
+    READY,
+    SETUP_REQUIRED,
+    UNAVAILABLE,
+}
+
 @Composable
 fun TonightScreen(
     state: TonightUiState,
@@ -53,6 +59,8 @@ fun TonightScreen(
     onOpenWakeLab: () -> Unit,
     modifier: Modifier = Modifier,
     showDeveloperTools: Boolean = false,
+    voiceWakeReadiness: VoiceWakeReadiness? = null,
+    onEnableVoiceReplies: () -> Unit = {},
 ) {
     WmwCircadianSurface(
         stage = WmwCircadianStage.ENGAGED,
@@ -234,6 +242,51 @@ fun TonightScreen(
                 }
             }
 
+            voiceWakeReadiness?.let { readiness ->
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tonight_voice_wake_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = WmwColors.MorningPaper,
+                            )
+                            WmwStatusPill(
+                                label = stringResource(
+                                    when (readiness) {
+                                        VoiceWakeReadiness.READY -> R.string.tonight_voice_wake_ready
+                                        VoiceWakeReadiness.SETUP_REQUIRED -> R.string.tonight_voice_wake_setup
+                                        VoiceWakeReadiness.UNAVAILABLE -> R.string.tonight_voice_wake_unavailable
+                                    },
+                                ),
+                                positive = readiness == VoiceWakeReadiness.READY,
+                            )
+                        }
+                        Text(
+                            text = stringResource(
+                                when (readiness) {
+                                    VoiceWakeReadiness.READY -> R.string.tonight_voice_wake_ready_detail
+                                    VoiceWakeReadiness.SETUP_REQUIRED -> R.string.tonight_voice_wake_setup_detail
+                                    VoiceWakeReadiness.UNAVAILABLE -> R.string.tonight_voice_wake_unavailable_detail
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = WmwColors.QuietText,
+                        )
+                        if (readiness == VoiceWakeReadiness.SETUP_REQUIRED) {
+                            WmwSecondaryAction(
+                                label = stringResource(R.string.tonight_voice_wake_enable),
+                                onClick = onEnableVoiceReplies,
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(WmwSpacing.Xl))
 
             WmwPrimaryAction(
@@ -297,6 +350,7 @@ private fun TonightReadyPreview() {
             onOpenWakeSetup = {},
             onOpenTomorrowPlan = {},
             onOpenWakeLab = {},
+            voiceWakeReadiness = VoiceWakeReadiness.READY,
         )
     }
 }
@@ -323,6 +377,7 @@ private fun TonightEmptyPreview() {
             onOpenWakeSetup = {},
             onOpenTomorrowPlan = {},
             onOpenWakeLab = {},
+            voiceWakeReadiness = VoiceWakeReadiness.SETUP_REQUIRED,
         )
     }
 }

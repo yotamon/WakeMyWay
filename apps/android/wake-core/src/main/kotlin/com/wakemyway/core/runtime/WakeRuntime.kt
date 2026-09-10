@@ -74,18 +74,43 @@ class WakeRuntime {
             }
 
             is WakeInput.VoiceResponseObserved -> {
-                val evidence = if (input.coherent) {
-                    remembered.activationEvidence.copy(
-                        coherentVoiceResponses = remembered.activationEvidence.coherentVoiceResponses + 1,
+                if (!input.coherent) {
+                    val escalation = (remembered.escalationLevel + 1)
+                        .coerceAtMost(policy.maxEscalationLevel)
+                    val next = remembered.copy(
+                        phase = if (remembered.phase == WakePhase.ALERTING) {
+                            WakePhase.ENGAGING
+                        } else {
+                            remembered.phase
+                        },
+                        escalationLevel = escalation,
+                    )
+                    transition(
+                        next,
+                        WakeDirective.EnsureAlarmAudible,
+                        WakeDirective.Speak(SpeechIntent.ReEngage(escalation)),
+                        WakeDirective.ObserveMotion,
                     )
                 } else {
-                    remembered.activationEvidence
+                    val next = remembered.copy(
+                        phase = when (remembered.phase) {
+                            WakePhase.ALERTING,
+                            WakePhase.ENGAGING,
+                            -> WakePhase.ACTIVATING
+                            else -> remembered.phase
+                        },
+                        activationEvidence = remembered.activationEvidence.copy(
+                            coherentVoiceResponses = remembered.activationEvidence.coherentVoiceResponses + 1,
+                        ),
+                    )
+                    val directives = buildList {
+                        add(WakeDirective.ObserveMotion)
+                        if (remembered.phase != WakePhase.ACTIVATING) {
+                            add(WakeDirective.Speak(SpeechIntent.AskToMove))
+                        }
+                    }
+                    advanceOr(next, policy, *directives.toTypedArray())
                 }
-                val next = remembered.copy(
-                    phase = if (remembered.phase == WakePhase.ALERTING) WakePhase.ENGAGING else remembered.phase,
-                    activationEvidence = evidence,
-                )
-                advanceOr(next, policy, WakeDirective.ObserveMotion)
             }
 
             is WakeInput.MotionObserved -> {
@@ -139,10 +164,26 @@ class WakeRuntime {
                     WakeDirective.ObserveMotion,
                 )
 
-                WakePhase.ENGAGING -> transition(
-                    remembered.copy(phase = WakePhase.ACTIVATING),
+                WakePhase.ENGAGING -> {
+                    if (remembered.capabilities.voiceInputAvailable) {
+                        transition(
+                            remembered,
+                            WakeDirective.ListenForVoiceResponse,
+                            WakeDirective.ObserveMotion,
+                        )
+                    } else {
+                        transition(
+                            remembered.copy(phase = WakePhase.ACTIVATING),
+                            WakeDirective.ObserveMotion,
+                            WakeDirective.Speak(SpeechIntent.AskToMove),
+                        )
+                    }
+                }
+
+                WakePhase.ACTIVATING -> transition(
+                    remembered,
+                    WakeDirective.ListenForVoiceResponse,
                     WakeDirective.ObserveMotion,
-                    WakeDirective.Speak(SpeechIntent.AskToMove),
                 )
 
                 else -> transition(remembered)
@@ -168,6 +209,7 @@ class WakeRuntime {
             is WakeInput.SnoozeRequested -> when (remembered.snoozeState) {
                 SnoozeState.NONE -> transition(
                     remembered.copy(snoozeState = SnoozeState.OFFERED),
+                    WakeDirective.StopListeningForVoiceResponse,
                     WakeDirective.Speak(SpeechIntent.SnoozeConfirmation),
                     WakeDirective.OfferSnooze(policy.defaultSnoozeDuration),
                 )
@@ -211,6 +253,16 @@ class WakeRuntime {
                 val next = remembered.copy(capabilities = input.capabilities)
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
+                    if (previous.voiceInputAvailable && !input.capabilities.voiceInputAvailable) {
+                        add(WakeDirective.StopListeningForVoiceResponse)
+                    }
+                    if (
+                        !previous.speechAvailable &&
+                        input.capabilities.speechAvailable &&
+                        next.phase == WakePhase.ALERTING
+                    ) {
+                        add(WakeDirective.Speak(SpeechIntent.InitialWake))
+                    }
                     if (previous.motionAvailable && !input.capabilities.motionAvailable) {
                         add(WakeDirective.StopObservingMotion)
                     } else if (
@@ -221,7 +273,11 @@ class WakeRuntime {
                         add(WakeDirective.ObserveMotion)
                     }
                 }
-                transition(next, *directives.toTypedArray())
+                if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
+                    advanceOr(next, policy, *directives.toTypedArray())
+                } else {
+                    transition(next, *directives.toTypedArray())
+                }
             }
 
             is WakeInput.OrientationCompleted -> {
@@ -234,6 +290,7 @@ class WakeRuntime {
                     snoozeState = SnoozeState.NONE,
                     stopState = StopState.STOPPING,
                 ),
+                WakeDirective.StopListeningForVoiceResponse,
                 WakeDirective.RequestStopExecution,
             )
 
@@ -289,7 +346,7 @@ class WakeRuntime {
         vararg otherwise: WakeDirective,
     ): WakeTransition {
         if (snapshot.phase == WakePhase.ORIENTING) return transition(snapshot)
-        if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) {
+        if (!activationGateSatisfied(snapshot, policy)) {
             return transition(snapshot, *otherwise)
         }
         return transition(
@@ -297,10 +354,27 @@ class WakeRuntime {
                 phase = WakePhase.ORIENTING,
                 snoozeState = SnoozeState.NONE,
             ),
+            WakeDirective.StopListeningForVoiceResponse,
             WakeDirective.StopObservingMotion,
             WakeDirective.PresentOrientation,
             WakeDirective.Speak(SpeechIntent.Orientation),
         )
+    }
+
+    private fun activationGateSatisfied(
+        snapshot: WakeSessionSnapshot,
+        policy: WakePolicy,
+    ): Boolean {
+        if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) return false
+
+        val twoWayVoiceAvailable =
+            snapshot.capabilities.speechAvailable && snapshot.capabilities.voiceInputAvailable
+        if (!twoWayVoiceAvailable) return true
+
+        // When WMW can both speak and listen, a real spoken reply is part of the wake contract.
+        // Motion may contribute heavily to activation, but it cannot silently bypass the user's
+        // required conversational turn. Capability degradation removes this gate fail-safely.
+        return snapshot.activationEvidence.coherentVoiceResponses > 0
     }
 
     private fun finish(snapshot: WakeSessionSnapshot, outcome: WakeOutcome): WakeTransition = transition(
@@ -310,6 +384,7 @@ class WakeRuntime {
             snoozeState = SnoozeState.NONE,
             stopState = StopState.NONE,
         ),
+        WakeDirective.StopListeningForVoiceResponse,
         WakeDirective.StopObservingMotion,
         WakeDirective.CompleteSession(outcome),
     )
@@ -322,6 +397,7 @@ class WakeRuntime {
         directives = directives.filter { directive ->
             when (directive) {
                 is WakeDirective.Speak -> snapshot.capabilities.speechAvailable
+                WakeDirective.ListenForVoiceResponse -> snapshot.capabilities.voiceInputAvailable
                 WakeDirective.ObserveMotion -> snapshot.capabilities.motionAvailable
                 else -> true
             }

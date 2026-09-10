@@ -5,7 +5,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 1,
+        version = 2,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -74,43 +74,43 @@ object AlfredCharacter {
     )
 
     private val ASK_TO_SIT_UP = listOf(
-        "Sit up first, if you please.",
-        "One thing for now: sit up.",
-        "Let us begin with sitting up.",
-        "Up to sitting, please. Nothing more yet.",
+        "Sit up, then tell me when you're sitting.",
+        "One thing for now: sit up, then say you're there.",
+        "Let us begin with sitting up. Tell me when it's done.",
+        "Up to sitting, please. Then tell me you're with me.",
     )
 
     private val ASK_TO_MOVE = listOf(
-        "Feet on the floor, if you please.",
-        "A little movement now. Feet down.",
-        "Next step: feet on the floor.",
-        "Let us introduce gravity. Feet on the floor.",
+        "Feet on the floor, then tell me when they're down.",
+        "A little movement now. Feet down, then answer me.",
+        "Next step: feet on the floor. Tell me when you're there.",
+        "Let us introduce gravity. Feet down, then tell me.",
     )
 
     private val RE_ENGAGE = listOf(
         listOf(
-            "Still with me? Sit up, please.",
-            "A small reminder: we are waking now.",
-            "Back with me, please. One movement.",
-            "Let us continue. Sit up.",
+            "Still with me? Sit up and answer me, please.",
+            "A small reminder: we are waking now. Tell me you're here.",
+            "Back with me, please. Make one movement and answer.",
+            "Let us continue. Sit up, then tell me you're there.",
         ),
         listOf(
-            "We are not quite done. Sit up, please.",
-            "A firmer nudge now. Feet on the floor.",
-            "Still here. Let us get you upright.",
-            "Time to continue. One clear movement, please.",
+            "We are not quite done. Sit up and answer me.",
+            "A firmer nudge now. Feet down, then tell me.",
+            "Still here. Get upright, then tell me you're with me.",
+            "Time to continue. One clear movement, then answer me.",
         ),
         listOf(
-            "We need a proper movement now. Feet on the floor.",
-            "No more drifting for the moment. Sit up, please.",
-            "Let us be decisive. Upright now, please.",
-            "The next move is yours. Feet down.",
+            "We need a proper movement now. Feet down, then answer.",
+            "No more drifting for the moment. Sit up and answer me.",
+            "Let us be decisive. Upright now, then tell me.",
+            "The next move is yours. Feet down, then answer me.",
         ),
         listOf(
-            "We are past gentle reminders. Feet on the floor, please.",
-            "This is the firm version: upright now.",
-            "Feet on the floor now, please.",
-            "We need action now. Make one clear movement.",
+            "We are past gentle reminders. Feet down, then answer me.",
+            "This is the firm version: upright now, then tell me.",
+            "Feet on the floor now, please. Then answer me.",
+            "We need action now. Make one clear movement, then answer.",
         ),
     )
 

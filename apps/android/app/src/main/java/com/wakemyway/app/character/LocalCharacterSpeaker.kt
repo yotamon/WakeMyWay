@@ -1,6 +1,7 @@
 package com.wakemyway.app.character
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
@@ -178,9 +179,17 @@ class LocalCharacterSpeaker(
 
         val configured = runCatching {
             tts.voice = selectedVoice
+            val audioResult = tts.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
             val rateResult = tts.setSpeechRate(character.speechRate)
             val pitchResult = tts.setPitch(character.pitch)
-            rateResult == TextToSpeech.SUCCESS && pitchResult == TextToSpeech.SUCCESS
+            audioResult == TextToSpeech.SUCCESS &&
+                rateResult == TextToSpeech.SUCCESS &&
+                pitchResult == TextToSpeech.SUCCESS
         }.getOrDefault(false)
 
         if (!configured || tts.voice?.isNetworkConnectionRequired != false) {

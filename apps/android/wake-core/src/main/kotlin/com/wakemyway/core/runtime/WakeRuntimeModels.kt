@@ -50,6 +50,7 @@ enum class MotionEvidenceKind {
 
 data class WakeCapabilities(
     val speechAvailable: Boolean = true,
+    val voiceInputAvailable: Boolean = false,
     val motionAvailable: Boolean = true,
 )
 
@@ -224,6 +225,8 @@ sealed interface SpeechIntent {
 sealed interface WakeDirective {
     data object EnsureAlarmAudible : WakeDirective
     data class Speak(val intent: SpeechIntent) : WakeDirective
+    data object ListenForVoiceResponse : WakeDirective
+    data object StopListeningForVoiceResponse : WakeDirective
     data object ObserveMotion : WakeDirective
     data object StopObservingMotion : WakeDirective
     data class OfferSnooze(val duration: Duration) : WakeDirective

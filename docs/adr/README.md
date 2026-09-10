@@ -20,3 +20,4 @@ ADRs preserve durable engineering constraints. Canonical terminology lives in [`
 | [`014`](014-active-wake-execution-lifecycle.md) | Critical alarm playback/recovery outlives `WakeActivity`; Alarm Kernel owns Active Wake Execution |
 | [`015`](015-alarm-permissions-and-execution.md) | Exact alarm, full-screen presentation, Direct Boot reconciliation, and foreground alarm playback baseline |
 | [`016`](016-vercel-ai-platform.md) | Vercel AI SDK + AI Gateway are the default optional cloud AI layer; realtime transport remains M8 spike-gated |
+| [`017`](017-local-production-voice-wake.md) | Production wake uses local TTS + on-device voice replies behind deterministic Wake Runtime, with service-owned fail-safe alarm ducking |
