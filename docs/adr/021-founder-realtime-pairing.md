@@ -1,4 +1,4 @@
-# ADR 020: Founder Realtime uses scoped installation pairing
+# ADR 021: Founder Realtime uses scoped installation pairing
 
 **Status:** Accepted  
 **Date:** 2026-09-11
