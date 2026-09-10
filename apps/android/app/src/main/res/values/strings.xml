@@ -20,10 +20,9 @@
     <string name="tonight_add_contract">Add Tomorrow Contract</string>
     <string name="tonight_edit_contract">Edit Tomorrow Contract</string>
     <string name="tonight_wake_ready">Wake Ready</string>
-    <string name="tonight_wake_waiting">Waiting</string>
     <string name="tonight_wake_not_ready">Needs attention</string>
     <string name="tonight_no_occurrence">No wake occurrence is scheduled.</string>
-    <string name="tonight_readiness_ready">Exact alarm, wake screen, and Stop/Snooze controls are ready locally.</string>
+    <string name="tonight_readiness_ready">Scheduled locally and ready for tomorrow.</string>
     <string name="tonight_readiness_attention">One system setting needs attention before tomorrow is Wake Ready.</string>
     <string name="tonight_readiness_empty">Set a wake time to prepare tomorrow.</string>
     <string name="tonight_readiness_exact_alarm">Exact-alarm access is unavailable. Wake My Way cannot promise the selected wake time until Android allows it.</string>
