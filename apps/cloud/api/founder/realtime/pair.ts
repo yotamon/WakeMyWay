@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
-import { pairFounderInstallation } from '../../../src/founder-realtime-auth';
+import {
+  FOUNDER_PAIRING_CODE_MIN_LENGTH,
+  pairFounderInstallation,
+} from '../../../src/founder-realtime-auth';
 import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../../../src/http';
 
 const bodySchema = z.object({
-  code: z.string().trim().min(12).max(128),
+  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),
   installationId: z.string().uuid(),
 });
 
