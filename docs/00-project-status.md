@@ -1,12 +1,24 @@
 # Project status
 
-**Last updated:** 2026-09-11  
+**Last updated:** 2026-09-12  
 **Product:** Wake My Way (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
 **Current engineering phase:** physical founder dogfood of natural conversational Wake  
 **Merged foundations:** PR #36 local Voice Wake; PR #37 modern Android presentation/BAL hardening; PR #38 permission-gated controllability; PR #39 Realtime conversation foundation; PR #40 seamless server-safe founder pairing  
 **Reliability rule:** a wake may not be armed or resurrected without verified local terminal controllability  
 **Realtime rule:** cloud conversation is optional enrichment only; Alarm Kernel and WakeRuntime remain authoritative
+
+## Active hardening review
+
+A repository-wide reliability/correctness review on `codex/deep-review-hardening` found and fixes three execution-level edge cases without changing the accepted architecture:
+
+- Snooze previously cleared Active Wake authority before proving the replacement exact alarm had been accepted by Android. Snooze now registers the replacement first and only then performs the durable active → snoozed hand-off. If exact-alarm access or persistence fails, the current wake remains active instead of going silent without a replacement.
+- A delayed/stale Stop or Snooze `PendingIntent` could stop `AlarmPlaybackService` even when the command occurrence ID no longer matched the current Active Wake. Terminal commands now tear down playback only after the Alarm Kernel accepts that exact occurrence; stale/malformed service commands either re-assert the current durable active execution or stop an idle service instance.
+- Realtime conversation availability could diverge from `WakeRuntime.capabilities.speechAvailable` when the remote renderer connected or failed after runtime startup. The controller now synchronizes those transitions, starts immediately when Realtime becomes ready during TTS initialization, and emits a typed `SpeechFailed` fact when both remote and local rendering are unavailable.
+
+Robolectric regression coverage now verifies that loss of exact-alarm access during Snooze leaves the current occurrence active and that stale terminal occurrence IDs cannot replace current active authority.
+
+No ADR changes are required: these fixes enforce the existing Snooze durability, Active Wake idempotency, local fallback, and non-authoritative Realtime invariants.
 
 ## Physical truth
 
