@@ -9,9 +9,10 @@ const FOUNDER_SCOPE = 'founder-realtime-wake';
 const DEVICE_TOKEN_VERSION = 1;
 const DEVICE_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
 const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
+export const FOUNDER_PAIRING_CODE_MIN_LENGTH = 24;
 
 const pairingInputSchema = z.object({
-  code: z.string().trim().min(12).max(128),
+  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),
   installationId: z.string().uuid(),
 });
 
@@ -37,7 +38,7 @@ export interface FounderPairingResult {
 
 function pairingCode(environment: NodeJS.ProcessEnv): string | undefined {
   const value = environment.WMW_FOUNDER_PAIRING_CODE?.trim();
-  return value && value.length >= 12 ? value : undefined;
+  return value && value.length >= FOUNDER_PAIRING_CODE_MIN_LENGTH ? value : undefined;
 }
 
 export function founderRealtimeSetupStatus(
