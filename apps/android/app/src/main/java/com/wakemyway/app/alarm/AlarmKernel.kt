@@ -102,7 +102,7 @@ class AlarmKernel(
         )
 
         // Snooze has a stricter ordering requirement than a normal future schedule: the active
-        // wake must remain authoritative (and therefore audible/controlable) until Android has
+        // wake must remain authoritative (and therefore audible/controllable) until Android has
         // accepted the replacement exact alarm. If registration or the durable hand-off fails,
         // cancel any partial replacement and leave the current active snapshot untouched.
         return try {
@@ -180,12 +180,13 @@ class AlarmKernel(
 
     fun health(): AlarmHealth {
         val snapshot = store.read()
+        val enabledSnapshot = snapshot?.takeIf { it.enabled }
         val exactAllowed = registrar.canScheduleExactAlarms()
         val presentation = AlarmPresentationAccess.snapshot(appContext)
-        val enabled = snapshot?.enabled == true
-        val registered = enabled && snapshot?.nextOccurrence != null &&
-            snapshot.registeredOccurrenceId == snapshot.nextOccurrence.id
-        val active = enabled && snapshot?.activeOccurrence != null
+        val registered = enabledSnapshot?.let { current ->
+            current.nextOccurrence != null && current.registeredOccurrenceId == current.nextOccurrence.id
+        } == true
+        val active = enabledSnapshot?.activeOccurrence != null
         val ready = exactAllowed && presentation.ready && (registered || active)
 
         return AlarmHealth(
@@ -194,11 +195,11 @@ class AlarmKernel(
             notificationsAllowed = presentation.notificationsAllowed,
             notificationChannelHighImportance = presentation.highImportanceChannel,
             fullScreenIntentAllowed = presentation.fullScreenIntentAllowed,
-            nextOccurrence = snapshot?.takeIf { it.enabled }?.nextOccurrence,
-            activeOccurrence = snapshot?.takeIf { it.enabled }?.activeOccurrence,
+            nextOccurrence = enabledSnapshot?.nextOccurrence,
+            activeOccurrence = enabledSnapshot?.activeOccurrence,
             detail = when {
                 snapshot == null -> "No wake schedule configured"
-                !snapshot.enabled -> "Wake schedule disabled"
+                enabledSnapshot == null -> "Wake schedule disabled"
                 !exactAllowed -> "Exact alarm capability unavailable"
                 !presentation.notificationsAllowed -> "Notification access required for alarm controls"
                 !presentation.highImportanceChannel -> "Active wake alerts must be high priority"
