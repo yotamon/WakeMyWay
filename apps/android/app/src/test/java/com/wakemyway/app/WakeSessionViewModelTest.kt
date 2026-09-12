@@ -45,7 +45,7 @@ class WakeSessionViewModelTest {
     }
 
     @Test
-    fun `controller state and completion are surfaced without replacing the session`() {
+    fun `automatic completion suppresses later Activity lifecycle commands`() {
         val fake = FakeWakeSessionController()
         lateinit var publishState: (WakeVoiceUiState) -> Unit
         lateinit var complete: () -> Unit
@@ -63,12 +63,33 @@ class WakeSessionViewModelTest {
         )
 
         publishState(state)
+        viewModel.onSurfaceVisible()
         complete()
+        viewModel.onSurfaceHidden()
+        viewModel.onSurfaceVisible()
         viewModel.closeForTerminalAction()
 
         assertEquals(state, viewModel.voiceState)
         assertTrue(viewModel.completed)
+        assertEquals(1, fake.visibleCalls)
+        assertEquals(0, fake.hiddenCalls)
+        assertEquals(0, fake.terminalCloseCalls)
+    }
+
+    @Test
+    fun `explicit terminal action closes once and suppresses following onPause`() {
+        val fake = FakeWakeSessionController()
+        val viewModel = WakeSessionViewModel { _, _ -> fake }
+
+        viewModel.onSurfaceVisible()
+        viewModel.closeForTerminalAction()
+        viewModel.closeForTerminalAction()
+        viewModel.onSurfaceHidden()
+        viewModel.onSurfaceVisible()
+
+        assertEquals(1, fake.visibleCalls)
         assertEquals(1, fake.terminalCloseCalls)
+        assertEquals(0, fake.hiddenCalls)
     }
 
     private class FakeWakeSessionController : WakeSessionController {
