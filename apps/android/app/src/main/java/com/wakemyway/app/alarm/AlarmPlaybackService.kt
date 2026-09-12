@@ -56,25 +56,32 @@ class AlarmPlaybackService : Service() {
             ACTION_START -> ensureActiveWake(kernel, occurrenceId)
 
             ACTION_STOP -> {
-                if (kernel.stopActive(occurrenceId)) {
+                if (!kernel.stopActive(occurrenceId)) {
+                    preserveCurrentExecutionOrStop(kernel)
+                } else {
                     trace.stopped(occurrenceId)
+                    stopExecution()
+                    START_NOT_STICKY
                 }
-                stopExecution()
-                START_NOT_STICKY
             }
 
             ACTION_SNOOZE -> {
                 val replacement = kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
-                if (replacement != null) {
+                if (replacement == null) {
+                    // A delayed PendingIntent from an older occurrence, or a failed exact-alarm
+                    // replacement, must never tear down the current wake. If a durable active wake
+                    // exists, re-assert its foreground/audio execution instead.
+                    preserveCurrentExecutionOrStop(kernel)
+                } else {
                     trace.snoozed(occurrenceId)
                     trace.expected(
                         occurrence = replacement,
                         scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
                         expectFullScreen = kernel.health().fullScreenIntentAllowed,
                     )
+                    stopExecution()
+                    START_NOT_STICKY
                 }
-                stopExecution()
-                START_NOT_STICKY
             }
 
             ACTION_VOICE_WINDOW -> {
@@ -105,6 +112,14 @@ class AlarmPlaybackService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun preserveCurrentExecutionOrStop(kernel: AlarmKernel): Int {
+        val current = kernel.activeOccurrence()
+        if (current != null) return ensureActiveWake(kernel, current.id)
+
+        stopExecution()
+        return START_NOT_STICKY
+    }
 
     private fun ensureActiveWake(
         kernel: AlarmKernel,
