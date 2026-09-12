@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { HttpError } from '../src/http';
 import {
+  FOUNDER_PAIRING_CODE_MIN_LENGTH,
   founderRealtimeSetupStatus,
   pairFounderInstallation,
   requireFounderRealtimeAuthorization,
@@ -35,6 +36,18 @@ describe('founder Realtime server readiness', () => {
   it('is available only when the complete founder configuration exists', () => {
     expect(founderRealtimeSetupStatus(readyEnvironment)).toEqual({ available: true, missing: [] });
   });
+
+  it('does not treat a short founder secret as configured', () => {
+    const shortEnvironment = {
+      ...readyEnvironment,
+      WMW_FOUNDER_PAIRING_CODE: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1),
+    };
+
+    expect(founderRealtimeSetupStatus(shortEnvironment)).toEqual({
+      available: false,
+      missing: ['founder access code'],
+    });
+  });
 });
 
 describe('founder installation pairing', () => {
@@ -60,6 +73,15 @@ describe('founder installation pairing', () => {
     expect(() =>
       pairFounderInstallation(
         { code: 'definitely-not-the-founder-code', installationId },
+        { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
+      ),
+    ).toThrow(HttpError);
+  });
+
+  it('rejects pairing requests below the minimum founder secret length', () => {
+    expect(() =>
+      pairFounderInstallation(
+        { code: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1), installationId },
         { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
       ),
     ).toThrow(HttpError);

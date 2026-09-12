@@ -253,7 +253,7 @@ class VoiceSpikeActivity : ComponentActivity() {
             return
         }
         val code = codeInput.text?.toString()?.trim().orEmpty()
-        if (code.length < 12) {
+        if (code.length < FounderRealtimePairingClient.MIN_ACCESS_CODE_LENGTH) {
             statusBody.text = "Enter the founder access code first."
             return
         }

@@ -187,9 +187,9 @@ class FounderRealtimePairingClient {
         String(output.toByteArray(), StandardCharsets.UTF_8)
     }
 
-    private companion object {
-        const val NETWORK_TIMEOUT_MS = 12_000
-        const val MAX_RESPONSE_BYTES = 24 * 1024
-        const val MIN_ACCESS_CODE_LENGTH = 12
+    companion object {
+        const val MIN_ACCESS_CODE_LENGTH = 24
+        private const val NETWORK_TIMEOUT_MS = 12_000
+        private const val MAX_RESPONSE_BYTES = 24 * 1024
     }
 }

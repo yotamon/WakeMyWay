@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.ViewModelProvider
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
@@ -42,7 +44,6 @@ import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.voice.WakeVoiceMode
-import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.schedule.WakeOccurrenceId
@@ -52,8 +53,7 @@ import java.time.format.DateTimeFormatter
 class WakeActivity : ComponentActivity() {
     private var occurrenceId: WakeOccurrenceId? = null
     private var preparedPlan by mutableStateOf<PreparedWakePlan?>(null)
-    private var voiceState by mutableStateOf(WakeVoiceUiState())
-    private var voiceController: WakeVoiceSessionController? = null
+    private var sessionViewModel: WakeSessionViewModel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,32 +62,42 @@ class WakeActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val rawId = intent.getStringExtra(AlarmPlaybackService.EXTRA_OCCURRENCE_ID)
-        if (rawId == null) {
-            finish()
-            return
-        }
-        val wakeOccurrenceId = WakeOccurrenceId(rawId)
+        val wakeOccurrenceId = rawId
+            ?.let { value -> runCatching { WakeOccurrenceId(value) }.getOrNull() }
+            ?: run {
+                finish()
+                return
+            }
         occurrenceId = wakeOccurrenceId
         refreshPreparedPlanIfUnlocked()
 
-        voiceController = WakeVoiceSessionController(
-            context = this,
-            occurrenceId = wakeOccurrenceId,
-            onUiState = { voiceState = it },
-            onCompleted = { finishAndRemoveTask() },
+        val viewModel = ViewModelProvider(
+            this,
+            WakeSessionViewModel.factory(applicationContext, wakeOccurrenceId),
+        ).get(
+            "wake-session:${wakeOccurrenceId.value}",
+            WakeSessionViewModel::class.java,
         )
+        sessionViewModel = viewModel
 
         setContent {
+            val voiceState = viewModel.voiceState
+            val completed = viewModel.completed
+
+            LaunchedEffect(completed) {
+                if (completed) finishAndRemoveTask()
+            }
+
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = preparedPlan,
                     onSnooze = {
-                        voiceController?.closeForTerminalAction()
+                        viewModel.closeForTerminalAction()
                         AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
                     onStop = {
-                        voiceController?.closeForTerminalAction()
+                        viewModel.closeForTerminalAction()
                         AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
@@ -104,22 +114,16 @@ class WakeActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshPreparedPlanIfUnlocked()
-        voiceController?.onSurfaceVisible()
+        sessionViewModel?.onSurfaceVisible()
     }
 
     override fun onPause() {
-        // Microphone capture is scoped to a visible Wake Surface. The critical alarm continues
-        // under AlarmPlaybackService if this activity loses focus.
-        voiceController?.onSurfaceHidden()
+        // Microphone and motion capture are scoped to a visible Wake Surface. Their requested
+        // runtime state is retained by WakeSessionViewModel and restored when the surface returns.
+        sessionViewModel?.onSurfaceHidden()
         // Do not leave private content retained in the Compose state when the wake UI loses focus.
         preparedPlan = null
         super.onPause()
-    }
-
-    override fun onDestroy() {
-        voiceController?.close()
-        voiceController = null
-        super.onDestroy()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
