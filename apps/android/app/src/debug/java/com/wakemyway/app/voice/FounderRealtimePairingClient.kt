@@ -190,6 +190,6 @@ class FounderRealtimePairingClient {
     private companion object {
         const val NETWORK_TIMEOUT_MS = 12_000
         const val MAX_RESPONSE_BYTES = 24 * 1024
-        const val MIN_ACCESS_CODE_LENGTH = 12
+        const val MIN_ACCESS_CODE_LENGTH = 24
     }
 }
