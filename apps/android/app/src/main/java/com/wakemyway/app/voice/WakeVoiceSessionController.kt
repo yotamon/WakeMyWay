@@ -24,6 +24,13 @@ import com.wakemyway.core.runtime.WakeSessionSnapshot
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.Duration
 
+/** Lifecycle contract owned by the retained wake-session holder. */
+interface WakeSessionController : AutoCloseable {
+    fun onSurfaceVisible()
+    fun onSurfaceHidden()
+    fun closeForTerminalAction()
+}
+
 /**
  * Android adapter around the pure Wake Runtime.
  *
@@ -36,7 +43,7 @@ class WakeVoiceSessionController(
     private val occurrenceId: WakeOccurrenceId,
     private val onUiState: (WakeVoiceUiState) -> Unit,
     private val onCompleted: () -> Unit,
-) : AutoCloseable {
+) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val runtime = WakeRuntime()
@@ -71,7 +78,10 @@ class WakeVoiceSessionController(
                     conversationLive = true
                     when {
                         startRequested && !started -> beginRuntime(speechAvailable = true)
-                        started -> syncSpeechCapability()
+                        started -> {
+                            syncSpeechCapability()
+                            syncSurfaceBoundResources()
+                        }
                         else -> publish()
                     }
                 }
@@ -132,6 +142,7 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
+                    voiceResponseRequested = false
                     listening = false
                     speaking = false
                     realtimeTurnInFlight = false
@@ -175,6 +186,9 @@ class WakeVoiceSessionController(
                             dispatch(WakeInput.SpeechFailed(nextInputId("realtime-speech-failed")))
                         }
                     } else if (started) {
+                        // If Realtime failed while it was listening, preserve the runtime's request
+                        // and fall back to local STT immediately when the surface is still visible.
+                        syncSurfaceBoundResources()
                         syncWatchdog()
                     }
                 }
@@ -189,6 +203,8 @@ class WakeVoiceSessionController(
     private var closed = false
     private var listening = false
     private var speaking = false
+    private var voiceResponseRequested = false
+    private var motionObservationRequested = false
     private var motionObserving = false
     private var inputSequence = 0L
     private var speechSequence = 0L
@@ -222,6 +238,7 @@ class WakeVoiceSessionController(
             listening &&
             snapshot.phase != WakePhase.FINISHED
         ) {
+            voiceResponseRequested = false
             listening = false
             conversation?.setInputEnabled(false)
             dispatch(
@@ -233,7 +250,7 @@ class WakeVoiceSessionController(
         }
     }
 
-    fun onSurfaceVisible() {
+    override fun onSurfaceVisible() {
         if (closed) return
         surfaceVisible = true
         conversation?.connect()
@@ -248,17 +265,15 @@ class WakeVoiceSessionController(
         } else if (started) {
             dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
         }
+
+        if (started) syncSurfaceBoundResources()
     }
 
-    fun onSurfaceHidden() {
+    override fun onSurfaceHidden() {
         surfaceVisible = false
         mainHandler.removeCallbacks(silenceWatchdog)
-        mainHandler.removeCallbacks(realtimeSilenceTimeout)
-        conversation?.setInputEnabled(false)
-        if (listening) {
-            listening = false
-            voiceListener.cancel(deliverCancellation = false)
-        }
+        suspendListeningForHiddenSurface()
+        suspendMotionForHiddenSurface()
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
     }
 
@@ -266,7 +281,7 @@ class WakeVoiceSessionController(
      * Use immediately before a terminal AlarmPlaybackService command such as Stop or Snooze.
      * No restore-volume command is sent because the terminal command itself owns playback teardown.
      */
-    fun closeForTerminalAction() {
+    override fun closeForTerminalAction() {
         closeInternal(restoreCriticalAudio = false)
     }
 
@@ -277,6 +292,8 @@ class WakeVoiceSessionController(
     private fun closeInternal(restoreCriticalAudio: Boolean) {
         if (closed) return
         closed = true
+        voiceResponseRequested = false
+        motionObservationRequested = false
         mainHandler.removeCallbacks(startFallback)
         mainHandler.removeCallbacks(silenceWatchdog)
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
@@ -286,6 +303,7 @@ class WakeVoiceSessionController(
         conversation?.close()
         speaker.close()
         motionObserver.stop()
+        motionObserving = false
         if (restoreCriticalAudio) {
             AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
         }
@@ -305,6 +323,7 @@ class WakeVoiceSessionController(
             ),
         )
         dispatch(WakeInput.AlarmFired(nextInputId("alarm-fired")))
+        syncSurfaceBoundResources()
     }
 
     private fun onSpeechStateChanged(state: LocalSpeechState) {
@@ -356,31 +375,17 @@ class WakeVoiceSessionController(
             }
 
             is WakeDirective.Speak -> speak(directive.intent)
-            WakeDirective.ListenForVoiceResponse -> listenForVoiceResponse()
+            WakeDirective.ListenForVoiceResponse -> requestVoiceResponse()
             WakeDirective.StopListeningForVoiceResponse -> stopListening()
 
             WakeDirective.ObserveMotion -> {
-                if (!motionObserving && surfaceVisible) {
-                    val availability = motionObserver.start()
-                    motionObserving = availability.observing
-                    if (!availability.motionAvailable && snapshot.capabilities.motionAvailable) {
-                        mainHandler.post {
-                            if (!closed && started) {
-                                dispatch(
-                                    WakeInput.CapabilitiesChanged(
-                                        id = nextInputId("motion-unavailable"),
-                                        capabilities = snapshot.capabilities.copy(motionAvailable = false),
-                                    ),
-                                )
-                            }
-                        }
-                    }
-                }
+                motionObservationRequested = true
+                syncMotionObservation()
             }
 
             WakeDirective.StopObservingMotion -> {
-                motionObserver.stop()
-                motionObserving = false
+                motionObservationRequested = false
+                stopMotionObservation()
             }
 
             is WakeDirective.OfferSnooze -> Unit
@@ -481,10 +486,26 @@ class WakeVoiceSessionController(
         }
     }
 
-    private fun listenForVoiceResponse() {
-        if (!surfaceVisible || closed) return
+    private fun requestVoiceResponse() {
+        voiceResponseRequested = true
+        syncVoiceListening()
+    }
+
+    private fun syncVoiceListening() {
+        if (
+            !voiceResponseRequested ||
+            !surfaceVisible ||
+            closed ||
+            !started ||
+            speaking ||
+            listening ||
+            snapshot.phase == WakePhase.FINISHED
+        ) {
+            return
+        }
+
+        mainHandler.removeCallbacks(silenceWatchdog)
         if (conversationLive && conversation?.ready == true) {
-            speaking = false
             listening = true
             mode = WakeVoiceMode.LISTENING
             currentLine = null
@@ -497,11 +518,11 @@ class WakeVoiceSessionController(
         }
 
         if (voiceListener.availability() !is LocalVoiceAvailability.Ready) {
+            voiceResponseRequested = false
             degradeVoiceInput()
             return
         }
 
-        speaking = false
         listening = true
         mode = WakeVoiceMode.LISTENING
         AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
@@ -510,6 +531,7 @@ class WakeVoiceSessionController(
         voiceListener.listen { result ->
             mainHandler.post {
                 if (closed || !started || !listening) return@post
+                voiceResponseRequested = false
                 listening = false
                 when (result) {
                     is LocalVoiceResult.Recognized -> dispatch(
@@ -534,16 +556,72 @@ class WakeVoiceSessionController(
     }
 
     private fun stopListening() {
+        voiceResponseRequested = false
+        cancelListening(preserveAssistantOutput = true)
+    }
+
+    private fun suspendListeningForHiddenSurface() {
+        cancelListening(preserveAssistantOutput = false)
+    }
+
+    private fun cancelListening(preserveAssistantOutput: Boolean) {
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
         if (conversationLive) {
-            conversation?.setInputEnabled(realtimeTurnInFlight && speaking)
+            conversation?.setInputEnabled(
+                preserveAssistantOutput && realtimeTurnInFlight && speaking,
+            )
         }
         if (!listening) return
         listening = false
         voiceListener.cancel(deliverCancellation = false)
     }
 
+    private fun syncMotionObservation() {
+        if (
+            !motionObservationRequested ||
+            !surfaceVisible ||
+            closed ||
+            !started ||
+            !snapshot.capabilities.motionAvailable
+        ) {
+            return
+        }
+        if (motionObserving) return
+
+        val availability = motionObserver.start()
+        motionObserving = availability.observing
+        if (!availability.motionAvailable && snapshot.capabilities.motionAvailable) {
+            mainHandler.post {
+                if (!closed && started) {
+                    dispatch(
+                        WakeInput.CapabilitiesChanged(
+                            id = nextInputId("motion-unavailable"),
+                            capabilities = snapshot.capabilities.copy(motionAvailable = false),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun suspendMotionForHiddenSurface() {
+        stopMotionObservation()
+    }
+
+    private fun stopMotionObservation() {
+        if (!motionObserving) return
+        motionObserver.stop()
+        motionObserving = false
+    }
+
+    private fun syncSurfaceBoundResources() {
+        if (!started || closed || !surfaceVisible) return
+        syncMotionObservation()
+        syncVoiceListening()
+    }
+
     private fun degradeVoiceInput() {
+        voiceResponseRequested = false
         if (!snapshot.capabilities.voiceInputAvailable) {
             syncWatchdog()
             return
