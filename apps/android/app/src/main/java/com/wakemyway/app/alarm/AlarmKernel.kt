@@ -93,22 +93,33 @@ class AlarmKernel(
     ): WakeOccurrence? {
         val snapshot = store.read() ?: return null
         if (!snapshot.enabled || snapshot.activeOccurrence?.id != occurrenceId) return null
+        if (!registrar.canScheduleExactAlarms()) return null
 
         val snooze = snoozeFactory.create(
             schedule = snapshot.schedule,
             now = Instant.now(clock),
             duration = duration,
         )
-        persistPlannedOccurrence(
-            snapshot = snapshot.copy(
-                nextOccurrence = snooze,
-                activeOccurrence = null,
-                registeredOccurrenceId = null,
-                generation = snapshot.generation + 1,
-            ),
-            occurrence = snooze,
-        )
-        return snooze
+
+        // Snooze has a stricter ordering requirement than a normal future schedule: the active
+        // wake must remain authoritative (and therefore audible/controllable) until Android has
+        // accepted the replacement exact alarm. If registration or the durable hand-off fails,
+        // cancel any partial replacement and leave the current active snapshot untouched.
+        return try {
+            registrar.register(snooze)
+            store.write(
+                snapshot.copy(
+                    nextOccurrence = snooze,
+                    activeOccurrence = null,
+                    registeredOccurrenceId = snooze.id,
+                    generation = snapshot.generation + 1,
+                ),
+            )
+            snooze
+        } catch (_: Exception) {
+            runCatching { registrar.cancel(snooze.id) }
+            null
+        }
     }
 
     /**
@@ -169,12 +180,13 @@ class AlarmKernel(
 
     fun health(): AlarmHealth {
         val snapshot = store.read()
+        val enabledSnapshot = snapshot?.takeIf { it.enabled }
         val exactAllowed = registrar.canScheduleExactAlarms()
         val presentation = AlarmPresentationAccess.snapshot(appContext)
-        val enabled = snapshot?.enabled == true
-        val registered = enabled && snapshot?.nextOccurrence != null &&
-            snapshot.registeredOccurrenceId == snapshot.nextOccurrence.id
-        val active = enabled && snapshot?.activeOccurrence != null
+        val registered = enabledSnapshot?.let { current ->
+            current.nextOccurrence != null && current.registeredOccurrenceId == current.nextOccurrence.id
+        } == true
+        val active = enabledSnapshot?.activeOccurrence != null
         val ready = exactAllowed && presentation.ready && (registered || active)
 
         return AlarmHealth(
@@ -183,11 +195,11 @@ class AlarmKernel(
             notificationsAllowed = presentation.notificationsAllowed,
             notificationChannelHighImportance = presentation.highImportanceChannel,
             fullScreenIntentAllowed = presentation.fullScreenIntentAllowed,
-            nextOccurrence = snapshot?.takeIf { it.enabled }?.nextOccurrence,
-            activeOccurrence = snapshot?.takeIf { it.enabled }?.activeOccurrence,
+            nextOccurrence = enabledSnapshot?.nextOccurrence,
+            activeOccurrence = enabledSnapshot?.activeOccurrence,
             detail = when {
                 snapshot == null -> "No wake schedule configured"
-                !snapshot.enabled -> "Wake schedule disabled"
+                enabledSnapshot == null -> "Wake schedule disabled"
                 !exactAllowed -> "Exact alarm capability unavailable"
                 !presentation.notificationsAllowed -> "Notification access required for alarm controls"
                 !presentation.highImportanceChannel -> "Active wake alerts must be high priority"

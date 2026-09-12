@@ -49,32 +49,40 @@ class AlarmPlaybackService : Service() {
             return ensureActiveWake(kernel, active.id)
         }
 
-        val rawId = intent.getStringExtra(EXTRA_OCCURRENCE_ID) ?: return START_NOT_STICKY
+        val rawId = intent.getStringExtra(EXTRA_OCCURRENCE_ID)
+            ?: return preserveCurrentExecutionOrStop(kernel)
         val occurrenceId = WakeOccurrenceId(rawId)
 
         return when (intent.action) {
             ACTION_START -> ensureActiveWake(kernel, occurrenceId)
 
             ACTION_STOP -> {
-                if (kernel.stopActive(occurrenceId)) {
+                if (!kernel.stopActive(occurrenceId)) {
+                    preserveCurrentExecutionOrStop(kernel)
+                } else {
                     trace.stopped(occurrenceId)
+                    stopExecution()
+                    START_NOT_STICKY
                 }
-                stopExecution()
-                START_NOT_STICKY
             }
 
             ACTION_SNOOZE -> {
                 val replacement = kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
-                if (replacement != null) {
+                if (replacement == null) {
+                    // A delayed PendingIntent from an older occurrence, or a failed exact-alarm
+                    // replacement, must never tear down the current wake. If a durable active wake
+                    // exists, re-assert its foreground/audio execution instead.
+                    preserveCurrentExecutionOrStop(kernel)
+                } else {
                     trace.snoozed(occurrenceId)
                     trace.expected(
                         occurrence = replacement,
                         scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
                         expectFullScreen = kernel.health().fullScreenIntentAllowed,
                     )
+                    stopExecution()
+                    START_NOT_STICKY
                 }
-                stopExecution()
-                START_NOT_STICKY
             }
 
             ACTION_VOICE_WINDOW -> {
@@ -82,7 +90,7 @@ class AlarmPlaybackService : Service() {
                     beginVoiceWindow()
                     START_STICKY
                 } else {
-                    START_NOT_STICKY
+                    preserveCurrentExecutionOrStop(kernel)
                 }
             }
 
@@ -91,11 +99,11 @@ class AlarmPlaybackService : Service() {
                     endVoiceWindow()
                     START_STICKY
                 } else {
-                    START_NOT_STICKY
+                    preserveCurrentExecutionOrStop(kernel)
                 }
             }
 
-            else -> START_NOT_STICKY
+            else -> preserveCurrentExecutionOrStop(kernel)
         }
     }
 
@@ -105,6 +113,14 @@ class AlarmPlaybackService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun preserveCurrentExecutionOrStop(kernel: AlarmKernel): Int {
+        val current = kernel.activeOccurrence()
+        if (current != null) return ensureActiveWake(kernel, current.id)
+
+        stopExecution()
+        return START_NOT_STICKY
+    }
 
     private fun ensureActiveWake(
         kernel: AlarmKernel,

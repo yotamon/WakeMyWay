@@ -31,15 +31,15 @@ class WakePreparationManager(
             require(normalizedText.isNotBlank()) { "Tomorrow Contract text must not be blank" }
             val normalizedFirstMove = firstMove?.trim()?.takeIf { it.isNotBlank() }
             val now = nowEpochMillis().coerceAtLeast(1)
-            val previous = runCatching { store.readContract() }.getOrNull()
-            val continuesSameContract = previous?.wakeOccurrenceId == wakeOccurrenceId
+            val previousForOccurrence = runCatching { store.readContract() }.getOrNull()
+                ?.takeIf { it.wakeOccurrenceId == wakeOccurrenceId }
             val contract = TomorrowContract(
                 id = TomorrowContractId("contract:${wakeOccurrenceId.value}"),
                 wakeOccurrenceId = wakeOccurrenceId,
                 rawText = normalizedText,
                 firstMove = normalizedFirstMove,
-                revision = if (continuesSameContract) previous!!.revision + 1 else 1,
-                createdAtEpochMillis = if (continuesSameContract) previous!!.createdAtEpochMillis else now,
+                revision = previousForOccurrence?.revision?.plus(1) ?: 1,
+                createdAtEpochMillis = previousForOccurrence?.createdAtEpochMillis ?: now,
                 updatedAtEpochMillis = now,
             )
 

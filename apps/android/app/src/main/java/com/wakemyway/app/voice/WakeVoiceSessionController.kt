@@ -69,7 +69,11 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed) return@post
                     conversationLive = true
-                    publish()
+                    when {
+                        startRequested && !started -> beginRuntime(speechAvailable = true)
+                        started -> syncSpeechCapability()
+                        else -> publish()
+                    }
                 }
             }
 
@@ -154,12 +158,22 @@ class WakeVoiceSessionController(
                     realtimeIntent = null
                     speaking = false
                     listening = false
-                    publish()
+
+                    if (started) {
+                        syncSpeechCapability()
+                    } else {
+                        publish()
+                    }
 
                     // Preserve the exact typed runtime intent. A network/provider failure changes
-                    // rendering only; it must not create a parallel behavioral transition.
+                    // rendering only; it must not create a parallel behavioral transition. If no
+                    // local renderer exists either, report the failed speech fact to WakeRuntime.
                     if (failedDuringTurn && started && snapshot.phase != WakePhase.FINISHED) {
-                        speakLocally(failedIntent)
+                        if (speaker.state() is LocalSpeechState.Ready) {
+                            speakLocally(failedIntent)
+                        } else {
+                            dispatch(WakeInput.SpeechFailed(nextInputId("realtime-speech-failed")))
+                        }
                     } else if (started) {
                         syncWatchdog()
                     }
@@ -304,7 +318,12 @@ class WakeVoiceSessionController(
             return
         }
 
-        val available = state is LocalSpeechState.Ready || conversationLive
+        syncSpeechCapability()
+    }
+
+    private fun syncSpeechCapability() {
+        if (!started || closed) return
+        val available = speaker.state() is LocalSpeechState.Ready || conversationLive
         if (snapshot.capabilities.speechAvailable != available) {
             dispatch(
                 WakeInput.CapabilitiesChanged(
@@ -312,6 +331,8 @@ class WakeVoiceSessionController(
                     capabilities = snapshot.capabilities.copy(speechAvailable = available),
                 ),
             )
+        } else {
+            publish()
         }
     }
 
