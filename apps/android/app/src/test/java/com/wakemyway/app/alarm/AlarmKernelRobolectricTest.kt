@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class AlarmKernelRobolectricTest {
     private val now = Instant.parse("2026-09-12T04:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
