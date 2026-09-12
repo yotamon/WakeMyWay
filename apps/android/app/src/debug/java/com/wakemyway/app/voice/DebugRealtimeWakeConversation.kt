@@ -44,6 +44,7 @@ class DebugRealtimeWakeConversation(
     }
     private val generation = AtomicLong(0L)
     private val readyState = AtomicBoolean(false)
+    private val connectingState = AtomicBoolean(false)
 
     private var peerConnectionFactory: PeerConnectionFactory? = null
     private var peerConnection: PeerConnection? = null
@@ -62,17 +63,19 @@ class DebugRealtimeWakeConversation(
     override val ready: Boolean get() = !closed && readyState.get()
 
     override fun connect() {
-        if (closed || ready) return
+        if (closed || ready || !connectingState.compareAndSet(false, true)) return
         val config = settings.load() ?: run {
+            connectingState.set(false)
             emitFailure("not-configured")
             return
         }
         if (runCatching { validateBrokerUrl(config.brokerUrl) }.isFailure) {
+            connectingState.set(false)
             emitFailure("configuration")
             return
         }
 
-        disconnectResources()
+        disconnectResources(resetConnecting = false)
         val current = generation.incrementAndGet()
         networkExecutor.execute {
             runCatching { requestBrokerSecret(config) }
@@ -192,6 +195,7 @@ class DebugRealtimeWakeConversation(
                 return
             }
             readyState.set(true)
+            connectingState.set(false)
             mainHandler.post {
                 if (isCurrent(current)) listener.onConversationReady()
             }
@@ -396,8 +400,9 @@ class DebugRealtimeWakeConversation(
         previousSpeakerphone = null
     }
 
-    private fun disconnectResources() {
+    private fun disconnectResources(resetConnecting: Boolean = true) {
         readyState.set(false)
+        if (resetConnecting) connectingState.set(false)
         inputEnabled = false
         responseAudible = false
         speechStartedAtMs = null
