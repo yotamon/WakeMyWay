@@ -34,16 +34,31 @@ class WakeSessionViewModel internal constructor(
     var completed by mutableStateOf(false)
         private set
 
+    private var terminal = false
     private val controller = controllerFactory(
         { state -> voiceState = state },
-        { completed = true },
+        {
+            terminal = true
+            completed = true
+        },
     )
 
-    fun onSurfaceVisible() = controller.onSurfaceVisible()
+    fun onSurfaceVisible() {
+        if (!terminal) controller.onSurfaceVisible()
+    }
 
-    fun onSurfaceHidden() = controller.onSurfaceHidden()
+    fun onSurfaceHidden() {
+        // Activity.onPause() still runs after Stop/Snooze or automatic completion. Once terminal,
+        // do not send resource/audio lifecycle commands into a controller that already handed
+        // execution teardown back to AlarmPlaybackService.
+        if (!terminal) controller.onSurfaceHidden()
+    }
 
-    fun closeForTerminalAction() = controller.closeForTerminalAction()
+    fun closeForTerminalAction() {
+        if (terminal) return
+        terminal = true
+        controller.closeForTerminalAction()
+    }
 
     override fun onCleared() {
         controller.close()
