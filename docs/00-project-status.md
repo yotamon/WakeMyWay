@@ -10,15 +10,19 @@
 
 ## Active hardening review
 
-A repository-wide reliability/correctness review on `codex/deep-review-hardening` found and fixes three execution-level edge cases without changing the accepted architecture:
+A repository-wide reliability, correctness, security and performance review on `codex/deep-review-hardening` hardens the existing architecture without changing product ownership boundaries:
 
 - Snooze previously cleared Active Wake authority before proving the replacement exact alarm had been accepted by Android. Snooze now registers the replacement first and only then performs the durable active → snoozed hand-off. If exact-alarm access or persistence fails, the current wake remains active instead of going silent without a replacement.
 - A delayed/stale Stop or Snooze `PendingIntent` could stop `AlarmPlaybackService` even when the command occurrence ID no longer matched the current Active Wake. Terminal commands now tear down playback only after the Alarm Kernel accepts that exact occurrence; stale/malformed service commands either re-assert the current durable active execution or stop an idle service instance.
 - Realtime conversation availability could diverge from `WakeRuntime.capabilities.speechAvailable` when the remote renderer connected or failed after runtime startup. The controller now synchronizes those transitions, starts immediately when Realtime becomes ready during TTS initialization, and emits a typed `SpeechFailed` fact when both remote and local rendering are unavailable.
+- Realtime WebRTC failures are now scoped to the connection generation that observed them. A late callback from an obsolete peer/request cannot fail a newer reconnect, and a current Realtime failure tears down WebRTC resources and restores the previous Android audio route before local Alfred fallback continues.
+- Shared cloud JSON parsing now enforces the request-body byte limit while streaming instead of loading an unbounded body before checking its size. Oversized bodies are rejected early, including requests without `Content-Length` and multibyte UTF-8 payloads.
+- Android CI now runs `:app:testDebugUnitTest` explicitly in addition to `:wake-core:test`, so app-level Robolectric regressions are a first-class merge gate instead of relying on an indirect visual-regression invocation.
+- Small warning-level state derivation issues in Alarm Kernel health and Tomorrow Contract revision handling were simplified while preserving behavior.
 
-Robolectric regression coverage now verifies that loss of exact-alarm access during Snooze leaves the current occurrence active and that stale terminal occurrence IDs cannot replace current active authority.
+Robolectric regression coverage verifies that loss of exact-alarm access during Snooze leaves the current occurrence active and that stale terminal occurrence IDs cannot replace current active authority. Cloud tests cover bounded JSON parsing for normal, streamed oversized, declared oversized and multibyte bodies.
 
-No ADR changes are required: these fixes enforce the existing Snooze durability, Active Wake idempotency, local fallback, and non-authoritative Realtime invariants.
+No ADR changes are required: these fixes enforce the existing Snooze durability, Active Wake idempotency, local fallback, non-authoritative Realtime, and bounded-cloud-input invariants.
 
 ## Physical truth
 
