@@ -93,22 +93,33 @@ class AlarmKernel(
     ): WakeOccurrence? {
         val snapshot = store.read() ?: return null
         if (!snapshot.enabled || snapshot.activeOccurrence?.id != occurrenceId) return null
+        if (!registrar.canScheduleExactAlarms()) return null
 
         val snooze = snoozeFactory.create(
             schedule = snapshot.schedule,
             now = Instant.now(clock),
             duration = duration,
         )
-        persistPlannedOccurrence(
-            snapshot = snapshot.copy(
-                nextOccurrence = snooze,
-                activeOccurrence = null,
-                registeredOccurrenceId = null,
-                generation = snapshot.generation + 1,
-            ),
-            occurrence = snooze,
-        )
-        return snooze
+
+        // Snooze has a stricter ordering requirement than a normal future schedule: the active
+        // wake must remain authoritative (and therefore audible/controlable) until Android has
+        // accepted the replacement exact alarm. If registration or the durable hand-off fails,
+        // cancel any partial replacement and leave the current active snapshot untouched.
+        return try {
+            registrar.register(snooze)
+            store.write(
+                snapshot.copy(
+                    nextOccurrence = snooze,
+                    activeOccurrence = null,
+                    registeredOccurrenceId = snooze.id,
+                    generation = snapshot.generation + 1,
+                ),
+            )
+            snooze
+        } catch (_: Exception) {
+            runCatching { registrar.cancel(snooze.id) }
+            null
+        }
     }
 
     /**
