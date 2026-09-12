@@ -49,7 +49,8 @@ class AlarmPlaybackService : Service() {
             return ensureActiveWake(kernel, active.id)
         }
 
-        val rawId = intent.getStringExtra(EXTRA_OCCURRENCE_ID) ?: return START_NOT_STICKY
+        val rawId = intent.getStringExtra(EXTRA_OCCURRENCE_ID)
+            ?: return preserveCurrentExecutionOrStop(kernel)
         val occurrenceId = WakeOccurrenceId(rawId)
 
         return when (intent.action) {
@@ -89,7 +90,7 @@ class AlarmPlaybackService : Service() {
                     beginVoiceWindow()
                     START_STICKY
                 } else {
-                    START_NOT_STICKY
+                    preserveCurrentExecutionOrStop(kernel)
                 }
             }
 
@@ -98,11 +99,11 @@ class AlarmPlaybackService : Service() {
                     endVoiceWindow()
                     START_STICKY
                 } else {
-                    START_NOT_STICKY
+                    preserveCurrentExecutionOrStop(kernel)
                 }
             }
 
-            else -> START_NOT_STICKY
+            else -> preserveCurrentExecutionOrStop(kernel)
         }
     }
 
