@@ -77,10 +77,7 @@ export async function parseJson<T extends z.ZodType>(
     throw new HttpError(413, 'Request body is too large.');
   }
 
-  const raw = await request.text();
-  if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
-    throw new HttpError(413, 'Request body is too large.');
-  }
+  const raw = await readBodyBounded(request, maxBytes);
 
   let decoded: unknown;
   try {
@@ -92,6 +89,33 @@ export async function parseJson<T extends z.ZodType>(
   const parsed = schema.safeParse(decoded);
   if (!parsed.success) throw new HttpError(400, 'Request body is invalid.');
   return parsed.data;
+}
+
+async function readBodyBounded(request: Request, maxBytes: number): Promise<string> {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel('request body too large').catch(() => undefined);
+        throw new HttpError(413, 'Request body is too large.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks.map(chunk => Buffer.from(chunk))).toString('utf8');
 }
 
 export function errorResponse(error: unknown, id: string, operation: string): Response {
