@@ -1,31 +1,47 @@
 package com.wakemyway.app
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WakeSessionViewModelTest {
     @Test
-    fun `retained owner forwards surface lifecycle without recreating controller`() {
+    fun `ViewModelStore retains one controller and closes it when the session owner clears`() {
         val fake = FakeWakeSessionController()
         var creations = 0
-        val viewModel = WakeSessionViewModel { _, _ ->
-            creations += 1
-            fake
+        val store = ViewModelStore()
+        val factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                creations += 1
+                return WakeSessionViewModel { _, _ -> fake } as T
+            }
         }
 
-        viewModel.onSurfaceVisible()
-        viewModel.onSurfaceHidden()
-        viewModel.onSurfaceVisible()
+        val first = ViewModelProvider(store, factory).get("wake-session", WakeSessionViewModel::class.java)
+        first.onSurfaceVisible()
+        first.onSurfaceHidden()
 
+        // A recreated Activity receives another provider backed by the same retained store.
+        val recreated = ViewModelProvider(store, factory).get("wake-session", WakeSessionViewModel::class.java)
+        recreated.onSurfaceVisible()
+
+        assertSame(first, recreated)
         assertEquals(1, creations)
         assertEquals(2, fake.visibleCalls)
         assertEquals(1, fake.hiddenCalls)
-        assertFalse(viewModel.completed)
+        assertFalse(recreated.completed)
+
+        store.clear()
+        assertEquals(1, fake.closeCalls)
     }
 
     @Test
@@ -59,6 +75,7 @@ class WakeSessionViewModelTest {
         var visibleCalls = 0
         var hiddenCalls = 0
         var terminalCloseCalls = 0
+        var closeCalls = 0
 
         override fun onSurfaceVisible() {
             visibleCalls += 1
@@ -72,6 +89,8 @@ class WakeSessionViewModelTest {
             terminalCloseCalls += 1
         }
 
-        override fun close() = Unit
+        override fun close() {
+            closeCalls += 1
+        }
     }
 }
