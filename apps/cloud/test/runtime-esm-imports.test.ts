@@ -1,10 +1,14 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const RUNTIME_ROOTS = ['api', 'src'] as const;
-const NODE_ESM_EXTENSIONS = /\.(?:js|mjs|cjs|json|node)$/;
+const NODE_ESM_EXTENSIONS = /\.(?:js|mjs|cjs|json|node)(?:[?#].*)?$/;
+const RELATIVE_IMPORT_PATTERNS = [
+  /\bfrom\s*['"](\.{1,2}\/[^'"]+)['"]/g,
+  /\bimport\s*['"](\.{1,2}\/[^'"]+)['"]/g,
+  /\bimport\s*\(\s*['"](\.{1,2}\/[^'"]+)['"]\s*\)/g,
+] as const;
 
 async function collectTypeScriptFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -22,34 +26,18 @@ async function collectTypeScriptFiles(directory: string): Promise<string[]> {
   return files;
 }
 
-function relativeModuleSpecifiers(source: string, fileName: string): string[] {
-  const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+function relativeModuleSpecifiers(source: string): string[] {
   const specifiers: string[] = [];
 
-  function visit(node: ts.Node): void {
-    if (
-      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      specifiers.push(node.moduleSpecifier.text);
+  for (const pattern of RELATIVE_IMPORT_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      const specifier = match[1];
+      if (specifier) specifiers.push(specifier);
     }
-
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      node.arguments[0] &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      specifiers.push(node.arguments[0].text);
-    }
-
-    ts.forEachChild(node, visit);
   }
 
-  visit(file);
-  return specifiers.filter(specifier => specifier.startsWith('./') || specifier.startsWith('../'));
+  return specifiers;
 }
 
 describe('Vercel Node ESM runtime imports', () => {
@@ -59,7 +47,7 @@ describe('Vercel Node ESM runtime imports', () => {
     for (const root of RUNTIME_ROOTS) {
       for (const filePath of await collectTypeScriptFiles(join(process.cwd(), root))) {
         const source = await readFile(filePath, 'utf8');
-        for (const specifier of relativeModuleSpecifiers(source, filePath)) {
+        for (const specifier of relativeModuleSpecifiers(source)) {
           if (!NODE_ESM_EXTENSIONS.test(specifier)) {
             invalid.push(`${relative(process.cwd(), filePath)} -> ${specifier}`);
           }
