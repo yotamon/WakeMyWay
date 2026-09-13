@@ -15,7 +15,7 @@ import {
   requireNonZdrAudioSpike,
   type TextModelPolicy,
   type TextTask,
-} from './config';
+} from './config.js';
 
 const DEFAULT_TEXT_TIMEOUT_MS = 20_000;
 const DEFAULT_AUDIO_TIMEOUT_MS = 30_000;

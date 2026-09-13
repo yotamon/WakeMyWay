@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-import { streamTextWithAI } from '../../../src/ai/platform';
+import { streamTextWithAI } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   methodNotAllowed,
   parseJson,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 const inputSchema = z.object({
   task: z.enum(['fast', 'smart']).default('fast'),

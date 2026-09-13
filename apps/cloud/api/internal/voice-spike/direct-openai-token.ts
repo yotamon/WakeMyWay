@@ -1,11 +1,11 @@
-import { createDirectOpenAiRealtimeClientSecret } from '../../../src/voice-spike/direct-openai';
+import { createDirectOpenAiRealtimeClientSecret } from '../../../src/voice-spike/direct-openai.js';
 import {
   errorResponse,
   json,
   methodNotAllowed,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 export default {
   async fetch(request: Request): Promise<Response> {

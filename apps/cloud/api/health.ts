@@ -1,5 +1,5 @@
-import { publicAIConfig } from '../src/ai/config';
-import { json, methodNotAllowed, requestId } from '../src/http';
+import { publicAIConfig } from '../src/ai/config.js';
+import { json, methodNotAllowed, requestId } from '../src/http.js';
 
 export default {
   async fetch(request: Request): Promise<Response> {

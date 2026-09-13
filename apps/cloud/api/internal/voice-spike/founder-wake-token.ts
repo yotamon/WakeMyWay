@@ -1,6 +1,6 @@
-import { requireFounderRealtimeAuthorization } from '../../../src/founder-realtime-auth';
-import { errorResponse, json, methodNotAllowed, requestId } from '../../../src/http';
-import { createFounderWakeRealtimeClientSecret } from '../../../src/voice-spike/direct-openai';
+import { requireFounderRealtimeAuthorization } from '../../../src/founder-realtime-auth.js';
+import { errorResponse, json, methodNotAllowed, requestId } from '../../../src/http.js';
+import { createFounderWakeRealtimeClientSecret } from '../../../src/voice-spike/direct-openai.js';
 
 export default {
   async fetch(request: Request): Promise<Response> {

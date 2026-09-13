@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { embedTextWithAI } from '../../../src/ai/platform';
+import { embedTextWithAI } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   json,
@@ -8,7 +8,7 @@ import {
   parseJson,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 const inputSchema = z.object({
   value: z.string().trim().min(1).max(16_000),
