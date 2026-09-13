@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { generateTextWithAI } from '../../../src/ai/platform';
+import { generateTextWithAI } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   json,
@@ -8,7 +8,7 @@ import {
   parseJson,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 const inputSchema = z.object({
   task: z.enum(['fast', 'smart']).default('fast'),

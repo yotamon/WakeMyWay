@@ -1,4 +1,4 @@
-import { transcribeWithAI } from '../../../src/ai/platform';
+import { transcribeWithAI } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   HttpError,
@@ -6,7 +6,7 @@ import {
   methodNotAllowed,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 

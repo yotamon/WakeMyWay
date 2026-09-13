@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-import { generateSpeechWithAI } from '../../../src/ai/platform';
+import { generateSpeechWithAI } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   methodNotAllowed,
   parseJson,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 const inputSchema = z.object({
   text: z.string().trim().min(1).max(4_000),

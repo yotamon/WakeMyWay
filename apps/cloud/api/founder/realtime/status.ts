@@ -1,5 +1,5 @@
-import { founderRealtimeSetupStatus } from '../../../src/founder-realtime-auth';
-import { json, methodNotAllowed, requestId } from '../../../src/http';
+import { founderRealtimeSetupStatus } from '../../../src/founder-realtime-auth.js';
+import { json, methodNotAllowed, requestId } from '../../../src/http.js';
 
 export default {
   async fetch(request: Request): Promise<Response> {

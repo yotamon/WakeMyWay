@@ -3,8 +3,8 @@ import { z } from 'zod';
 import {
   FOUNDER_PAIRING_CODE_MIN_LENGTH,
   pairFounderInstallation,
-} from '../../../src/founder-realtime-auth';
-import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../../../src/http';
+} from '../../../src/founder-realtime-auth.js';
+import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../../../src/http.js';
 
 const bodySchema = z.object({
   code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),

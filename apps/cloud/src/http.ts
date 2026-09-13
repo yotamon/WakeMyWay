@@ -1,7 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
-import { getAIConfig } from './ai/config';
+import { getAIConfig } from './ai/config.js';
 
 const MAX_JSON_BYTES = 32 * 1024;
 

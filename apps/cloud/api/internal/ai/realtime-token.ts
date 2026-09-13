@@ -1,11 +1,11 @@
-import { createRealtimeToken } from '../../../src/ai/platform';
+import { createRealtimeToken } from '../../../src/ai/platform.js';
 import {
   errorResponse,
   json,
   methodNotAllowed,
   requestId,
   requireInternalAuthorization,
-} from '../../../src/http';
+} from '../../../src/http.js';
 
 export default {
   async fetch(request: Request): Promise<Response> {

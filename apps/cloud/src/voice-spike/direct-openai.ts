@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { HttpError } from '../http';
+import { HttpError } from '../http.js';
 
 const OPENAI_CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_secrets';
 export const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';

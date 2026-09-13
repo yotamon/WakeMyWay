@@ -1,9 +1,9 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
-import { getAIConfig, parseAIConfig } from './ai/config';
-import { HttpError, isInternallyAuthorized, secureEqual } from './http';
-import { parseDirectOpenAiRealtimeConfig } from './voice-spike/direct-openai';
+import { getAIConfig, parseAIConfig } from './ai/config.js';
+import { HttpError, isInternallyAuthorized, secureEqual } from './http.js';
+import { parseDirectOpenAiRealtimeConfig } from './voice-spike/direct-openai.js';
 
 const FOUNDER_SCOPE = 'founder-realtime-wake';
 const DEVICE_TOKEN_VERSION = 1;
