@@ -187,7 +187,11 @@ class AlarmKernel(
             current.nextOccurrence != null && current.registeredOccurrenceId == current.nextOccurrence.id
         } == true
         val active = enabledSnapshot?.activeOccurrence != null
-        val ready = exactAllowed && presentation.ready && (registered || active)
+        val ready = if (active) {
+            presentation.ready
+        } else {
+            exactAllowed && presentation.ready && registered
+        }
 
         return AlarmHealth(
             ready = ready,
@@ -200,11 +204,11 @@ class AlarmKernel(
             detail = when {
                 snapshot == null -> "No wake schedule configured"
                 enabledSnapshot == null -> "Wake schedule disabled"
-                !exactAllowed -> "Exact alarm capability unavailable"
                 !presentation.notificationsAllowed -> "Notification access required for alarm controls"
                 !presentation.highImportanceChannel -> "Active wake alerts must be high priority"
                 !presentation.fullScreenIntentAllowed -> "Full-screen alarm access required"
                 active -> "Wake execution is active"
+                !exactAllowed -> "Exact alarm capability unavailable"
                 !registered -> "Wake occurrence needs reconciliation"
                 else -> "Wake Ready"
             },
