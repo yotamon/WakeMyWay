@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
@@ -20,14 +20,14 @@ typealias WakeSessionControllerFactory = (
 /**
  * Retained owner for one behavioral Wake Session.
  *
- * The Alarm Kernel / AlarmPlaybackService remains the durable authority for terminal Stop/Snooze.
- * WakeRuntime owns activation/orientation behavior, while this ViewModel ensures the UI has exactly
- * one terminal command path and that Activity recreation cannot duplicate it.
+ * AlarmKernel remains the durable authority for terminal Stop/Snooze. WakeRuntime owns
+ * activation/orientation behavior, while this ViewModel guarantees the Wake Surface disappears
+ * only after the terminal Alarm Kernel transaction has actually succeeded.
  */
 class WakeSessionViewModel internal constructor(
     controllerFactory: WakeSessionControllerFactory,
-    private val requestStopExecution: () -> Unit = {},
-    private val requestSnoozeExecution: () -> Unit = {},
+    private val requestStopExecution: () -> Boolean = { false },
+    private val requestSnoozeExecution: () -> Boolean = { false },
 ) : ViewModel() {
     var voiceState by mutableStateOf(WakeVoiceUiState())
         private set
@@ -51,7 +51,7 @@ class WakeSessionViewModel internal constructor(
     fun onSurfaceHidden() {
         // Activity.onPause() still runs after Stop/Snooze or automatic completion. Once terminal,
         // do not send resource/audio lifecycle commands into a controller that already handed
-        // execution teardown back to AlarmPlaybackService.
+        // execution teardown back to the Alarm Kernel/playback layer.
         if (!terminal) controller.onSurfaceHidden()
     }
 
@@ -66,13 +66,14 @@ class WakeSessionViewModel internal constructor(
         controller.closeForTerminalAction()
     }
 
-    private fun requestTerminal(command: () -> Unit): Boolean {
+    private fun requestTerminal(command: () -> Boolean): Boolean {
         if (terminal) return false
 
-        // Queue the kernel-authoritative command before releasing behavioral resources. If Android
-        // rejects service dispatch synchronously, the Wake Session remains alive and controllable.
-        val dispatched = runCatching(command).isSuccess
-        if (!dispatched) return false
+        // Do not release the Wake Surface merely because a command was queued. Stop/Snooze is
+        // terminal only after the Alarm Kernel has committed the durable transition. In particular,
+        // a failed Snooze replacement must leave the current audible/controllable wake intact.
+        val committed = runCatching(command).getOrDefault(false)
+        if (!committed) return false
 
         terminal = true
         controller.closeForTerminalAction()
@@ -91,6 +92,7 @@ class WakeSessionViewModel internal constructor(
             occurrenceId: WakeOccurrenceId,
         ): ViewModelProvider.Factory {
             val appContext = context.applicationContext
+            val terminalActions = WakeTerminalActions(appContext)
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -107,10 +109,10 @@ class WakeSessionViewModel internal constructor(
                             )
                         },
                         requestStopExecution = {
-                            AlarmPlaybackService.requestStop(appContext, occurrenceId)
+                            terminalActions.stop(occurrenceId)
                         },
                         requestSnoozeExecution = {
-                            AlarmPlaybackService.requestSnooze(appContext, occurrenceId)
+                            terminalActions.snooze(occurrenceId)
                         },
                     ) as T
                 }
