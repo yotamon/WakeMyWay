@@ -160,7 +160,7 @@ fun TomorrowPlanScreen(
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(68.dp))
+            Spacer(Modifier.height(59.dp))
             ContractOrb(
                 listening = isListening,
                 enabled = wakeOccurrence != null,
@@ -171,7 +171,7 @@ fun TomorrowPlanScreen(
                 text = stringResource(
                     if (isListening) R.string.tomorrow_plan_listening else R.string.tomorrow_plan_tap_to_speak,
                 ),
-                modifier = Modifier.padding(top = 38.dp),
+                modifier = Modifier.padding(top = 17.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (isListening) WmwColors.SoftEmber else WmwColors.QuietText,
             )
@@ -329,7 +329,7 @@ private fun ContractOrb(
     val accent = if (listening) Color(0xFFF3C49A) else WmwColors.SoftEmber
     Box(
         modifier = Modifier
-            .size(156.dp)
+            .size(186.dp)
             .clickable(enabled = enabled, onClick = onClick)
             .semantics {
                 role = Role.Button
@@ -352,49 +352,49 @@ private fun ContractOrb(
             )
             drawCircle(
                 color = accent.copy(alpha = 0.76f),
-                radius = size.minDimension * 0.29f,
+                radius = size.minDimension * 0.40f,
                 style = Stroke(width = 1.2.dp.toPx()),
             )
             drawCircle(
                 color = accent.copy(alpha = 0.16f),
-                radius = size.minDimension * 0.23f,
+                radius = size.minDimension * 0.30f,
             )
 
-            val micWidth = 15.dp.toPx()
-            val micHeight = 25.dp.toPx()
+            val micWidth = 18.dp.toPx()
+            val micHeight = 31.dp.toPx()
             val micTop = center.y - micHeight * 0.58f
             drawRoundRect(
                 color = WmwColors.WarmLight,
                 topLeft = Offset(center.x - micWidth / 2f, micTop),
                 size = Size(micWidth, micHeight),
                 cornerRadius = CornerRadius(micWidth / 2f, micWidth / 2f),
-                style = Stroke(width = 1.6.dp.toPx()),
+                style = Stroke(width = 1.8.dp.toPx()),
             )
             val cradle = Path().apply {
-                moveTo(center.x - 12.dp.toPx(), center.y + 1.dp.toPx())
+                moveTo(center.x - 14.dp.toPx(), center.y + 1.dp.toPx())
                 cubicTo(
-                    center.x - 12.dp.toPx(), center.y + 14.dp.toPx(),
-                    center.x + 12.dp.toPx(), center.y + 14.dp.toPx(),
-                    center.x + 12.dp.toPx(), center.y + 1.dp.toPx(),
+                    center.x - 14.dp.toPx(), center.y + 17.dp.toPx(),
+                    center.x + 14.dp.toPx(), center.y + 17.dp.toPx(),
+                    center.x + 14.dp.toPx(), center.y + 1.dp.toPx(),
                 )
             }
             drawPath(
                 path = cradle,
                 color = WmwColors.WarmLight,
-                style = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round),
+                style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round),
             )
             drawLine(
                 color = WmwColors.WarmLight,
-                start = Offset(center.x, center.y + 14.dp.toPx()),
-                end = Offset(center.x, center.y + 22.dp.toPx()),
-                strokeWidth = 1.6.dp.toPx(),
+                start = Offset(center.x, center.y + 17.dp.toPx()),
+                end = Offset(center.x, center.y + 27.dp.toPx()),
+                strokeWidth = 1.8.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawLine(
                 color = WmwColors.WarmLight,
-                start = Offset(center.x - 7.dp.toPx(), center.y + 22.dp.toPx()),
-                end = Offset(center.x + 7.dp.toPx(), center.y + 22.dp.toPx()),
-                strokeWidth = 1.6.dp.toPx(),
+                start = Offset(center.x - 8.dp.toPx(), center.y + 27.dp.toPx()),
+                end = Offset(center.x + 8.dp.toPx(), center.y + 27.dp.toPx()),
+                strokeWidth = 1.8.dp.toPx(),
                 cap = StrokeCap.Round,
             )
         }
