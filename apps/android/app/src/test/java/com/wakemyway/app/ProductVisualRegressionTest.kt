@@ -160,7 +160,7 @@ class ProductVisualRegressionTest {
                     displayDate = "Tuesday · 14 Jan",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.LISTENING,
-                        spokenLine = "Morning.",
+                        spokenLine = "Morning, Yotam.",
                         speechAvailable = true,
                         voiceInputAvailable = true,
                     ),
