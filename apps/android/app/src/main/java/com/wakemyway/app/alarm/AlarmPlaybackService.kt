@@ -126,10 +126,10 @@ class AlarmPlaybackService : Service() {
         kernel: AlarmKernel,
         occurrenceId: WakeOccurrenceId,
     ): Int {
-        // Defense in depth for service recreation / redelivered START intents. If notification,
-        // channel, exact-alarm or full-screen access is no longer healthy, never start or resurrect
-        // critical audio that may be impossible for the user to control.
-        if (kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
+        // Defense in depth for service recreation / redelivered START intents. Once a wake has
+        // fired, only presentation controllability is an execution-safety requirement. Exact-alarm
+        // access may disappear and should only make Snooze/future scheduling fail closed.
+        if (kernel.health().activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
             stopExecution()
             return START_NOT_STICKY
