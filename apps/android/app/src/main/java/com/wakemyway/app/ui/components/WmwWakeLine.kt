@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.ui.theme.WmwColors
@@ -28,7 +30,7 @@ enum class WmwWakeLineState {
 /**
  * The Wake Line is the same visual idea as the logo's ground line: one continuous calm sound wave
  * that can also read as a mountain horizon. It changes amplitude with real wake state and never
- * becomes a decorative equalizer.
+ * becomes a decorative equalizer. Live wake states may reveal the brand sunrise behind it.
  */
 @Composable
 fun WmwWakeLine(
@@ -36,6 +38,7 @@ fun WmwWakeLine(
     modifier: Modifier = Modifier,
     onLightSurface: Boolean = false,
     height: Dp = WmwSizes.HomeWaveHeight,
+    sunrise: Boolean = false,
 ) {
     val targetAmplitude = when (state) {
         WmwWakeLineState.QUIET -> 0.55f
@@ -71,6 +74,36 @@ fun WmwWakeLine(
         val scale = if (height <= WmwSizes.HomeWaveHeight) 0.72f else 1f
         val peak = size.height * 0.26f * amplitude.value * scale
         val valley = size.height * 0.05f * amplitude.value * scale
+
+        if (sunrise) {
+            val sunRadius = size.height * 0.30f
+            val sunCenter = Offset(size.width * 0.50f, centerY - sunRadius * 0.48f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        WmwColors.GoldenLight.copy(alpha = if (onLightSurface) 0.22f else 0.34f),
+                        WmwColors.Sunrise.copy(alpha = if (onLightSurface) 0.10f else 0.18f),
+                        Color.Transparent,
+                    ),
+                    center = sunCenter,
+                    radius = sunRadius * 1.85f,
+                ),
+                radius = sunRadius * 1.85f,
+                center = sunCenter,
+            )
+            clipRect(bottom = centerY + 1f) {
+                drawCircle(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(WmwColors.GoldenLight, WmwColors.Sunrise),
+                        startY = sunCenter.y - sunRadius,
+                        endY = sunCenter.y + sunRadius,
+                    ),
+                    radius = sunRadius,
+                    center = sunCenter,
+                )
+            }
+        }
+
         val path = Path().apply {
             moveTo(size.width * 0.02f, centerY)
             cubicTo(
