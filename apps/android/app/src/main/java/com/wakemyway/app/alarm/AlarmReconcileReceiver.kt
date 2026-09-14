@@ -11,19 +11,23 @@ class AlarmReconcileReceiver : BroadcastReceiver() {
         val trackedOccurrence = before.nextOccurrence ?: before.activeOccurrence
         val afterBoot = intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
-        var after = kernel.reconcile(afterBoot = afterBoot)
+        val recalculateFuture = intent.action == Intent.ACTION_TIME_CHANGED ||
+            intent.action == Intent.ACTION_TIMEZONE_CHANGED
+        var after = kernel.reconcile(
+            afterBoot = afterBoot,
+            recalculateFuture = recalculateFuture,
+        )
 
-        // Permissions/special access can change after a schedule was created. Never preserve an
-        // occurrence that would later be able to start critical audio without reachable controls.
+        // Presentation permissions/special access are global Android capabilities. If they have
+        // disappeared, no enabled WakeMyWay alarm is safe to preserve because any one could later
+        // produce critical audio without reachable Stop/Snooze controls.
         if (
-            (after.nextOccurrence != null || after.activeOccurrence != null) &&
+            (after.enabledScheduleCount > 0 || after.activeOccurrence != null) &&
             after.repairTarget() != AlarmRepairTarget.NONE
         ) {
             val hadActiveExecution = after.activeOccurrence != null
             kernel.cancelSchedule()
             if (hadActiveExecution) {
-                // cancelSchedule() invalidates durable authority first; stopping the component then
-                // releases any currently playing MediaPlayer/ToneGenerator immediately.
                 context.stopService(Intent(context, AlarmPlaybackService::class.java))
             }
             after = kernel.health()
