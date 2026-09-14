@@ -40,7 +40,7 @@ class AlarmPresentationCapabilitiesTest {
     }
 
     @Test
-    fun repairTargetUsesOneStableCriticalPriority() {
+    fun futureRepairTargetUsesOneStableCriticalPriority() {
         assertEquals(
             AlarmRepairTarget.EXACT_ALARM,
             health(exact = false, notifications = false, channel = false, fullScreen = false).repairTarget(),
@@ -58,6 +58,26 @@ class AlarmPresentationCapabilitiesTest {
             health(fullScreen = false).repairTarget(),
         )
         assertEquals(AlarmRepairTarget.NONE, health().repairTarget())
+    }
+
+    @Test
+    fun activeWakeRepairTargetIgnoresFutureExactAlarmCapability() {
+        assertEquals(
+            AlarmRepairTarget.NONE,
+            health(exact = false).activeWakeRepairTarget(),
+        )
+        assertEquals(
+            AlarmRepairTarget.NOTIFICATIONS,
+            health(exact = false, notifications = false).activeWakeRepairTarget(),
+        )
+        assertEquals(
+            AlarmRepairTarget.ACTIVE_WAKE_CHANNEL,
+            health(exact = false, channel = false).activeWakeRepairTarget(),
+        )
+        assertEquals(
+            AlarmRepairTarget.FULL_SCREEN_INTENT,
+            health(exact = false, fullScreen = false).activeWakeRepairTarget(),
+        )
     }
 
     private fun health(
