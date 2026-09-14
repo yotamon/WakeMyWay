@@ -1,18 +1,31 @@
 package com.wakemyway.app
 
+import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
-import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
+import com.wakemyway.core.preparation.PreparedWakePlanPreparer
+import com.wakemyway.core.preparation.TomorrowContract
+import com.wakemyway.core.preparation.TomorrowContractId
+import com.wakemyway.core.schedule.LocalTimeResolution
+import com.wakemyway.core.schedule.WakeCompletionPolicy
+import com.wakemyway.core.schedule.WakeOccurrence
+import com.wakemyway.core.schedule.WakeOccurrenceId
+import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,14 +45,14 @@ class ProductVisualRegressionTest {
             WakeMyWayTheme {
                 TonightScreen(
                     state = TonightUiState(
-                        wakeTime = "08:00",
-                        dateLabel = "Thursday · Sep 10",
+                        wakeTime = "07:30",
+                        dateLabel = "Tuesday, 14 Jan",
                         hasOccurrence = true,
                         wakeReady = true,
                         readinessDetail = "Scheduled locally and ready for tomorrow.",
                         hasTomorrowContract = true,
                         tomorrowContractPrepared = true,
-                        tomorrowContractText = "Design review at 10:00. I want time to shower and eat.",
+                        tomorrowContractText = "Design review at 10:00. You wanted time to shower and eat.",
                         firstMove = "Shower",
                     ),
                     onOpenWakeSetup = {},
@@ -76,22 +89,45 @@ class ProductVisualRegressionTest {
     fun wakeSetupWeekly() {
         captureRoboImage("wake_setup_weekly.png") {
             WakeMyWayTheme {
-                WakeSetupScreen(
+                WakeScheduleMockupScreen(
                     existingSchedule = WakeSchedule(
                         id = WakeScheduleId("visual-weekly"),
                         zoneId = ZoneId.of("Europe/Berlin"),
-                        timesByDay = mapOf(
-                            DayOfWeek.MONDAY to LocalTime.of(7, 45),
-                            DayOfWeek.TUESDAY to LocalTime.of(7, 45),
-                            DayOfWeek.WEDNESDAY to LocalTime.of(8, 15),
-                            DayOfWeek.THURSDAY to LocalTime.of(7, 45),
-                            DayOfWeek.FRIDAY to LocalTime.of(8, 0),
-                        ),
+                        timesByDay = listOf(
+                            DayOfWeek.MONDAY,
+                            DayOfWeek.TUESDAY,
+                            DayOfWeek.WEDNESDAY,
+                            DayOfWeek.THURSDAY,
+                            DayOfWeek.FRIDAY,
+                        ).associateWith { LocalTime.of(7, 30) },
                         revision = 2,
+                        completionPolicy = WakeCompletionPolicy.RECURRING,
                     ),
                     onBack = {},
                     onCommit = { WakeSetupCommitResult(true) },
                     onDisable = { WakeSetupCommitResult(true) },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun tomorrowContract() {
+        val occurrence = visualOccurrence()
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        WakePreparationManager(context).apply {
+            clear()
+            saveAndPrepare(
+                wakeOccurrenceId = occurrence.id,
+                rawText = "Design review at 10. I want to be prepared, showered and have a calm breakfast.",
+                firstMove = "Shower",
+            )
+        }
+        captureRoboImage("tomorrow_contract.png") {
+            WakeMyWayTheme {
+                TomorrowPlanScreen(
+                    wakeOccurrence = occurrence,
+                    onBack = {},
                 )
             }
         }
@@ -105,7 +141,7 @@ class ProductVisualRegressionTest {
                     preparedPlan = null,
                     onSnooze = {},
                     onStop = {},
-                    displayTime = "08:00",
+                    displayTime = "07:30",
                 )
             }
         }
@@ -119,7 +155,7 @@ class ProductVisualRegressionTest {
                     preparedPlan = null,
                     onSnooze = {},
                     onStop = {},
-                    displayTime = "08:00",
+                    displayTime = "07:30",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.LISTENING,
                         spokenLine = "Morning.",
@@ -139,7 +175,7 @@ class ProductVisualRegressionTest {
                     preparedPlan = null,
                     onSnooze = {},
                     onStop = {},
-                    displayTime = "08:01",
+                    displayTime = "07:31",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.MOVING,
                         spokenLine = "Feet on the floor.",
@@ -156,18 +192,43 @@ class ProductVisualRegressionTest {
         captureRoboImage("wake_oriented.png") {
             WakeMyWayTheme {
                 WakeSurface(
-                    preparedPlan = null,
+                    preparedPlan = visualPreparedPlan(),
                     onSnooze = {},
                     onStop = {},
-                    displayTime = "08:02",
+                    displayTime = "07:32",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.ORIENTING,
-                        spokenLine = "Good. You're moving.",
+                        spokenLine = "Good morning.",
                         speechAvailable = true,
                         voiceInputAvailable = true,
                     ),
                 )
             }
         }
+    }
+
+    private fun visualPreparedPlan() = PreparedWakePlanPreparer.prepare(
+        contract = TomorrowContract(
+            id = TomorrowContractId("visual-contract"),
+            wakeOccurrenceId = WakeOccurrenceId("visual-wake"),
+            rawText = "Design review at 10:00.",
+            firstMove = "Shower",
+            createdAtEpochMillis = 1L,
+        ),
+        preparedAtEpochMillis = 2L,
+    )
+
+    private fun visualOccurrence(): WakeOccurrence {
+        val zone = ZoneId.of("Europe/Berlin")
+        val local = LocalDateTime.of(2026, 9, 15, 7, 30)
+        return WakeOccurrence(
+            id = WakeOccurrenceId("visual-contract-wake"),
+            wakeScheduleId = WakeScheduleId("visual-contract-schedule"),
+            kind = WakeOccurrenceKind.PRIMARY,
+            scheduledLocalDateTime = local,
+            scheduledAt = ZonedDateTime.of(local, zone),
+            scheduleRevision = 1L,
+            localTimeResolution = LocalTimeResolution.EXACT,
+        )
     }
 }
