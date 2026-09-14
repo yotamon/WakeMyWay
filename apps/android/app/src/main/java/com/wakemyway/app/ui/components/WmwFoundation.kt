@@ -47,10 +47,8 @@ enum class WmwActionTone {
 }
 
 /**
- * Full-screen atmosphere from the approved concept board.
- *
- * The dark states intentionally avoid a generic Material gradient. The active state carries a
- * low, warm pool of light behind the Wake Line; oriented/complete switch fully into morning paper.
+ * Full-screen atmosphere from the approved concept board. Dark states stay genuinely black and
+ * warmth is concentrated around the Wake Line rather than washing the whole screen brown.
  */
 @Composable
 fun WmwCircadianSurface(
@@ -60,13 +58,13 @@ fun WmwCircadianSurface(
 ) {
     val background = when (stage) {
         WmwCircadianStage.EMERGING -> Brush.verticalGradient(
-            listOf(Color(0xFF050708), WmwColors.Ink, Color(0xFF0D0D0E)),
+            listOf(Color(0xFF040607), Color(0xFF07090A), Color(0xFF090909)),
         )
         WmwCircadianStage.ENGAGED -> Brush.verticalGradient(
-            listOf(Color(0xFF07090A), Color(0xFF111214), Color(0xFF1A1616)),
+            listOf(Color(0xFF050708), Color(0xFF0A0B0C), Color(0xFF0B0A0A)),
         )
         WmwCircadianStage.ACTIVE -> Brush.verticalGradient(
-            listOf(Color(0xFF111315), Color(0xFF27201C), Color(0xFF151718)),
+            listOf(Color(0xFF080A0B), Color(0xFF11100F), Color(0xFF08090A)),
         )
         WmwCircadianStage.ORIENTED -> Brush.verticalGradient(
             listOf(Color(0xFFF4E8DD), WmwColors.MorningPaper, Color(0xFFEFE2D5)),
@@ -84,28 +82,40 @@ fun WmwCircadianSurface(
         if (stage != WmwCircadianStage.ORIENTED && stage != WmwCircadianStage.COMPLETE) {
             Canvas(Modifier.fillMaxSize()) {
                 val center = when (stage) {
-                    WmwCircadianStage.EMERGING -> Offset(size.width * 0.5f, size.height * 0.70f)
-                    WmwCircadianStage.ENGAGED -> Offset(size.width * 0.5f, size.height * 0.72f)
-                    WmwCircadianStage.ACTIVE -> Offset(size.width * 0.52f, size.height * 0.60f)
+                    WmwCircadianStage.EMERGING -> Offset(size.width * 0.50f, size.height * 0.58f)
+                    WmwCircadianStage.ENGAGED -> Offset(size.width * 0.50f, size.height * 0.62f)
+                    WmwCircadianStage.ACTIVE -> Offset(size.width * 0.50f, size.height * 0.52f)
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> Offset.Zero
                 }
                 val glow = when (stage) {
-                    WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.14f)
-                    WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.24f)
-                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.72f)
+                    WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.055f)
+                    WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.12f)
+                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.82f)
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> Color.Transparent
                 }
+                val radiusFraction = when (stage) {
+                    WmwCircadianStage.EMERGING -> 0.30f
+                    WmwCircadianStage.ENGAGED -> 0.36f
+                    WmwCircadianStage.ACTIVE -> 0.37f
+                    WmwCircadianStage.ORIENTED,
+                    WmwCircadianStage.COMPLETE,
+                    -> 0f
+                }
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(glow, glow.copy(alpha = glow.alpha * 0.45f), Color.Transparent),
+                        colors = listOf(
+                            glow,
+                            glow.copy(alpha = glow.alpha * 0.48f),
+                            Color.Transparent,
+                        ),
                         center = center,
-                        radius = size.maxDimension * if (stage == WmwCircadianStage.ACTIVE) 0.63f else 0.50f,
+                        radius = size.maxDimension * radiusFraction,
                     ),
-                    radius = size.maxDimension * if (stage == WmwCircadianStage.ACTIVE) 0.63f else 0.50f,
+                    radius = size.maxDimension * radiusFraction,
                     center = center,
                 )
             }
