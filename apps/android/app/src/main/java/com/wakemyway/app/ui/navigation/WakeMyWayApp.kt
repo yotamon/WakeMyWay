@@ -30,8 +30,8 @@ import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
-import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.format.DateTimeFormatter
@@ -101,7 +101,7 @@ fun WakeMyWayApp(
                 )
             }
             entry<WakeSetupRoute> {
-                WakeSetupScreen(
+                WakeScheduleMockupScreen(
                     existingSchedule = alarmKernel.currentSchedule(),
                     onBack = {
                         alarmHealth = alarmKernel.health()
@@ -241,9 +241,7 @@ private fun reconcilePreparationAfterScheduleChange(
         )
     }.isSuccess
 
-    if (!rebound) {
-        runCatching { preparationManager.clear() }
-    }
+    if (!rebound) runCatching { preparationManager.clear() }
 }
 
 private fun AlarmHealth.toTonightUiState(
@@ -253,7 +251,7 @@ private fun AlarmHealth.toTonightUiState(
     val occurrence = nextOccurrence
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
-    val dateFormatter = DateTimeFormatter.ofPattern("EEEE · MMM d", locale)
+    val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM", locale)
     val target = if (occurrence != null && !ready) repairTarget() else AlarmRepairTarget.NONE
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
