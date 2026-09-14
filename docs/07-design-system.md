@@ -1,335 +1,308 @@
-# Design system direction
+# WakeMyWay design system
 
-## Design thesis
+## Brand thesis
 
-Wake My Way should feel like a **premium bedside object that wakes with the user**, not a dashboard, AI chatbot or productivity SaaS app.
+WakeMyWay should feel like a **calm, premium morning companion**, not a generic alarm utility, AI chatbot, wellness dashboard or productivity app.
 
-The interface moves from darkness, ambiguity and low information density toward light, definition and action.
+The brand idea is simple: **a sunrise meeting a line that is simultaneously a landscape and a calm sound wave**. That form connects the product name, visual identity, voice-first wake experience and the transition from night to morning.
 
-The approved visual direction is intentionally restrained. The next wake time is the composition rather than content inside a conventional dashboard card.
+The user-approved production reference is the sunrise-wave brand direction implemented in Android. Earlier dark editorial/serif explorations are superseded where they conflict with this document.
 
-## Signature visual: Wake Line
+## Canonical mark: Sunrise + Wake Line
 
-The **Wake Line** is the primary reusable brand/interaction form.
+The primary WakeMyWay symbol contains only two ideas:
 
-It sits between a horizon, a waveform and a subtle W-M-W rhythm without becoming a literal audio visualizer.
+1. a rising sun;
+2. one continuous horizon shaped like both mountains and a restrained audio waveform.
 
-It may represent:
+The line is the ground beneath the sun. It must not become a separate equalizer floating inside the symbol.
 
-- quiet readiness at night
-- listening during engagement
-- stronger movement during activation
-- settling during orientation/completion
+### Geometry rules
 
-It should connect the app icon/mark, evening home, wake runtime and future marketing motion language without becoming decorative noise.
+- one continuous rounded line;
+- long calm shoulders;
+- a smaller rise, one clear central rise, then a smaller response;
+- enough asymmetry to feel natural, but never noisy;
+- the sun sits behind the line and may be partially occluded by it;
+- no rays, alarm-clock bells, microphone, sparkles or extra iconography inside the core mark;
+- preserve recognizability at launcher-icon size and in monochrome Android themed icons.
 
-Rules:
+### Product behavior
 
-- always thin, restrained and calm
-- never an energetic equalizer
-- amplitude reflects product state, not arbitrary animation
-- it may glow subtly on dark surfaces
-- on light surfaces it settles into a quiet clay line
+The same line becomes the **Wake Line** in the product:
 
-## Dynamic wake palette
+- quiet at rest;
+- slightly more expressive while listening;
+- strongest during activation/movement;
+- settled after orientation/completion.
 
-Initial brand tokens:
+In live wake states the sunrise may appear behind the Wake Line. This lets the brand mark become a real interaction language rather than decorative logo repetition.
+
+## Wordmark
+
+Consumer-facing brand name: **WakeMyWay**.
+
+Use the no-space form in the wordmark, launcher label and branded lockups. Domain/engineering terminology may continue to use “Wake My Way” where historically established.
+
+Preferred lockup:
+
+```text
+[sunrise-wave symbol]  WakeMyWay
+```
+
+The symbol may also sit above the wordmark for hero/onboarding compositions.
+
+Do not distort, stretch, outline, rotate or add effects to the wordmark.
+
+## Brand line
+
+Primary brand line:
+
+> **Brighter mornings. Your way.**
+
+Product promise should remain concrete and human. Avoid language that makes the app sound like an autonomous AI agent.
+
+## Core palette
 
 | Token | Hex | Role |
 |---|---|---|
-| Ink | `#101115` | deepest wake/night background |
-| Deep Dawn | `#242129` | emerging state |
-| Clay | `#B9755A` | warm human accent |
-| Soft Ember | `#E4A17F` | active/dawn warmth |
-| Morning Paper | `#F1E8DC` | light oriented state |
-| Warm Light | `#F7F3EC` | daytime surface |
-| Sage | `#8EA18B` | restrained success/adaptation accent |
+| Midnight | `#08142F` | primary night / live-wake background and core ink |
+| Deep Navy | `#10264C` | elevated night surface |
+| Sunrise | `#FF9F6D` | primary warm action and brand accent |
+| Sunrise Soft | `#FFB88F` | softer warm state / glow |
+| Golden Light | `#FFD699` | sun, listening and morning warmth |
+| Dawn | `#A5B4FC` | restrained dawn atmosphere |
+| Dawn Deep | `#7188E8` | light-surface secondary accent |
+| Cloud | `#F8F7F4` | planning/background surface |
+| Paper | `#FFFCF8` | cards and clean morning surfaces |
 
-These tokens must remain accessibility-tested against actual text usage.
+The palette is **sunrise atmospheric**, not an “AI gradient” system. Blue/lavender never becomes a neon intelligence metaphor and should not dominate calls to action.
 
-## Circadian visual state
+All production text usage must remain contrast-tested.
 
-Do not think only in conventional dark mode vs light mode.
+## Light and dark product worlds
+
+WakeMyWay intentionally has two complementary environments rather than a conventional theme toggle.
+
+### Planning / evening setup
+
+Use a clean Cloud/Paper surface with Midnight typography and Sunrise actions.
+
+This includes:
+
+- Tonight/home;
+- wake scheduling;
+- Tomorrow Contract;
+- permissions and ordinary settings where practical.
+
+Subtle dawn/sunrise atmospheric light may sit at the edges of the composition. It should never reduce readability.
+
+### Active wake
+
+Use Midnight/Deep Navy surfaces with progressively warmer sunrise definition.
 
 ```text
-ASLEEP                                    AWAKE
-
-Ink -> Deep Dawn -> Clay/Ember -> Morning Paper
+EMERGING -> ENGAGED -> ACTIVE -> ORIENTED -> COMPLETE
+midnight      dawn       sunrise       paper morning
 ```
 
-The interface visually gains form as the user wakes.
+This is presentation only. It does not create product/runtime authority.
 
-### Emerging
+## Typography
 
-- near-black mineral surface
-- only essential information
-- large time
-- Alfred/character identity as a quiet label
-- Wake Line close to flat
-- no contextual dashboard content
+Brand direction: **Plus Jakarta Sans** or a metrically appropriate bundled modern rounded sans.
 
-### Engaged
+Until a font asset is explicitly licensed and bundled into the APK, use the local Android sans family. Never introduce a downloadable font dependency into the wake path.
 
-- slightly warmer dark surface
-- listening state becomes explicit
-- Wake Line gains measured amplitude
-- still sparse and low-information
+Hierarchy:
 
-### Active
+- display time: light, large, exceptionally legible numerals;
+- headlines: semibold modern sans;
+- body: regular modern sans;
+- labels: semibold with restrained tracking;
+- uppercase only for short eyebrows/status labels.
 
-- stronger ember definition
-- Wake Line becomes more physical
-- instruction is the visual focus
-- motion direction feels upward/forward
+Requirements:
 
-### Oriented
+- Android dynamic font scaling;
+- strong numeral rendering;
+- Hebrew/RTL future compatibility;
+- German and English support paths;
+- no behavioral dependence on a remote font.
 
-- transition to Morning Paper / Warm Light
-- conventional hierarchy returns
-- context becomes readable
-- First Move can appear
-- the UI should feel as though the user's eyes adjusted to the room
+## Shape language
 
-### Complete
+The app uses soft, premium geometry:
 
-- light, settled surface
-- no celebration explosion
-- concise outcome + next action
-- Wake Line settles
+- cards: approximately 22–28dp radii;
+- major containers: approximately 28–34dp radii;
+- actions: pill-like where appropriate;
+- touch targets remain at least Android accessibility minimums;
+- avoid excessive nested cards.
+
+Rounded does not mean childish. Keep surfaces restrained and spacious.
 
 ## Screen composition contract
 
 ### Tonight / Home
 
-Tonight is **not a dashboard**.
+Tonight is a branded planning surface, not a dashboard.
 
 Primary hierarchy:
 
-1. small Wake My Way identity
-2. next wake time as dominant object
-3. date
-4. Wake Line
-5. Wake Ready state
-6. Tomorrow Contract editorial content
-7. character presence
-8. one primary edit action
+1. WakeMyWay lockup;
+2. human evening headline / context;
+3. dark next-wake hero object;
+4. sunrise-wave identity inside the wake object;
+5. Wake Ready truth;
+6. Tomorrow Contract;
+7. character/voice readiness;
+8. one clear warm primary action.
 
-System/readiness repair UI may become prominent when something is wrong, but healthy technical status should not occupy equal visual weight with the user's wake intention.
+Healthy technical status should not compete visually with the user’s wake intention. Readiness repair becomes prominent only when something is wrong.
 
 ### Schedule
 
-The schedule editor should preserve the same object-like quality:
+Use the light branded planning world:
 
-- oversized editable wake time for one-shot/tomorrow mode
-- quiet segmented choice between tomorrow-only and recurring
-- recurring days shown as restrained rows rather than dense settings forms
-- Android time-picking remains real platform interaction; do not fake a custom time control without implementing it fully
+- visible WakeMyWay identity;
+- oversized, legible time;
+- Sunrise selection/actions;
+- white/paper object surfaces;
+- restrained day controls;
+- real Android time picker, never a fake visual-only control;
+- local reliability copy remains present but secondary.
 
 ### Tomorrow Contract
 
-The Tomorrow Contract should feel private, focused and editorial rather than like task-management metadata.
+Treat it as private, focused and warm:
 
-- one clear question
-- one large reason/context field
-- optional First Move field
-- visible local/private reassurance
-- no microphone affordance until a real voice-capture flow exists
+- WakeMyWay lockup;
+- clear privacy badge;
+- one meaningful question;
+- calm voice capture control;
+- paper text fields;
+- warm Save action;
+- local/private reassurance.
+
+Never expose private contract content while locked. Preserve `FLAG_SECURE` behavior.
 
 ### Live wake
 
-The visible wake Activity follows the UX consciousness model without changing Wake Runtime ownership:
+Live wake is the hero expression of the brand.
 
-```text
-Emerging -> Engaged -> Active -> Oriented
-```
+The screen remains sparse, dark and low-distraction while the user is least awake. The sunrise appears behind the dynamic Wake Line as the session gains definition.
 
-Existing deterministic runtime/voice modes map into these visual stages. Do not create runtime states solely for visual labels.
+Stop and Snooze stay visible, local and touch-accessible in every critical state.
 
-Stop and Snooze remain real, visible and touch-accessible in every critical state.
-
-## Typography
-
-Direction:
-
-- editorial/display moments: restrained serif
-- interface/body/labels: highly readable modern sans
-- small labels use modest tracking and uppercase sparingly
-
-Large time numerals may use the editorial family where legibility remains strong.
-
-Requirements:
-
-- Android dynamic font scaling
-- excellent numeral rendering for time
-- Hebrew/RTL future compatibility
-- German and English support paths
-- no production strings hard-coded in Compose
-
-## Information hierarchy during wake
-
-### First seconds
-
-Only:
-
-- time
-- WMW/character presence
-- current wake/listening state
-
-### Later
-
-Add:
-
-- one action
-- movement state
-- relevant reason/context
-
-### Oriented
-
-Add:
-
-- first relevant context
-- weather only if useful
-- First Move
+The screen maps real Wake Runtime state into presentation. It must never invent behavioral states solely for animation.
 
 ## Motion language
 
-Motion metaphor: **coming into form**.
+Motion metaphor: **morning coming into form**.
 
 ```text
-blurred -> defined
-low -> raised
-slow -> responsive
-fluid -> stable
+dim -> defined
+flat line -> responsive horizon
+night -> warm dawn
+fluid -> settled
 ```
 
 Rules:
 
-- no energetic bouncing during Emerging
-- avoid decorative motion unrelated to state
-- physical device movement may subtly influence UI
-- completion should settle, not explode
-- respect reduced-motion preferences
-
-## Haptic language
-
-Initial concept:
-
-### Wake begins
-
-```text
-soft - soft
-```
-
-### No response / escalation
-
-```text
-soft - pause - stronger
-```
-
-### Action acknowledged
-
-```text
-single crisp pulse
-```
-
-### Activation/completed
-
-```text
-short - short
-```
-
-Exact amplitudes/patterns require device testing.
+- no energetic bouncing during Emerging;
+- Wake Line amplitude reflects product state;
+- no decorative equalizer animation;
+- no pulsing AI orb;
+- completion settles rather than celebrates explosively;
+- respect reduced-motion preferences.
 
 ## Sonic identity
 
-Audio is a first-class design subsystem.
+Audio is a first-class brand subsystem.
 
-### Layer 1: Wake Motif
+Current signature wake sound options:
 
-A short 1.5-2.5 second melodic identity. Recognizable, non-jarring, no sharp generic alarm beep as the only stimulus.
+- **Morning Light** — bright, peaceful, hopeful;
+- **Soft Start** — calm, warm, ease-in;
+- **Morning Pulse** — modern, uplifting, more energetic.
 
-### Layer 2: Character
+These replace the generic-alarm feel as product options. A future short WakeMyWay sonic motif may unify them, but speech intelligibility and reliable local playback always take priority.
 
-Voice begins after a short pause.
+## Character identity
 
-### Layer 3: Optional environmental bed
+Keep the WakeMyWay brand stable while allowing character-specific language and behavior.
 
-Very subtle, used only if it supports calm transition. It must not interfere with speech intelligibility.
-
-## Character audio/visual variation
-
-Keep brand DNA stable while allowing character-specific expression:
-
-- Alfred: composed, restrained, sharper geometry
-- Sam: softer and more organic
-- Chaos: playful asymmetry while remaining bounded
-
-Characters should not use generic robot/assistant avatars. Character identity should come from typography, motion, phrasing, sonic treatment and Wake Line behavior.
+- Alfred: composed, dry, persistent;
+- future characters may vary tone and phrasing;
+- do not use generic robot avatars;
+- character identity should come from language, motion, sonic treatment and Wake Line behavior.
 
 ## App icon
 
-Preferred concepts:
+Canonical launcher concept: **Sunrise + Wake Line on Midnight**.
 
-1. WMW monogram
-2. W-shaped Wake Line
-3. abstract wake curve / horizon
-4. hybrid of waveform and rising motion
+Requirements:
 
-Avoid tiny detail. Icon must remain recognizable at small Android launcher sizes and in monochrome/themed icon contexts.
-
-## Interaction design
-
-### Snooze
-
-Do not make Snooze the largest reflexive button.
-
-Use intentional language such as:
-
-> I need five more minutes
-
-### Critical actions
-
-Every voice-only action needs a visible/touch alternative for accessibility and environments where microphone use is unavailable.
+- no wordmark inside the launcher icon;
+- simple enough for small Android launcher sizes;
+- adaptive-icon safe zone respected;
+- monochrome/themed icon supplied;
+- no tiny detail or decorative rays.
 
 ## Accessibility
 
-Required from first implementation:
+Required from implementation:
 
-- TalkBack semantics
-- touch target compliance
-- dynamic type/font scaling
-- contrast validation
-- reduced motion
-- haptic alternatives
-- no color-only state communication
-- critical interactions usable without speech
+- TalkBack semantics;
+- touch target compliance;
+- dynamic type/font scaling;
+- contrast validation;
+- reduced motion path;
+- haptic alternatives where haptics convey meaning;
+- no color-only state communication;
+- critical wake interactions usable without speech.
 
-## What the product must not look like
+## What WakeMyWay must not look like
 
 Avoid:
 
-- purple/blue AI gradients
-- glowing AI orb
-- robot avatars
-- magical sparkles as intelligence metaphor
-- cartoon alarm clocks
-- generic wellness sunrise stock art
-- productivity gamification dashboards
-- overly dense card stacks
-- fake controls for unimplemented product behavior
+- generic purple/blue “AI” gradients;
+- glowing AI orb as intelligence metaphor;
+- robot avatars;
+- magical sparkles;
+- cartoon alarm clocks;
+- stock sunrise photography or generic wellness clip-art;
+- productivity gamification dashboards;
+- dense card stacks;
+- fake controls for unimplemented product behavior;
+- repeatedly stamping the logo where the brand system already communicates identity.
 
 ## Implementation boundary
 
-Visual stages do not own product behavior.
+Branding is presentation, never wake authority.
 
-The Alarm Kernel remains responsible for reliable active wake execution. The Wake Runtime remains responsible for deterministic in-session behavioral decisions. Compose maps real product/runtime state into the visual language described here.
+The Alarm Kernel remains responsible for reliable active wake execution. Wake Runtime remains responsible for deterministic in-session behavioral decisions. Compose maps real state into the visual language.
 
-No visual redesign may make Activity lifetime authoritative for alarm audio, hide Stop, create network dependency, expose private Tomorrow Contract content while locked, or weaken Wake Ready truth.
+No visual redesign may:
 
-## Brand board
+- make Activity lifetime authoritative for alarm audio;
+- hide or delay Stop/Snooze;
+- introduce a network dependency into wake delivery;
+- expose private Tomorrow Contract content while locked;
+- weaken Wake Ready truth;
+- turn an animation or branded asset into a critical-path dependency.
 
-The initial visual exploration is stored at:
+## Canonical implementation assets
 
-`docs/brand/assets/wake-my-way-brand-board.png`
+The production brand system currently lives in:
 
-The current Android implementation and approved mockup direction are now the stronger production reference for composition, hierarchy and Wake Line behavior.
+```text
+apps/android/app/src/main/java/com/wakemyway/app/ui/theme/
+apps/android/app/src/main/java/com/wakemyway/app/ui/components/WmwBrand.kt
+apps/android/app/src/main/java/com/wakemyway/app/ui/components/WmwWakeLine.kt
+apps/android/app/src/main/res/drawable/ic_wakemyway_*.xml
+apps/android/app/src/main/res/mipmap-anydpi-v*/ic_launcher*.xml
+```
+
+The Android implementation and curated visual-regression states are the production truth for composition and behavior.

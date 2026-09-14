@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -37,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -53,9 +54,12 @@ import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.ui.components.WmwActionTone
+import com.wakemyway.app.ui.components.WmwBrandLockup
+import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
+import com.wakemyway.app.ui.components.WmwSunriseMark
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.preparation.TomorrowContract
@@ -116,7 +120,7 @@ fun TomorrowPlanScreen(
     }
 
     WmwCircadianSurface(
-        stage = WmwCircadianStage.EMERGING,
+        stage = WmwCircadianStage.PLANNING,
         modifier = modifier,
     ) {
         Column(
@@ -126,93 +130,115 @@ fun TomorrowPlanScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
-                .padding(top = WmwSpacing.Xs, bottom = WmwSpacing.Md),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Lg),
         ) {
-            Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
-                    Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.WarmLight)
+                    Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
                 }
+                WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
+                Spacer(Modifier.weight(1f))
                 if (snapshot?.contract != null) {
                     TextButton(onClick = { showClearConfirmation = true }) {
                         Text(
                             text = stringResource(R.string.tomorrow_plan_clear),
                             style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.QuietText,
+                            color = WmwColors.LightQuietText,
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(36.dp))
+            Spacer(Modifier.height(28.dp))
+            Text(
+                text = stringResource(R.string.tomorrow_plan_private_badge).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnDeep,
+            )
             Text(
                 text = stringResource(R.string.tomorrow_plan_title),
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineMedium,
-                color = WmwColors.WarmLight,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(Modifier.height(59.dp))
-            ContractOrb(
-                listening = isListening,
-                enabled = wakeOccurrence != null,
-                contentDescription = dictationActionCopy,
-                onClick = ::toggleDictation,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.headlineLarge,
+                color = WmwColors.Midnight,
             )
             Text(
-                text = stringResource(
-                    if (isListening) R.string.tomorrow_plan_listening else R.string.tomorrow_plan_tap_to_speak,
-                ),
-                modifier = Modifier.padding(top = 17.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isListening) WmwColors.SoftEmber else WmwColors.QuietText,
+                text = stringResource(R.string.tomorrow_plan_subtitle),
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
             )
+
+            Spacer(Modifier.height(26.dp))
+            WmwCard(onLightSurface = true) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    WmwSunriseMark(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(78.dp)
+                            .padding(horizontal = WmwSpacing.Xxl),
+                    )
+                    ContractVoiceButton(
+                        listening = isListening,
+                        enabled = wakeOccurrence != null,
+                        contentDescription = dictationActionCopy,
+                        onClick = ::toggleDictation,
+                        modifier = Modifier.padding(top = WmwSpacing.Sm),
+                    )
+                    Text(
+                        text = stringResource(
+                            if (isListening) R.string.tomorrow_plan_listening else R.string.tomorrow_plan_tap_to_speak,
+                        ),
+                        modifier = Modifier.padding(top = WmwSpacing.Sm),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isListening) WmwColors.Sunrise else WmwColors.LightQuietText,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
 
             if (wakeOccurrence == null) {
                 Text(
                     text = stringResource(R.string.tomorrow_plan_no_wake),
-                    modifier = Modifier.padding(top = WmwSpacing.Xxl),
+                    modifier = Modifier.padding(top = WmwSpacing.Xl),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = WmwColors.QuietText,
+                    color = WmwColors.LightQuietText,
                     textAlign = TextAlign.Center,
                 )
-                Spacer(Modifier.weight(1f, fill = true))
+                Spacer(Modifier.height(WmwSpacing.Xl))
                 WmwPrimaryAction(
                     label = stringResource(R.string.tomorrow_plan_done),
                     onClick = onBack,
-                    tone = WmwActionTone.DARK,
+                    onLightSurface = true,
+                    tone = WmwActionTone.WARM,
                 )
                 return@Column
             }
 
             Text(
                 text = wakeOccurrence.scheduledAt.format(DateTimeFormatter.ofPattern("EEEE · HH:mm")),
-                modifier = Modifier.padding(top = WmwSpacing.Md),
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
                 style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.FaintText,
+                color = WmwColors.LightFaintText,
             )
 
             val fieldColors = TextFieldDefaults.colors(
-                focusedTextColor = WmwColors.WarmLight,
-                unfocusedTextColor = WmwColors.WarmLight,
-                cursorColor = WmwColors.SoftEmber,
-                focusedContainerColor = WmwColors.ElevatedNightSurface.copy(alpha = 0.82f),
-                unfocusedContainerColor = WmwColors.ElevatedNightSurface.copy(alpha = 0.76f),
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = WmwColors.Midnight,
+                unfocusedTextColor = WmwColors.Midnight,
+                cursorColor = WmwColors.Sunrise,
+                focusedContainerColor = WmwColors.PaperCard,
+                unfocusedContainerColor = WmwColors.PaperCard.copy(alpha = 0.90f),
+                focusedIndicatorColor = WmwColors.Sunrise.copy(alpha = 0.52f),
+                unfocusedIndicatorColor = WmwColors.DarkHairline,
                 disabledIndicatorColor = Color.Transparent,
-                focusedPlaceholderColor = WmwColors.FaintText,
-                unfocusedPlaceholderColor = WmwColors.FaintText,
-                focusedLabelColor = WmwColors.QuietText,
-                unfocusedLabelColor = WmwColors.QuietText,
+                focusedPlaceholderColor = WmwColors.LightFaintText,
+                unfocusedPlaceholderColor = WmwColors.LightFaintText,
+                focusedLabelColor = WmwColors.LightQuietText,
+                unfocusedLabelColor = WmwColors.LightQuietText,
             )
 
             TextField(
@@ -223,7 +249,7 @@ fun TomorrowPlanScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 35.dp),
+                    .padding(top = WmwSpacing.Md),
                 placeholder = { Text(stringResource(R.string.tomorrow_plan_reason_placeholder)) },
                 minLines = 5,
                 shape = MaterialTheme.shapes.medium,
@@ -248,18 +274,20 @@ fun TomorrowPlanScreen(
             message?.let {
                 Text(
                     text = it,
-                    modifier = Modifier.padding(top = WmwSpacing.Sm),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Sm),
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.QuietText,
+                    color = WmwColors.LightQuietText,
                     textAlign = TextAlign.Center,
                 )
             }
 
-            Spacer(Modifier.weight(1f, fill = true))
-            Spacer(Modifier.height(WmwSpacing.Lg))
+            Spacer(Modifier.height(WmwSpacing.Xl))
             WmwPrimaryAction(
                 label = stringResource(R.string.tomorrow_plan_save),
                 enabled = rawText.isNotBlank(),
+                onLightSurface = true,
                 tone = WmwActionTone.WARM,
                 onClick = {
                     runCatching {
@@ -283,7 +311,7 @@ fun TomorrowPlanScreen(
                     .fillMaxWidth()
                     .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.FaintText,
+                color = WmwColors.LightFaintText,
                 textAlign = TextAlign.Center,
             )
         }
@@ -307,7 +335,7 @@ fun TomorrowPlanScreen(
                         showClearConfirmation = false
                     },
                 ) {
-                    Text(stringResource(R.string.tomorrow_plan_clear_confirm))
+                    Text(stringResource(R.string.tomorrow_plan_clear_confirm), color = WmwColors.Danger)
                 }
             },
             dismissButton = {
@@ -320,80 +348,62 @@ fun TomorrowPlanScreen(
 }
 
 @Composable
-private fun ContractOrb(
+private fun ContractVoiceButton(
     listening: Boolean,
     enabled: Boolean,
     contentDescription: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val accent = if (listening) Color(0xFFF3C49A) else WmwColors.SoftEmber
-    Box(
-        modifier = Modifier
-            .size(186.dp)
+    val border = if (listening) WmwColors.Sunrise else WmwColors.DarkHairline
+    Surface(
+        modifier = modifier
+            .size(88.dp)
             .clickable(enabled = enabled, onClick = onClick)
             .semantics {
                 role = Role.Button
                 this.contentDescription = contentDescription
             },
-        contentAlignment = Alignment.Center,
+        shape = CircleShape,
+        color = if (listening) WmwColors.Sunrise.copy(alpha = 0.14f) else WmwColors.Cloud,
+        border = androidx.compose.foundation.BorderStroke(1.2.dp, border),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        WmwColors.EmberGlow.copy(alpha = if (listening) 0.56f else 0.42f),
-                        WmwColors.ClayGlow.copy(alpha = 0.18f),
-                        Color.Transparent,
-                    ),
-                    center = center,
-                    radius = size.minDimension * 0.50f,
-                ),
-                radius = size.minDimension * 0.50f,
-            )
-            drawCircle(
-                color = accent.copy(alpha = 0.76f),
-                radius = size.minDimension * 0.40f,
-                style = Stroke(width = 1.2.dp.toPx()),
-            )
-            drawCircle(
-                color = accent.copy(alpha = 0.16f),
-                radius = size.minDimension * 0.30f,
-            )
-
-            val micWidth = 18.dp.toPx()
-            val micHeight = 31.dp.toPx()
+        Canvas(Modifier.padding(25.dp)) {
+            val accent = if (listening) WmwColors.Sunrise else WmwColors.Midnight
+            val micWidth = size.width * 0.34f
+            val micHeight = size.height * 0.52f
             val micTop = center.y - micHeight * 0.58f
             drawRoundRect(
-                color = WmwColors.WarmLight,
+                color = accent,
                 topLeft = Offset(center.x - micWidth / 2f, micTop),
                 size = Size(micWidth, micHeight),
                 cornerRadius = CornerRadius(micWidth / 2f, micWidth / 2f),
                 style = Stroke(width = 1.8.dp.toPx()),
             )
             val cradle = Path().apply {
-                moveTo(center.x - 14.dp.toPx(), center.y + 1.dp.toPx())
+                moveTo(center.x - size.width * 0.28f, center.y)
                 cubicTo(
-                    center.x - 14.dp.toPx(), center.y + 17.dp.toPx(),
-                    center.x + 14.dp.toPx(), center.y + 17.dp.toPx(),
-                    center.x + 14.dp.toPx(), center.y + 1.dp.toPx(),
+                    center.x - size.width * 0.28f, center.y + size.height * 0.30f,
+                    center.x + size.width * 0.28f, center.y + size.height * 0.30f,
+                    center.x + size.width * 0.28f, center.y,
                 )
             }
             drawPath(
                 path = cradle,
-                color = WmwColors.WarmLight,
+                color = accent,
                 style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round),
             )
             drawLine(
-                color = WmwColors.WarmLight,
-                start = Offset(center.x, center.y + 17.dp.toPx()),
-                end = Offset(center.x, center.y + 27.dp.toPx()),
+                color = accent,
+                start = Offset(center.x, center.y + size.height * 0.29f),
+                end = Offset(center.x, center.y + size.height * 0.45f),
                 strokeWidth = 1.8.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = WmwColors.WarmLight,
-                start = Offset(center.x - 8.dp.toPx(), center.y + 27.dp.toPx()),
-                end = Offset(center.x + 8.dp.toPx(), center.y + 27.dp.toPx()),
+                color = accent,
+                start = Offset(center.x - size.width * 0.16f, center.y + size.height * 0.45f),
+                end = Offset(center.x + size.width * 0.16f, center.y + size.height * 0.45f),
                 strokeWidth = 1.8.dp.toPx(),
                 cap = StrokeCap.Round,
             )

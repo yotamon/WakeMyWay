@@ -1,12 +1,27 @@
 # Project status
 
-**Last updated:** 2026-09-12  
-**Product:** Wake My Way (WMW)  
+**Last updated:** 2026-09-14  
+**Product:** WakeMyWay (WMW)  
 **Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** physical founder dogfood of natural conversational Wake  
+**Current engineering phase:** founder dogfood plus consumer brand-system hardening  
 **Merged foundations:** PR #36 local Voice Wake; PR #37 modern Android presentation/BAL hardening; PR #38 permission-gated controllability; PR #39 Realtime conversation foundation; PR #40 seamless server-safe founder pairing; PR #41 critical-path reliability/security hardening  
 **Reliability rule:** a wake may not be armed or resurrected without verified local terminal controllability  
 **Realtime rule:** cloud conversation is optional enrichment only; Alarm Kernel and WakeRuntime remain authoritative
+
+## Sunrise-wave brand implementation
+
+PR #51 introduces the canonical WakeMyWay consumer identity without changing wake authority or the local reliability envelope:
+
+- consumer-facing naming is normalized to **WakeMyWay**;
+- the primary symbol is a simple rising sun meeting one continuous horizon that reads as both a calm sound wave and a mountain landscape;
+- the same geometry powers the in-product Wake Line so brand identity changes with real wake state rather than becoming decorative logo repetition;
+- the canonical palette is Midnight Navy, Sunrise Peach, Golden Light, Dawn Lavender and Cloud/Paper neutrals;
+- Tonight, Wake Schedule and Tomorrow Contract now live in a light premium planning world, while active wake remains intentionally dark and sparse before resolving into a light morning surface;
+- Android adaptive, round and monochrome themed launcher icons use the sunrise-wave mark;
+- live wake presentation was reworked without changing `AlarmPlaybackService`, Alarm Kernel authority, `WakeSessionViewModel`, WakeRuntime decisions, Direct Boot privacy, private-contract gating or immediate local Stop/Snooze behavior;
+- curated Roborazzi states were visually inspected and promoted to new canonical baselines rather than bypassing visual-regression protection.
+
+The durable product decision is recorded in `docs/26-decisions-log.md`; implementation rules and exact palette/mark guidance live in `docs/07-design-system.md`.
 
 ## Reliability hardening baseline
 

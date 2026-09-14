@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Wake My Way</string>
+    <string name="app_name">WakeMyWay</string>
     <string name="wmw_brand_short">WMW</string>
     <string name="wmw_founder_build">Founder build</string>
 
@@ -30,11 +30,11 @@
     <string name="tonight_readiness_ready">Scheduled locally and ready for tomorrow.</string>
     <string name="tonight_readiness_attention">One system setting needs attention before tomorrow is Wake Ready.</string>
     <string name="tonight_readiness_empty">Set a wake time to prepare tomorrow.</string>
-    <string name="tonight_readiness_exact_alarm">Exact-alarm access is unavailable. Wake My Way cannot promise the selected wake time until Android allows it.</string>
+    <string name="tonight_readiness_exact_alarm">Exact-alarm access is unavailable. WakeMyWay cannot promise the selected wake time until Android allows it.</string>
     <string name="tonight_readiness_notifications">Allow alarm notifications so an active wake always exposes visible Stop and Snooze controls.</string>
     <string name="tonight_readiness_channel">Active wake alerts are not high priority. Android requires a high-priority alarm channel for the wake screen to appear reliably.</string>
-    <string name="tonight_readiness_full_screen">Allow full-screen alarms so Wake My Way can open the wake screen when your phone is locked.</string>
-    <string name="tonight_readiness_reconcile">The wake schedule needs repair before tomorrow. Reopen Wake My Way to reconcile it.</string>
+    <string name="tonight_readiness_full_screen">Allow full-screen alarms so WakeMyWay can open the wake screen when your phone is locked.</string>
+    <string name="tonight_readiness_reconcile">The wake schedule needs repair before tomorrow. Reopen WakeMyWay to reconcile it.</string>
     <string name="tonight_repair_alarm_access">Review alarm access</string>
     <string name="tonight_repair_notifications">Allow alarm notifications</string>
     <string name="tonight_repair_channel">Enable high-priority alerts</string>
@@ -43,8 +43,8 @@
     <string name="tonight_edit_wake">Edit tomorrow</string>
     <string name="tonight_open_lab">Open Wake Lab</string>
     <string name="tonight_lab_note">Founder diagnostics stay separate from the everyday wake experience.</string>
-    <string name="tonight_presence_description">Wake My Way is ready for tomorrow</string>
-    <string name="tonight_presence_waiting_description">Wake My Way is waiting for a wake plan or required setup</string>
+    <string name="tonight_presence_description">WakeMyWay is ready for tomorrow</string>
+    <string name="tonight_presence_waiting_description">WakeMyWay is waiting for a wake plan or required setup</string>
     <string name="tonight_voice_wake_title">Voice replies</string>
     <string name="tonight_voice_wake_ready">Ready</string>
     <string name="tonight_voice_wake_setup">Setup needed</string>
@@ -58,7 +58,7 @@
     <string name="setup_local_badge">Local wake</string>
     <string name="setup_schedule_eyebrow">One schedule. Full control.</string>
     <string name="setup_title">Your schedule</string>
-    <string name="setup_subtitle">Choose when you want to get up. Wake My Way turns this into the next exact local wake occurrence.</string>
+    <string name="setup_subtitle">Choose when you want to get up. WakeMyWay turns this into the next exact local wake occurrence.</string>
     <string name="setup_pattern_label">Schedule pattern</string>
     <string name="setup_just_tomorrow">Tomorrow only</string>
     <string name="setup_repeat_weekly">Repeat weekly</string>
@@ -72,7 +72,7 @@
     <string name="setup_turn_off">Turn off wake schedule</string>
     <string name="setup_reliability_note">The schedule and alarm are committed locally. Network and AI are not required for the alarm to fire.</string>
     <string name="setup_disable_title">Turn off this wake schedule?</string>
-    <string name="setup_disable_body">No future Wake My Way occurrence will be scheduled until you create a new wake plan.</string>
+    <string name="setup_disable_body">No future WakeMyWay occurrence will be scheduled until you create a new wake plan.</string>
     <string name="setup_disable_confirm">Turn off</string>
     <string name="setup_disable_cancel">Keep it</string>
     <string name="setup_disable_failed">The wake schedule could not be turned off.</string>
@@ -103,16 +103,16 @@
     <string name="tomorrow_plan_cleared">Private morning context cleared.</string>
 
     <string name="notification_permission_title">Keep Stop and Snooze reachable?</string>
-    <string name="notification_permission_body">Wake My Way needs alarm notifications so every active wake has visible Stop and Snooze controls, even if Android does not open the full wake screen.</string>
+    <string name="notification_permission_body">WakeMyWay needs alarm notifications so every active wake has visible Stop and Snooze controls, even if Android does not open the full wake screen.</string>
     <string name="notification_permission_enable">Allow alarm notifications</string>
 
     <string name="voice_permission_title">Let Alfred hear your reply?</string>
-    <string name="voice_permission_body">Wake My Way can listen for short spoken answers during an active wake. Recognition stays on-device, and raw audio or transcripts are not saved.</string>
+    <string name="voice_permission_body">WakeMyWay can listen for short spoken answers during an active wake. Recognition stays on-device, and raw audio or transcripts are not saved.</string>
     <string name="voice_permission_enable">Enable voice replies</string>
     <string name="voice_permission_not_now">Not now</string>
 
     <string name="wake_character_name">Alfred</string>
-    <string name="wake_presence_description">Wake My Way alarm is active</string>
+    <string name="wake_presence_description">WakeMyWay alarm is active</string>
     <string name="wake_default_greeting">Morning.</string>
     <string name="wake_default_instruction">Just get upright first.</string>
     <string name="wake_private_context_locked">Unlock for private morning context, if available.</string>
