@@ -2,6 +2,7 @@ package com.wakemyway.app.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -39,43 +40,73 @@ enum class WmwCircadianStage {
     COMPLETE,
 }
 
+enum class WmwActionTone {
+    WARM,
+    DARK,
+    PAPER,
+}
+
+/**
+ * Full-screen atmosphere from the approved concept board.
+ *
+ * The dark states intentionally avoid a generic Material gradient. The active state carries a
+ * low, warm pool of light behind the Wake Line; oriented/complete switch fully into morning paper.
+ */
 @Composable
 fun WmwCircadianSurface(
     stage: WmwCircadianStage,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val palette = when (stage) {
-        WmwCircadianStage.EMERGING -> listOf(WmwColors.Ink, Color(0xFF15161A))
-        WmwCircadianStage.ENGAGED -> listOf(WmwColors.Ink, WmwColors.DeepDawn.copy(alpha = 0.96f), WmwColors.Ink)
-        WmwCircadianStage.ACTIVE -> listOf(WmwColors.DeepDawn, Color(0xFF35262A), WmwColors.Ink)
-        WmwCircadianStage.ORIENTED -> listOf(WmwColors.WarmLight, WmwColors.MorningPaper)
-        WmwCircadianStage.COMPLETE -> listOf(WmwColors.WarmLight, Color(0xFFF0E6DA))
+    val background = when (stage) {
+        WmwCircadianStage.EMERGING -> Brush.verticalGradient(
+            listOf(Color(0xFF050708), WmwColors.Ink, Color(0xFF0D0D0E)),
+        )
+        WmwCircadianStage.ENGAGED -> Brush.verticalGradient(
+            listOf(Color(0xFF07090A), Color(0xFF111214), Color(0xFF1A1616)),
+        )
+        WmwCircadianStage.ACTIVE -> Brush.verticalGradient(
+            listOf(Color(0xFF111315), Color(0xFF27201C), Color(0xFF151718)),
+        )
+        WmwCircadianStage.ORIENTED -> Brush.verticalGradient(
+            listOf(Color(0xFFF4E8DD), WmwColors.MorningPaper, Color(0xFFEFE2D5)),
+        )
+        WmwCircadianStage.COMPLETE -> Brush.verticalGradient(
+            listOf(Color(0xFFF6EBDD), Color(0xFFF0E1D1), Color(0xFFEBDCCB)),
+        )
     }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(palette)),
+            .background(background),
     ) {
         if (stage != WmwCircadianStage.ORIENTED && stage != WmwCircadianStage.COMPLETE) {
             Canvas(Modifier.fillMaxSize()) {
-                val glowColor = when (stage) {
-                    WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.09f)
-                    WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.18f)
-                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.3f)
+                val center = when (stage) {
+                    WmwCircadianStage.EMERGING -> Offset(size.width * 0.5f, size.height * 0.70f)
+                    WmwCircadianStage.ENGAGED -> Offset(size.width * 0.5f, size.height * 0.72f)
+                    WmwCircadianStage.ACTIVE -> Offset(size.width * 0.52f, size.height * 0.60f)
+                    WmwCircadianStage.ORIENTED,
+                    WmwCircadianStage.COMPLETE,
+                    -> Offset.Zero
+                }
+                val glow = when (stage) {
+                    WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.14f)
+                    WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.24f)
+                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.72f)
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> Color.Transparent
                 }
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(glowColor, Color.Transparent),
-                        center = Offset(size.width * 0.55f, size.height * 0.78f),
-                        radius = size.maxDimension * 0.65f,
+                        colors = listOf(glow, glow.copy(alpha = glow.alpha * 0.45f), Color.Transparent),
+                        center = center,
+                        radius = size.maxDimension * if (stage == WmwCircadianStage.ACTIVE) 0.63f else 0.50f,
                     ),
-                    radius = size.maxDimension * 0.65f,
-                    center = Offset(size.width * 0.55f, size.height * 0.78f),
+                    radius = size.maxDimension * if (stage == WmwCircadianStage.ACTIVE) 0.63f else 0.50f,
+                    center = center,
                 )
             }
         }
@@ -88,11 +119,12 @@ fun WmwTimeDisplay(
     time: String,
     modifier: Modifier = Modifier,
     color: Color = WmwColors.WarmLight,
+    compact: Boolean = false,
 ) {
     Text(
         text = time,
         modifier = modifier,
-        style = MaterialTheme.typography.displayLarge,
+        style = if (compact) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
         color = color,
         textAlign = TextAlign.Center,
         maxLines = 1,
@@ -106,26 +138,21 @@ fun WmwStatusPill(
     modifier: Modifier = Modifier,
     onLightSurface: Boolean = false,
 ) {
-    val accent = if (positive) WmwColors.Sage else WmwColors.SoftEmber
-    val textColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper
+    val accent = if (positive) WmwColors.Success else WmwColors.SoftEmber
+    val textColor = if (onLightSurface) WmwColors.Ink else WmwColors.WarmLight
     Row(
-        modifier = modifier
-            .background(
-                color = accent.copy(alpha = if (onLightSurface) 0.11f else 0.12f),
-                shape = RoundedCornerShape(100.dp),
-            )
-            .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Xs),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(7.dp)
+                .size(8.dp)
                 .background(accent, CircleShape),
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = textColor,
         )
     }
@@ -135,21 +162,29 @@ fun WmwStatusPill(
 fun WmwCard(
     modifier: Modifier = Modifier,
     onLightSurface: Boolean = false,
+    contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(WmwSpacing.Lg),
     content: @Composable () -> Unit,
 ) {
+    val shape = MaterialTheme.shapes.medium
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = 0.75.dp,
+                color = if (onLightSurface) WmwColors.DarkHairline else WmwColors.Hairline.copy(alpha = 0.52f),
+                shape = shape,
+            ),
         color = if (onLightSurface) {
-            Color.White.copy(alpha = 0.42f)
+            WmwColors.PaperCard.copy(alpha = 0.72f)
         } else {
-            WmwColors.ElevatedNightSurface.copy(alpha = 0.56f)
+            WmwColors.ElevatedNightSurface.copy(alpha = 0.78f)
         },
-        contentColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper,
-        shape = MaterialTheme.shapes.large,
+        contentColor = if (onLightSurface) WmwColors.Ink else WmwColors.WarmLight,
+        shape = shape,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
     ) {
-        Box(modifier = Modifier.padding(WmwSpacing.Xl)) {
+        Box(modifier = Modifier.padding(contentPadding)) {
             content()
         }
     }
@@ -162,7 +197,20 @@ fun WmwPrimaryAction(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onLightSurface: Boolean = false,
+    tone: WmwActionTone = WmwActionTone.WARM,
 ) {
+    val resolvedTone = if (onLightSurface && tone == WmwActionTone.WARM) WmwActionTone.DARK else tone
+    val container = when (resolvedTone) {
+        WmwActionTone.WARM -> WmwColors.SoftEmber
+        WmwActionTone.DARK -> WmwColors.ElevatedNightSurface
+        WmwActionTone.PAPER -> WmwColors.MorningPaper
+    }
+    val content = when (resolvedTone) {
+        WmwActionTone.WARM -> WmwColors.Ink
+        WmwActionTone.DARK -> WmwColors.WarmLight
+        WmwActionTone.PAPER -> WmwColors.Ink
+    }
+
     Button(
         onClick = onClick,
         modifier = modifier
@@ -171,10 +219,10 @@ fun WmwPrimaryAction(
         enabled = enabled,
         shape = RoundedCornerShape(100.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.74f) else WmwColors.SoftEmber,
-            contentColor = if (onLightSurface) WmwColors.WarmLight else WmwColors.Ink,
-            disabledContainerColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.14f) else WmwColors.DeepDawn,
-            disabledContentColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.42f) else WmwColors.QuietText,
+            containerColor = container,
+            contentColor = content,
+            disabledContainerColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.12f) else WmwColors.DeepDawn,
+            disabledContentColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.36f) else WmwColors.FaintText,
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
     ) {
@@ -200,8 +248,8 @@ fun WmwSecondaryAction(
             .heightIn(min = WmwSizes.SleepyTouchTarget),
         enabled = enabled,
         colors = ButtonDefaults.textButtonColors(
-            contentColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper,
-            disabledContentColor = WmwColors.QuietText,
+            contentColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.82f) else WmwColors.WarmLight.copy(alpha = 0.9f),
+            disabledContentColor = WmwColors.FaintText,
         ),
     ) {
         Text(
