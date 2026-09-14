@@ -12,10 +12,12 @@ import java.time.Duration
  * or Snooze mutation succeeds, or when this occurrence is already no longer active because another
  * terminal surface won the race. A stale old surface must never stop playback for a newer wake.
  */
-class WakeTerminalActions(context: Context) {
+class WakeTerminalActions internal constructor(
+    context: Context,
+    private val kernel: AlarmKernel = AlarmKernel(context.applicationContext),
+    private val trace: WakeTimingTrace = WakeTimingTrace(context.applicationContext),
+) {
     private val appContext = context.applicationContext
-    private val kernel = AlarmKernel(appContext)
-    private val trace = WakeTimingTrace(appContext)
 
     fun stop(occurrenceId: WakeOccurrenceId): Boolean {
         when (activeState(occurrenceId)) {
