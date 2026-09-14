@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.ui.theme.WmwColors
@@ -146,7 +147,14 @@ fun WmwTimeDisplay(
 ) {
     Text(
         text = time,
-        modifier = modifier,
+        modifier = if (compact) {
+            modifier.graphicsLayer {
+                scaleX = 1.36f
+                scaleY = 1.36f
+            }
+        } else {
+            modifier
+        },
         style = if (compact) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displayLarge,
         color = color,
         textAlign = TextAlign.Center,
