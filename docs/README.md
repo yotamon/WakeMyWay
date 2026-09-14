@@ -28,7 +28,7 @@ Read `03`, `04`, `05`, `06`, `07`.
 
 ### Google Play / Android release work
 
-Read [`34-google-play-release.md`](34-google-play-release.md), [`16-privacy-security.md`](16-privacy-security.md), [`18-testing-quality.md`](18-testing-quality.md), and [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md).
+Read [`34-google-play-release.md`](34-google-play-release.md), [`play-store-listing-draft.md`](play-store-listing-draft.md), [`privacy-policy-draft.md`](privacy-policy-draft.md), [`16-privacy-security.md`](16-privacy-security.md), [`18-testing-quality.md`](18-testing-quality.md), and [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md).
 
 ## Living context
 
@@ -62,6 +62,7 @@ Read [`34-google-play-release.md`](34-google-play-release.md), [`16-privacy-secu
 | [`05-ux-flows.md`](05-ux-flows.md) | Night/morning flows, intentional Stop, calibration, Safety Backup hypothesis |
 | [`06-brand.md`](06-brand.md) | Wake My Way brand platform/voice |
 | [`07-design-system.md`](07-design-system.md) | Visual/motion/haptic/audio/UI direction |
+| [`play-store-listing-draft.md`](play-store-listing-draft.md) | Draft Play listing copy, screenshot story, asset checklist, and claim guardrails |
 | [`brand/assets/wake-my-way-brand-board.png`](brand/assets/wake-my-way-brand-board.png) | Initial identity exploration |
 
 ## Architecture
@@ -99,6 +100,7 @@ Read [`34-google-play-release.md`](34-google-play-release.md), [`16-privacy-secu
 |---|---|
 | [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md) | Evidence-driven M0–M12 build order with M7 learning before M8 voice |
 | [`34-google-play-release.md`](34-google-play-release.md) | Signed AAB workflow, versioning, Play handoff, and physical release QA |
+| [`play-store-listing-draft.md`](play-store-listing-draft.md) | Store listing and production screenshot plan |
 | [`implementation/backlog.md`](implementation/backlog.md) | Seed engineering backlog aligned to the current build order |
 | [`implementation/m1-progress.md`](implementation/m1-progress.md) | M1 implementation record |
 | [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | M2 reliability runbook and evidence gates |
