@@ -1,57 +1,75 @@
-# Wake My Way — domain context
+# WakeMyWay — domain context
 
-This file is the canonical domain language for Wake My Way. Product, design, architecture, tests, issues, and coding agents should use these terms consistently.
+This file is the canonical domain language for WakeMyWay. Product, design, architecture, tests, issues, and coding agents should use these terms consistently.
 
 If a durable concept is renamed or its meaning changes, update this file in the same change and record the decision in `docs/26-decisions-log.md` or an ADR when technical.
 
 ## Product job
 
-Wake My Way helps a person who intentionally chose a wake time become meaningfully active with the **minimum effective friction** that works for them.
+WakeMyWay helps a person who intentionally chose a wake time become meaningfully active with the **minimum effective friction** that works for them.
 
-The product is not a general assistant, sleep tracker, task manager, or engagement product.
+The product may also help the user understand wake consistency, snooze behavior, activation timing, and optional sleep data when Health Connect is explicitly enabled. It is not a general assistant, medical sleep tracker, task manager, or engagement product.
 
 ## Core domain terms
 
+### Alarm Definition
+
+The user's consumer-facing alarm configuration.
+
+An Alarm Definition may contain a label, enabled state, time/schedule pattern, branded sound, Voice Check-In choice, Character, Voice Style, Snooze Policy, Tomorrow Contract behavior, and a default First Move.
+
+Multiple Alarm Definitions may exist and may be independently enabled. An Alarm Definition is product state. It is not an Android alarm, a Wake Occurrence, or Direct Boot critical state.
+
 ### Wake Schedule
 
-The user's reusable wake intention. In V1 there is one active Wake Schedule at a time. It may express different times by weekday, but it produces only one next Wake Occurrence.
+The minimal deterministic schedule intent compiled from an enabled Alarm Definition for Alarm Kernel execution.
 
-A Wake Schedule is not an Android alarm. It is product intent.
+A Wake Schedule expresses the local timing information and revision required to resolve future Wake Occurrences. Multiple independent Wake Schedules may coexist once the multi-alarm kernel migration is complete.
+
+A Wake Schedule is not an Android alarm and does not carry presentation-only or private product metadata.
 
 ### Wake Occurrence
 
-One concrete execution of the Wake Schedule at a particular local date/time and resolved instant.
+One concrete execution of a Wake Schedule at a particular local date/time and resolved instant.
 
 Examples:
 
 - Thursday, 08:00 Europe/Berlin
 - a five-minute Snooze Occurrence created from an active Wake Occurrence
 
-The Alarm Kernel schedules the next Wake Occurrence with Android.
+The Alarm Kernel schedules eligible Wake Occurrences with Android and rejects stale occurrences whose owning schedule/revision is no longer authoritative.
 
 ### Snooze Occurrence
 
-A Wake Occurrence created only after the user intentionally confirms snooze. It replaces the currently active wake attempt with a new exact occurrence rather than relying on an in-process timer.
+A Wake Occurrence created only after the user intentionally confirms snooze. It replaces the currently active wake attempt for that alarm chain with a new exact occurrence rather than relying on an in-process timer.
 
 ### Alarm Kernel
 
-The deep Android module that owns the reliability invariant from accepted Wake Occurrence to durable local schedule, exact OS alarm, critical fallback, reconciliation, snooze replacement, and safe active wake execution.
+The deep Android module that owns the reliability invariant from accepted Wake Schedule/Occurrence intent to durable local schedule state, exact OS alarms, critical fallback, reconciliation, snooze replacement, collision handling, and safe active wake execution.
 
-Callers must not coordinate the ordering of Room persistence, critical snapshot writes, `AlarmManager`, active-alarm recovery, or reconciliation themselves.
+Callers must not coordinate critical snapshot writes, `AlarmManager`, active-alarm recovery, collision handling, terminal actions, or reconciliation themselves.
 
-### Critical Wake Snapshot
+The multi-alarm target preserves independent schedule ownership: editing, disabling, or snoozing alarm B must not invalidate alarm A.
 
-The minimal non-sensitive state required to recover/re-register and start a safe alarm without normal database initialization.
+### Critical Wake State
 
-It lives in device-protected storage so it can be read during Direct Boot. It must not contain Tomorrow Contract text, calendar details, transcripts, or personalized generated speech derived from sensitive context.
+The minimal non-sensitive state required to recover/re-register and start safe alarms without normal database initialization.
+
+It lives in device-protected storage so it can be read during Direct Boot. The multi-alarm target may contain multiple independent critical schedule slots plus at most one active execution authority.
+
+Critical state must not contain Tomorrow Contract text, alarm labels unless strictly required for safety, account metadata, calendar details, transcripts, or personalized generated speech derived from sensitive context.
+
+Historical code and documentation may refer to the original single-slot serialization as the **Critical Wake Snapshot**.
 
 ### Wake Ready
 
-User-facing readiness state meaning the next Wake Occurrence has the required critical Android capabilities and local data for a **controllable** wake inside the documented reliability envelope.
+User-facing readiness state meaning an enabled alarm's next Wake Occurrence has the required critical Android capabilities and local data for a **controllable** wake inside the documented reliability envelope.
 
-Wake Ready requires the exact occurrence to be scheduled/recoverable **and** the platform capabilities needed to expose the active wake to the user: alarm notifications, an alarm notification channel at the required high importance, and full-screen alarm access on Android versions that gate it. Audible-only emergency fallback is valuable but is not sufficient for Wake Ready.
+Wake Ready requires the occurrence to be scheduled/recoverable **and** the platform capabilities needed to expose the active wake to the user: alarm notifications, an alarm notification channel at the required high importance, and full-screen alarm access on Android versions that gate it. Audible-only emergency fallback is valuable but is not sufficient for Wake Ready.
 
-Optional microphone/on-device speech recognition, Alfred voice availability, Tomorrow Contract, calendar, weather, realtime AI, and cloud capabilities do not determine base Wake Ready. They are reported separately and may degrade without preventing the critical alarm/control path.
+Wake Ready is evaluated per enabled Alarm Definition. The product may also present aggregate readiness such as all alarms ready, some alarms need attention, or no alarms enabled.
+
+Optional microphone/on-device speech recognition, Alfred voice availability, Tomorrow Contract, calendar, weather, realtime AI, account, sync, Health Connect, and cloud capabilities do not determine base Wake Ready. They are reported separately and may degrade without preventing the critical alarm/control path.
 
 ### Active Wake Execution
 
@@ -59,7 +77,7 @@ The trust-critical Android execution that begins when a Wake Occurrence fires an
 
 Active Wake Execution is owned by the Alarm Kernel's Android implementation. A visible `WakeActivity` may present the experience, but Activity lifetime is not allowed to be the lifetime authority for alarm playback.
 
-The initial implementation is expected to use an alarm-appropriate foreground playback service/controller with `USAGE_ALARM` audio semantics, subject to implementation-time Android API verification.
+Multiple future alarms may be scheduled, but only one physical Active Wake Execution is authoritative at a time. Collision behavior must be deterministic and kernel-owned.
 
 ### Wake Session
 
@@ -115,13 +133,15 @@ A new user begins with a default Wake Policy. Wake Learning may derive a more pe
 
 Off-session logic that derives future Wake Policy/profile information from prior Wake Sessions, outcomes, and feedback.
 
-Wake Learning is deliberately separate from the Wake Runtime because it has a different lifecycle. V1 learning begins with deterministic, local, explainable policy updates before realtime voice or machine learning is allowed to become central to the product.
+Wake Learning is deliberately separate from the Wake Runtime because it has a different lifecycle. Initial learning begins with deterministic, local, explainable policy updates before machine learning is allowed to become central to the product.
 
 Wake Learning is never required for the current alarm to fire.
 
 ### Wake Outcome
 
 A derived summary of what happened in a Wake Session, including time to engagement, time to meaningful movement, snooze behavior, fallback use, intervention depth, and whether the session met its target wake window.
+
+Wake Outcomes are the primary WakeMyWay-owned source for Insights and remain distinguishable from optional sleep data imported through Health Connect.
 
 ### Activation Completion
 
@@ -149,7 +169,7 @@ The least aggressive intervention that reliably produces Wake Success for the us
 
 Optional night-before intention supplied by the user: why tomorrow matters and/or what they want morning-them to remember.
 
-It is private by default and should remain local unless a clearly disclosed cloud feature needs a minimized representation.
+A Tomorrow Contract is associated with a concrete upcoming wake/occurrence, even when entered from a reusable Alarm Definition. It is private by default and should remain local unless a clearly disclosed cloud feature needs a minimized representation.
 
 ### Prepared Wake Plan
 
@@ -163,6 +183,30 @@ A presentation/personality profile such as Alfred, Sam, or Chaos. A Character ch
 
 A Character does not own Wake Policy or state transitions.
 
+### Voice Style
+
+A presentation preference that controls the energy, length, and tone of rendered character speech while preserving the same semantic Speech Intent.
+
+Initial values are Default, Motivational, and Minimal. Voice Style is not a Wake Policy and may not change deterministic behavioral authority by itself.
+
+### Voice Check-In
+
+Per-alarm product preference allowing the wake experience to request a short spoken response when local speech capability is available.
+
+Voice Check-In is an enrichment path. Critical local alarm delivery and terminal controls remain functional when voice input is unavailable.
+
+### Wake Sound
+
+The locally resolvable audio choice associated with an Alarm Definition.
+
+Initial branded sounds are Morning Light, Soft Start, and Morning Pulse. Wake Sound selection may change the audio presentation but must not introduce a network dependency into alarm delivery.
+
+### Snooze Policy
+
+Per-alarm product configuration describing whether snooze is available, its local replacement duration, and optional bounded count.
+
+The policy is product input to deterministic runtime/kernel behavior. Snooze execution remains a durable exact replacement occurrence, not an in-process timer.
+
 ### Speech Intent
 
 A constrained semantic request from Wake Runtime to the speech/character layer, for example `INITIAL_WAKE`, `ASK_TO_SIT`, `ASK_TO_MOVE`, `REENGAGE`, or `MORNING_ORIENTATION`.
@@ -173,17 +217,25 @@ The renderer may vary wording but must preserve the requested intent.
 
 The immediate real-world action selected or confirmed during Orienting, such as shower, coffee, or getting dressed.
 
-It is an orientation aid, not a required Wake Phase.
+It is an orientation aid, not a required Wake Phase. A reusable Alarm Definition may carry a default First Move, while a Tomorrow Contract may override it for one concrete wake.
 
 ### Wake Motif
 
 The short branded melodic identity that begins the wake transition before or alongside character speech.
 
+### Wake Insight
+
+A user-facing summary derived from real Wake Outcomes and, only when explicitly enabled, optional Health Connect sleep data.
+
+Examples include wake consistency, snooze frequency, time to engagement, time to Activation Completion, and target-window streaks.
+
+A Wake Insight is not a medical conclusion and must not fabricate sleep quality or wellness scores unsupported by data.
+
 ### Safety Backup
 
-An optional transition aid for early dogfood/onboarding that lets a user keep a later conventional safety alarm while they build trust in WMW.
+An optional transition aid for early dogfood/onboarding that lets a user keep a later conventional external safety alarm while they build trust in WakeMyWay.
 
-A Safety Backup is not another adaptive Wake Schedule, does not participate in the Wake Runtime, and must not force the core V1 architecture into generic multi-alarm coordination. Whether it ships beyond dogfood is evidence-driven.
+A Safety Backup is not a WakeMyWay Alarm Definition, does not participate in the Wake Runtime, and is not counted as part of the multi-alarm product model. Whether it ships beyond dogfood is evidence-driven.
 
 ## UX consciousness language
 
@@ -195,7 +247,7 @@ This is a UX model, not the runtime state machine. Do not create one code state 
 
 ### Reliability envelope
 
-Wake My Way aims to be reliable when its normal UI Activity is gone, its process must be recreated, the device is idle, the network/cloud/AI is unavailable, or normal app data initialization fails.
+WakeMyWay aims to be reliable when its normal UI Activity is gone, its process must be recreated, the device is idle, the network/cloud/AI is unavailable, or normal app data initialization fails.
 
 No Android app can guarantee an alarm after conditions where the OS intentionally prevents it, including explicit user Force Stop on Android versions that cancel pending intents, app uninstall/disable, powered-off hardware, or revoked required system capabilities. WMW must detect and explain recoverable readiness problems on the next user interaction.
 
