@@ -142,6 +142,7 @@ class ProductVisualRegressionTest {
                     onSnooze = {},
                     onStop = {},
                     displayTime = "07:30",
+                    displayDate = "Tuesday · 14 Jan",
                 )
             }
         }
@@ -156,6 +157,7 @@ class ProductVisualRegressionTest {
                     onSnooze = {},
                     onStop = {},
                     displayTime = "07:30",
+                    displayDate = "Tuesday · 14 Jan",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.LISTENING,
                         spokenLine = "Morning.",
@@ -176,6 +178,7 @@ class ProductVisualRegressionTest {
                     onSnooze = {},
                     onStop = {},
                     displayTime = "07:31",
+                    displayDate = "Tuesday · 14 Jan",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.MOVING,
                         spokenLine = "Feet on the floor.",
@@ -196,6 +199,7 @@ class ProductVisualRegressionTest {
                     onSnooze = {},
                     onStop = {},
                     displayTime = "07:32",
+                    displayDate = "Tuesday · 14 Jan",
                     voiceState = WakeVoiceUiState(
                         mode = WakeVoiceMode.ORIENTING,
                         spokenLine = "Good morning.",
