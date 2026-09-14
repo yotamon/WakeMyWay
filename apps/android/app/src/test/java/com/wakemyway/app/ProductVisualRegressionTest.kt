@@ -6,6 +6,8 @@ import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.setup.WakeSetupScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.voice.WakeVoiceMode
+import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
@@ -37,6 +39,8 @@ class ProductVisualRegressionTest {
                         readinessDetail = "Scheduled locally and ready for tomorrow.",
                         hasTomorrowContract = true,
                         tomorrowContractPrepared = true,
+                        tomorrowContractText = "Design review at 10:00. I want time to shower and eat.",
+                        firstMove = "Shower",
                     ),
                     onOpenWakeSetup = {},
                     onOpenTomorrowPlan = {},
@@ -102,6 +106,66 @@ class ProductVisualRegressionTest {
                     onSnooze = {},
                     onStop = {},
                     displayTime = "08:00",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun wakeListening() {
+        captureRoboImage("wake_listening.png") {
+            WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "08:00",
+                    voiceState = WakeVoiceUiState(
+                        mode = WakeVoiceMode.LISTENING,
+                        spokenLine = "Morning.",
+                        speechAvailable = true,
+                        voiceInputAvailable = true,
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun wakeMoving() {
+        captureRoboImage("wake_moving.png") {
+            WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "08:01",
+                    voiceState = WakeVoiceUiState(
+                        mode = WakeVoiceMode.MOVING,
+                        spokenLine = "Feet on the floor.",
+                        speechAvailable = true,
+                        voiceInputAvailable = true,
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun wakeOriented() {
+        captureRoboImage("wake_oriented.png") {
+            WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "08:02",
+                    voiceState = WakeVoiceUiState(
+                        mode = WakeVoiceMode.ORIENTING,
+                        spokenLine = "Good. You're moving.",
+                        speechAvailable = true,
+                        voiceInputAvailable = true,
+                    ),
                 )
             }
         }

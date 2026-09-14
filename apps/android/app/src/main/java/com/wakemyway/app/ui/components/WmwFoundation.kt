@@ -46,11 +46,11 @@ fun WmwCircadianSurface(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val palette = when (stage) {
-        WmwCircadianStage.EMERGING -> listOf(WmwColors.Ink, WmwColors.DeepDawn)
-        WmwCircadianStage.ENGAGED -> listOf(WmwColors.Ink, WmwColors.DeepDawn, WmwColors.Clay.copy(alpha = 0.28f))
-        WmwCircadianStage.ACTIVE -> listOf(WmwColors.DeepDawn, WmwColors.Clay.copy(alpha = 0.48f), WmwColors.Ink)
-        WmwCircadianStage.ORIENTED -> listOf(WmwColors.DeepDawn, WmwColors.Clay.copy(alpha = 0.58f), WmwColors.Ink)
-        WmwCircadianStage.COMPLETE -> listOf(WmwColors.DeepDawn, WmwColors.Sage.copy(alpha = 0.28f), WmwColors.Ink)
+        WmwCircadianStage.EMERGING -> listOf(WmwColors.Ink, Color(0xFF15161A))
+        WmwCircadianStage.ENGAGED -> listOf(WmwColors.Ink, WmwColors.DeepDawn.copy(alpha = 0.96f), WmwColors.Ink)
+        WmwCircadianStage.ACTIVE -> listOf(WmwColors.DeepDawn, Color(0xFF35262A), WmwColors.Ink)
+        WmwCircadianStage.ORIENTED -> listOf(WmwColors.WarmLight, WmwColors.MorningPaper)
+        WmwCircadianStage.COMPLETE -> listOf(WmwColors.WarmLight, Color(0xFFF0E6DA))
     }
 
     Box(
@@ -58,23 +58,26 @@ fun WmwCircadianSurface(
             .fillMaxSize()
             .background(Brush.verticalGradient(palette)),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            val glowColor = when (stage) {
-                WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.16f)
-                WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.28f)
-                WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.36f)
-                WmwCircadianStage.ORIENTED -> WmwColors.EmberGlow.copy(alpha = 0.44f)
-                WmwCircadianStage.COMPLETE -> WmwColors.Sage.copy(alpha = 0.24f)
+        if (stage != WmwCircadianStage.ORIENTED && stage != WmwCircadianStage.COMPLETE) {
+            Canvas(Modifier.fillMaxSize()) {
+                val glowColor = when (stage) {
+                    WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.09f)
+                    WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.18f)
+                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.3f)
+                    WmwCircadianStage.ORIENTED,
+                    WmwCircadianStage.COMPLETE,
+                    -> Color.Transparent
+                }
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(glowColor, Color.Transparent),
+                        center = Offset(size.width * 0.55f, size.height * 0.78f),
+                        radius = size.maxDimension * 0.65f,
+                    ),
+                    radius = size.maxDimension * 0.65f,
+                    center = Offset(size.width * 0.55f, size.height * 0.78f),
+                )
             }
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glowColor, Color.Transparent),
-                    center = Offset(size.width * 0.72f, size.height * 0.82f),
-                    radius = size.maxDimension * 0.72f,
-                ),
-                radius = size.maxDimension * 0.72f,
-                center = Offset(size.width * 0.72f, size.height * 0.82f),
-            )
         }
         content()
     }
@@ -84,12 +87,13 @@ fun WmwCircadianSurface(
 fun WmwTimeDisplay(
     time: String,
     modifier: Modifier = Modifier,
+    color: Color = WmwColors.WarmLight,
 ) {
     Text(
         text = time,
         modifier = modifier,
         style = MaterialTheme.typography.displayLarge,
-        color = WmwColors.WarmLight,
+        color = color,
         textAlign = TextAlign.Center,
         maxLines = 1,
     )
@@ -100,12 +104,14 @@ fun WmwStatusPill(
     label: String,
     positive: Boolean,
     modifier: Modifier = Modifier,
+    onLightSurface: Boolean = false,
 ) {
     val accent = if (positive) WmwColors.Sage else WmwColors.SoftEmber
+    val textColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper
     Row(
         modifier = modifier
             .background(
-                color = accent.copy(alpha = 0.14f),
+                color = accent.copy(alpha = if (onLightSurface) 0.11f else 0.12f),
                 shape = RoundedCornerShape(100.dp),
             )
             .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Xs),
@@ -119,8 +125,8 @@ fun WmwStatusPill(
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = WmwColors.MorningPaper,
+            style = MaterialTheme.typography.labelSmall,
+            color = textColor,
         )
     }
 }
@@ -128,12 +134,17 @@ fun WmwStatusPill(
 @Composable
 fun WmwCard(
     modifier: Modifier = Modifier,
+    onLightSurface: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = WmwColors.ElevatedNightSurface.copy(alpha = 0.72f),
-        contentColor = WmwColors.MorningPaper,
+        color = if (onLightSurface) {
+            Color.White.copy(alpha = 0.42f)
+        } else {
+            WmwColors.ElevatedNightSurface.copy(alpha = 0.56f)
+        },
+        contentColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper,
         shape = MaterialTheme.shapes.large,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
@@ -150,6 +161,7 @@ fun WmwPrimaryAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onLightSurface: Boolean = false,
 ) {
     Button(
         onClick = onClick,
@@ -157,13 +169,14 @@ fun WmwPrimaryAction(
             .fillMaxWidth()
             .heightIn(min = WmwSizes.PrimaryActionHeight),
         enabled = enabled,
-        shape = MaterialTheme.shapes.medium,
+        shape = RoundedCornerShape(100.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = WmwColors.SoftEmber,
-            contentColor = WmwColors.Ink,
-            disabledContainerColor = WmwColors.DeepDawn,
-            disabledContentColor = WmwColors.QuietText,
+            containerColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.74f) else WmwColors.SoftEmber,
+            contentColor = if (onLightSurface) WmwColors.WarmLight else WmwColors.Ink,
+            disabledContainerColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.14f) else WmwColors.DeepDawn,
+            disabledContentColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.42f) else WmwColors.QuietText,
         ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
     ) {
         Text(
             text = label,
@@ -178,6 +191,7 @@ fun WmwSecondaryAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onLightSurface: Boolean = false,
 ) {
     TextButton(
         onClick = onClick,
@@ -186,7 +200,7 @@ fun WmwSecondaryAction(
             .heightIn(min = WmwSizes.SleepyTouchTarget),
         enabled = enabled,
         colors = ButtonDefaults.textButtonColors(
-            contentColor = WmwColors.MorningPaper,
+            contentColor = if (onLightSurface) WmwColors.Ink else WmwColors.MorningPaper,
             disabledContentColor = WmwColors.QuietText,
         ),
     ) {

@@ -29,3 +29,15 @@ gradle test lint assembleDebug
 ```
 
 CI pins Gradle 9.6.1 explicitly. The standard wrapper JAR is tracked as a small M0 follow-up and must be added before M0 closes.
+
+## Visual regression
+
+`ProductVisualRegressionTest` renders the curated product states at the canonical 393 × 852 viewport. The approved visual contract is stored as exact SHA-256 hashes in:
+
+```text
+app/src/test/visual-goldens.sha256
+```
+
+CI regenerates the PNG renders with Roborazzi and fails if any canonical render differs from that manifest. The generated PNGs and Roborazzi diagnostics are uploaded as workflow artifacts for visual review; they are intentionally not committed to the repository.
+
+Do not update the manifest merely to make CI green. A visual hash change is an explicit design acceptance decision and should be made only after reviewing the rendered screens.

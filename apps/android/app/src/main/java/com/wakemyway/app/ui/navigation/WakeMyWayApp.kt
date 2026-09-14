@@ -69,8 +69,6 @@ fun WakeMyWayApp(
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     val backStack = rememberNavBackStack(TonightRoute)
 
-    // Returning from Android permission/special-access settings must immediately refresh the
-    // product truth. MainActivity bumps this revision on resume and after runtime permission results.
     LaunchedEffect(wakeSystemRevision) {
         alarmHealth = alarmKernel.reconcile()
     }
@@ -113,8 +111,6 @@ fun WakeMyWayApp(
                         val preflightHealth = alarmKernel.health()
                         when (wakeSchedulingBlocker(preflightHealth, voiceWakeReadiness)) {
                             WakeSchedulingBlocker.ALARM_SYSTEM -> {
-                                // Nothing is persisted before the user explicitly repairs the next
-                                // required Android capability.
                                 onRepairWakeSystem()
                                 WakeSetupCommitResult(
                                     committed = false,
@@ -286,5 +282,7 @@ private fun AlarmHealth.toTonightUiState(
         wakeRepairActionLabel = repairLabel,
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
+        tomorrowContractText = preparation?.contract?.rawText,
+        firstMove = preparation?.contract?.firstMove,
     )
 }

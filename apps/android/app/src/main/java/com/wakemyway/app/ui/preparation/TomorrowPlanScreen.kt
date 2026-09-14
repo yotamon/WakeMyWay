@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +43,8 @@ import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.components.WmwStatusPill
+import com.wakemyway.app.ui.components.WmwWakeLine
+import com.wakemyway.app.ui.components.WmwWakeLineState
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.preparation.TomorrowContract
@@ -87,6 +90,7 @@ fun TomorrowPlanScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Lg),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -94,7 +98,10 @@ fun TomorrowPlanScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
-                    Text(stringResource(R.string.tomorrow_plan_back))
+                    Text(
+                        text = stringResource(R.string.tomorrow_plan_back),
+                        color = WmwColors.MorningPaper,
+                    )
                 }
                 WmwStatusPill(
                     label = stringResource(R.string.tomorrow_plan_private_badge),
@@ -102,25 +109,44 @@ fun TomorrowPlanScreen(
                 )
             }
 
+            Spacer(Modifier.height(WmwSpacing.Xxl))
+
+            Text(
+                text = stringResource(R.string.tomorrow_plan_eyebrow).uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.QuietText,
+            )
             Text(
                 text = stringResource(R.string.tomorrow_plan_title),
-                modifier = Modifier.padding(top = WmwSpacing.Xl),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Xs),
                 style = MaterialTheme.typography.headlineLarge,
                 color = WmwColors.WarmLight,
+                textAlign = TextAlign.Center,
             )
             Text(
                 text = stringResource(R.string.tomorrow_plan_subtitle),
-                modifier = Modifier.padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.QuietText,
+                textAlign = TextAlign.Center,
+            )
+
+            WmwWakeLine(
+                state = WmwWakeLineState.QUIET,
+                modifier = Modifier.padding(top = WmwSpacing.Xl),
             )
 
             if (wakeOccurrence == null) {
-                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xxl)) {
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xl)) {
                     Text(
                         text = stringResource(R.string.tomorrow_plan_no_wake),
                         style = MaterialTheme.typography.bodyLarge,
                         color = WmwColors.MorningPaper,
+                        textAlign = TextAlign.Center,
                     )
                 }
                 WmwPrimaryAction(
@@ -136,67 +162,72 @@ fun TomorrowPlanScreen(
             )
             Text(
                 text = wakeLabel,
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.labelMedium,
                 color = WmwColors.MorningPaper,
             )
 
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Lg)) {
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                    OutlinedTextField(
-                        value = rawText,
-                        onValueChange = {
-                            rawText = it.take(TomorrowContract.MAX_RAW_TEXT_CHARACTERS)
-                            message = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.tomorrow_plan_reason_label)) },
-                        supportingText = {
-                            Text("${rawText.length}/${TomorrowContract.MAX_RAW_TEXT_CHARACTERS}")
-                        },
-                        minLines = 4,
-                    )
-                    OutlinedTextField(
-                        value = firstMove,
-                        onValueChange = {
-                            firstMove = it.take(TomorrowContract.MAX_FIRST_MOVE_CHARACTERS)
-                            message = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.tomorrow_plan_first_move_label)) },
-                        supportingText = {
-                            Text("${firstMove.length}/${TomorrowContract.MAX_FIRST_MOVE_CHARACTERS}")
-                        },
-                        singleLine = true,
-                    )
-                }
-            }
+            val fieldColors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = WmwColors.MorningPaper,
+                unfocusedTextColor = WmwColors.MorningPaper,
+                focusedBorderColor = WmwColors.SoftEmber,
+                unfocusedBorderColor = WmwColors.Hairline,
+                focusedLabelColor = WmwColors.SoftEmber,
+                unfocusedLabelColor = WmwColors.QuietText,
+                cursorColor = WmwColors.SoftEmber,
+                focusedContainerColor = WmwColors.NightSurface.copy(alpha = 0.48f),
+                unfocusedContainerColor = WmwColors.NightSurface.copy(alpha = 0.42f),
+                focusedSupportingTextColor = WmwColors.QuietText,
+                unfocusedSupportingTextColor = WmwColors.QuietText,
+            )
+
+            OutlinedTextField(
+                value = rawText,
+                onValueChange = {
+                    rawText = it.take(TomorrowContract.MAX_RAW_TEXT_CHARACTERS)
+                    message = null
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Xxl),
+                label = { Text(stringResource(R.string.tomorrow_plan_reason_label)) },
+                supportingText = {
+                    Text("${rawText.length}/${TomorrowContract.MAX_RAW_TEXT_CHARACTERS}")
+                },
+                minLines = 5,
+                shape = MaterialTheme.shapes.large,
+                colors = fieldColors,
+            )
+
+            OutlinedTextField(
+                value = firstMove,
+                onValueChange = {
+                    firstMove = it.take(TomorrowContract.MAX_FIRST_MOVE_CHARACTERS)
+                    message = null
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                label = { Text(stringResource(R.string.tomorrow_plan_first_move_label)) },
+                supportingText = {
+                    Text("${firstMove.length}/${TomorrowContract.MAX_FIRST_MOVE_CHARACTERS}")
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+                colors = fieldColors,
+            )
 
             snapshot?.takeIf { it.status == WakePreparationStatus.READY }?.let {
-                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.tomorrow_plan_ready_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = WmwColors.MorningPaper,
-                            )
-                            Text(
-                                text = stringResource(R.string.tomorrow_plan_ready_body),
-                                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = WmwColors.QuietText,
-                            )
-                        }
-                        WmwStatusPill(
-                            label = stringResource(R.string.tomorrow_plan_ready_badge),
-                            positive = true,
-                        )
-                    }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Lg),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    WmwStatusPill(
+                        label = stringResource(R.string.tomorrow_plan_ready_badge),
+                        positive = true,
+                    )
                 }
             }
 
