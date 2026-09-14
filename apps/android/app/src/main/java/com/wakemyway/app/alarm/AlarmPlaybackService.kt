@@ -135,19 +135,31 @@ class AlarmPlaybackService : Service() {
             return START_NOT_STICKY
         }
 
-        val beginResult = kernel.beginActive(occurrenceId)
-        if (beginResult == BeginActiveResult.STALE) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
+        return when (kernel.beginActive(occurrenceId)) {
+            BeginActiveResult.STALE -> {
+                // Do not tear down an unrelated valid active wake because a delayed START arrived.
+                preserveCurrentExecutionOrStop(kernel)
+            }
 
-        val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
-        startForeground(NOTIFICATION_ID, alarmNotification(occurrenceId))
-        if (!playbackAlreadyActive) {
-            WakeTimingTrace(this).foreground(occurrenceId)
+            BeginActiveResult.CONFLICT -> {
+                // Another schedule already owns the one physical Active Wake Execution. Reassert it
+                // rather than letting the colliding occurrence steal foreground/audio authority.
+                preserveCurrentExecutionOrStop(kernel)
+            }
+
+            BeginActiveResult.STARTED,
+            BeginActiveResult.ALREADY_ACTIVE,
+            -> {
+                val activeId = kernel.activeOccurrence()?.id ?: occurrenceId
+                val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
+                startForeground(NOTIFICATION_ID, alarmNotification(activeId))
+                if (!playbackAlreadyActive) {
+                    WakeTimingTrace(this).foreground(activeId)
+                }
+                startPlayback(activeId)
+                START_REDELIVER_INTENT
+            }
         }
-        startPlayback(occurrenceId)
-        return START_REDELIVER_INTENT
     }
 
     private fun startPlayback(occurrenceId: WakeOccurrenceId) {
@@ -217,67 +229,60 @@ class AlarmPlaybackService : Service() {
         toneFallback = null
     }
 
-    private fun alarmNotification(occurrenceId: WakeOccurrenceId) =
-        NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Wake My Way")
-            .setContentText("Time to wake up")
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setOnlyAlertOnce(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(wakeActivityIntent(occurrenceId))
-            .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
-            .addAction(
-                android.R.drawable.ic_lock_idle_alarm,
-                "Snooze 5 min",
-                commandIntent(ACTION_SNOOZE, occurrenceId),
-            )
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                "Stop",
-                commandIntent(ACTION_STOP, occurrenceId),
-            )
-            .build()
-
-    /**
-     * Android 15+ no longer grants a PendingIntent creator's background-activity-launch privilege
-     * by default. A full-screen alarm is one of the narrow cases that genuinely must be able to
-     * start while WMW itself is not visible, so opt this PendingIntent into creator BAL explicitly.
-     *
-     * API 36 split the old ALLOWED mode. For a user-scheduled locked-screen alarm we need the
-     * background-capable ALLOW_ALWAYS mode; ALLOW_IF_VISIBLE would defeat the full-screen alarm
-     * because the app is intentionally not visible before wake time.
-     */
-    private fun wakeActivityIntent(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getActivity(
+    private fun alarmNotification(occurrenceId: WakeOccurrenceId) = NotificationCompat.Builder(
         this,
-        0,
-        Intent(this, WakeActivity::class.java)
-            .setData(intentIdentity("wake-ui", occurrenceId))
-            .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        wakeActivityPendingIntentOptions(),
+        AlarmPresentationAccess.CHANNEL_ID,
     )
+        .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+        .setContentTitle(getString(R.string.app_name))
+        .setContentText("Wake alarm is active")
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setSound(null)
+        .setFullScreenIntent(wakePendingIntent(occurrenceId), true)
+        .addAction(
+            android.R.drawable.ic_media_pause,
+            "Snooze 5 min",
+            commandPendingIntent(ACTION_SNOOZE, occurrenceId),
+        )
+        .addAction(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            "Stop alarm",
+            commandPendingIntent(ACTION_STOP, occurrenceId),
+        )
+        .build()
 
-    @Suppress("DEPRECATION")
-    private fun wakeActivityPendingIntentOptions(): Bundle? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
+    private fun wakePendingIntent(occurrenceId: WakeOccurrenceId): PendingIntent {
+        val intent = Intent(this, WakeActivity::class.java)
+            .setData(commandIdentity("wake", occurrenceId))
+            .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 
-        val backgroundStartMode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            ActivityOptions.makeBasic().apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                    setPendingIntentCreatorBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+                    )
+                }
+            }.toBundle()
         } else {
-            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            Bundle.EMPTY
         }
-        return ActivityOptions.makeBasic()
-            .setPendingIntentCreatorBackgroundActivityStartMode(backgroundStartMode)
-            .toBundle()
+
+        return PendingIntent.getActivity(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            options,
+        )
     }
 
-    private fun commandIntent(
+    private fun commandPendingIntent(
         action: String,
         occurrenceId: WakeOccurrenceId,
     ): PendingIntent = PendingIntent.getService(
@@ -285,78 +290,112 @@ class AlarmPlaybackService : Service() {
         0,
         Intent(this, AlarmPlaybackService::class.java)
             .setAction(action)
-            .setData(intentIdentity(action.substringAfterLast('.').lowercase(), occurrenceId))
+            .setData(commandIdentity(action, occurrenceId))
             .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun intentIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
+    private fun commandIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
         Uri.Builder()
             .scheme("wakemyway")
-            .authority("wake")
+            .authority("active-wake")
             .appendPath(kind)
             .appendPath(occurrenceId.value)
             .build()
 
     companion object {
-        private const val NOTIFICATION_ID = 4100
-        private const val ACTION_START = "com.wakemyway.action.START_WAKE"
-        private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
-        private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
-        private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
-        private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
-        private const val FULL_VOLUME = 1f
-        private const val VOICE_WINDOW_VOLUME = 0.12f
-        private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
+        const val ACTION_START = "com.wakemyway.action.START_ALARM_PLAYBACK"
+        const val ACTION_STOP = "com.wakemyway.action.STOP_ALARM_PLAYBACK"
+        const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_ALARM_PLAYBACK"
+        const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
+        const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
-        private val DEFAULT_SNOOZE: Duration = Duration.ofMinutes(5)
+        val DEFAULT_SNOOZE: Duration = Duration.ofMinutes(5)
+
+        private const val NOTIFICATION_ID = 1001
+        private const val FULL_VOLUME = 1.0f
+        private const val VOICE_WINDOW_VOLUME = 0.22f
+        private const val VOICE_WINDOW_MAX_MILLIS = 15_000L
 
         fun start(context: Context, occurrenceId: WakeOccurrenceId) {
             ContextCompat.startForegroundService(
                 context,
                 Intent(context, AlarmPlaybackService::class.java)
                     .setAction(ACTION_START)
-                    .setData(commandIdentity("start", occurrenceId))
+                    .setData(
+                        Uri.Builder()
+                            .scheme("wakemyway")
+                            .authority("active-wake-command")
+                            .appendPath("start")
+                            .appendPath(occurrenceId.value)
+                            .build(),
+                    )
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
 
         fun requestStop(context: Context, occurrenceId: WakeOccurrenceId) {
-            sendCommand(context, ACTION_STOP, "stop", occurrenceId)
-        }
-
-        fun requestSnooze(context: Context, occurrenceId: WakeOccurrenceId) {
-            sendCommand(context, ACTION_SNOOZE, "snooze", occurrenceId)
-        }
-
-        fun requestVoiceWindow(context: Context, occurrenceId: WakeOccurrenceId) {
-            sendCommand(context, ACTION_VOICE_WINDOW, "voice-window", occurrenceId)
-        }
-
-        fun requestCriticalVolume(context: Context, occurrenceId: WakeOccurrenceId) {
-            sendCommand(context, ACTION_RESTORE_CRITICAL_VOLUME, "critical-volume", occurrenceId)
-        }
-
-        private fun sendCommand(
-            context: Context,
-            action: String,
-            kind: String,
-            occurrenceId: WakeOccurrenceId,
-        ) {
             context.startService(
                 Intent(context, AlarmPlaybackService::class.java)
-                    .setAction(action)
-                    .setData(commandIdentity(kind, occurrenceId))
+                    .setAction(ACTION_STOP)
+                    .setData(
+                        Uri.Builder()
+                            .scheme("wakemyway")
+                            .authority("active-wake-command")
+                            .appendPath("stop")
+                            .appendPath(occurrenceId.value)
+                            .build(),
+                    )
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }
 
-        private fun commandIdentity(kind: String, occurrenceId: WakeOccurrenceId): Uri =
-            Uri.Builder()
-                .scheme("wakemyway")
-                .authority("wake-command")
-                .appendPath(kind)
-                .appendPath(occurrenceId.value)
-                .build()
+        fun requestSnooze(context: Context, occurrenceId: WakeOccurrenceId) {
+            context.startService(
+                Intent(context, AlarmPlaybackService::class.java)
+                    .setAction(ACTION_SNOOZE)
+                    .setData(
+                        Uri.Builder()
+                            .scheme("wakemyway")
+                            .authority("active-wake-command")
+                            .appendPath("snooze")
+                            .appendPath(occurrenceId.value)
+                            .build(),
+                    )
+                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
+            )
+        }
+
+        fun beginVoiceWindow(context: Context, occurrenceId: WakeOccurrenceId) {
+            context.startService(
+                Intent(context, AlarmPlaybackService::class.java)
+                    .setAction(ACTION_VOICE_WINDOW)
+                    .setData(
+                        Uri.Builder()
+                            .scheme("wakemyway")
+                            .authority("active-wake-command")
+                            .appendPath("voice-window")
+                            .appendPath(occurrenceId.value)
+                            .build(),
+                    )
+                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
+            )
+        }
+
+        fun restoreCriticalVolume(context: Context, occurrenceId: WakeOccurrenceId) {
+            context.startService(
+                Intent(context, AlarmPlaybackService::class.java)
+                    .setAction(ACTION_RESTORE_CRITICAL_VOLUME)
+                    .setData(
+                        Uri.Builder()
+                            .scheme("wakemyway")
+                            .authority("active-wake-command")
+                            .appendPath("restore-critical-volume")
+                            .appendPath(occurrenceId.value)
+                            .build(),
+                    )
+                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
+            )
+        }
     }
 }
