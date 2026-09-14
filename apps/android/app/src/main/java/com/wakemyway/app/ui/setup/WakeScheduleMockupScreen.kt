@@ -139,6 +139,7 @@ fun WakeScheduleMockupScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Xs),
         ) {
+            Spacer(Modifier.height(60.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -162,7 +163,7 @@ fun WakeScheduleMockupScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 color = WmwColors.WarmLight,
             )
-            Spacer(Modifier.height(WmwSpacing.Md))
+            Spacer(Modifier.height(46.dp))
 
             ScheduleModeCard(
                 time = weeklyTimes.values.firstOrNull() ?: LocalTime.of(7, 30),
@@ -180,7 +181,7 @@ fun WakeScheduleMockupScreen(
 
             Text(
                 stringResource(R.string.setup_weekly_label),
-                modifier = Modifier.padding(start = WmwSpacing.Xs, top = WmwSpacing.Md, bottom = WmwSpacing.Xs),
+                modifier = Modifier.padding(start = WmwSpacing.Xs, top = 27.dp, bottom = WmwSpacing.Xs),
                 style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.QuietText,
             )
@@ -203,7 +204,7 @@ fun WakeScheduleMockupScreen(
                 }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Md))
+            Spacer(Modifier.height(54.dp))
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = WmwColors.ElevatedNightSurface.copy(alpha = 0.84f),
@@ -218,7 +219,13 @@ fun WakeScheduleMockupScreen(
                         onTime = { pick(tomorrowTime) { tomorrowTime = it } },
                     )
                     Divider()
-                    Column(Modifier.padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(104.dp)
+                            .padding(horizontal = WmwSpacing.Md),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
                         Text(
                             stringResource(R.string.setup_pattern_label),
                             style = MaterialTheme.typography.bodySmall,
@@ -230,7 +237,7 @@ fun WakeScheduleMockupScreen(
                             } else {
                                 weeklySummary(weeklyTimes, locale)
                             },
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier = Modifier.padding(top = 4.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = WmwColors.WarmLight,
                         )
@@ -240,8 +247,9 @@ fun WakeScheduleMockupScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(100.dp)
                                 .clickable { confirmDelete = true }
-                                .padding(WmwSpacing.Md),
+                                .padding(horizontal = WmwSpacing.Md),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text("⊘", color = WmwColors.Danger)
@@ -282,15 +290,6 @@ fun WakeScheduleMockupScreen(
                     tone = WmwActionTone.WARM,
                 )
             }
-            Text(
-                stringResource(R.string.setup_reliability_note),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Md),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.FaintText,
-                textAlign = TextAlign.Center,
-            )
         }
     }
 
@@ -328,7 +327,9 @@ private fun ScheduleModeCard(
     onTime: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(137.dp),
         color = WmwColors.ElevatedNightSurface.copy(alpha = if (active) 0.94f else 0.62f),
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(0.75.dp, WmwColors.Hairline.copy(alpha = 0.42f)),
@@ -368,7 +369,8 @@ private fun TomorrowRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(WmwSpacing.Md),
+            .height(112.dp)
+            .padding(horizontal = WmwSpacing.Md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(
@@ -379,7 +381,7 @@ private fun TomorrowRow(
             Text(stringResource(R.string.setup_just_tomorrow), style = MaterialTheme.typography.bodyMedium, color = WmwColors.WarmLight)
             Text(
                 time.format(TIME_FORMAT),
-                modifier = Modifier.padding(top = 2.dp),
+                modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (active) WmwColors.WarmLight else WmwColors.QuietText,
             )
