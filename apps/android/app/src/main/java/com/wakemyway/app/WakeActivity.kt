@@ -260,13 +260,13 @@ private fun EmergingWakeSurface(
             style = MaterialTheme.typography.labelMedium,
             color = WmwColors.FaintText,
         )
-        Spacer(Modifier.height(WmwSpacing.Xl))
+        Spacer(Modifier.height(96.dp))
         WmwTimeDisplay(
             time = displayTime,
             compact = true,
             color = WmwColors.WarmLight.copy(alpha = 0.62f),
         )
-        Spacer(Modifier.height(142.dp))
+        Spacer(Modifier.height(98.dp))
         WmwWakeLine(
             state = WmwWakeLineState.QUIET,
             height = WmwSizes.WakeWaveHeight,
@@ -306,18 +306,18 @@ private fun EngagedWakeSurface(
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
-            modifier = Modifier.padding(top = 58.dp),
+            modifier = Modifier.padding(top = 104.dp),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
         )
         Text(
             text = "◌  ${stringResource(R.string.wake_voice_listening)}…",
-            modifier = Modifier.padding(top = WmwSpacing.Lg),
+            modifier = Modifier.padding(top = 66.dp),
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
-        Spacer(Modifier.height(82.dp))
+        Spacer(Modifier.height(24.dp))
         WmwWakeLine(
             state = WmwWakeLineState.LISTENING,
             height = WmwSizes.WakeWaveHeight,
@@ -336,11 +336,11 @@ private fun ActiveWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
-        Spacer(Modifier.height(180.dp))
+        Spacer(Modifier.height(245.dp))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
-            modifier = Modifier.padding(top = 82.dp),
+            modifier = Modifier.padding(top = 67.dp),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
@@ -351,7 +351,7 @@ private fun ActiveWakeSurface(
             height = WmwSizes.WakeWaveHeight,
         )
         Row(
-            modifier = Modifier.padding(top = WmwSpacing.Md),
+            modifier = Modifier.padding(top = 96.dp),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -388,7 +388,7 @@ private fun OrientedWakeSurface(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 58.dp),
+                .padding(top = 146.dp),
             horizontalAlignment = Alignment.Start,
         ) {
             Text(
@@ -410,7 +410,7 @@ private fun OrientedWakeSurface(
             )
         }
 
-        Spacer(Modifier.height(WmwSpacing.Xxl))
+        Spacer(Modifier.height(204.dp))
         WmwWakeLine(
             state = WmwWakeLineState.SETTLED,
             onLightSurface = true,
@@ -421,7 +421,7 @@ private fun OrientedWakeSurface(
             text = stringResource(R.string.wake_whats_first),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = WmwSpacing.Sm),
+                .padding(top = 38.dp),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.Ink,
             textAlign = TextAlign.Start,
@@ -430,7 +430,7 @@ private fun OrientedWakeSurface(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = WmwSpacing.Md),
+                .padding(top = 33.dp),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
         ) {
             FirstMoveTile(
@@ -497,7 +497,7 @@ private fun CompleteWakeSurface(
 @Composable
 private fun FirstMoveTile(label: String, glyph: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(132.dp),
+        modifier = modifier.height(150.dp),
         shape = MaterialTheme.shapes.medium,
         color = WmwColors.PaperCard.copy(alpha = 0.90f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
