@@ -2,7 +2,10 @@ package com.wakemyway.app.ui.setup
 
 import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,11 +16,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,8 +44,9 @@ import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwSecondaryAction
-import com.wakemyway.app.ui.components.WmwStatusPill
 import com.wakemyway.app.ui.components.WmwTimeDisplay
+import com.wakemyway.app.ui.components.WmwWakeLine
+import com.wakemyway.app.ui.components.WmwWakeLineState
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -125,138 +131,139 @@ fun WakeSetupScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Lg),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
-                    Text(stringResource(R.string.setup_back))
+                    Text(
+                        text = stringResource(R.string.setup_back),
+                        color = WmwColors.MorningPaper,
+                    )
                 }
-                WmwStatusPill(
-                    label = stringResource(R.string.setup_local_badge),
-                    positive = true,
-                )
             }
 
             Text(
-                text = stringResource(R.string.setup_title),
-                modifier = Modifier.padding(top = WmwSpacing.Xl),
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.WarmLight,
-            )
-            Text(
-                text = stringResource(R.string.setup_subtitle),
-                modifier = Modifier.padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.bodyLarge,
+                text = stringResource(R.string.setup_schedule_eyebrow).uppercase(),
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                style = MaterialTheme.typography.labelMedium,
                 color = WmwColors.QuietText,
             )
+            Text(
+                text = stringResource(R.string.setup_title),
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.headlineLarge,
+                color = WmwColors.WarmLight,
+                textAlign = TextAlign.Center,
+            )
 
-            WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xxl)) {
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                    Text(
-                        text = stringResource(R.string.setup_pattern_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = WmwColors.QuietText,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
-                    ) {
-                        PatternButton(
-                            label = stringResource(R.string.setup_just_tomorrow),
-                            selected = mode == WakeSetupMode.TOMORROW_ONLY,
-                            onClick = { mode = WakeSetupMode.TOMORROW_ONLY },
-                            modifier = Modifier.weight(1f),
-                        )
-                        PatternButton(
-                            label = stringResource(R.string.setup_repeat_weekly),
-                            selected = mode == WakeSetupMode.WEEKLY,
-                            onClick = { mode = WakeSetupMode.WEEKLY },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            Spacer(Modifier.height(WmwSpacing.Xl))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                PatternButton(
+                    label = stringResource(R.string.setup_just_tomorrow),
+                    selected = mode == WakeSetupMode.TOMORROW_ONLY,
+                    onClick = { mode = WakeSetupMode.TOMORROW_ONLY },
+                    modifier = Modifier.weight(1f),
+                )
+                PatternButton(
+                    label = stringResource(R.string.setup_repeat_weekly),
+                    selected = mode == WakeSetupMode.WEEKLY,
+                    onClick = { mode = WakeSetupMode.WEEKLY },
+                    modifier = Modifier.weight(1f),
+                )
             }
 
             when (mode) {
                 WakeSetupMode.TOMORROW_ONLY -> {
-                    WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = tomorrow.dayOfWeek.getDisplayName(TextStyle.FULL, locale),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = WmwColors.QuietText,
-                            )
-                            WmwTimeDisplay(
-                                time = tomorrowTime.format(TIME_FORMAT),
-                                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                            )
-                            OutlinedButton(
-                                onClick = { pickTime(tomorrowTime) { tomorrowTime = it } },
-                                modifier = Modifier.padding(top = WmwSpacing.Sm),
-                            ) {
-                                Text(stringResource(R.string.setup_change_time))
-                            }
-                            Text(
-                                text = stringResource(R.string.setup_tomorrow_hint),
-                                modifier = Modifier.padding(top = WmwSpacing.Md),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = WmwColors.QuietText,
-                                textAlign = TextAlign.Center,
-                            )
-                        }
-                    }
+                    Spacer(Modifier.height(WmwSpacing.Huge))
+                    Text(
+                        text = tomorrow.dayOfWeek.getDisplayName(TextStyle.FULL, locale).uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = WmwColors.QuietText,
+                    )
+                    WmwTimeDisplay(
+                        time = tomorrowTime.format(TIME_FORMAT),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = WmwSpacing.Xs)
+                            .clickable { pickTime(tomorrowTime) { tomorrowTime = it } },
+                    )
+                    WmwWakeLine(
+                        state = WmwWakeLineState.QUIET,
+                        modifier = Modifier.padding(top = WmwSpacing.Sm),
+                    )
+                    Text(
+                        text = stringResource(R.string.setup_tap_time_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.QuietText,
+                    )
+                    Text(
+                        text = stringResource(R.string.setup_tomorrow_hint),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = WmwSpacing.Xl),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.MorningPaper,
+                        textAlign = TextAlign.Center,
+                    )
                 }
 
                 WakeSetupMode.WEEKLY -> {
-                    WmwCard(modifier = Modifier.padding(top = WmwSpacing.Sm)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
-                            Text(
-                                text = stringResource(R.string.setup_weekly_label),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = WmwColors.QuietText,
+                    Spacer(Modifier.height(WmwSpacing.Xxl))
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.setup_weekly_label).uppercase(),
+                            modifier = Modifier.padding(bottom = WmwSpacing.Xs),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = WmwColors.QuietText,
+                        )
+                        DayOfWeek.values().forEach { day ->
+                            val selectedTime = weeklyTimes[day]
+                            WeeklyDayRow(
+                                day = day,
+                                time = selectedTime,
+                                locale = locale,
+                                onEnabledChange = { enabled ->
+                                    weeklyTimes = if (enabled) {
+                                        weeklyTimes + (day to fallbackWeeklyTime(weeklyTimes))
+                                    } else {
+                                        weeklyTimes - day
+                                    }
+                                },
+                                onPickTime = {
+                                    val initial = selectedTime ?: fallbackWeeklyTime(weeklyTimes)
+                                    pickTime(initial) { chosen ->
+                                        weeklyTimes = weeklyTimes + (day to chosen)
+                                    }
+                                },
                             )
-                            DayOfWeek.values().forEach { day ->
-                                val selectedTime = weeklyTimes[day]
-                                WeeklyDayRow(
-                                    day = day,
-                                    time = selectedTime,
-                                    locale = locale,
-                                    onEnabledChange = { enabled ->
-                                        weeklyTimes = if (enabled) {
-                                            weeklyTimes + (day to fallbackWeeklyTime(weeklyTimes))
-                                        } else {
-                                            weeklyTimes - day
-                                        }
-                                    },
-                                    onPickTime = {
-                                        val initial = selectedTime ?: fallbackWeeklyTime(weeklyTimes)
-                                        pickTime(initial) { chosen ->
-                                            weeklyTimes = weeklyTimes + (day to chosen)
-                                        }
-                                    },
-                                )
-                            }
                         }
                     }
                 }
             }
 
             errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Md),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = WmwColors.SoftEmber,
-                    textAlign = TextAlign.Center,
-                )
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xl)) {
+                    Text(
+                        text = message,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.SoftEmber,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
+            Spacer(Modifier.height(WmwSpacing.Xxxl))
 
             WmwPrimaryAction(
                 label = stringResource(
@@ -350,19 +357,25 @@ private fun PatternButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier,
+    Surface(
+        modifier = modifier
+            .height(48.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(100.dp),
+        color = if (selected) WmwColors.MorningPaper else WmwColors.NightSurface.copy(alpha = 0.5f),
+        contentColor = if (selected) WmwColors.Ink else WmwColors.MorningPaper,
         border = BorderStroke(
-            width = 1.dp,
-            color = if (selected) WmwColors.SoftEmber else WmwColors.QuietText.copy(alpha = 0.28f),
+            1.dp,
+            if (selected) WmwColors.MorningPaper else WmwColors.Hairline,
         ),
     ) {
-        Text(
-            text = label,
-            color = if (selected) WmwColors.WarmLight else WmwColors.MorningPaper,
-            textAlign = TextAlign.Center,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -374,26 +387,43 @@ private fun WeeklyDayRow(
     onEnabledChange: (Boolean) -> Unit,
     onPickTime: () -> Unit,
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
+        shape = MaterialTheme.shapes.medium,
+        color = WmwColors.NightSurface.copy(alpha = 0.52f),
+        border = BorderStroke(1.dp, WmwColors.Hairline),
     ) {
-        Switch(
-            checked = time != null,
-            onCheckedChange = onEnabledChange,
-        )
-        Text(
-            text = day.getDisplayName(TextStyle.FULL, locale),
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (time != null) WmwColors.MorningPaper else WmwColors.QuietText,
-        )
-        TextButton(
-            onClick = onPickTime,
-            enabled = time != null,
+        Row(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
         ) {
-            Text(time?.format(TIME_FORMAT) ?: "--:--")
+            Text(
+                text = day.getDisplayName(TextStyle.SHORT, locale).uppercase(),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (time != null) WmwColors.MorningPaper else WmwColors.QuietText,
+            )
+            TextButton(
+                onClick = onPickTime,
+                enabled = time != null,
+            ) {
+                Text(
+                    text = time?.format(TIME_FORMAT) ?: "--:--",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (time != null) WmwColors.MorningPaper else WmwColors.QuietText,
+                )
+            }
+            Switch(
+                checked = time != null,
+                onCheckedChange = onEnabledChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = WmwColors.WarmLight,
+                    checkedTrackColor = WmwColors.Sage.copy(alpha = 0.62f),
+                    uncheckedThumbColor = WmwColors.QuietText,
+                    uncheckedTrackColor = WmwColors.DeepDawn,
+                ),
+            )
         }
     }
 }
