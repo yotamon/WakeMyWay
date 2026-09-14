@@ -93,14 +93,20 @@ class WakeSessionViewModelTest {
     }
 
     @Test
-    fun `stop dispatches exactly one kernel command before releasing behavioral resources`() {
+    fun `stop commits exactly one terminal transaction before releasing behavioral resources`() {
         val fake = FakeWakeSessionController()
         var stopCalls = 0
         var snoozeCalls = 0
         val viewModel = WakeSessionViewModel(
             controllerFactory = { _, _ -> fake },
-            requestStopExecution = { stopCalls += 1 },
-            requestSnoozeExecution = { snoozeCalls += 1 },
+            requestStopExecution = {
+                stopCalls += 1
+                true
+            },
+            requestSnoozeExecution = {
+                snoozeCalls += 1
+                true
+            },
         )
 
         assertTrue(viewModel.requestStop())
@@ -114,11 +120,33 @@ class WakeSessionViewModelTest {
     }
 
     @Test
-    fun `snooze dispatch failure keeps the wake session alive`() {
+    fun `rejected snooze transaction keeps the wake surface and behavioral session alive`() {
+        val fake = FakeWakeSessionController()
+        var snoozeCalls = 0
+        val viewModel = WakeSessionViewModel(
+            controllerFactory = { _, _ -> fake },
+            requestSnoozeExecution = {
+                snoozeCalls += 1
+                false
+            },
+        )
+
+        viewModel.onSurfaceVisible()
+        assertFalse(viewModel.requestSnooze())
+        viewModel.onSurfaceHidden()
+
+        assertEquals(1, snoozeCalls)
+        assertFalse(viewModel.completed)
+        assertEquals(0, fake.terminalCloseCalls)
+        assertEquals(1, fake.hiddenCalls)
+    }
+
+    @Test
+    fun `terminal transaction exception keeps the wake session alive`() {
         val fake = FakeWakeSessionController()
         val viewModel = WakeSessionViewModel(
             controllerFactory = { _, _ -> fake },
-            requestSnoozeExecution = { error("service dispatch failed") },
+            requestSnoozeExecution = { error("terminal transaction failed") },
         )
 
         viewModel.onSurfaceVisible()
