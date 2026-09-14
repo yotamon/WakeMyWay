@@ -58,6 +58,7 @@ import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -173,6 +174,7 @@ internal fun WakeSurface(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+    displayDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMM")),
     voiceState: WakeVoiceUiState? = null,
 ) {
     when (voiceState?.mode) {
@@ -208,7 +210,7 @@ internal fun WakeSurface(
         WakeVoiceMode.ORIENTING -> OrientedWakeSurface(
             preparedPlan = preparedPlan,
             spokenLine = voiceState.spokenLine,
-            displayTime = displayTime,
+            displayDate = displayDate,
             onSnooze = onSnooze,
             onStop = onStop,
             modifier = modifier,
@@ -252,7 +254,7 @@ private fun EmergingWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
-        Spacer(Modifier.height(174.dp))
+        Spacer(Modifier.height(224.dp))
         Text(
             text = stringResource(R.string.wake_character_name).uppercase(),
             style = MaterialTheme.typography.labelMedium,
@@ -264,7 +266,7 @@ private fun EmergingWakeSurface(
             compact = true,
             color = WmwColors.WarmLight.copy(alpha = 0.62f),
         )
-        Spacer(Modifier.height(54.dp))
+        Spacer(Modifier.height(142.dp))
         WmwWakeLine(
             state = WmwWakeLineState.QUIET,
             height = WmwSizes.WakeWaveHeight,
@@ -300,11 +302,11 @@ private fun EngagedWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
-        Spacer(Modifier.height(176.dp))
+        Spacer(Modifier.height(248.dp))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
-            modifier = Modifier.padding(top = WmwSpacing.Xxl),
+            modifier = Modifier.padding(top = 58.dp),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
@@ -315,7 +317,7 @@ private fun EngagedWakeSurface(
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
-        Spacer(Modifier.height(WmwSpacing.Xl))
+        Spacer(Modifier.height(82.dp))
         WmwWakeLine(
             state = WmwWakeLineState.LISTENING,
             height = WmwSizes.WakeWaveHeight,
@@ -334,16 +336,16 @@ private fun ActiveWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
-        Spacer(Modifier.height(150.dp))
+        Spacer(Modifier.height(180.dp))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
-            modifier = Modifier.padding(top = WmwSpacing.Xxl),
+            modifier = Modifier.padding(top = 82.dp),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(WmwSpacing.Xl))
+        Spacer(Modifier.height(86.dp))
         WmwWakeLine(
             state = WmwWakeLineState.MOVING,
             height = WmwSizes.WakeWaveHeight,
@@ -377,7 +379,7 @@ private fun ActiveWakeSurface(
 private fun OrientedWakeSurface(
     preparedPlan: PreparedWakePlan?,
     spokenLine: String?,
-    displayTime: String,
+    displayDate: String,
     onSnooze: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier,
@@ -395,7 +397,7 @@ private fun OrientedWakeSurface(
                 color = WmwColors.Ink,
             )
             Text(
-                text = displayTime,
+                text = displayDate,
                 modifier = Modifier.padding(top = WmwSpacing.Md),
                 style = MaterialTheme.typography.labelMedium,
                 color = WmwColors.Ink.copy(alpha = 0.54f),
@@ -568,6 +570,7 @@ private fun WakeListeningPreview() {
             onSnooze = {},
             onStop = {},
             displayTime = "07:30",
+            displayDate = "Tuesday · 14 Jan",
             voiceState = WakeVoiceUiState(
                 mode = WakeVoiceMode.LISTENING,
                 spokenLine = "Morning.",
