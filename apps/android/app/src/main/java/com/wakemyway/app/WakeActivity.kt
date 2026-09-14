@@ -34,10 +34,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import com.wakemyway.app.alarm.AlarmPlaybackService
@@ -104,16 +105,8 @@ class WakeActivity : ComponentActivity() {
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = preparedPlan,
-                    onSnooze = {
-                        viewModel.closeForTerminalAction()
-                        AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
-                        finishAndRemoveTask()
-                    },
-                    onStop = {
-                        viewModel.closeForTerminalAction()
-                        AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
-                        finishAndRemoveTask()
-                    },
+                    onSnooze = { viewModel.requestSnooze() },
+                    onStop = { viewModel.requestStop() },
                     voiceState = voiceState,
                 )
             }
@@ -245,6 +238,17 @@ private fun WakeFrame(
     }
 }
 
+/**
+ * Preserves the approved 393×852 composition while allowing short phones / large system insets to
+ * compress the decorative vertical rhythm instead of pushing safety controls off-screen.
+ */
+@Composable
+private fun adaptiveVerticalSpace(referenceDp: Int): Dp {
+    val heightDp = LocalConfiguration.current.screenHeightDp
+    val scale = (heightDp / 852f).coerceIn(0.68f, 1.08f)
+    return (referenceDp * scale).dp
+}
+
 @Composable
 private fun EmergingWakeSurface(
     preparedPlan: PreparedWakePlan?,
@@ -255,19 +259,19 @@ private fun EmergingWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
-        Spacer(Modifier.height(224.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(224)))
         Text(
             text = stringResource(R.string.wake_character_name).uppercase(),
             style = MaterialTheme.typography.labelMedium,
             color = WmwColors.FaintText,
         )
-        Spacer(Modifier.height(96.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(96)))
         WmwTimeDisplay(
             time = displayTime,
             compact = true,
             color = WmwColors.WarmLight.copy(alpha = 0.62f),
         )
-        Spacer(Modifier.height(98.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(98)))
         WmwWakeLine(
             state = WmwWakeLineState.QUIET,
             height = WmwSizes.WakeWaveHeight,
@@ -303,27 +307,22 @@ private fun EngagedWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
-        Spacer(Modifier.height(248.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(248)))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
-            modifier = Modifier
-                .padding(top = 97.dp)
-                .graphicsLayer {
-                    scaleX = 1.70f
-                    scaleY = 1.70f
-                },
-            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = adaptiveVerticalSpace(97)),
+            style = MaterialTheme.typography.headlineLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
         )
         Text(
             text = "◌  ${stringResource(R.string.wake_voice_listening)}…",
-            modifier = Modifier.padding(top = 66.dp),
+            modifier = Modifier.padding(top = adaptiveVerticalSpace(66)),
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
-        Spacer(Modifier.height(19.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(19)))
         WmwWakeLine(
             state = WmwWakeLineState.LISTENING,
             height = WmwSizes.WakeWaveHeight,
@@ -342,27 +341,22 @@ private fun ActiveWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
-        Spacer(Modifier.height(215.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(215)))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
-            modifier = Modifier
-                .padding(top = 83.dp)
-                .graphicsLayer {
-                    scaleX = 1.75f
-                    scaleY = 1.75f
-                },
-            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = adaptiveVerticalSpace(83)),
+            style = MaterialTheme.typography.headlineLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(86.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(86)))
         WmwWakeLine(
             state = WmwWakeLineState.MOVING,
             height = WmwSizes.WakeWaveHeight,
         )
         Row(
-            modifier = Modifier.padding(top = 80.dp),
+            modifier = Modifier.padding(top = adaptiveVerticalSpace(80)),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -399,7 +393,7 @@ private fun OrientedWakeSurface(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 146.dp),
+                .padding(top = adaptiveVerticalSpace(146)),
             horizontalAlignment = Alignment.Start,
         ) {
             Text(
@@ -421,18 +415,18 @@ private fun OrientedWakeSurface(
             )
         }
 
-        Spacer(Modifier.height(204.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(204)))
         WmwWakeLine(
             state = WmwWakeLineState.SETTLED,
             onLightSurface = true,
-            height = 72.dp,
+            height = adaptiveVerticalSpace(72),
         )
 
         Text(
             text = stringResource(R.string.wake_whats_first),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 38.dp),
+                .padding(top = adaptiveVerticalSpace(38)),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.Ink,
             textAlign = TextAlign.Start,
@@ -441,7 +435,7 @@ private fun OrientedWakeSurface(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 33.dp),
+                .padding(top = adaptiveVerticalSpace(33)),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
         ) {
             FirstMoveTile(
@@ -470,7 +464,7 @@ private fun CompleteWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.COMPLETE, modifier) {
-        Spacer(Modifier.height(92.dp))
+        Spacer(Modifier.height(adaptiveVerticalSpace(92)))
         Text(
             text = stringResource(R.string.wake_voice_complete).uppercase(),
             style = MaterialTheme.typography.labelMedium,
@@ -508,7 +502,7 @@ private fun CompleteWakeSurface(
 @Composable
 private fun FirstMoveTile(label: String, glyph: String, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(150.dp),
+        modifier = modifier.height(adaptiveVerticalSpace(150)),
         shape = MaterialTheme.shapes.medium,
         color = WmwColors.PaperCard.copy(alpha = 0.90f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
