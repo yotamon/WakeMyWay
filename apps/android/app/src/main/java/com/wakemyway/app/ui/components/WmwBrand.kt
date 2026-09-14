@@ -21,10 +21,12 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.R
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -116,7 +118,7 @@ fun WmwBrandLockup(
         )
         Spacer(Modifier.width(if (compact) 8.dp else 10.dp))
         Text(
-            text = "WakeMyWay",
+            text = stringResource(R.string.wmw_brand_name),
             style = MaterialTheme.typography.titleMedium.copy(
                 fontSize = if (compact) 16.sp else 20.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -165,7 +167,7 @@ fun WmwBrandHero(
             onDark = onDark,
         )
         Text(
-            text = "WakeMyWay",
+            text = stringResource(R.string.wmw_brand_name),
             style = MaterialTheme.typography.headlineMedium,
             color = foreground,
             textAlign = TextAlign.Center,
