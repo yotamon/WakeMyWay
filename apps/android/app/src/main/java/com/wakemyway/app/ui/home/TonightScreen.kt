@@ -119,17 +119,19 @@ fun TonightScreen(
             )
 
             WmwWakeLine(
-                state = if (state.wakeReady) WmwWakeLineState.QUIET else WmwWakeLineState.SETTLED,
+                state = WmwWakeLineState.QUIET,
                 modifier = Modifier.padding(top = WmwSpacing.Lg),
             )
 
-            WmwStatusPill(
-                label = stringResource(
-                    if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
-                ),
-                positive = state.wakeReady,
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-            )
+            if (state.hasOccurrence) {
+                WmwStatusPill(
+                    label = stringResource(
+                        if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
+                    ),
+                    positive = state.wakeReady,
+                    modifier = Modifier.padding(top = WmwSpacing.Xs),
+                )
+            }
 
             Spacer(Modifier.height(WmwSpacing.Xxl))
             Box(
@@ -211,7 +213,11 @@ fun TonightScreen(
                     color = WmwColors.QuietText,
                 )
                 Text(
-                    text = stringResource(R.string.tonight_alfred_quote),
+                    text = if (state.hasOccurrence) {
+                        stringResource(R.string.tonight_alfred_quote, state.wakeTime)
+                    } else {
+                        stringResource(R.string.tonight_alfred_empty_quote)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = WmwSpacing.Md),
