@@ -26,6 +26,10 @@ Read `04`, `05`, `11`, `12`, `14`, `22`, then ADRs `003`, `005`.
 
 Read `03`, `04`, `05`, `06`, `07`.
 
+### Google Play / Android release work
+
+Read [`34-google-play-release.md`](34-google-play-release.md), [`play-store-listing-draft.md`](play-store-listing-draft.md), [`privacy-policy-draft.md`](privacy-policy-draft.md), [`16-privacy-security.md`](16-privacy-security.md), [`18-testing-quality.md`](18-testing-quality.md), and [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md).
+
 ## Living context
 
 | Document | Purpose |
@@ -38,6 +42,7 @@ Read `03`, `04`, `05`, `06`, `07`.
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Deep-module simplification review before M0 |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Final pre-M0 risk review: active alarm lifecycle, early learning, calibrated success, Android baseline |
+| [`34-google-play-release.md`](34-google-play-release.md) | Play release signing, bundle pipeline, compliance draft, blockers, and production release procedure |
 
 ## Product
 
@@ -57,6 +62,7 @@ Read `03`, `04`, `05`, `06`, `07`.
 | [`05-ux-flows.md`](05-ux-flows.md) | Night/morning flows, intentional Stop, calibration, Safety Backup hypothesis |
 | [`06-brand.md`](06-brand.md) | Wake My Way brand platform/voice |
 | [`07-design-system.md`](07-design-system.md) | Visual/motion/haptic/audio/UI direction |
+| [`play-store-listing-draft.md`](play-store-listing-draft.md) | Draft Play listing copy, screenshot story, asset checklist, and claim guardrails |
 | [`brand/assets/wake-my-way-brand-board.png`](brand/assets/wake-my-way-brand-board.png) | Initial identity exploration |
 
 ## Architecture
@@ -79,11 +85,13 @@ Read `03`, `04`, `05`, `06`, `07`.
 | Document | Purpose |
 |---|---|
 | [`16-privacy-security.md`](16-privacy-security.md) | Privacy/storage classes/security |
+| [`privacy-policy-draft.md`](privacy-policy-draft.md) | Draft public privacy notice for the first local-first Play release |
 | [`17-reliability-failure-modes.md`](17-reliability-failure-modes.md) | Delivery + active-execution reliability envelope/graceful degradation |
 | [`18-testing-quality.md`](18-testing-quality.md) | Contract tests, active-alarm recovery, Direct Boot/Force Stop/device testing |
 | [`19-observability-analytics.md`](19-observability-analytics.md) | Safe semantic telemetry / lifecycle reliability / calibrated outcome metrics |
 | [`25-open-source-and-licenses.md`](25-open-source-and-licenses.md) | Dependency/model licensing policy |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Testing ladder, Firebase/Play distribution, local M7, Vercel cloud topology |
+| [`34-google-play-release.md`](34-google-play-release.md) | Play release runbook and current compliance/release-readiness checklist |
 | [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | Current M2 scenario matrix, evidence fields, instrumentation tests and exit gate |
 
 ## Delivery
@@ -91,6 +99,8 @@ Read `03`, `04`, `05`, `06`, `07`.
 | Document | Purpose |
 |---|---|
 | [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md) | Evidence-driven M0–M12 build order with M7 learning before M8 voice |
+| [`34-google-play-release.md`](34-google-play-release.md) | Signed AAB workflow, versioning, Play handoff, and physical release QA |
+| [`play-store-listing-draft.md`](play-store-listing-draft.md) | Store listing and production screenshot plan |
 | [`implementation/backlog.md`](implementation/backlog.md) | Seed engineering backlog aligned to the current build order |
 | [`implementation/m1-progress.md`](implementation/m1-progress.md) | M1 implementation record |
 | [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | M2 reliability runbook and evidence gates |

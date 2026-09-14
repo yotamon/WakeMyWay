@@ -5,6 +5,20 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+val releaseVersionCode = providers.environmentVariable("WMW_VERSION_CODE").orElse("1").get().toInt()
+val releaseVersionName = providers.environmentVariable("WMW_VERSION_NAME").orElse("0.1.0").get()
+
+val releaseStoreFile = providers.environmentVariable("WMW_RELEASE_STORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("WMW_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("WMW_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("WMW_RELEASE_KEY_PASSWORD").orNull
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.wakemyway.app"
     compileSdk = 37
@@ -13,9 +27,35 @@ android {
         applicationId = "com.wakemyway.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {

@@ -21,10 +21,12 @@
 
     <application
         android:name=".WakeMyWayApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="Wake My Way"
         android:supportsRtl="true"
-        android:theme="@style/Theme.WakeMyWay">
+        android:theme="@style/Theme.WakeMyWay"
+        android:usesCleartextTraffic="false">
         <!--
             WorkManager is deliberately on-demand. Its default App Startup initializer would run
             before app components on a cold process start, which is inappropriate for an alarm app
