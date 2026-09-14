@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -306,7 +307,12 @@ private fun EngagedWakeSurface(
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
-            modifier = Modifier.padding(top = 104.dp),
+            modifier = Modifier
+                .padding(top = 97.dp)
+                .graphicsLayer {
+                    scaleX = 1.70f
+                    scaleY = 1.70f
+                },
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
@@ -317,7 +323,7 @@ private fun EngagedWakeSurface(
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(19.dp))
         WmwWakeLine(
             state = WmwWakeLineState.LISTENING,
             height = WmwSizes.WakeWaveHeight,
@@ -336,11 +342,16 @@ private fun ActiveWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
-        Spacer(Modifier.height(245.dp))
+        Spacer(Modifier.height(215.dp))
         WmwTimeDisplay(time = displayTime, compact = true)
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
-            modifier = Modifier.padding(top = 67.dp),
+            modifier = Modifier
+                .padding(top = 83.dp)
+                .graphicsLayer {
+                    scaleX = 1.75f
+                    scaleY = 1.75f
+                },
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.WarmLight,
             textAlign = TextAlign.Center,
@@ -351,7 +362,7 @@ private fun ActiveWakeSurface(
             height = WmwSizes.WakeWaveHeight,
         )
         Row(
-            modifier = Modifier.padding(top = 96.dp),
+            modifier = Modifier.padding(top = 80.dp),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -573,7 +584,7 @@ private fun WakeListeningPreview() {
             displayDate = "Tuesday · 14 Jan",
             voiceState = WakeVoiceUiState(
                 mode = WakeVoiceMode.LISTENING,
-                spokenLine = "Morning.",
+                spokenLine = "Morning, Yotam.",
                 speechAvailable = true,
                 voiceInputAvailable = true,
             ),
