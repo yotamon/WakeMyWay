@@ -36,10 +36,10 @@ import com.wakemyway.app.preparation.WakeTimePreparedContent
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwIntentionalStopAction
-import com.wakemyway.app.ui.components.WmwPresence
-import com.wakemyway.app.ui.components.WmwPresenceState
 import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.components.WmwTimeDisplay
+import com.wakemyway.app.ui.components.WmwWakeLine
+import com.wakemyway.app.ui.components.WmwWakeLineState
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -118,10 +118,7 @@ class WakeActivity : ComponentActivity() {
     }
 
     override fun onPause() {
-        // Microphone and motion capture are scoped to a visible Wake Surface. Their requested
-        // runtime state is retained by WakeSessionViewModel and restored when the surface returns.
         sessionViewModel?.onSurfaceHidden()
-        // Do not leave private content retained in the Compose state when the wake UI loses focus.
         preparedPlan = null
         super.onPause()
     }
@@ -138,7 +135,6 @@ class WakeActivity : ComponentActivity() {
         val userManager = getSystemService(UserManager::class.java)
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!userManager.isUserUnlocked || keyguard.isDeviceLocked) {
-            // Never read/render private Tomorrow Contract-derived content during Direct Boot or lock.
             preparedPlan = null
             return
         }
@@ -151,17 +147,11 @@ class WakeActivity : ComponentActivity() {
         }.getOrNull()
 
         if (preparedPlan != null) {
-            // Prevent OS screenshots/recents thumbnails while private prepared text is visible.
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 }
 
-/**
- * `voiceState == null` intentionally renders the previously reviewed synthetic Wake Emerging
- * fixture. Production WakeActivity always supplies a live voice state. This preserves the curated
- * visual baseline until the new dynamic states receive their own explicit visual-review gate.
- */
 @Composable
 internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
@@ -201,14 +191,32 @@ private fun VoiceWakeSurface(
     modifier: Modifier,
     displayTime: String,
 ) {
-    val presenceState = when (voiceState.mode) {
-        WakeVoiceMode.LISTENING -> WmwPresenceState.LISTENING
-        WakeVoiceMode.MOVING -> WmwPresenceState.MOVING
+    val stage = when (voiceState.mode) {
+        WakeVoiceMode.STARTING,
+        WakeVoiceMode.SPEAKING,
+        WakeVoiceMode.DEGRADED,
+        -> WmwCircadianStage.EMERGING
+
+        WakeVoiceMode.LISTENING -> WmwCircadianStage.ENGAGED
+        WakeVoiceMode.MOVING -> WmwCircadianStage.ACTIVE
+        WakeVoiceMode.ORIENTING -> WmwCircadianStage.ORIENTED
+        WakeVoiceMode.COMPLETE -> WmwCircadianStage.COMPLETE
+    }
+    val lineState = when (voiceState.mode) {
+        WakeVoiceMode.STARTING,
+        WakeVoiceMode.SPEAKING,
+        WakeVoiceMode.DEGRADED,
+        -> WmwWakeLineState.QUIET
+
+        WakeVoiceMode.LISTENING -> WmwWakeLineState.LISTENING
+        WakeVoiceMode.MOVING -> WmwWakeLineState.MOVING
         WakeVoiceMode.ORIENTING,
         WakeVoiceMode.COMPLETE,
-        -> WmwPresenceState.COMPLETE
-        else -> WmwPresenceState.QUIET
+        -> WmwWakeLineState.SETTLED
     }
+    val isLightSurface = stage == WmwCircadianStage.ORIENTED || stage == WmwCircadianStage.COMPLETE
+    val primaryText = if (isLightSurface) WmwColors.Ink else WmwColors.WarmLight
+    val secondaryText = if (isLightSurface) WmwColors.Ink.copy(alpha = 0.66f) else WmwColors.QuietText
     val statusText = when (voiceState.mode) {
         WakeVoiceMode.STARTING -> stringResource(R.string.wake_voice_starting)
         WakeVoiceMode.SPEAKING -> stringResource(R.string.wake_voice_speaking)
@@ -220,7 +228,7 @@ private fun VoiceWakeSurface(
     }
 
     WmwCircadianSurface(
-        stage = WmwCircadianStage.EMERGING,
+        stage = stage,
         modifier = modifier,
     ) {
         Column(
@@ -232,35 +240,38 @@ private fun VoiceWakeSurface(
                 .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Text(
+                text = stringResource(R.string.wake_character_name).uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = secondaryText,
+            )
             WmwTimeDisplay(
                 time = displayTime,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = stringResource(R.string.wake_character_name),
-                style = MaterialTheme.typography.labelMedium,
-                color = WmwColors.QuietText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
+                color = primaryText,
             )
 
-            Spacer(Modifier.height(WmwSpacing.Huge))
+            Spacer(Modifier.height(WmwSpacing.Lg))
 
-            WmwPresence(
-                state = presenceState,
-                contentDescription = stringResource(R.string.wake_presence_description),
+            WmwWakeLine(
+                state = lineState,
+                onLightSurface = isLightSurface,
             )
             Text(
-                text = statusText,
-                modifier = Modifier.padding(top = WmwSpacing.Md),
-                style = MaterialTheme.typography.labelMedium,
+                text = statusText.uppercase(),
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.labelSmall,
                 color = if (voiceState.mode == WakeVoiceMode.LISTENING) {
                     WmwColors.SoftEmber
                 } else {
-                    WmwColors.QuietText
+                    secondaryText
                 },
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
+            Spacer(Modifier.height(if (isLightSurface) WmwSpacing.Xxl else WmwSpacing.Huge))
 
             Text(
                 text = voiceState.spokenLine
@@ -268,7 +279,7 @@ private fun VoiceWakeSurface(
                     ?: stringResource(R.string.wake_default_greeting),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.headlineMedium,
-                color = WmwColors.WarmLight,
+                color = primaryText,
                 textAlign = TextAlign.Center,
             )
             Text(
@@ -281,56 +292,69 @@ private fun VoiceWakeSurface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.titleMedium,
-                color = WmwColors.MorningPaper,
+                style = MaterialTheme.typography.bodyLarge,
+                color = secondaryText,
                 textAlign = TextAlign.Center,
             )
-            preparedPlan?.firstMoveLine?.let { firstMove ->
-                Text(
-                    text = firstMove,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Md),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = WmwColors.QuietText,
-                    textAlign = TextAlign.Center,
-                )
+
+            if (isLightSurface) {
+                preparedPlan?.firstMoveLine?.let { firstMove ->
+                    Spacer(Modifier.height(WmwSpacing.Xxl))
+                    Text(
+                        text = stringResource(R.string.wake_whats_first).uppercase(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = secondaryText,
+                    )
+                    Text(
+                        text = firstMove,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = WmwSpacing.Sm),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = primaryText,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Hero))
+            Spacer(Modifier.height(WmwSpacing.Huge))
 
-            if (voiceState.voiceInputAvailable) {
+            if (!isLightSurface && voiceState.voiceInputAvailable) {
                 Text(
                     text = stringResource(R.string.wake_voice_privacy_note),
                     modifier = Modifier.fillMaxWidth(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.QuietText,
+                    color = secondaryText,
                     textAlign = TextAlign.Center,
                 )
             }
-            Text(
-                text = if (preparedPlan == null) {
-                    stringResource(R.string.wake_private_context_locked)
-                } else {
-                    stringResource(R.string.wake_private_context_ready)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
-                textAlign = TextAlign.Center,
-            )
+            if (!isLightSurface) {
+                Text(
+                    text = if (preparedPlan == null) {
+                        stringResource(R.string.wake_private_context_locked)
+                    } else {
+                        stringResource(R.string.wake_private_context_ready)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Xs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryText,
+                    textAlign = TextAlign.Center,
+                )
+            }
 
             WmwSecondaryAction(
                 label = stringResource(R.string.wake_snooze_five),
                 onClick = onSnooze,
                 modifier = Modifier.padding(top = WmwSpacing.Lg),
+                onLightSurface = isLightSurface,
             )
             WmwIntentionalStopAction(
                 label = stringResource(R.string.wake_stop_alarm),
                 onClick = onStop,
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
+                onLightSurface = isLightSurface,
             )
 
             Spacer(Modifier.height(WmwSpacing.Xl))
@@ -359,24 +383,21 @@ private fun LegacyWakeEmergingSurface(
                 .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            WmwTimeDisplay(
-                time = displayTime,
-                modifier = Modifier.fillMaxWidth(),
-            )
             Text(
-                text = stringResource(R.string.wake_character_name),
+                text = stringResource(R.string.wake_character_name).uppercase(),
                 style = MaterialTheme.typography.labelMedium,
                 color = WmwColors.QuietText,
             )
-
-            Spacer(Modifier.height(WmwSpacing.Huge))
-
-            WmwPresence(
-                state = WmwPresenceState.QUIET,
-                contentDescription = stringResource(R.string.wake_presence_description),
+            WmwTimeDisplay(
+                time = displayTime,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Sm),
             )
 
-            Spacer(Modifier.height(WmwSpacing.Xxl))
+            Spacer(Modifier.height(WmwSpacing.Xl))
+            WmwWakeLine(state = WmwWakeLineState.QUIET)
+            Spacer(Modifier.height(WmwSpacing.Huge))
 
             Text(
                 text = preparedPlan?.orientationLeadIn
@@ -392,21 +413,10 @@ private fun LegacyWakeEmergingSurface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.titleMedium,
-                color = WmwColors.MorningPaper,
+                style = MaterialTheme.typography.bodyLarge,
+                color = WmwColors.QuietText,
                 textAlign = TextAlign.Center,
             )
-            preparedPlan?.firstMoveLine?.let { firstMove ->
-                Text(
-                    text = firstMove,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Md),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = WmwColors.QuietText,
-                    textAlign = TextAlign.Center,
-                )
-            }
 
             Spacer(Modifier.height(WmwSpacing.Hero))
 
