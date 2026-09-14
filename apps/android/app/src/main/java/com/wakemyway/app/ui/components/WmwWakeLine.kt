@@ -37,10 +37,10 @@ fun WmwWakeLine(
     height: Dp = WmwSizes.HomeWaveHeight,
 ) {
     val targetAmplitude = when (state) {
-        WmwWakeLineState.QUIET -> 0.42f
-        WmwWakeLineState.LISTENING -> 0.64f
+        WmwWakeLineState.QUIET -> 0.90f
+        WmwWakeLineState.LISTENING -> 0.92f
         WmwWakeLineState.MOVING -> 1f
-        WmwWakeLineState.SETTLED -> 0.30f
+        WmwWakeLineState.SETTLED -> 0.52f
     }
     val duration = when (state) {
         WmwWakeLineState.QUIET -> WmwMotion.EmergingAmbientMillis
@@ -59,6 +59,7 @@ fun WmwWakeLine(
         WmwWakeLineState.MOVING -> Color(0xFFF3C49A)
         WmwWakeLineState.SETTLED -> if (onLightSurface) WmwColors.Clay else WmwColors.Sage
     }
+    val homeScale = if (height <= WmwSizes.HomeWaveHeight) 0.58f else 1f
 
     Canvas(
         modifier = modifier
@@ -66,64 +67,71 @@ fun WmwWakeLine(
             .height(height),
     ) {
         val centerY = size.height * 0.52f
-        val wave = size.height * 0.31f * amplitude.value
+        val wave = size.height * 0.40f * amplitude.value * homeScale
         val path = Path().apply {
             moveTo(0f, centerY)
             cubicTo(
-                size.width * 0.12f,
-                centerY + wave * 0.04f,
+                size.width * 0.11f,
+                centerY + wave * 0.02f,
                 size.width * 0.20f,
-                centerY + wave * 0.22f,
+                centerY + wave * 0.25f,
                 size.width * 0.30f,
-                centerY + wave * 0.10f,
+                centerY + wave * 0.18f,
             )
             cubicTo(
-                size.width * 0.38f,
-                centerY,
-                size.width * 0.40f,
-                centerY - wave * 0.72f,
+                size.width * 0.39f,
+                centerY + wave * 0.08f,
+                size.width * 0.41f,
+                centerY - wave * 0.68f,
                 size.width * 0.50f,
                 centerY - wave,
             )
             cubicTo(
                 size.width * 0.59f,
-                centerY - wave * 0.80f,
+                centerY - wave * 0.78f,
                 size.width * 0.61f,
-                centerY + wave * 0.46f,
-                size.width * 0.72f,
-                centerY + wave * 0.36f,
+                centerY + wave * 0.56f,
+                size.width * 0.71f,
+                centerY + wave * 0.48f,
             )
             cubicTo(
-                size.width * 0.82f,
-                centerY + wave * 0.28f,
+                size.width * 0.80f,
+                centerY + wave * 0.40f,
                 size.width * 0.88f,
-                centerY - wave * 0.16f,
+                centerY - wave * 0.18f,
                 size.width,
                 centerY,
             )
         }
 
         drawLine(
-            color = if (onLightSurface) WmwColors.Clay.copy(alpha = 0.13f) else WmwColors.WarmLight.copy(alpha = 0.05f),
+            color = if (onLightSurface) WmwColors.Clay.copy(alpha = 0.13f) else WmwColors.WarmLight.copy(alpha = 0.045f),
             start = Offset(0f, centerY),
             end = Offset(size.width, centerY),
             strokeWidth = 0.7.dp.toPx(),
         )
 
         val glowAlpha = when (state) {
-            WmwWakeLineState.MOVING -> 0.24f
-            WmwWakeLineState.LISTENING -> 0.17f
-            else -> 0.11f
+            WmwWakeLineState.MOVING -> 0.34f
+            WmwWakeLineState.LISTENING -> 0.22f
+            WmwWakeLineState.QUIET -> 0.15f
+            WmwWakeLineState.SETTLED -> 0.10f
         }
         drawPath(
             path = path,
             color = accent.copy(alpha = if (onLightSurface) 0.10f else glowAlpha),
-            style = Stroke(width = if (state == WmwWakeLineState.MOVING) 13.dp.toPx() else 8.dp.toPx(), cap = StrokeCap.Round),
+            style = Stroke(
+                width = if (state == WmwWakeLineState.MOVING) 16.dp.toPx() else 10.dp.toPx(),
+                cap = StrokeCap.Round,
+            ),
         )
         drawPath(
             path = path,
-            color = accent.copy(alpha = if (onLightSurface) 0.58f else 0.94f),
-            style = Stroke(width = if (state == WmwWakeLineState.MOVING) 1.7.dp.toPx() else 1.15.dp.toPx(), cap = StrokeCap.Round),
+            color = accent.copy(alpha = if (onLightSurface) 0.58f else 0.96f),
+            style = Stroke(
+                width = if (state == WmwWakeLineState.MOVING) 1.8.dp.toPx() else 1.25.dp.toPx(),
+                cap = StrokeCap.Round,
+            ),
         )
     }
 }
