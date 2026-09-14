@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -45,12 +43,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.preparation.WakePreparationManager
-import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
-import com.wakemyway.app.ui.components.WmwStatusPill
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -93,6 +89,7 @@ fun TomorrowPlanScreen(
                 .padding(top = WmwSpacing.Xs, bottom = WmwSpacing.Md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -114,7 +111,7 @@ fun TomorrowPlanScreen(
                 }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Md))
+            Spacer(Modifier.height(36.dp))
             Text(
                 text = stringResource(R.string.tomorrow_plan_title),
                 modifier = Modifier.fillMaxWidth(),
@@ -123,11 +120,11 @@ fun TomorrowPlanScreen(
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
+            Spacer(Modifier.height(80.dp))
             ContractOrb()
             Text(
                 text = stringResource(R.string.tomorrow_plan_tap_to_write),
-                modifier = Modifier.padding(top = WmwSpacing.Sm),
+                modifier = Modifier.padding(top = 51.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.QuietText,
             )
@@ -169,8 +166,6 @@ fun TomorrowPlanScreen(
                 unfocusedPlaceholderColor = WmwColors.FaintText,
                 focusedLabelColor = WmwColors.QuietText,
                 unfocusedLabelColor = WmwColors.QuietText,
-                focusedSupportingTextColor = WmwColors.FaintText,
-                unfocusedSupportingTextColor = WmwColors.FaintText,
             )
 
             TextField(
@@ -181,12 +176,9 @@ fun TomorrowPlanScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = WmwSpacing.Lg),
+                    .padding(top = 35.dp),
                 placeholder = { Text(stringResource(R.string.tomorrow_plan_reason_placeholder)) },
-                supportingText = {
-                    Text("${rawText.length}/${TomorrowContract.MAX_RAW_TEXT_CHARACTERS}")
-                },
-                minLines = 4,
+                minLines = 5,
                 shape = MaterialTheme.shapes.medium,
                 colors = fieldColors,
             )
@@ -201,21 +193,10 @@ fun TomorrowPlanScreen(
                     .fillMaxWidth()
                     .padding(top = WmwSpacing.Xs),
                 placeholder = { Text(stringResource(R.string.tomorrow_plan_first_move_label)) },
-                supportingText = {
-                    Text("${firstMove.length}/${TomorrowContract.MAX_FIRST_MOVE_CHARACTERS}")
-                },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
                 colors = fieldColors,
             )
-
-            snapshot?.takeIf { it.status == WakePreparationStatus.READY }?.let {
-                WmwStatusPill(
-                    label = stringResource(R.string.tomorrow_plan_ready_badge),
-                    positive = true,
-                    modifier = Modifier.padding(top = WmwSpacing.Md),
-                )
-            }
 
             message?.let {
                 Text(
