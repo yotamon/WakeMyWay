@@ -10,8 +10,7 @@ import java.time.Duration
  *
  * AlarmKernel is the durable authority. The Wake Surface may disappear only after the durable Stop
  * or Snooze mutation succeeds, or when this occurrence is already no longer active because another
- * terminal surface won the race. AlarmPlaybackService is then stopped as the playback executor; its
- * notification-action handlers remain independently safe for actions initiated outside the Activity.
+ * terminal surface won the race. A stale old surface must never stop playback for a newer wake.
  */
 class WakeTerminalActions(context: Context) {
     private val appContext = context.applicationContext
@@ -19,23 +18,20 @@ class WakeTerminalActions(context: Context) {
     private val trace = WakeTimingTrace(appContext)
 
     fun stop(occurrenceId: WakeOccurrenceId): Boolean {
-        // A notification action or another retained surface may already have completed this exact
-        // occurrence. Treat that as acknowledged success for the stale UI, but never mutate a newer
-        // active occurrence from this old surface.
-        if (kernel.activeOccurrence()?.id != occurrenceId) return true
+        when (activeState(occurrenceId)) {
+            ActiveState.ALREADY_TERMINAL -> {
+                stopPlaybackComponent()
+                return true
+            }
+            ActiveState.STALE_SURFACE -> return true
+            ActiveState.CURRENT -> Unit
+        }
 
         val stopped = runCatching { kernel.stopActive(occurrenceId) }
             .getOrElse {
-                // Some terminal transitions can commit durable state before a later best-effort
-                // future-registration step fails. If this occurrence is no longer authoritative,
-                // the user's Stop intent has already been durably satisfied.
-                if (kernel.activeOccurrence()?.id != occurrenceId) {
-                    finishPlaybackAfterStop(occurrenceId)
-                    return true
-                }
-                return false
+                return acknowledgePostMutationState(occurrenceId, recordStop = true)
             }
-        if (!stopped) return kernel.activeOccurrence()?.id != occurrenceId
+        if (!stopped) return acknowledgePostMutationState(occurrenceId, recordStop = false)
 
         finishPlaybackAfterStop(occurrenceId)
         return true
@@ -45,11 +41,18 @@ class WakeTerminalActions(context: Context) {
         occurrenceId: WakeOccurrenceId,
         duration: Duration = DEFAULT_SNOOZE,
     ): Boolean {
-        if (kernel.activeOccurrence()?.id != occurrenceId) return true
+        when (activeState(occurrenceId)) {
+            ActiveState.ALREADY_TERMINAL -> {
+                stopPlaybackComponent()
+                return true
+            }
+            ActiveState.STALE_SURFACE -> return true
+            ActiveState.CURRENT -> Unit
+        }
 
         val replacement = runCatching { kernel.snoozeActive(occurrenceId, duration) }
             .getOrNull()
-            ?: return kernel.activeOccurrence()?.id != occurrenceId
+            ?: return acknowledgePostMutationState(occurrenceId, recordStop = false)
 
         trace.snoozed(occurrenceId)
         trace.expected(
@@ -57,13 +60,45 @@ class WakeTerminalActions(context: Context) {
             scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
             expectFullScreen = kernel.health().fullScreenIntentAllowed,
         )
-        appContext.stopService(Intent(appContext, AlarmPlaybackService::class.java))
+        stopPlaybackComponent()
         return true
+    }
+
+    private fun acknowledgePostMutationState(
+        occurrenceId: WakeOccurrenceId,
+        recordStop: Boolean,
+    ): Boolean = when (activeState(occurrenceId)) {
+        ActiveState.CURRENT -> false
+        ActiveState.STALE_SURFACE -> true
+        ActiveState.ALREADY_TERMINAL -> {
+            if (recordStop) trace.stopped(occurrenceId)
+            stopPlaybackComponent()
+            true
+        }
+    }
+
+    private fun activeState(occurrenceId: WakeOccurrenceId): ActiveState {
+        val activeId = kernel.activeOccurrence()?.id
+        return when {
+            activeId == null -> ActiveState.ALREADY_TERMINAL
+            activeId == occurrenceId -> ActiveState.CURRENT
+            else -> ActiveState.STALE_SURFACE
+        }
     }
 
     private fun finishPlaybackAfterStop(occurrenceId: WakeOccurrenceId) {
         trace.stopped(occurrenceId)
+        stopPlaybackComponent()
+    }
+
+    private fun stopPlaybackComponent() {
         appContext.stopService(Intent(appContext, AlarmPlaybackService::class.java))
+    }
+
+    private enum class ActiveState {
+        CURRENT,
+        ALREADY_TERMINAL,
+        STALE_SURFACE,
     }
 
     companion object {
