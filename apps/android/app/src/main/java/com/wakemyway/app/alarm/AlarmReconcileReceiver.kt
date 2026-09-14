@@ -13,12 +13,17 @@ class AlarmReconcileReceiver : BroadcastReceiver() {
             intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED
         var after = kernel.reconcile(afterBoot = afterBoot)
 
-        // Permissions/special access can change after a schedule was created. Never preserve an
-        // occurrence that would later be able to start critical audio without reachable controls.
-        if (
-            (after.nextOccurrence != null || after.activeOccurrence != null) &&
-            after.repairTarget() != AlarmRepairTarget.NONE
-        ) {
+        // A future occurrence still needs exact-alarm capability plus a controllable presentation
+        // path. An already-active occurrence only needs the presentation path: losing permission to
+        // schedule another exact alarm must not silence a wake that the user can still Stop safely.
+        val unsafe = when {
+            after.activeOccurrence != null ->
+                after.activeWakeRepairTarget() != AlarmRepairTarget.NONE
+            after.nextOccurrence != null ->
+                after.repairTarget() != AlarmRepairTarget.NONE
+            else -> false
+        }
+        if (unsafe) {
             val hadActiveExecution = after.activeOccurrence != null
             kernel.cancelSchedule()
             if (hadActiveExecution) {
