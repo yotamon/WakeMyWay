@@ -12,11 +12,11 @@ class AlarmReceiver : BroadcastReceiver() {
         val occurrenceId = WakeOccurrenceId(rawId)
         val kernel = AlarmKernel(context)
 
-        // An alarm that can make noise but cannot expose immediate controls is not safe to start.
-        // This is a last-line runtime guard for old schedules and permissions revoked after setup.
-        // Product scheduling preflight should normally make this branch unreachable.
+        // Once Android has delivered this occurrence, only execution-safety capabilities matter.
+        // Exact-alarm access controls future scheduling and Snooze, not whether an already-delivered
+        // wake with reachable Stop/Snooze controls may become active.
         val preflight = kernel.health()
-        if (preflight.repairTarget() != AlarmRepairTarget.NONE) {
+        if (preflight.activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
             return
         }
