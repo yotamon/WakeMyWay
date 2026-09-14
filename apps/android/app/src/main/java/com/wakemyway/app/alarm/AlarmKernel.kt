@@ -179,7 +179,8 @@ class AlarmKernel(
     }
 
     fun health(): AlarmHealth {
-        val snapshot = store.read()
+        val readResult = store.readResult()
+        val snapshot = (readResult as? CriticalWakeReadResult.Snapshot)?.value
         val enabledSnapshot = snapshot?.takeIf { it.enabled }
         val exactAllowed = registrar.canScheduleExactAlarms()
         val presentation = AlarmPresentationAccess.snapshot(appContext)
@@ -202,7 +203,9 @@ class AlarmKernel(
             nextOccurrence = enabledSnapshot?.nextOccurrence,
             activeOccurrence = enabledSnapshot?.activeOccurrence,
             detail = when {
-                snapshot == null -> "No wake schedule configured"
+                readResult is CriticalWakeReadResult.Corrupt ->
+                    "Critical wake state is unreadable; reconfigure the wake schedule"
+                readResult == CriticalWakeReadResult.Missing -> "No wake schedule configured"
                 enabledSnapshot == null -> "Wake schedule disabled"
                 !presentation.notificationsAllowed -> "Notification access required for alarm controls"
                 !presentation.highImportanceChannel -> "Active wake alerts must be high priority"
