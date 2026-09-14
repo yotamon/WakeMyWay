@@ -2,11 +2,13 @@ package com.wakemyway.core.schedule
 
 import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class NextWakeOccurrenceResolverTest {
@@ -60,6 +62,37 @@ class NextWakeOccurrenceResolverTest {
         val occurrence = resolver.resolve(schedule, exactAlarmInstant)
         assertTrue(occurrence.scheduledAt.toInstant().isAfter(exactAlarmInstant))
         assertEquals("2026-09-16T08:00+02:00[Europe/Berlin]", occurrence.scheduledAt.toString())
+    }
+
+    @Test
+    fun `exact-date one-shot resolves only its intended calendar date`() {
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("flight"),
+            zoneId = berlin,
+            timesByDay = mapOf(DayOfWeek.TUESDAY to LocalTime.of(5, 45)),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            oneShotDate = LocalDate.of(2026, 9, 22),
+        )
+
+        val occurrence = resolver.resolve(schedule, Instant.parse("2026-09-15T00:00:00Z"))
+
+        assertEquals(LocalDate.of(2026, 9, 22), occurrence.scheduledAt.toLocalDate())
+        assertEquals(LocalTime.of(5, 45), occurrence.scheduledAt.toLocalTime())
+    }
+
+    @Test
+    fun `expired exact-date one-shot never rolls to a later week`() {
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("expired-flight"),
+            zoneId = berlin,
+            timesByDay = mapOf(DayOfWeek.TUESDAY to LocalTime.of(5, 45)),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            oneShotDate = LocalDate.of(2026, 9, 22),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            resolver.resolve(schedule, Instant.parse("2026-09-22T06:00:00Z"))
+        }
     }
 
     private fun schedule(vararg times: Pair<DayOfWeek, LocalTime>) = WakeSchedule(
