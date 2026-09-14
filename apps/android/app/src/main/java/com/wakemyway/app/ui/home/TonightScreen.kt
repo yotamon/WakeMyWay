@@ -99,6 +99,7 @@ fun TonightScreen(
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Lg),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Spacer(Modifier.height(50.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,7 +123,7 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xxl))
+            Spacer(Modifier.height(70.dp))
 
             WmwTimeDisplay(
                 time = state.wakeTime,
@@ -138,7 +139,7 @@ fun TonightScreen(
 
             WmwWakeLine(
                 state = WmwWakeLineState.QUIET,
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                modifier = Modifier.padding(top = 61.dp),
             )
 
             if (state.hasOccurrence) {
@@ -151,9 +152,9 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Lg))
+            Spacer(Modifier.height(40.dp))
             Hairline()
-            Spacer(Modifier.height(WmwSpacing.Md))
+            Spacer(Modifier.height(42.dp))
 
             if (state.hasOccurrence) {
                 TomorrowContractPreview(
@@ -191,7 +192,7 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Lg))
+            Spacer(Modifier.height(74.dp))
             Hairline(alpha = 0.45f)
             Spacer(Modifier.height(WmwSpacing.Md))
 
