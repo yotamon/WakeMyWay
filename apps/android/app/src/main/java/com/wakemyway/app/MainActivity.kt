@@ -28,6 +28,7 @@ import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.AlarmPresentationAccess
 import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.WakeTimingTrace
+import com.wakemyway.app.alarm.activeWakeRepairTarget
 import com.wakemyway.app.alarm.repairTarget
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.navigation.WakeMyWayApp
@@ -134,12 +135,13 @@ class MainActivity : ComponentActivity() {
         refreshVoiceWakeReadiness()
         val health = alarmKernel.reconcile()
 
-        // Schedules created by older builds, or schedules whose permissions were later revoked,
-        // must not survive as future uncontrollable alarms. Voice Wake is the product contract for
-        // this build, so microphone/on-device recognition is part of pre-scheduling readiness too.
+        // A future occurrence must never survive loss of the Android capabilities required to
+        // schedule and present it safely. Voice capability is different: it is required when a new
+        // Voice Wake is committed, but revoking microphone/on-device STT later degrades the morning
+        // experience instead of silently deleting an otherwise safe alarm.
         if (
             health.nextOccurrence != null &&
-            wakeSchedulingBlocker(health, voiceWakeReadiness) != WakeSchedulingBlocker.NONE
+            health.repairTarget() != AlarmRepairTarget.NONE
         ) {
             alarmKernel.cancelSchedule()
         }
@@ -152,14 +154,14 @@ class MainActivity : ComponentActivity() {
      *
      * If critical presentation access has disappeared, clear durable authority and stop the service
      * component directly. Do not route through the normal recurring Stop path because an unsafe wake
-     * must not create a replacement occurrence. If presentation is healthy, continue into the real
-     * WakeActivity as the normal foreground rescue path.
+     * must not create a replacement occurrence. Exact-alarm access and voice capability are not
+     * execution-safety requirements for a wake that is already active.
      */
     private fun recoverOrResumeActiveWake() {
         val health = alarmKernel.health()
         val active = health.activeOccurrence ?: return
 
-        if (health.repairTarget() != AlarmRepairTarget.NONE) {
+        if (health.activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
             alarmKernel.cancelSchedule()
             stopService(Intent(this, AlarmPlaybackService::class.java))
             return
