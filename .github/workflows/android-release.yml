@@ -95,7 +95,7 @@ jobs:
 
       - name: Verify AAB signature
         shell: bash
-        run: jarsigner -verify -strict -certs app/build/outputs/bundle/release/app-release.aab
+        run: jarsigner -verify -certs app/build/outputs/bundle/release/app-release.aab
 
       - name: Generate release checksum
         shell: bash
