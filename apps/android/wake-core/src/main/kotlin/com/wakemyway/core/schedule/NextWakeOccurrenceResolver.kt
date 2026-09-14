@@ -8,15 +8,26 @@ import java.time.ZonedDateTime
 /**
  * Resolves the next PRIMARY Wake Occurrence strictly after [now].
  *
- * V1 DST policy:
+ * DST policy:
  * - normal local time: use the only valid offset;
  * - spring-forward gap: fire at the first valid local time after the gap;
  * - fall-back overlap: use the earlier occurrence so the alarm is never an hour late.
  */
 class NextWakeOccurrenceResolver {
     fun resolve(schedule: WakeSchedule, now: Instant): WakeOccurrence {
-        val localToday = now.atZone(schedule.zoneId).toLocalDate()
+        schedule.oneShotDate?.let { targetDate ->
+            val targetTime = requireNotNull(schedule.timesByDay[targetDate.dayOfWeek]) {
+                "Exact-date one-shot schedule is missing its target weekday"
+            }
+            val intended = LocalDateTime.of(targetDate, targetTime)
+            val resolved = resolveLocalDateTime(schedule, intended)
+            require(resolved.zonedDateTime.toInstant().isAfter(now)) {
+                "Exact-date one-shot schedule no longer has a future occurrence"
+            }
+            return occurrence(schedule, intended, resolved)
+        }
 
+        val localToday = now.atZone(schedule.zoneId).toLocalDate()
         for (dayOffset in 0L..7L) {
             val date = localToday.plusDays(dayOffset)
             val time = schedule.timesByDay[date.dayOfWeek] ?: continue
@@ -24,20 +35,26 @@ class NextWakeOccurrenceResolver {
             val resolved = resolveLocalDateTime(schedule, intended)
 
             if (resolved.zonedDateTime.toInstant().isAfter(now)) {
-                return WakeOccurrence(
-                    id = occurrenceId(schedule, resolved.zonedDateTime),
-                    wakeScheduleId = schedule.id,
-                    kind = WakeOccurrenceKind.PRIMARY,
-                    scheduledLocalDateTime = intended,
-                    scheduledAt = resolved.zonedDateTime,
-                    scheduleRevision = schedule.revision,
-                    localTimeResolution = resolved.resolution,
-                )
+                return occurrence(schedule, intended, resolved)
             }
         }
 
         error("WakeSchedule did not produce a future occurrence within one full recurrence cycle")
     }
+
+    private fun occurrence(
+        schedule: WakeSchedule,
+        intended: LocalDateTime,
+        resolved: ResolvedLocalDateTime,
+    ): WakeOccurrence = WakeOccurrence(
+        id = occurrenceId(schedule, resolved.zonedDateTime),
+        wakeScheduleId = schedule.id,
+        kind = WakeOccurrenceKind.PRIMARY,
+        scheduledLocalDateTime = intended,
+        scheduledAt = resolved.zonedDateTime,
+        scheduleRevision = schedule.revision,
+        localTimeResolution = resolved.resolution,
+    )
 
     private fun resolveLocalDateTime(
         schedule: WakeSchedule,
