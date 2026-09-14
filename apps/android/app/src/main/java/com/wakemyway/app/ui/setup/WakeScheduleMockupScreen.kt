@@ -67,6 +67,8 @@ fun WakeScheduleMockupScreen(
 ) {
     val context = LocalContext.current
     val locale = LocalConfiguration.current.locales[0]
+    val saveFailedCopy = stringResource(R.string.setup_save_failed)
+    val disableFailedCopy = stringResource(R.string.setup_disable_failed)
     val zoneId = ZoneId.systemDefault()
     val tomorrow = ZonedDateTime.now(zoneId).plusDays(1)
     val initialMode = if (existingSchedule?.completionPolicy == WakeCompletionPolicy.RECURRING) {
@@ -125,7 +127,7 @@ fun WakeScheduleMockupScreen(
             onBack()
             if (!result.wakeReady) onWakeAccessRequired()
         } else {
-            error = result.detail ?: context.getString(R.string.setup_save_failed)
+            error = result.detail ?: saveFailedCopy
         }
     }
 
@@ -303,7 +305,7 @@ fun WakeScheduleMockupScreen(
                         .getOrElse { WakeSetupCommitResult(false, it.message) }
                     confirmDelete = false
                     if (result.committed) onBack()
-                    else error = result.detail ?: context.getString(R.string.setup_disable_failed)
+                    else error = result.detail ?: disableFailedCopy
                 }) {
                     Text(stringResource(R.string.setup_disable_confirm))
                 }
