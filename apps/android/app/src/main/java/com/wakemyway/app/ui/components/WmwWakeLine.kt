@@ -26,8 +26,9 @@ enum class WmwWakeLineState {
 }
 
 /**
- * The signature Wake Line from the approved mockup. It is a horizon first and a waveform second:
- * long quiet shoulders, one human-looking central rise, a soft response, then a return to rest.
+ * The Wake Line is the same visual idea as the logo's ground line: one continuous calm sound wave
+ * that can also read as a mountain horizon. It changes amplitude with real wake state and never
+ * becomes a decorative equalizer.
  */
 @Composable
 fun WmwWakeLine(
@@ -37,10 +38,10 @@ fun WmwWakeLine(
     height: Dp = WmwSizes.HomeWaveHeight,
 ) {
     val targetAmplitude = when (state) {
-        WmwWakeLineState.QUIET -> 0.90f
-        WmwWakeLineState.LISTENING -> 0.92f
+        WmwWakeLineState.QUIET -> 0.55f
+        WmwWakeLineState.LISTENING -> 0.78f
         WmwWakeLineState.MOVING -> 1f
-        WmwWakeLineState.SETTLED -> 0.52f
+        WmwWakeLineState.SETTLED -> 0.42f
     }
     val duration = when (state) {
         WmwWakeLineState.QUIET -> WmwMotion.EmergingAmbientMillis
@@ -53,68 +54,68 @@ fun WmwWakeLine(
         animationSpec = tween(durationMillis = duration),
         label = "wake-line-amplitude",
     )
+
     val accent = when (state) {
-        WmwWakeLineState.QUIET -> if (onLightSurface) WmwColors.Clay else WmwColors.SoftEmber
-        WmwWakeLineState.LISTENING -> WmwColors.SoftEmber
-        WmwWakeLineState.MOVING -> Color(0xFFF3C49A)
-        WmwWakeLineState.SETTLED -> if (onLightSurface) WmwColors.Clay else WmwColors.Sage
+        WmwWakeLineState.QUIET -> if (onLightSurface) WmwColors.Midnight else WmwColors.WarmLight
+        WmwWakeLineState.LISTENING -> WmwColors.GoldenLight
+        WmwWakeLineState.MOVING -> WmwColors.SunriseSoft
+        WmwWakeLineState.SETTLED -> if (onLightSurface) WmwColors.DawnDeep else WmwColors.Dawn
     }
-    val homeScale = if (height <= WmwSizes.HomeWaveHeight) 0.58f else 1f
 
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(height),
     ) {
-        val centerY = size.height * 0.52f
-        val wave = size.height * 0.40f * amplitude.value * homeScale
+        val centerY = size.height * 0.62f
+        val scale = if (height <= WmwSizes.HomeWaveHeight) 0.72f else 1f
+        val peak = size.height * 0.26f * amplitude.value * scale
+        val valley = size.height * 0.05f * amplitude.value * scale
         val path = Path().apply {
-            moveTo(0f, centerY)
+            moveTo(size.width * 0.02f, centerY)
             cubicTo(
-                size.width * 0.11f,
-                centerY + wave * 0.02f,
-                size.width * 0.20f,
-                centerY + wave * 0.25f,
-                size.width * 0.30f,
-                centerY + wave * 0.18f,
+                size.width * 0.08f, centerY,
+                size.width * 0.12f, centerY - peak * 0.24f,
+                size.width * 0.17f, centerY - peak * 0.42f,
             )
             cubicTo(
-                size.width * 0.39f,
-                centerY + wave * 0.08f,
-                size.width * 0.41f,
-                centerY - wave * 0.68f,
-                size.width * 0.50f,
-                centerY - wave,
+                size.width * 0.22f, centerY - peak * 0.48f,
+                size.width * 0.26f, centerY + valley * 0.58f,
+                size.width * 0.32f, centerY + valley,
             )
             cubicTo(
-                size.width * 0.59f,
-                centerY - wave * 0.78f,
-                size.width * 0.61f,
-                centerY + wave * 0.56f,
-                size.width * 0.71f,
-                centerY + wave * 0.48f,
+                size.width * 0.39f, centerY + valley * 0.55f,
+                size.width * 0.42f, centerY - peak * 0.82f,
+                size.width * 0.50f, centerY - peak,
             )
             cubicTo(
-                size.width * 0.80f,
-                centerY + wave * 0.40f,
-                size.width * 0.88f,
-                centerY - wave * 0.18f,
-                size.width,
-                centerY,
+                size.width * 0.58f, centerY - peak * 0.82f,
+                size.width * 0.61f, centerY + valley * 0.55f,
+                size.width * 0.68f, centerY + valley,
+            )
+            cubicTo(
+                size.width * 0.74f, centerY + valley * 0.60f,
+                size.width * 0.78f, centerY - peak * 0.46f,
+                size.width * 0.83f, centerY - peak * 0.38f,
+            )
+            cubicTo(
+                size.width * 0.88f, centerY - peak * 0.12f,
+                size.width * 0.92f, centerY,
+                size.width * 0.98f, centerY,
             )
         }
 
         drawLine(
-            color = if (onLightSurface) WmwColors.Clay.copy(alpha = 0.13f) else WmwColors.WarmLight.copy(alpha = 0.045f),
-            start = Offset(0f, centerY),
-            end = Offset(size.width, centerY),
-            strokeWidth = 0.7.dp.toPx(),
+            color = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.08f) else WmwColors.WarmLight.copy(alpha = 0.05f),
+            start = Offset(size.width * 0.02f, centerY),
+            end = Offset(size.width * 0.98f, centerY),
+            strokeWidth = 0.75.dp.toPx(),
         )
 
         val glowAlpha = when (state) {
-            WmwWakeLineState.MOVING -> 0.34f
+            WmwWakeLineState.MOVING -> 0.30f
             WmwWakeLineState.LISTENING -> 0.22f
-            WmwWakeLineState.QUIET -> 0.15f
+            WmwWakeLineState.QUIET -> 0.12f
             WmwWakeLineState.SETTLED -> 0.10f
         }
         drawPath(
@@ -127,9 +128,9 @@ fun WmwWakeLine(
         )
         drawPath(
             path = path,
-            color = accent.copy(alpha = if (onLightSurface) 0.58f else 0.96f),
+            color = accent.copy(alpha = if (onLightSurface) 0.86f else 0.98f),
             style = Stroke(
-                width = if (state == WmwWakeLineState.MOVING) 1.8.dp.toPx() else 1.25.dp.toPx(),
+                width = if (state == WmwWakeLineState.MOVING) 2.1.dp.toPx() else 1.55.dp.toPx(),
                 cap = StrokeCap.Round,
             ),
         )
