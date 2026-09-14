@@ -6,18 +6,25 @@ import android.os.UserManager
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,28 +32,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakeTimePreparedContent
+import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
-import com.wakemyway.app.ui.components.WmwIntentionalStopAction
-import com.wakemyway.app.ui.components.WmwSecondaryAction
+import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwTimeDisplay
 import com.wakemyway.app.ui.components.WmwWakeLine
 import com.wakemyway.app.ui.components.WmwWakeLineState
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
+import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -118,16 +131,17 @@ class WakeActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        // Microphone and motion capture are scoped to a visible Wake Surface. Runtime intent is
+        // retained by WakeSessionViewModel and restored when the surface becomes visible again.
         sessionViewModel?.onSurfaceHidden()
+        // Private Tomorrow Contract-derived content must not remain in Compose state off-screen.
         preparedPlan = null
         super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && preparedPlan == null) {
-            refreshPreparedPlanIfUnlocked()
-        }
+        if (hasFocus && preparedPlan == null) refreshPreparedPlanIfUnlocked()
     }
 
     private fun refreshPreparedPlanIfUnlocked() {
@@ -135,6 +149,7 @@ class WakeActivity : ComponentActivity() {
         val userManager = getSystemService(UserManager::class.java)
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!userManager.isUserUnlocked || keyguard.isDeviceLocked) {
+            // Never read or render private prepared content during Direct Boot or while locked.
             preparedPlan = null
             return
         }
@@ -147,6 +162,7 @@ class WakeActivity : ComponentActivity() {
         }.getOrNull()
 
         if (preparedPlan != null) {
+            // Prevent screenshots and recent-app thumbnails while private morning context is shown.
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
@@ -159,291 +175,394 @@ internal fun WakeSurface(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+    displayDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMM")),
     voiceState: WakeVoiceUiState? = null,
 ) {
-    if (voiceState == null) {
-        LegacyWakeEmergingSurface(
+    when (voiceState?.mode) {
+        null,
+        WakeVoiceMode.STARTING,
+        WakeVoiceMode.SPEAKING,
+        WakeVoiceMode.DEGRADED,
+        -> EmergingWakeSurface(
             preparedPlan = preparedPlan,
+            spokenLine = voiceState?.spokenLine,
+            displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
             modifier = modifier,
-            displayTime = displayTime,
         )
-        return
-    }
 
-    VoiceWakeSurface(
-        preparedPlan = preparedPlan,
-        voiceState = voiceState,
-        onSnooze = onSnooze,
-        onStop = onStop,
-        modifier = modifier,
-        displayTime = displayTime,
-    )
+        WakeVoiceMode.LISTENING -> EngagedWakeSurface(
+            spokenLine = voiceState.spokenLine,
+            displayTime = displayTime,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            modifier = modifier,
+        )
+
+        WakeVoiceMode.MOVING -> ActiveWakeSurface(
+            spokenLine = voiceState.spokenLine,
+            displayTime = displayTime,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            modifier = modifier,
+        )
+
+        WakeVoiceMode.ORIENTING -> OrientedWakeSurface(
+            preparedPlan = preparedPlan,
+            spokenLine = voiceState.spokenLine,
+            displayDate = displayDate,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            modifier = modifier,
+        )
+
+        WakeVoiceMode.COMPLETE -> CompleteWakeSurface(
+            preparedPlan = preparedPlan,
+            displayTime = displayTime,
+            onStop = onStop,
+            modifier = modifier,
+        )
+    }
 }
 
 @Composable
-private fun VoiceWakeSurface(
-    preparedPlan: PreparedWakePlan?,
-    voiceState: WakeVoiceUiState,
-    onSnooze: () -> Unit,
-    onStop: () -> Unit,
+private fun WakeFrame(
+    stage: WmwCircadianStage,
     modifier: Modifier,
-    displayTime: String,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
-    val stage = when (voiceState.mode) {
-        WakeVoiceMode.STARTING,
-        WakeVoiceMode.SPEAKING,
-        WakeVoiceMode.DEGRADED,
-        -> WmwCircadianStage.EMERGING
-
-        WakeVoiceMode.LISTENING -> WmwCircadianStage.ENGAGED
-        WakeVoiceMode.MOVING -> WmwCircadianStage.ACTIVE
-        WakeVoiceMode.ORIENTING -> WmwCircadianStage.ORIENTED
-        WakeVoiceMode.COMPLETE -> WmwCircadianStage.COMPLETE
-    }
-    val lineState = when (voiceState.mode) {
-        WakeVoiceMode.STARTING,
-        WakeVoiceMode.SPEAKING,
-        WakeVoiceMode.DEGRADED,
-        -> WmwWakeLineState.QUIET
-
-        WakeVoiceMode.LISTENING -> WmwWakeLineState.LISTENING
-        WakeVoiceMode.MOVING -> WmwWakeLineState.MOVING
-        WakeVoiceMode.ORIENTING,
-        WakeVoiceMode.COMPLETE,
-        -> WmwWakeLineState.SETTLED
-    }
-    val isLightSurface = stage == WmwCircadianStage.ORIENTED || stage == WmwCircadianStage.COMPLETE
-    val primaryText = if (isLightSurface) WmwColors.Ink else WmwColors.WarmLight
-    val secondaryText = if (isLightSurface) WmwColors.Ink.copy(alpha = 0.66f) else WmwColors.QuietText
-    val statusText = when (voiceState.mode) {
-        WakeVoiceMode.STARTING -> stringResource(R.string.wake_voice_starting)
-        WakeVoiceMode.SPEAKING -> stringResource(R.string.wake_voice_speaking)
-        WakeVoiceMode.LISTENING -> stringResource(R.string.wake_voice_listening)
-        WakeVoiceMode.MOVING -> stringResource(R.string.wake_voice_moving)
-        WakeVoiceMode.ORIENTING -> stringResource(R.string.wake_voice_orienting)
-        WakeVoiceMode.DEGRADED -> stringResource(R.string.wake_voice_degraded)
-        WakeVoiceMode.COMPLETE -> stringResource(R.string.wake_voice_complete)
-    }
-
-    WmwCircadianSurface(
-        stage = stage,
-        modifier = modifier,
-    ) {
+    WmwCircadianSurface(stage = stage, modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
+                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
             horizontalAlignment = Alignment.CenterHorizontally,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun EmergingWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    spokenLine: String?,
+    displayTime: String,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.EMERGING, modifier) {
+        Spacer(Modifier.height(224.dp))
+        Text(
+            text = stringResource(R.string.wake_character_name).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = WmwColors.FaintText,
+        )
+        Spacer(Modifier.height(96.dp))
+        WmwTimeDisplay(
+            time = displayTime,
+            compact = true,
+            color = WmwColors.WarmLight.copy(alpha = 0.62f),
+        )
+        Spacer(Modifier.height(98.dp))
+        WmwWakeLine(
+            state = WmwWakeLineState.QUIET,
+            height = WmwSizes.WakeWaveHeight,
+        )
+        if (!spokenLine.isNullOrBlank()) {
+            Text(
+                text = spokenLine,
+                modifier = Modifier.padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.FaintText,
+                textAlign = TextAlign.Center,
+            )
+        } else if (preparedPlan != null) {
+            Text(
+                text = stringResource(R.string.wake_private_context_ready),
+                modifier = Modifier.padding(top = WmwSpacing.Sm),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.FaintText,
+                textAlign = TextAlign.Center,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+    }
+}
+
+@Composable
+private fun EngagedWakeSurface(
+    spokenLine: String?,
+    displayTime: String,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
+        Spacer(Modifier.height(248.dp))
+        WmwTimeDisplay(time = displayTime, compact = true)
+        Text(
+            text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
+            modifier = Modifier
+                .padding(top = 97.dp)
+                .graphicsLayer {
+                    scaleX = 1.70f
+                    scaleY = 1.70f
+                },
+            style = MaterialTheme.typography.titleLarge,
+            color = WmwColors.WarmLight,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = "◌  ${stringResource(R.string.wake_voice_listening)}…",
+            modifier = Modifier.padding(top = 66.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        Spacer(Modifier.height(19.dp))
+        WmwWakeLine(
+            state = WmwWakeLineState.LISTENING,
+            height = WmwSizes.WakeWaveHeight,
+        )
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+    }
+}
+
+@Composable
+private fun ActiveWakeSurface(
+    spokenLine: String?,
+    displayTime: String,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
+        Spacer(Modifier.height(215.dp))
+        WmwTimeDisplay(time = displayTime, compact = true)
+        Text(
+            text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
+            modifier = Modifier
+                .padding(top = 83.dp)
+                .graphicsLayer {
+                    scaleX = 1.75f
+                    scaleY = 1.75f
+                },
+            style = MaterialTheme.typography.titleLarge,
+            color = WmwColors.WarmLight,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(86.dp))
+        WmwWakeLine(
+            state = WmwWakeLineState.MOVING,
+            height = WmwSizes.WakeWaveHeight,
+        )
+        Row(
+            modifier = Modifier.padding(top = 80.dp),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(100.dp))
+                    .background(WmwColors.WarmLight.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("✓", style = MaterialTheme.typography.bodySmall, color = WmwColors.WarmLight)
+            }
+            Text(
+                text = stringResource(R.string.wake_voice_moving),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.WarmLight.copy(alpha = 0.84f),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+    }
+}
+
+@Composable
+private fun OrientedWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    spokenLine: String?,
+    displayDate: String,
+    onSnooze: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.ORIENTED, modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 146.dp),
+            horizontalAlignment = Alignment.Start,
         ) {
             Text(
-                text = stringResource(R.string.wake_character_name).uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = secondaryText,
-            )
-            WmwTimeDisplay(
-                time = displayTime,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Sm),
-                color = primaryText,
-            )
-
-            Spacer(Modifier.height(WmwSpacing.Lg))
-
-            WmwWakeLine(
-                state = lineState,
-                onLightSurface = isLightSurface,
-            )
-            Text(
-                text = statusText.uppercase(),
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (voiceState.mode == WakeVoiceMode.LISTENING) {
-                    WmwColors.SoftEmber
-                } else {
-                    secondaryText
-                },
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(Modifier.height(if (isLightSurface) WmwSpacing.Xxl else WmwSpacing.Huge))
-
-            Text(
-                text = voiceState.spokenLine
-                    ?: preparedPlan?.orientationLeadIn
-                    ?: stringResource(R.string.wake_default_greeting),
-                modifier = Modifier.fillMaxWidth(),
+                text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_oriented_greeting),
                 style = MaterialTheme.typography.headlineMedium,
-                color = primaryText,
-                textAlign = TextAlign.Center,
+                color = WmwColors.Ink,
             )
             Text(
-                text = if (voiceState.mode == WakeVoiceMode.LISTENING) {
-                    stringResource(R.string.wake_voice_answer_prompt)
-                } else {
-                    preparedPlan?.reminderLine
-                        ?: stringResource(R.string.wake_default_instruction)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.bodyLarge,
-                color = secondaryText,
-                textAlign = TextAlign.Center,
+                text = displayDate,
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.Ink.copy(alpha = 0.54f),
             )
-
-            if (isLightSurface) {
-                preparedPlan?.firstMoveLine?.let { firstMove ->
-                    Spacer(Modifier.height(WmwSpacing.Xxl))
-                    Text(
-                        text = stringResource(R.string.wake_whats_first).uppercase(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = secondaryText,
-                    )
-                    Text(
-                        text = firstMove,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = WmwSpacing.Sm),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = primaryText,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(WmwSpacing.Huge))
-
-            if (!isLightSurface && voiceState.voiceInputAvailable) {
-                Text(
-                    text = stringResource(R.string.wake_voice_privacy_note),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = secondaryText,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            if (!isLightSurface) {
-                Text(
-                    text = if (preparedPlan == null) {
-                        stringResource(R.string.wake_private_context_locked)
-                    } else {
-                        stringResource(R.string.wake_private_context_ready)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Xs),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = secondaryText,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            WmwSecondaryAction(
-                label = stringResource(R.string.wake_snooze_five),
-                onClick = onSnooze,
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-                onLightSurface = isLightSurface,
-            )
-            WmwIntentionalStopAction(
-                label = stringResource(R.string.wake_stop_alarm),
-                onClick = onStop,
+            Text(
+                text = preparedPlan?.reminderLine ?: stringResource(R.string.wake_oriented_ready),
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
-                onLightSurface = isLightSurface,
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.Ink.copy(alpha = 0.72f),
             )
+        }
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
+        Spacer(Modifier.height(204.dp))
+        WmwWakeLine(
+            state = WmwWakeLineState.SETTLED,
+            onLightSurface = true,
+            height = 72.dp,
+        )
+
+        Text(
+            text = stringResource(R.string.wake_whats_first),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 38.dp),
+            style = MaterialTheme.typography.titleLarge,
+            color = WmwColors.Ink,
+            textAlign = TextAlign.Start,
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 33.dp),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+        ) {
+            FirstMoveTile(
+                label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+                    ?: stringResource(R.string.wake_first_move_fallback),
+                glyph = "◯",
+                modifier = Modifier.weight(1f),
+            )
+            FirstMoveTile(
+                label = stringResource(R.string.wake_keep_moving),
+                glyph = "▰",
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, onLightSurface = true)
+    }
+}
+
+@Composable
+private fun CompleteWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    displayTime: String,
+    onStop: () -> Unit,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.COMPLETE, modifier) {
+        Spacer(Modifier.height(92.dp))
+        Text(
+            text = stringResource(R.string.wake_voice_complete).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = WmwColors.Ink.copy(alpha = 0.7f),
+        )
+        WmwTimeDisplay(
+            time = displayTime,
+            modifier = Modifier.padding(top = WmwSpacing.Md),
+            color = WmwColors.Ink,
+            compact = true,
+        )
+        WmwWakeLine(
+            state = WmwWakeLineState.SETTLED,
+            onLightSurface = true,
+            modifier = Modifier.padding(top = WmwSpacing.Xxl),
+        )
+        Text(
+            text = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+                ?: stringResource(R.string.wake_first_move_fallback),
+            modifier = Modifier.padding(top = WmwSpacing.Xxl),
+            style = MaterialTheme.typography.headlineSmall,
+            color = WmwColors.Ink,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.weight(1f))
+        WmwPrimaryAction(
+            label = stringResource(R.string.wake_finish),
+            onClick = onStop,
+            onLightSurface = true,
+            tone = WmwActionTone.DARK,
+        )
+    }
+}
+
+@Composable
+private fun FirstMoveTile(label: String, glyph: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(150.dp),
+        shape = MaterialTheme.shapes.medium,
+        color = WmwColors.PaperCard.copy(alpha = 0.90f),
+        border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
+    ) {
+        Column(
+            modifier = Modifier.padding(WmwSpacing.Md),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Text(glyph, style = MaterialTheme.typography.headlineMedium, color = WmwColors.Ink)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = WmwColors.Ink)
         }
     }
 }
 
 @Composable
-private fun LegacyWakeEmergingSurface(
-    preparedPlan: PreparedWakePlan?,
+private fun WakeSafetyFooter(
     onSnooze: () -> Unit,
     onStop: () -> Unit,
-    modifier: Modifier,
-    displayTime: String,
+    onLightSurface: Boolean,
 ) {
-    WmwCircadianSurface(
-        stage = WmwCircadianStage.EMERGING,
-        modifier = modifier,
+    val textColor = if (onLightSurface) WmwColors.Ink.copy(alpha = 0.70f) else WmwColors.QuietText
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Xxl),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
         ) {
-            Text(
-                text = stringResource(R.string.wake_character_name).uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = WmwColors.QuietText,
-            )
-            WmwTimeDisplay(
-                time = displayTime,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Sm),
-            )
-
-            Spacer(Modifier.height(WmwSpacing.Xl))
-            WmwWakeLine(state = WmwWakeLineState.QUIET)
-            Spacer(Modifier.height(WmwSpacing.Huge))
-
-            Text(
-                text = preparedPlan?.orientationLeadIn
-                    ?: stringResource(R.string.wake_default_greeting),
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.headlineMedium,
-                color = WmwColors.WarmLight,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = preparedPlan?.reminderLine
-                    ?: stringResource(R.string.wake_default_instruction),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.bodyLarge,
-                color = WmwColors.QuietText,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(Modifier.height(WmwSpacing.Hero))
-
-            Text(
-                text = if (preparedPlan == null) {
-                    stringResource(R.string.wake_private_context_locked)
-                } else {
-                    stringResource(R.string.wake_private_context_ready)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
-                textAlign = TextAlign.Center,
-            )
-
-            WmwSecondaryAction(
-                label = stringResource(R.string.wake_snooze_five),
+            TextButton(
                 onClick = onSnooze,
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-            )
-            WmwIntentionalStopAction(
-                label = stringResource(R.string.wake_stop_alarm),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(WmwSizes.SleepyTouchTarget),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_snooze_short),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                )
+            }
+            TextButton(
                 onClick = onStop,
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-            )
-
-            Spacer(Modifier.height(WmwSpacing.Xl))
+                modifier = Modifier
+                    .weight(1f)
+                    .height(WmwSizes.SleepyTouchTarget),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_stop_alarm),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                )
+            }
         }
     }
 }
@@ -461,10 +580,11 @@ private fun WakeListeningPreview() {
             preparedPlan = null,
             onSnooze = {},
             onStop = {},
-            displayTime = "08:00",
+            displayTime = "07:30",
+            displayDate = "Tuesday · 14 Jan",
             voiceState = WakeVoiceUiState(
                 mode = WakeVoiceMode.LISTENING,
-                spokenLine = "Sit up, then tell me when you're sitting.",
+                spokenLine = "Morning, Yotam.",
                 speechAvailable = true,
                 voiceInputAvailable = true,
             ),

@@ -22,110 +22,117 @@ private val WakeMyWayColors = darkColorScheme(
     background = WmwColors.Ink,
     onBackground = WmwColors.WarmLight,
     surface = WmwColors.NightSurface,
-    onSurface = WmwColors.MorningPaper,
+    onSurface = WmwColors.WarmLight,
     surfaceVariant = WmwColors.ElevatedNightSurface,
     onSurfaceVariant = WmwColors.QuietText,
-    outline = WmwColors.QuietText,
+    outline = WmwColors.Hairline,
+    error = WmwColors.Danger,
 )
 
+/*
+ * The concept board is built around a thin editorial serif paired with an understated grotesk.
+ * Android's bundled serif is used deliberately so wake-time rendering remains local and reliable.
+ * Light weights, generous leading and restrained tracking bring it much closer to the approved
+ * composition than the previous heavier Material treatment.
+ */
 private val EditorialSerif = FontFamily.Serif
 private val InterfaceSans = FontFamily.SansSerif
 
 private val WakeMyWayTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = EditorialSerif,
-        fontWeight = FontWeight.Normal,
-        fontSize = 82.sp,
-        lineHeight = 86.sp,
-        letterSpacing = (-1.6).sp,
+        fontWeight = FontWeight.Light,
+        fontSize = 86.sp,
+        lineHeight = 88.sp,
+        letterSpacing = (-2.1).sp,
     ),
     displayMedium = TextStyle(
         fontFamily = EditorialSerif,
-        fontWeight = FontWeight.Normal,
-        fontSize = 62.sp,
-        lineHeight = 66.sp,
-        letterSpacing = (-1.1).sp,
+        fontWeight = FontWeight.Light,
+        fontSize = 70.sp,
+        lineHeight = 74.sp,
+        letterSpacing = (-1.6).sp,
     ),
     headlineLarge = TextStyle(
         fontFamily = EditorialSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 38.sp,
-        lineHeight = 44.sp,
-        letterSpacing = (-0.35).sp,
+        fontSize = 34.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.45).sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = EditorialSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 30.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.2).sp,
+        fontSize = 28.sp,
+        lineHeight = 33.sp,
+        letterSpacing = (-0.25).sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = EditorialSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
+        fontSize = 22.sp,
+        lineHeight = 27.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = EditorialSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 21.sp,
-        lineHeight = 27.sp,
+        fontSize = 20.sp,
+        lineHeight = 25.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = InterfaceSans,
         fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 0.05.sp,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
+        letterSpacing = 0.sp,
     ),
     bodyLarge = TextStyle(
-        fontFamily = InterfaceSans,
+        fontFamily = EditorialSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = InterfaceSans,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 21.sp,
+        lineHeight = 20.sp,
     ),
     bodySmall = TextStyle(
         fontFamily = InterfaceSans,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 18.sp,
+        lineHeight = 17.sp,
     ),
     labelLarge = TextStyle(
         fontFamily = InterfaceSans,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.15.sp,
+        letterSpacing = 0.sp,
     ),
     labelMedium = TextStyle(
         fontFamily = InterfaceSans,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 1.4.sp,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 2.0.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = InterfaceSans,
         fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 1.1.sp,
+        fontSize = 9.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 1.35.sp,
     ),
 )
 
 private val WakeMyWayShapes = Shapes(
-    extraSmall = RoundedCornerShape(12.dp),
-    small = RoundedCornerShape(16.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(30.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp),
 )
 
 @Composable

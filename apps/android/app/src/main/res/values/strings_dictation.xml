@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tomorrow_plan_tap_to_speak">Tap to speak</string>
+    <string name="tomorrow_plan_listening">Listening…</string>
+    <string name="tomorrow_plan_dictation_unavailable">On-device dictation is unavailable right now. You can type below.</string>
+    <string name="tomorrow_plan_dictation_no_speech">I didn’t catch that. Tap the microphone to try again, or type below.</string>
+    <string name="tomorrow_plan_dictation_action">Dictate why tomorrow matters</string>
+</resources>
