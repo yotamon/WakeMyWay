@@ -52,6 +52,10 @@ object WmwSizes {
     val HomeWaveHeight = 58.dp
     val WakeWaveHeight = 92.dp
     val MicOrb = 132.dp
+
+    // Compatibility for the legacy presence component while the product uses Wake Line surfaces.
+    val PresenceSmall = 72.dp
+    val PresenceLarge = 104.dp
 }
 
 object WmwMotion {
