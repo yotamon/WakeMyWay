@@ -16,7 +16,8 @@
     <string name="tonight_tomorrow_matters">Tomorrow matters because</string>
     <string name="tonight_first_move">First move · %1$s</string>
     <string name="tonight_alfred_descriptor">Dry. Polite. Persistent.</string>
-    <string name="tonight_alfred_quote">“Seven thirty means seven thirty.”</string>
+    <string name="tonight_alfred_quote">“%1$s means %1$s.”</string>
+    <string name="tonight_alfred_empty_quote">“Choose the time. I’ll take it from there.”</string>
     <string name="tonight_contract_optional">Optional</string>
     <string name="tonight_contract_ready">Prepared</string>
     <string name="tonight_contract_empty">Give morning-you one reason to get up, plus an optional first move.</string>
