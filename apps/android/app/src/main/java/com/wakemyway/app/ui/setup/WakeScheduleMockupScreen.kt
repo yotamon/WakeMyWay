@@ -69,7 +69,9 @@ fun WakeScheduleMockupScreen(
     onWakeAccessRequired: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0]
+    val horizontalPadding = if (configuration.screenWidthDp < 384) WmwSpacing.Xs else WmwSpacing.Lg
     val saveFailedCopy = stringResource(R.string.setup_save_failed)
     val disableFailedCopy = stringResource(R.string.setup_disable_failed)
     val zoneId = ZoneId.systemDefault()
@@ -141,7 +143,7 @@ fun WakeScheduleMockupScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
+                .padding(horizontal = horizontalPadding, vertical = WmwSpacing.Md),
         ) {
             Row(
                 modifier = Modifier
