@@ -23,14 +23,16 @@ AlarmReceiver
     ↓ active-execution safety check
 AlarmPlaybackService
     ├─ bundled critical alarm audio
-    ├─ durable Stop / Snooze authority
+    ├─ notification terminal controls
     └─ full-screen WakeActivity
                 ↓
         WakeSessionViewModel
-                ↓
-     WakeVoiceSessionController
-                ↓
-           WakeRuntime
+          ├─ acknowledged Stop/Snooze → Alarm Kernel
+          └─ behavioral session
+                     ↓
+          WakeVoiceSessionController
+                     ↓
+                WakeRuntime
        ├─ local Alfred
        ├─ on-device voice replies
        ├─ motion evidence
@@ -46,10 +48,10 @@ The deep application review identified readiness and authority boundaries that h
 - **New Voice Wake creation stays strict.** Exact-alarm capability, notifications, HIGH active-wake channel, full-screen access, microphone permission and on-device recognition are required before committing a new Voice Wake.
 - **Existing safe alarms survive later voice degradation.** Losing microphone/on-device recognition after scheduling no longer silently deletes an otherwise controllable alarm. Voice degrades to the remaining local capabilities.
 - **Active wakes do not depend on future exact scheduling.** Once Android delivers an occurrence, active execution safety is notification/channel/full-screen controllability. Losing exact-alarm capability does not silence the current wake; Snooze remains fail-closed because it requires a durable exact replacement.
-- **Stop/Snooze have one live UI command path.** `WakeSessionViewModel` dispatches the kernel-authoritative `AlarmPlaybackService` command exactly once and only then releases behavioral resources. Duplicate terminal actions are suppressed; synchronous dispatch failure leaves the behavioral session alive.
+- **Stop/Snooze have one acknowledged live UI path.** `WakeSessionViewModel` calls `WakeTerminalActions`, which commits the Alarm Kernel transaction before releasing behavioral resources or dismissing the Wake Surface. Duplicate terminal actions are suppressed; rejected/failed Snooze keeps the current wake visible, audible and controllable.
 - **Critical Direct-Boot corruption is diagnosable.** `CriticalWakeStore` distinguishes `Missing` from `Corrupt` while mutation paths remain fail-closed. Alarm Health now reports an unreadable critical state instead of presenting corruption as an ordinary empty setup.
 - **The branded wake surface is adaptive.** Canonical 393×852 composition is preserved while decorative vertical rhythm and large Wake Line regions compress on shorter devices. A compact 360×640 render smoke test supplements the canonical golden set.
-- **Schedule controls meet the sleepy-use touch target.** Day selectors retain their branded 40dp visual circle inside a 48dp interactive target, and summary copy is resource-backed rather than hardcoded English.
+- **Schedule controls meet the sleepy-use touch target.** Day selectors retain their branded 40dp visual circle inside a 48dp interactive target, compact-width planning uses narrower brand spacing so all seven targets fit at 360dp, and summary copy is resource-backed rather than hardcoded English.
 
 Canonical semantics are recorded in ADR 019.
 
@@ -66,9 +68,11 @@ The critical wake path remains fully local and usable without cloud access.
 
 ## WakeRuntime and terminal authority
 
-`WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` / `AlarmPlaybackService` owns durable alarm execution and real terminal Stop/Snooze effects.
+`WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` owns durable alarm scheduling/state and real terminal Stop/Snooze mutations. `AlarmPlaybackService` owns foreground playback, notification actions and playback teardown/recovery.
 
-The pure runtime still contains typed terminal protocol concepts for deterministic replay/testing and future journal integration, but the production safety buttons do not wait for a behavioral state machine before dispatching a terminal alarm command. Live terminal results should be observed by future journal/learning integration rather than creating a second execution authority.
+The production Wake Surface does not disappear on a fire-and-forget terminal request. `WakeTerminalActions` first commits Stop or the durable Snooze replacement in `AlarmKernel`; only success is acknowledged back to `WakeSessionViewModel`, which then releases behavioral resources and closes the surface. Notification actions remain independently safe through the service path.
+
+The pure runtime still contains typed terminal protocol concepts for deterministic replay/testing and future journal integration, but those concepts do not become a second durable execution authority. Live terminal results should be observed by future journal/learning integration.
 
 M7 local learning core exists, but real-session journal persistence, calibration and learned-policy selection remain tracked in #27 / #21.
 
@@ -118,7 +122,7 @@ Repository quality gates include:
 - Cloud AI Platform tests;
 - documentation validation.
 
-PR #54 adds regression coverage for the scheduling-vs-active safety split, single-shot terminal dispatch, failed terminal dispatch, critical-state corruption, dedicated founder token-signing rotation and compact wake rendering.
+PR #54 adds regression coverage for the scheduling-vs-active safety split, acknowledged single-shot terminal transactions, rejected/failed Snooze behavior, critical-state corruption, dedicated founder token-signing rotation and compact wake rendering.
 
 Exact PR #54 pass/fail evidence must be taken from the final PR head before merge; this document must not claim a green gate before GitHub reports it.
 
