@@ -54,6 +54,7 @@ enum class WmwActionTone {
 fun WmwCircadianSurface(
     stage: WmwCircadianStage,
     modifier: Modifier = Modifier,
+    ambientGlow: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val background = when (stage) {
@@ -64,7 +65,15 @@ fun WmwCircadianSurface(
             listOf(Color(0xFF050708), Color(0xFF0A0B0C), Color(0xFF0B0A0A)),
         )
         WmwCircadianStage.ACTIVE -> Brush.verticalGradient(
-            listOf(Color(0xFF080A0B), Color(0xFF11100F), Color(0xFF08090A)),
+            listOf(
+                Color(0xFF07090A),
+                Color(0xFF10100F),
+                Color(0xFF241C18),
+                Color(0xFF5D402F),
+                Color(0xFF33241C),
+                Color(0xFF11100F),
+                Color(0xFF07090A),
+            ),
         )
         WmwCircadianStage.ORIENTED -> Brush.verticalGradient(
             listOf(Color(0xFFF4E8DD), WmwColors.MorningPaper, Color(0xFFEFE2D5)),
@@ -79,12 +88,16 @@ fun WmwCircadianSurface(
             .fillMaxSize()
             .background(background),
     ) {
-        if (stage != WmwCircadianStage.ORIENTED && stage != WmwCircadianStage.COMPLETE) {
+        if (
+            ambientGlow &&
+            stage != WmwCircadianStage.ORIENTED &&
+            stage != WmwCircadianStage.COMPLETE
+        ) {
             Canvas(Modifier.fillMaxSize()) {
                 val center = when (stage) {
                     WmwCircadianStage.EMERGING -> Offset(size.width * 0.50f, size.height * 0.58f)
                     WmwCircadianStage.ENGAGED -> Offset(size.width * 0.50f, size.height * 0.62f)
-                    WmwCircadianStage.ACTIVE -> Offset(size.width * 0.50f, size.height * 0.52f)
+                    WmwCircadianStage.ACTIVE -> Offset(size.width * 0.50f, size.height * 0.60f)
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> Offset.Zero
@@ -92,7 +105,7 @@ fun WmwCircadianSurface(
                 val glow = when (stage) {
                     WmwCircadianStage.EMERGING -> WmwColors.ClayGlow.copy(alpha = 0.055f)
                     WmwCircadianStage.ENGAGED -> WmwColors.ClayGlow.copy(alpha = 0.12f)
-                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.82f)
+                    WmwCircadianStage.ACTIVE -> WmwColors.EmberGlow.copy(alpha = 0.48f)
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> Color.Transparent
@@ -100,7 +113,7 @@ fun WmwCircadianSurface(
                 val radiusFraction = when (stage) {
                     WmwCircadianStage.EMERGING -> 0.30f
                     WmwCircadianStage.ENGAGED -> 0.36f
-                    WmwCircadianStage.ACTIVE -> 0.37f
+                    WmwCircadianStage.ACTIVE -> 0.25f
                     WmwCircadianStage.ORIENTED,
                     WmwCircadianStage.COMPLETE,
                     -> 0f
