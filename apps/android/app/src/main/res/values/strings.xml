@@ -82,18 +82,20 @@
     <string name="tomorrow_plan_eyebrow">Tomorrow Contract</string>
     <string name="tomorrow_plan_title">What makes tomorrow matter?</string>
     <string name="tomorrow_plan_subtitle">Give your future self one useful reason to get moving. Keep it specific, short and kind.</string>
+    <string name="tomorrow_plan_tap_to_write">Tap below to write</string>
     <string name="tomorrow_plan_no_wake">Set a wake time first. A Tomorrow Contract belongs to one concrete upcoming wake.</string>
     <string name="tomorrow_plan_reason_label">Why tomorrow matters / what to remember</string>
+    <string name="tomorrow_plan_reason_placeholder">Design review at 10. I want to be prepared, showered and have a calm breakfast.</string>
     <string name="tomorrow_plan_first_move_label">First move (optional)</string>
     <string name="tomorrow_plan_ready_title">Morning context is ready</string>
     <string name="tomorrow_plan_ready_body">Prepared locally for this wake and available without the network.</string>
     <string name="tomorrow_plan_ready_badge">Ready offline</string>
-    <string name="tomorrow_plan_save">Save &amp; prepare</string>
+    <string name="tomorrow_plan_save">Save</string>
     <string name="tomorrow_plan_done">Done</string>
     <string name="tomorrow_plan_saved">Saved and prepared locally for this wake.</string>
     <string name="tomorrow_plan_save_failed">Could not save private morning context. The alarm itself remains safe and local.</string>
-    <string name="tomorrow_plan_clear">Clear Tomorrow Contract</string>
-    <string name="tomorrow_plan_privacy_note">This private text stays in credential-protected local storage and never enters the Direct-Boot alarm snapshot.</string>
+    <string name="tomorrow_plan_clear">Clear</string>
+    <string name="tomorrow_plan_privacy_note">Private and local. Never included in the Direct-Boot alarm snapshot.</string>
     <string name="tomorrow_plan_clear_title">Clear private morning context?</string>
     <string name="tomorrow_plan_clear_body">The Tomorrow Contract and its prepared local plan will be deleted.</string>
     <string name="tomorrow_plan_clear_confirm">Clear</string>
@@ -124,7 +126,13 @@
     <string name="wake_voice_complete">Morning started</string>
     <string name="wake_voice_answer_prompt">Answer out loud. A real reply is part of this wake.</string>
     <string name="wake_voice_privacy_note">Voice replies are recognized on-device. Audio and transcripts are not saved.</string>
+    <string name="wake_oriented_greeting">Good morning.</string>
+    <string name="wake_oriented_ready">You’re up. Let’s make the first move easy.</string>
     <string name="wake_whats_first">What’s first?</string>
+    <string name="wake_first_move_fallback">Get moving</string>
+    <string name="wake_keep_moving">Keep moving</string>
+    <string name="wake_snooze_short">Snooze 5 min</string>
     <string name="wake_snooze_five">I need five more minutes</string>
     <string name="wake_stop_alarm">Stop alarm</string>
+    <string name="wake_finish">Finish</string>
 </resources>
