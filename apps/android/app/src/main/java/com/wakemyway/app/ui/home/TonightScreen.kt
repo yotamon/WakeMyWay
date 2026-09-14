@@ -1,7 +1,9 @@
 package com.wakemyway.app.ui.home
 
 import android.content.Intent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,20 +14,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
+import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
@@ -83,29 +95,34 @@ fun TonightScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = WmwSpacing.Xl, vertical = WmwSpacing.Lg),
+                .padding(horizontal = WmwSpacing.Lg)
+                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Lg),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = stringResource(R.string.app_name).uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = WmwColors.QuietText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WmwColors.QuietText.copy(alpha = 0.82f),
                 )
-                if (showDeveloperTools) {
-                    Text(
-                        text = stringResource(R.string.wmw_founder_build).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.QuietText.copy(alpha = 0.7f),
-                    )
-                }
+                SettingsGlyph(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(36.dp)
+                        .clickable(onClick = onOpenWakeSetup)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Edit wake settings"
+                        },
+                )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Hero))
+            Spacer(Modifier.height(WmwSpacing.Xxl))
 
             WmwTimeDisplay(
                 time = state.wakeTime,
@@ -114,8 +131,9 @@ fun TonightScreen(
             Text(
                 text = state.dateLabel,
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.MorningPaper,
+                style = MaterialTheme.typography.bodyLarge,
+                color = WmwColors.WarmLight.copy(alpha = 0.92f),
+                textAlign = TextAlign.Center,
             )
 
             WmwWakeLine(
@@ -129,58 +147,36 @@ fun TonightScreen(
                         if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
                     ),
                     positive = state.wakeReady,
-                    modifier = Modifier.padding(top = WmwSpacing.Xs),
+                    modifier = Modifier.padding(top = WmwSpacing.Xxs),
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xxl))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(WmwColors.Hairline),
-            )
-            Spacer(Modifier.height(WmwSpacing.Xl))
+            Spacer(Modifier.height(WmwSpacing.Lg))
+            Hairline()
+            Spacer(Modifier.height(WmwSpacing.Md))
 
             if (state.hasOccurrence) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
-                ) {
-                    Text(
-                        text = stringResource(R.string.tonight_tomorrow_matters).uppercase(),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = WmwColors.QuietText,
-                    )
-                    Text(
-                        text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
-                            ?: stringResource(R.string.tonight_contract_empty),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = WmwColors.MorningPaper,
-                    )
-                    state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
-                        Text(
-                            text = stringResource(R.string.tonight_first_move, firstMove),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = WmwColors.QuietText,
-                        )
-                    }
-                }
+                TomorrowContractPreview(
+                    state = state,
+                    onClick = onOpenTomorrowPlan,
+                )
             } else {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = WmwSpacing.Md),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         text = stringResource(R.string.tonight_no_wake_title),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = WmwColors.WarmLight,
                         textAlign = TextAlign.Center,
                     )
                     Text(
                         text = state.readinessDetail,
-                        modifier = Modifier.padding(top = WmwSpacing.Sm),
-                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = WmwSpacing.Xs),
+                        style = MaterialTheme.typography.bodySmall,
                         color = WmwColors.QuietText,
                         textAlign = TextAlign.Center,
                     )
@@ -191,48 +187,28 @@ fun TonightScreen(
                 WakeSystemAttention(
                     state = state,
                     onRepairWakeSystem = onRepairWakeSystem,
-                    modifier = Modifier.padding(top = WmwSpacing.Xl),
+                    modifier = Modifier.padding(top = WmwSpacing.Md),
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xxxl))
+            Spacer(Modifier.height(WmwSpacing.Lg))
+            Hairline(alpha = 0.45f)
+            Spacer(Modifier.height(WmwSpacing.Md))
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = stringResource(R.string.wake_character_name).uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = WmwColors.MorningPaper,
-                )
-                Text(
-                    text = stringResource(R.string.tonight_alfred_descriptor),
-                    modifier = Modifier.padding(top = WmwSpacing.Xs),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.QuietText,
-                )
-                Text(
-                    text = if (state.hasOccurrence) {
-                        stringResource(R.string.tonight_alfred_quote, state.wakeTime)
-                    } else {
-                        stringResource(R.string.tonight_alfred_empty_quote)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Md),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = WmwColors.MorningPaper,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            AlfredSignature(
+                quote = if (state.hasOccurrence) {
+                    stringResource(R.string.tonight_alfred_quote, state.wakeTime)
+                } else {
+                    stringResource(R.string.tonight_alfred_empty_quote)
+                },
+            )
 
             voiceWakeReadiness?.takeIf { it != VoiceWakeReadiness.READY }?.let { readiness ->
-                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xl)) {
-                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
+                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Md)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
                         Text(
-                            text = stringResource(R.string.tonight_voice_wake_title),
-                            style = MaterialTheme.typography.labelMedium,
+                            text = stringResource(R.string.tonight_voice_wake_title).uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
                             color = WmwColors.QuietText,
                         )
                         Text(
@@ -243,8 +219,8 @@ fun TonightScreen(
                                     VoiceWakeReadiness.UNAVAILABLE -> R.string.tonight_voice_wake_unavailable_detail
                                 },
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = WmwColors.MorningPaper,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WmwColors.WarmLight,
                         )
                         if (readiness == VoiceWakeReadiness.SETUP_REQUIRED) {
                             WmwSecondaryAction(
@@ -256,27 +232,16 @@ fun TonightScreen(
                 }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xxl))
+            Spacer(Modifier.weight(1f, fill = true))
+            Spacer(Modifier.height(WmwSpacing.Md))
 
             WmwPrimaryAction(
                 label = stringResource(
                     if (state.hasOccurrence) R.string.tonight_edit_wake else R.string.tonight_set_wake,
                 ),
                 onClick = onOpenWakeSetup,
+                tone = if (state.hasOccurrence) WmwActionTone.DARK else WmwActionTone.WARM,
             )
-            if (state.hasOccurrence) {
-                WmwSecondaryAction(
-                    label = stringResource(
-                        if (state.hasTomorrowContract) {
-                            R.string.tonight_edit_contract
-                        } else {
-                            R.string.tonight_add_contract
-                        },
-                    ),
-                    onClick = onOpenTomorrowPlan,
-                    modifier = Modifier.padding(top = WmwSpacing.Xs),
-                )
-            }
 
             if (showDeveloperTools) {
                 val conversationReady = ConversationalAlfredState.isReady(context)
@@ -298,10 +263,144 @@ fun TonightScreen(
                     onClick = onOpenWakeLab,
                 )
             }
-
-            Spacer(Modifier.height(WmwSpacing.Xxl))
         }
     }
+}
+
+@Composable
+private fun TomorrowContractPreview(
+    state: TonightUiState,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics {
+                role = Role.Button
+                contentDescription = "Edit Tomorrow Contract"
+            },
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.tonight_tomorrow_matters),
+            style = MaterialTheme.typography.bodyLarge,
+            color = WmwColors.WarmLight.copy(alpha = 0.82f),
+        )
+        Text(
+            text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.tonight_contract_empty),
+            style = MaterialTheme.typography.bodyLarge,
+            color = WmwColors.WarmLight,
+        )
+        state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
+            Text(
+                text = stringResource(R.string.tonight_first_move, firstMove),
+                modifier = Modifier.padding(top = WmwSpacing.Xxs),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.QuietText,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlfredSignature(quote: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
+    ) {
+        AlfredMark(Modifier.size(34.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.wake_character_name).uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = WmwColors.WarmLight,
+            )
+            Text(
+                text = quote,
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.QuietText,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlfredMark(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val radius = size.minDimension * 0.30f
+        drawCircle(
+            color = WmwColors.SoftEmber.copy(alpha = 0.9f),
+            radius = radius,
+            style = Stroke(width = 1.1.dp.toPx()),
+        )
+        repeat(8) { index ->
+            val angle = Math.toRadians(index * 45.0)
+            val start = Offset(
+                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.24f,
+                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.24f,
+            )
+            val end = Offset(
+                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.48f,
+                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.48f,
+            )
+            drawLine(
+                color = WmwColors.SoftEmber.copy(alpha = 0.82f),
+                start = start,
+                end = end,
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsGlyph(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val r = size.minDimension * 0.19f
+        drawCircle(
+            color = WmwColors.WarmLight.copy(alpha = 0.76f),
+            radius = r,
+            style = Stroke(width = 1.dp.toPx()),
+        )
+        drawCircle(
+            color = WmwColors.WarmLight.copy(alpha = 0.76f),
+            radius = r * 0.32f,
+            style = Stroke(width = 1.dp.toPx()),
+        )
+        repeat(8) { index ->
+            val angle = Math.toRadians(index * 45.0)
+            val start = Offset(
+                center.x + kotlin.math.cos(angle).toFloat() * r * 1.22f,
+                center.y + kotlin.math.sin(angle).toFloat() * r * 1.22f,
+            )
+            val end = Offset(
+                center.x + kotlin.math.cos(angle).toFloat() * r * 1.55f,
+                center.y + kotlin.math.sin(angle).toFloat() * r * 1.55f,
+            )
+            drawLine(
+                color = WmwColors.WarmLight.copy(alpha = 0.68f),
+                start = start,
+                end = end,
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Hairline(alpha: Float = 1f) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(0.75.dp)
+            .background(WmwColors.Hairline.copy(alpha = WmwColors.Hairline.alpha * alpha)),
+    )
 }
 
 @Composable
@@ -311,15 +410,15 @@ private fun WakeSystemAttention(
     modifier: Modifier = Modifier,
 ) {
     WmwCard(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
             Text(
                 text = stringResource(R.string.tonight_not_ready_title),
                 style = MaterialTheme.typography.titleLarge,
-                color = WmwColors.MorningPaper,
+                color = WmwColors.WarmLight,
             )
             Text(
                 text = state.readinessDetail,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.QuietText,
             )
             state.wakeRepairActionLabel?.let { repairLabel ->
@@ -344,13 +443,13 @@ private fun TonightReadyPreview() {
         TonightScreen(
             state = TonightUiState(
                 wakeTime = "07:30",
-                dateLabel = "Tuesday · Jan 14",
+                dateLabel = "Tuesday, 14 Jan",
                 hasOccurrence = true,
                 wakeReady = true,
                 readinessDetail = "Scheduled locally and ready for tomorrow.",
                 hasTomorrowContract = true,
                 tomorrowContractPrepared = true,
-                tomorrowContractText = "Design review at 10:00. I want to be prepared, showered and have a calm breakfast.",
+                tomorrowContractText = "Design review at 10:00. You wanted time to shower and eat.",
                 firstMove = "Shower",
             ),
             onOpenWakeSetup = {},
