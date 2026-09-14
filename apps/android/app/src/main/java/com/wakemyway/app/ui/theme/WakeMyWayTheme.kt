@@ -49,9 +49,9 @@ private val WakeMyWayTypography = Typography(
     displayMedium = TextStyle(
         fontFamily = EditorialSerif,
         fontWeight = FontWeight.Light,
-        fontSize = 58.sp,
-        lineHeight = 62.sp,
-        letterSpacing = (-1.2).sp,
+        fontSize = 70.sp,
+        lineHeight = 74.sp,
+        letterSpacing = (-1.6).sp,
     ),
     headlineLarge = TextStyle(
         fontFamily = EditorialSerif,
