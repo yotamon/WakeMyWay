@@ -22,7 +22,9 @@
     <application
         android:name=".WakeMyWayApplication"
         android:allowBackup="true"
-        android:label="Wake My Way"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/wmw_brand_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.WakeMyWay">
         <!--

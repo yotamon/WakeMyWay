@@ -267,3 +267,43 @@ Do not adopt Rive, Lottie or an AI-orb metaphor as the default identity system. 
 Roborazzi is the preferred visual-regression tool, but goldens are introduced only after canonical synthetic previews stabilize enough to represent reviewed design truth.
 
 The first foundation slice therefore creates canonical previews first; the next design gate records reviewed baselines and protects selected surfaces in CI. Private wake data is never used in visual fixtures.
+
+# Brand identity refinement — 2026-09-14
+
+## WakeMyWay is the canonical consumer wordmark
+
+Consumer-facing naming is rendered as **WakeMyWay** without spaces. `WMW` remains a valid internal shorthand. Earlier documentation that spells the product as “Wake My Way” is historical context rather than the current consumer wordmark.
+
+Primary brand line: **Brighter mornings. Your way.**
+
+## Sunrise + Wake Line is the canonical symbol
+
+The primary symbol is intentionally simple: a rising sun meeting one continuous horizon that reads simultaneously as a calm audio waveform and a mountain landscape.
+
+The same geometry becomes the in-product **Wake Line**. It changes amplitude with real wake state, so brand identity and wake interaction share one visual language rather than relying on repeated logo stamping.
+
+The mark must remain legible at Android launcher-icon size and has a monochrome themed-icon variant. Alarm-clock bells, rays, robot/AI symbols, generic equalizers and decorative complexity are excluded from the core mark.
+
+## Brand palette and product worlds
+
+Canonical palette:
+
+- Midnight `#08142F`
+- Deep Navy `#10264C`
+- Sunrise `#FF9F6D`
+- Sunrise Soft `#FFB88F`
+- Golden Light `#FFD699`
+- Dawn `#A5B4FC`
+- Dawn Deep `#7188E8`
+- Cloud `#F8F7F4`
+- Paper `#FFFCF8`
+
+Planning/setup surfaces use a light Cloud/Paper world with Midnight typography and Sunrise actions. Active wake remains intentionally dark and sparse, revealing warmer sunrise definition as the wake progresses. Oriented/completed states return to a light morning surface.
+
+## Earlier visual exploration is superseded, architecture is not
+
+The 2026-09-10 Adaptive Dawn principle remains valid as the night-to-morning presentation model, but the earlier serif-heavy / abstract Presence execution is superseded by the cleaner sunrise-wave identity.
+
+This is a presentation-system decision only. Alarm Kernel ownership, Wake Runtime determinism, Wake Ready truth, Direct Boot privacy, local Stop/Snooze authority and optional cloud enrichment boundaries remain unchanged.
+
+Canonical implementation guidance lives in [`07-design-system.md`](07-design-system.md).

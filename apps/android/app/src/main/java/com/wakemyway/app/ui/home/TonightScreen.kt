@@ -2,11 +2,11 @@ package com.wakemyway.app.ui.home
 
 import android.content.Intent
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,15 +39,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.ui.components.WmwActionTone
+import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.components.WmwStatusPill
+import com.wakemyway.app.ui.components.WmwSunriseMark
 import com.wakemyway.app.ui.components.WmwTimeDisplay
-import com.wakemyway.app.ui.components.WmwWakeLine
-import com.wakemyway.app.ui.components.WmwWakeLineState
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -84,9 +85,10 @@ fun TonightScreen(
     onRepairWakeSystem: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val settingsDescription = stringResource(R.string.tonight_edit_wake)
 
     WmwCircadianSurface(
-        stage = WmwCircadianStage.ENGAGED,
+        stage = WmwCircadianStage.PLANNING,
         modifier = modifier,
     ) {
         Column(
@@ -96,93 +98,48 @@ fun TonightScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
-                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Lg),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            Spacer(Modifier.height(50.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(36.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.app_name).uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = WmwColors.QuietText.copy(alpha = 0.82f),
-                )
-                SettingsGlyph(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .size(36.dp)
-                        .clickable(onClick = onOpenWakeSetup)
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "Edit wake settings"
-                        },
-                )
-            }
+            WmwBrandHeader(
+                trailing = {
+                    Surface(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clickable(onClick = onOpenWakeSetup)
+                            .semantics {
+                                role = Role.Button
+                                contentDescription = settingsDescription
+                            },
+                        shape = CircleShape,
+                        color = WmwColors.PaperCard.copy(alpha = 0.72f),
+                        shadowElevation = 1.dp,
+                    ) {
+                        SettingsGlyph(Modifier.padding(11.dp))
+                    }
+                },
+            )
 
-            Spacer(Modifier.height(70.dp))
-
-            WmwTimeDisplay(
-                time = state.wakeTime,
-                modifier = Modifier.fillMaxWidth(),
+            Spacer(Modifier.height(38.dp))
+            Text(
+                text = stringResource(R.string.tonight_greeting),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
             )
             Text(
-                text = state.dateLabel,
+                text = stringResource(R.string.tonight_brand_home_title),
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.headlineLarge,
+                color = WmwColors.Midnight,
+            )
+            Text(
+                text = stringResource(R.string.tonight_brand_home_subtitle),
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyLarge,
-                color = WmwColors.WarmLight.copy(alpha = 0.92f),
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
             )
 
-            WmwWakeLine(
-                state = WmwWakeLineState.QUIET,
-                modifier = Modifier.padding(top = 61.dp),
-            )
-
-            if (state.hasOccurrence) {
-                WmwStatusPill(
-                    label = stringResource(
-                        if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
-                    ),
-                    positive = state.wakeReady,
-                    modifier = Modifier.padding(top = WmwSpacing.Xxs),
-                )
-            }
-
-            Spacer(Modifier.height(40.dp))
-            Hairline()
-            Spacer(Modifier.height(42.dp))
-
-            if (state.hasOccurrence) {
-                TomorrowContractPreview(
-                    state = state,
-                    onClick = onOpenTomorrowPlan,
-                )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = WmwSpacing.Md),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource(R.string.tonight_no_wake_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = WmwColors.WarmLight,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = state.readinessDetail,
-                        modifier = Modifier.padding(top = WmwSpacing.Xs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = WmwColors.QuietText,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+            Spacer(Modifier.height(28.dp))
+            NextWakeCard(state = state)
 
             if (state.hasOccurrence && !state.wakeReady) {
                 WakeSystemAttention(
@@ -192,25 +149,22 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(74.dp))
-            Hairline(alpha = 0.45f)
             Spacer(Modifier.height(WmwSpacing.Md))
-
-            AlfredSignature(
-                quote = if (state.hasOccurrence) {
-                    stringResource(R.string.tonight_alfred_quote, state.wakeTime)
-                } else {
-                    stringResource(R.string.tonight_alfred_empty_quote)
-                },
+            TomorrowContractPreview(
+                state = state,
+                onClick = onOpenTomorrowPlan,
             )
 
             voiceWakeReadiness?.takeIf { it != VoiceWakeReadiness.READY }?.let { readiness ->
-                WmwCard(modifier = Modifier.padding(top = WmwSpacing.Md)) {
+                WmwCard(
+                    modifier = Modifier.padding(top = WmwSpacing.Md),
+                    onLightSurface = true,
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
                         Text(
                             text = stringResource(R.string.tonight_voice_wake_title).uppercase(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = WmwColors.QuietText,
+                            color = WmwColors.LightQuietText,
                         )
                         Text(
                             text = stringResource(
@@ -221,33 +175,46 @@ fun TonightScreen(
                                 },
                             ),
                             style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.WarmLight,
+                            color = WmwColors.Midnight,
                         )
                         if (readiness == VoiceWakeReadiness.SETUP_REQUIRED) {
                             WmwSecondaryAction(
                                 label = stringResource(R.string.tonight_voice_wake_enable),
                                 onClick = onEnableVoiceReplies,
+                                onLightSurface = true,
                             )
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.weight(1f, fill = true))
-            Spacer(Modifier.height(WmwSpacing.Md))
+            AlfredSignature(
+                quote = if (state.hasOccurrence) {
+                    stringResource(R.string.tonight_alfred_quote, state.wakeTime)
+                } else {
+                    stringResource(R.string.tonight_alfred_empty_quote)
+                },
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+            )
 
+            Spacer(Modifier.height(WmwSpacing.Xl))
             WmwPrimaryAction(
                 label = stringResource(
                     if (state.hasOccurrence) R.string.tonight_edit_wake else R.string.tonight_set_wake,
                 ),
                 onClick = onOpenWakeSetup,
-                tone = if (state.hasOccurrence) WmwActionTone.DARK else WmwActionTone.WARM,
+                onLightSurface = true,
+                tone = WmwActionTone.WARM,
             )
 
             if (showDeveloperTools) {
                 val conversationReady = ConversationalAlfredState.isReady(context)
                 WmwSecondaryAction(
-                    label = if (conversationReady) "Review Alfred connection" else "Connect Alfred",
+                    label = if (conversationReady) {
+                        stringResource(R.string.tonight_review_alfred_connection)
+                    } else {
+                        stringResource(R.string.tonight_connect_alfred)
+                    },
                     onClick = {
                         runCatching {
                             context.startActivity(
@@ -258,11 +225,81 @@ fun TonightScreen(
                             )
                         }
                     },
+                    onLightSurface = true,
                 )
                 WmwSecondaryAction(
                     label = stringResource(R.string.tonight_open_lab),
                     onClick = onOpenWakeLab,
+                    onLightSurface = true,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NextWakeCard(state: TonightUiState) {
+    WmwCard(
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Box(Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Lg),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.tonight_next_wake_label).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WmwColors.QuietText,
+                    )
+                    if (state.hasOccurrence) {
+                        WmwStatusPill(
+                            label = stringResource(
+                                if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
+                            ),
+                            positive = state.wakeReady,
+                        )
+                    }
+                }
+
+                WmwTimeDisplay(
+                    time = state.wakeTime,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = WmwSpacing.Xs),
+                    compact = true,
+                )
+                Text(
+                    text = state.dateLabel,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = WmwColors.QuietText,
+                    textAlign = TextAlign.Center,
+                )
+
+                WmwSunriseMark(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(104.dp)
+                        .padding(horizontal = WmwSpacing.Xl),
+                    onDark = true,
+                )
+
+                if (!state.hasOccurrence) {
+                    Text(
+                        text = state.readinessDetail,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.QuietText,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }
@@ -273,58 +310,88 @@ private fun TomorrowContractPreview(
     state: TonightUiState,
     onClick: () -> Unit,
 ) {
-    Column(
+    val editDescription = stringResource(R.string.tonight_edit_contract)
+    WmwCard(
         modifier = Modifier
-            .fillMaxWidth()
             .clickable(onClick = onClick)
             .semantics {
                 role = Role.Button
-                contentDescription = "Edit Tomorrow Contract"
+                contentDescription = editDescription
             },
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        onLightSurface = true,
     ) {
-        Text(
-            text = stringResource(R.string.tonight_tomorrow_matters),
-            style = MaterialTheme.typography.bodyLarge,
-            color = WmwColors.WarmLight.copy(alpha = 0.82f),
-        )
-        Text(
-            text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
-                ?: stringResource(R.string.tonight_contract_empty),
-            style = MaterialTheme.typography.bodyLarge,
-            color = WmwColors.WarmLight,
-        )
-        state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.tonight_section_contract).uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WmwColors.LightQuietText,
+                )
+                Text(
+                    text = if (state.hasTomorrowContract) {
+                        stringResource(R.string.tonight_contract_ready)
+                    } else {
+                        stringResource(R.string.tonight_contract_optional)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.DawnDeep,
+                )
+            }
             Text(
-                text = stringResource(R.string.tonight_first_move, firstMove),
-                modifier = Modifier.padding(top = WmwSpacing.Xxs),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
+                text = stringResource(R.string.tonight_tomorrow_matters),
+                style = MaterialTheme.typography.titleLarge,
+                color = WmwColors.Midnight,
             )
+            Text(
+                text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.tonight_contract_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
+            )
+            state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
+                Text(
+                    text = stringResource(R.string.tonight_first_move, firstMove),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.Midnight,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun AlfredSignature(quote: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
+private fun AlfredSignature(
+    quote: String,
+    modifier: Modifier = Modifier,
+) {
+    WmwCard(
+        modifier = modifier,
+        onLightSurface = true,
+        contentPadding = PaddingValues(WmwSpacing.Md),
     ) {
-        AlfredMark(Modifier.size(34.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.wake_character_name).uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = WmwColors.WarmLight,
-            )
-            Text(
-                text = quote,
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
+        ) {
+            AlfredMark(Modifier.size(38.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.wake_character_name),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = WmwColors.Midnight,
+                )
+                Text(
+                    text = quote,
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
+                )
+            }
         }
     }
 }
@@ -332,27 +399,31 @@ private fun AlfredSignature(quote: String) {
 @Composable
 private fun AlfredMark(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val radius = size.minDimension * 0.30f
         drawCircle(
-            color = WmwColors.SoftEmber.copy(alpha = 0.9f),
+            color = WmwColors.Sunrise.copy(alpha = 0.14f),
+            radius = size.minDimension * 0.48f,
+        )
+        val radius = size.minDimension * 0.24f
+        drawCircle(
+            color = WmwColors.Sunrise,
             radius = radius,
-            style = Stroke(width = 1.1.dp.toPx()),
+            style = Stroke(width = 1.3.dp.toPx()),
         )
         repeat(8) { index ->
             val angle = Math.toRadians(index * 45.0)
             val start = Offset(
-                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.24f,
-                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.24f,
+                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.28f,
+                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.28f,
             )
             val end = Offset(
-                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.48f,
-                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.48f,
+                x = center.x + kotlin.math.cos(angle).toFloat() * radius * 1.50f,
+                y = center.y + kotlin.math.sin(angle).toFloat() * radius * 1.50f,
             )
             drawLine(
-                color = WmwColors.SoftEmber.copy(alpha = 0.82f),
+                color = WmwColors.Sunrise,
                 start = start,
                 end = end,
-                strokeWidth = 1.dp.toPx(),
+                strokeWidth = 1.1.dp.toPx(),
                 cap = StrokeCap.Round,
             )
         }
@@ -362,16 +433,16 @@ private fun AlfredMark(modifier: Modifier = Modifier) {
 @Composable
 private fun SettingsGlyph(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val r = size.minDimension * 0.19f
+        val r = size.minDimension * 0.23f
         drawCircle(
-            color = WmwColors.WarmLight.copy(alpha = 0.76f),
+            color = WmwColors.Midnight.copy(alpha = 0.82f),
             radius = r,
-            style = Stroke(width = 1.dp.toPx()),
+            style = Stroke(width = 1.2.dp.toPx()),
         )
         drawCircle(
-            color = WmwColors.WarmLight.copy(alpha = 0.76f),
-            radius = r * 0.32f,
-            style = Stroke(width = 1.dp.toPx()),
+            color = WmwColors.Midnight.copy(alpha = 0.82f),
+            radius = r * 0.31f,
+            style = Stroke(width = 1.2.dp.toPx()),
         )
         repeat(8) { index ->
             val angle = Math.toRadians(index * 45.0)
@@ -380,28 +451,18 @@ private fun SettingsGlyph(modifier: Modifier = Modifier) {
                 center.y + kotlin.math.sin(angle).toFloat() * r * 1.22f,
             )
             val end = Offset(
-                center.x + kotlin.math.cos(angle).toFloat() * r * 1.55f,
-                center.y + kotlin.math.sin(angle).toFloat() * r * 1.55f,
+                center.x + kotlin.math.cos(angle).toFloat() * r * 1.53f,
+                center.y + kotlin.math.sin(angle).toFloat() * r * 1.53f,
             )
             drawLine(
-                color = WmwColors.WarmLight.copy(alpha = 0.68f),
+                color = WmwColors.Midnight.copy(alpha = 0.72f),
                 start = start,
                 end = end,
-                strokeWidth = 1.dp.toPx(),
+                strokeWidth = 1.1.dp.toPx(),
                 cap = StrokeCap.Round,
             )
         }
     }
-}
-
-@Composable
-private fun Hairline(alpha: Float = 1f) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(0.75.dp)
-            .background(WmwColors.Hairline.copy(alpha = WmwColors.Hairline.alpha * alpha)),
-    )
 }
 
 @Composable
@@ -410,22 +471,26 @@ private fun WakeSystemAttention(
     onRepairWakeSystem: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    WmwCard(modifier = modifier) {
+    WmwCard(
+        modifier = modifier,
+        onLightSurface = true,
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
             Text(
                 text = stringResource(R.string.tonight_not_ready_title),
                 style = MaterialTheme.typography.titleLarge,
-                color = WmwColors.WarmLight,
+                color = WmwColors.Midnight,
             )
             Text(
                 text = state.readinessDetail,
                 style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.QuietText,
+                color = WmwColors.LightQuietText,
             )
             state.wakeRepairActionLabel?.let { repairLabel ->
                 WmwPrimaryAction(
                     label = repairLabel,
                     onClick = onRepairWakeSystem,
+                    onLightSurface = true,
                 )
             }
         }
