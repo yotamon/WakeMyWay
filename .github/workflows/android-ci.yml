@@ -10,6 +10,7 @@ on:
       - "README.md"
       - "tooling/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
   push:
     branches: [main]
     paths:
@@ -20,6 +21,7 @@ on:
       - "README.md"
       - "tooling/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
 
 permissions:
   contents: read
@@ -63,7 +65,7 @@ jobs:
         run: |
           mkdir -p app/build/reports
           set -o pipefail
-          ./gradlew :app:lintDebug --stacktrace 2>&1 | tee app/build/reports/lint-ci.log
+          ./gradlew :app:lintDebug :app:lintRelease --stacktrace 2>&1 | tee app/build/reports/lint-ci.log
       - name: Upload lint diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -74,12 +76,17 @@ jobs:
             apps/android/app/build/reports/lint-results-debug.txt
             apps/android/app/build/reports/lint-results-debug.html
             apps/android/app/build/reports/lint-results-debug.xml
+            apps/android/app/build/reports/lint-results-release.txt
+            apps/android/app/build/reports/lint-results-release.html
+            apps/android/app/build/reports/lint-results-release.xml
           if-no-files-found: ignore
           retention-days: 14
       - name: Compile instrumentation tests
         run: ./gradlew :app:assembleDebugAndroidTest --stacktrace
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Bundle release AAB
+        run: ./gradlew :app:bundleRelease --stacktrace
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -92,5 +99,12 @@ jobs:
         with:
           name: wake-my-way-androidTest-${{ github.sha }}
           path: apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload unsigned release AAB verification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-release-unsigned-${{ github.sha }}
+          path: apps/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
