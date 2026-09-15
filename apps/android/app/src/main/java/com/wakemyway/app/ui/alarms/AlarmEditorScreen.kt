@@ -27,6 +27,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
+import com.wakemyway.app.alarm.WakeSoundPreviewPlayer
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwBrandLockup
 import com.wakemyway.app.ui.components.WmwCard
@@ -64,6 +67,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 private enum class EditorScheduleMode { WEEKLY, ONE_SHOT }
 
@@ -81,6 +85,7 @@ fun AlarmEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
     val configuration = LocalConfiguration.current
     val locale = configuration.locales[0]
     val today = LocalDate.now()
@@ -100,6 +105,9 @@ fun AlarmEditorScreen(
     val initialSoundId = existing?.soundId
         ?.takeIf { it in soundOptions }
         ?: WakeSoundCatalog.defaultId
+    val soundPreviewPlayer = remember(appContext) {
+        WakeSoundPreviewPlayer.create(appContext)
+    }
 
     var label by remember(existing?.revision) { mutableStateOf(existing?.label.orEmpty()) }
     var mode by remember(existing?.revision) { mutableStateOf(initialMode) }
@@ -107,6 +115,8 @@ fun AlarmEditorScreen(
     var days by remember(existing?.revision) { mutableStateOf(initialDays) }
     var date by remember(existing?.revision) { mutableStateOf(initialDate) }
     var soundId by remember(existing?.revision, soundOptions) { mutableStateOf(initialSoundId) }
+    var previewingSoundId by remember(existing?.revision) { mutableStateOf<WakeSoundId?>(null) }
+    var previewError by remember(existing?.revision) { mutableStateOf<String?>(null) }
     var voiceCheckIn by remember(existing?.revision) { mutableStateOf(existing?.voiceCheckInEnabled ?: true) }
     var voiceStyle by remember(existing?.revision) { mutableStateOf(existing?.voiceStyle ?: VoiceStyle.DEFAULT) }
     var snoozeEnabled by remember(existing?.revision) { mutableStateOf(existing?.snoozePolicy?.enabled ?: true) }
@@ -119,6 +129,30 @@ fun AlarmEditorScreen(
     var firstMove by remember(existing?.revision) { mutableStateOf(existing?.firstMoveDefault.orEmpty()) }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember(existing?.id) { mutableStateOf(false) }
+
+    fun stopPreview() {
+        soundPreviewPlayer.stop()
+        previewingSoundId = null
+    }
+
+    fun exitEditor() {
+        stopPreview()
+        onBack()
+    }
+
+    DisposableEffect(soundPreviewPlayer) {
+        onDispose {
+            soundPreviewPlayer.close()
+        }
+    }
+
+    LaunchedEffect(previewingSoundId) {
+        val activeSoundId = previewingSoundId ?: return@LaunchedEffect
+        delay(SOUND_PREVIEW_DURATION_MILLIS)
+        if (previewingSoundId == activeSoundId) {
+            stopPreview()
+        }
+    }
 
     fun chooseTime() {
         TimePickerDialog(
@@ -194,7 +228,7 @@ fun AlarmEditorScreen(
         )
         val result = runCatching { onSave(definition) }
             .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
-        if (result.saved) onBack() else error = result.detail ?: "Could not save this alarm."
+        if (result.saved) exitEditor() else error = result.detail ?: "Could not save this alarm."
     }
 
     WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
@@ -209,7 +243,7 @@ fun AlarmEditorScreen(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onBack) {
+                TextButton(onClick = ::exitEditor) {
                     Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
                 }
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
@@ -259,7 +293,7 @@ fun AlarmEditorScreen(
 
             EditorSection("Wake sound", Modifier.padding(top = WmwSpacing.Md)) {
                 Text(
-                    text = "Bundled locally and available without network access.",
+                    text = "Choose your wake sound and preview a 12-second sample at media volume.",
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.LightQuietText,
                 )
@@ -267,7 +301,32 @@ fun AlarmEditorScreen(
                     WakeSoundChoice(
                         id = option,
                         selected = option == soundId,
-                        onSelected = { soundId = option },
+                        previewing = option == previewingSoundId,
+                        onSelected = {
+                            if (option != soundId && previewingSoundId != null) {
+                                stopPreview()
+                            }
+                            soundId = option
+                            previewError = null
+                        },
+                        onPreview = {
+                            if (previewingSoundId == option) {
+                                stopPreview()
+                            } else if (soundPreviewPlayer.play(option)) {
+                                previewingSoundId = option
+                                previewError = null
+                            } else {
+                                previewingSoundId = null
+                                previewError = "Could not preview this sound."
+                            }
+                        },
+                    )
+                }
+                previewError?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.Danger,
                     )
                 }
             }
@@ -360,7 +419,10 @@ fun AlarmEditorScreen(
 
             if (existing != null && onDelete != null) {
                 TextButton(
-                    onClick = { showDeleteConfirmation = true },
+                    onClick = {
+                        stopPreview()
+                        showDeleteConfirmation = true
+                    },
                     modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 ) {
                     Text("Delete alarm", color = WmwColors.Danger)
@@ -383,7 +445,7 @@ fun AlarmEditorScreen(
                             .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
                         if (result.saved) {
                             showDeleteConfirmation = false
-                            onBack()
+                            exitEditor()
                         } else {
                             error = result.detail ?: "Could not delete this alarm."
                             showDeleteConfirmation = false
@@ -448,7 +510,9 @@ private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
 private fun WakeSoundChoice(
     id: WakeSoundId,
     selected: Boolean,
+    previewing: Boolean,
     onSelected: () -> Unit,
+    onPreview: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -459,7 +523,7 @@ private fun WakeSoundChoice(
         border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
+            modifier = Modifier.padding(start = WmwSpacing.Md, end = WmwSpacing.Sm, top = WmwSpacing.Xs, bottom = WmwSpacing.Xs),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -474,6 +538,13 @@ private fun WakeSoundChoice(
                     modifier = Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = if (selected) WmwColors.WarmLight.copy(alpha = 0.72f) else WmwColors.LightQuietText,
+                )
+            }
+            TextButton(onClick = onPreview) {
+                Text(
+                    text = if (previewing) "Stop" else "Preview",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnDeep,
                 )
             }
             Text(
@@ -600,6 +671,8 @@ private fun wakeSoundName(id: WakeSoundId): String = when (id) {
     WakeSoundId.MORNING_PULSE -> "Morning Pulse"
     else -> "Wake sound"
 }
+
+private const val SOUND_PREVIEW_DURATION_MILLIS = 12_000L
 
 private val WEEKDAYS = setOf(
     DayOfWeek.MONDAY,
