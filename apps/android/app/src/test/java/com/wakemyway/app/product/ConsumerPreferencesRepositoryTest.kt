@@ -97,6 +97,37 @@ class ConsumerPreferencesRepositoryTest {
     }
 
     @Test
+    fun `unknown appearance falls back without discarding other preferences`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "onboardingCompleted": true,
+              "displayName": "Yotam",
+              "defaultSoundId": "soft-start",
+              "defaultVoiceCheckInEnabled": false,
+              "defaultVoiceStyle": "MINIMAL",
+              "defaultSnoozeMinutes": 15,
+              "defaultFirstMove": "Open the curtains",
+              "appearance": "FUTURE_ATMOSPHERE"
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+        val preferences = ConsumerPreferencesRepository(context, fileName).get()
+
+        assertTrue(preferences.onboardingCompleted)
+        assertEquals("Yotam", preferences.displayName)
+        assertEquals(WakeSoundId.SOFT_START, preferences.defaultSoundId)
+        assertFalse(preferences.defaultVoiceCheckInEnabled)
+        assertEquals(VoiceStyle.MINIMAL, preferences.defaultVoiceStyle)
+        assertEquals(15, preferences.defaultSnoozeMinutes)
+        assertEquals("Open the curtains", preferences.defaultFirstMove)
+        assertEquals(AppAppearance.DAYLIGHT, preferences.appearance)
+    }
+
+    @Test
     fun `corrupt non critical preferences fail open and can be replaced`() {
         val fileName = uniqueFileName()
         File(context.filesDir, fileName).writeText("{not-json", Charsets.UTF_8)
