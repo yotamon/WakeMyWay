@@ -9,4 +9,10 @@
         <item name="android:statusBarColor">#08142F</item>
         <item name="android:navigationBarColor">#08142F</item>
     </style>
+
+    <!-- MainActivity only. WakeActivity intentionally keeps Theme.WakeMyWay so an alarm never
+         renders or waits on consumer launch branding before presenting the active wake surface. -->
+    <style name="Theme.WakeMyWay.Launch" parent="Theme.WakeMyWay">
+        <item name="android:windowBackground">@drawable/wmw_launch_background</item>
+    </style>
 </resources>
