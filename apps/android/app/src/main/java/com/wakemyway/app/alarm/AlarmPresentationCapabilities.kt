@@ -10,12 +10,10 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 
 /**
- * Android presentation capabilities that are required for a controllable Wake My Way alarm.
+ * Android presentation capabilities required for a controllable WakeMyWay alarm.
  *
- * Critical audio can still execute when one of these capabilities is missing, but the product must
- * not call that state Wake Ready: without notifications / a high-importance channel / full-screen
- * alarm access, a sleeping user can end up hearing critical audio without the intended Wake Surface
- * or immediately reachable Stop/Snooze controls.
+ * These are execution-safety capabilities. Exact-alarm access is deliberately not part of this
+ * value because it answers a different question: whether Android may schedule a future occurrence.
  */
 data class AlarmPresentationCapabilities(
     val notificationsAllowed: Boolean,
@@ -34,12 +32,18 @@ enum class AlarmRepairTarget {
     NONE,
 }
 
-/**
- * One canonical priority for critical wake repair. Product copy and the action it launches must
- * never disagree when more than one Android capability is missing.
- */
 fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
+    activeOccurrence != null -> activeWakeRepairTarget()
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
+    else -> activeWakeRepairTarget()
+}
+
+fun AlarmHealth.futureSchedulingRepairTarget(): AlarmRepairTarget = when {
+    !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
+    else -> activeWakeRepairTarget()
+}
+
+fun AlarmHealth.activeWakeRepairTarget(): AlarmRepairTarget = when {
     !notificationsAllowed -> AlarmRepairTarget.NOTIFICATIONS
     !notificationChannelHighImportance -> AlarmRepairTarget.ACTIVE_WAKE_CHANNEL
     !fullScreenIntentAllowed -> AlarmRepairTarget.FULL_SCREEN_INTENT
@@ -57,9 +61,7 @@ object AlarmPresentationAccess {
                 "Active wake alarms",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Critical Wake My Way alarm playback and wake controls"
-                // AlarmPlaybackService owns audible alarm playback. The channel itself stays silent
-                // so Android cannot produce a second overlapping notification sound.
+                description = "Critical WakeMyWay alarm playback and wake controls"
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
