@@ -81,7 +81,7 @@ fun AlarmEditorScreen(
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val locale = configuration.locales[0] ?: Locale.getDefault()
+    val locale = configuration.locales[0]
     val today = LocalDate.now()
     val initialMode = when (existing?.schedule) {
         is AlarmSchedulePattern.OneShot -> EditorScheduleMode.ONE_SHOT
@@ -162,7 +162,6 @@ fun AlarmEditorScreen(
                 EditorScheduleMode.WEEKLY -> AlarmSchedulePattern.Weekly(days = days, time = time)
                 EditorScheduleMode.ONE_SHOT -> AlarmSchedulePattern.OneShot(date = date, time = time)
             },
-            // Sound remains internal until the real branded WAV assets are bundled and selectable.
             soundId = existing?.soundId ?: WakeSoundId.MORNING_LIGHT,
             voiceCheckInEnabled = voiceCheckIn,
             characterId = existing?.characterId ?: CharacterId.ALFRED,
@@ -349,9 +348,7 @@ fun AlarmEditorScreen(
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete this alarm?") },
             text = {
-                Text(
-                    "This removes this wake and its future Android alarm. Other alarms stay unchanged.",
-                )
+                Text("This removes this wake and its future Android alarm. Other alarms stay unchanged.")
             },
             confirmButton = {
                 TextButton(
