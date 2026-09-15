@@ -72,7 +72,7 @@ Chaos:
 NIGHT
   |
   v
-Set wake time
+Choose/configure an alarm
   |
 Tell Wake My Way what matters tomorrow
   |
@@ -103,6 +103,8 @@ LEARNING
 Outcome becomes signal for future mornings
 ```
 
+Multiple Alarm Definitions and future Wake Schedules may coexist, but only one physical Active Wake Execution may own foreground/audio authority at a time. Editing, disabling, or snoozing one alarm must not invalidate unrelated alarms.
+
 ## User promise
 
 Wake My Way should become able to say, in effect:
@@ -128,7 +130,8 @@ The product should automate the useful part of a trusted person making sure the 
 V1 contains:
 
 - reliable native Android alarm
-- one active Wake Schedule in V1, with weekday-specific times if needed
+- multiple independently configurable Alarm Definitions with isolated schedule ownership
+- exactly one physical Active Wake Execution at a time with deterministic collision handling
 - one scripted character first, Alfred
 - conversational wake runtime
 - Tomorrow Contract
@@ -137,8 +140,8 @@ V1 contains:
 - behavioral activation evidence inside the deterministic Wake Runtime
 - prepared local wake plan and offline fallback
 - short morning orientation
-- Calendar and weather later in V1 sequence
-- history and basic learning
+- Calendar and weather later in the V1 sequence when they improve waking rather than add dashboard scope
+- history and basic learning backed by real session data
 
 ## Explicitly out of scope for V1
 
