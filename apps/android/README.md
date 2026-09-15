@@ -30,6 +30,40 @@ gradle test lint assembleDebug
 
 CI pins Gradle 9.6.1 explicitly. The standard wrapper JAR is tracked as a small M0 follow-up and must be added before M0 closes.
 
+## Branded wake-sound assets
+
+The consumer wake-sound catalog is intentionally all-or-nothing. A checkout may contain none of the approved branded WAVs, in which case critical execution uses the emergency fallback. A partial or checksum-drifted branded bundle is invalid and fails Android CI.
+
+The approved source filenames are exactly:
+
+```text
+Morning Light.wav
+Soft Start.wav
+Morning Pulse.wav
+```
+
+Put all three files in one local directory, then run the importer from `apps/android`:
+
+```bash
+python scripts/wake_sound_assets.py --import "C:\path\to\approved-sounds"
+```
+
+On macOS/Linux the same command works with a normal POSIX path. The importer validates the RIFF/WAVE structure before mutating Android resources, copies the assets to:
+
+```text
+app/src/main/res/raw/morning_light.wav
+app/src/main/res/raw/soft_start.wav
+app/src/main/res/raw/morning_pulse.wav
+```
+
+and writes `app/src/main/wake-sound-assets.json` with SHA-256 checksums and audio metadata. Verify the repository state at any time with:
+
+```bash
+python scripts/wake_sound_assets.py --check
+```
+
+Do not manually commit one or two branded files, rename a different track into one of these resource names, or edit the generated checksum manifest by hand. The Alarm Editor sound picker remains hidden until the exact approved bundle is committed and real preview/on-device playback validation is complete.
+
 ## Visual regression
 
 `ProductVisualRegressionTest` renders the curated product states at the canonical 393 × 852 viewport. The approved visual contract is stored as exact SHA-256 hashes in:
