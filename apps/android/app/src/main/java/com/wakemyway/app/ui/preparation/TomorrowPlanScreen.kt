@@ -421,11 +421,19 @@ private fun ContractVoiceButton(
 @Composable
 private fun ProtectPrivateScreenFromCapture() {
     val context = LocalContext.current
-    DisposableEffect(context) {
-        val activity = context.findActivity()
-        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    val activity = remember(context) { context.findActivity() }
+
+    DisposableEffect(activity) {
+        val window = activity?.window
+        val secureWasAlreadySet = window != null &&
+            (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+        if (window != null && !secureWasAlreadySet) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
         onDispose {
-            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            if (window != null && !secureWasAlreadySet) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
         }
     }
 }
