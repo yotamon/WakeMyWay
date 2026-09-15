@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -54,6 +55,9 @@ fun AlarmsScreen(
     onSetEnabled: (AlarmDefinition, Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0] ?: Locale.getDefault()
+
     WmwCircadianSurface(
         stage = WmwCircadianStage.PLANNING,
         modifier = modifier,
@@ -92,6 +96,7 @@ fun AlarmsScreen(
                         AlarmCard(
                             alarm = alarm,
                             health = healthFor(alarm),
+                            locale = locale,
                             onClick = { onEditAlarm(alarm) },
                             onSetEnabled = { enabled -> onSetEnabled(alarm, enabled) },
                         )
@@ -106,6 +111,7 @@ fun AlarmsScreen(
 private fun AlarmCard(
     alarm: AlarmDefinition,
     health: AlarmScheduleHealth?,
+    locale: Locale,
     onClick: () -> Unit,
     onSetEnabled: (Boolean) -> Unit,
 ) {
@@ -144,7 +150,7 @@ private fun AlarmCard(
             }
 
             Text(
-                text = scheduleSummary(alarm.schedule),
+                text = scheduleSummary(alarm.schedule, locale),
                 modifier = Modifier.padding(top = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
@@ -254,14 +260,20 @@ private fun EmptyAlarmState(onAddAlarm: () -> Unit) {
     }
 }
 
-private fun scheduleSummary(schedule: AlarmSchedulePattern): String = when (schedule) {
+private fun scheduleSummary(
+    schedule: AlarmSchedulePattern,
+    locale: Locale,
+): String = when (schedule) {
     is AlarmSchedulePattern.OneShot -> schedule.date.format(
-        DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.getDefault()),
+        DateTimeFormatter.ofPattern("EEEE, d MMM", locale),
     )
-    is AlarmSchedulePattern.Weekly -> weeklyDaysLabel(schedule.days)
+    is AlarmSchedulePattern.Weekly -> weeklyDaysLabel(schedule.days, locale)
 }
 
-private fun weeklyDaysLabel(days: Set<DayOfWeek>): String {
+private fun weeklyDaysLabel(
+    days: Set<DayOfWeek>,
+    locale: Locale,
+): String {
     val weekdays = setOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
@@ -275,6 +287,6 @@ private fun weeklyDaysLabel(days: Set<DayOfWeek>): String {
         setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY) -> "Weekends"
         else -> days
             .sortedBy(DayOfWeek::getValue)
-            .joinToString(" · ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+            .joinToString(" · ") { it.getDisplayName(TextStyle.SHORT, locale) }
     }
 }
