@@ -1,6 +1,7 @@
 package com.wakemyway.app.voice
 
 import android.content.Context
+import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.runtime.SpeechIntent
 
 /**
@@ -24,8 +25,11 @@ interface WakeConversationEnrichment : AutoCloseable {
 
     fun connect()
 
-    /** Requests one bounded natural-language response for a typed Wake Runtime intent. */
-    fun respond(intent: SpeechIntent): Boolean
+    /** Requests one bounded natural-language response for a typed Wake Runtime intent and style. */
+    fun respond(
+        intent: SpeechIntent,
+        style: VoiceStyle,
+    ): Boolean
 
     /** Enables/disables microphone contribution to the realtime conversation. */
     fun setInputEnabled(enabled: Boolean)
