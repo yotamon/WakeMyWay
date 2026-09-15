@@ -1,4 +1,4 @@
-import { configuredAccountTokenVerifier, requireAccountIdentity, type AccountTokenVerifier } from './auth.js';
+import { requireAccountIdentity, type AccountTokenVerifier } from './auth.js';
 import { consumerBackupSnapshotSchema } from './backup-schema.js';
 import { PostgresConsumerBackupStore, type ConsumerBackupStore } from './backup-store.js';
 import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../http.js';
@@ -21,17 +21,17 @@ export async function handleAccountBackupRequest(
   }
 
   try {
-    const dependencies = dependenciesFor(suppliedDependencies);
-    const identity = await requireAccountIdentity(request, dependencies.verifyAccessToken);
+    const identity = await requireAccountIdentity(request, suppliedDependencies?.verifyAccessToken);
+    const store = suppliedDependencies?.store ?? new PostgresConsumerBackupStore();
 
     if (request.method === 'GET') {
-      const backup = await dependencies.store.get(identity.userId);
+      const backup = await store.get(identity.userId);
       return json({ backup }, 200, id);
     }
 
     const snapshot = await parseJson(request, consumerBackupSnapshotSchema, MAX_BACKUP_BYTES);
-    const storedAt = dependencies.now().toISOString();
-    await dependencies.store.put(identity.userId, snapshot, storedAt);
+    const storedAt = (suppliedDependencies?.now ?? (() => new Date()))().toISOString();
+    await store.put(identity.userId, snapshot, storedAt);
 
     return json(
       {
@@ -47,14 +47,4 @@ export async function handleAccountBackupRequest(
   } catch (error) {
     return errorResponse(error, id, 'account-consumer-backup');
   }
-}
-
-function dependenciesFor(
-  supplied: Partial<AccountBackupDependencies> | undefined,
-): AccountBackupDependencies {
-  return {
-    verifyAccessToken: supplied?.verifyAccessToken ?? configuredAccountTokenVerifier(),
-    store: supplied?.store ?? new PostgresConsumerBackupStore(),
-    now: supplied?.now ?? (() => new Date()),
-  };
 }
