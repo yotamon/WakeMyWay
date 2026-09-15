@@ -131,11 +131,12 @@ class ConsumerPreferencesRepository(
             ),
             defaultSnoozeMinutes = root.optInt(KEY_DEFAULT_SNOOZE_MINUTES, 5),
             defaultFirstMove = root.optString(KEY_DEFAULT_FIRST_MOVE).takeIf(String::isNotBlank),
-            appearance = AppAppearance.valueOf(
-                root.optString(KEY_APPEARANCE, AppAppearance.DAYLIGHT.name),
-            ),
+            appearance = decodeAppearance(root.optString(KEY_APPEARANCE, AppAppearance.DAYLIGHT.name)),
         )
     }
+
+    private fun decodeAppearance(raw: String): AppAppearance =
+        AppAppearance.entries.firstOrNull { it.name == raw } ?: AppAppearance.DAYLIGHT
 
     companion object {
         const val DEFAULT_FILE_NAME = "consumer-preferences-v1.json"
