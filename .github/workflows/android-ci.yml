@@ -46,6 +46,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
       - name: Set up Android SDK tools
         uses: android-actions/setup-android@v4
         with:
@@ -54,6 +57,10 @@ jobs:
       - name: Install Android 17 SDK
         run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
       - uses: gradle/actions/setup-gradle@v5
+      - name: Test branded wake-sound asset tooling
+        run: python scripts/test_wake_sound_assets.py
+      - name: Verify branded wake-sound asset bundle
+        run: python scripts/wake_sound_assets.py --check
       - name: Test wake-core
         run: ./gradlew :wake-core:test --stacktrace
       - name: Test Android app unit logic
