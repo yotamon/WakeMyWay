@@ -39,6 +39,7 @@ import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.profile.AboutScreen
+import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
@@ -65,6 +66,9 @@ private data object ProfileRoute : NavKey
 
 @Serializable
 private data object PrivacyRoute : NavKey
+
+@Serializable
+private data object AppearanceRoute : NavKey
 
 @Serializable
 private data object AboutRoute : NavKey
@@ -267,6 +271,7 @@ fun WakeMyWayApp(
                             onPreferencesChanged = ::savePreferences,
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
+                            onOpenAppearance = { backStack.add(AppearanceRoute) },
                             onOpenAbout = { backStack.add(AboutRoute) },
                             modifier = contentModifier,
                         )
@@ -275,6 +280,16 @@ fun WakeMyWayApp(
 
                 entry<PrivacyRoute> {
                     PrivacyScreen(onBack = { backStack.removeLastOrNull() })
+                }
+
+                entry<AppearanceRoute> {
+                    AppearanceScreen(
+                        appearance = preferences.appearance,
+                        onAppearanceChanged = { appearance ->
+                            savePreferences(preferences.copy(appearance = appearance))
+                        },
+                        onBack = { backStack.removeLastOrNull() },
+                    )
                 }
 
                 entry<AboutRoute> {
