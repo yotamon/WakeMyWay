@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import androidx.annotation.RawRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.wakemyway.app.WakeActivity
@@ -24,8 +25,11 @@ import java.time.Duration
 class AlarmPlaybackService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var toneFallback: ToneGenerator? = null
+    private var activePlaybackSpec: WakeSoundPlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val restoreAlarmVolume = Runnable { setCriticalPlaybackVolume(FULL_VOLUME) }
+    private val restoreAlarmVolume = Runnable {
+        setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -126,8 +130,9 @@ class AlarmPlaybackService : Service() {
         occurrenceId: WakeOccurrenceId,
     ): Int {
         // Defense in depth for service recreation / redelivered START intents. If notification,
-        // channel, exact-alarm or full-screen access is no longer healthy, never start or resurrect
-        // critical audio that may be impossible for the user to control.
+        // channel or full-screen access is no longer healthy, never start or resurrect critical
+        // audio that may be impossible for the user to control. Future exact-alarm access is not an
+        // execution-safety requirement once this occurrence has already been delivered.
         if (kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
             stopExecution()
@@ -158,55 +163,96 @@ class AlarmPlaybackService : Service() {
         if (!playbackAlreadyActive) {
             WakeTimingTrace(this).foreground(activeId)
         }
-        startPlayback(activeId)
+        startPlayback(kernel, activeId)
         return START_REDELIVER_INTENT
     }
 
-    private fun startPlayback(occurrenceId: WakeOccurrenceId) {
+    private fun startPlayback(
+        kernel: AlarmKernel,
+        occurrenceId: WakeOccurrenceId,
+    ) {
         if (mediaPlayer?.isPlaying == true || toneFallback != null) return
 
-        runCatching {
-            resources.openRawResourceFd(com.wakemyway.app.R.raw.emergency_alarm).use { descriptor ->
-                mediaPlayer = MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build(),
-                    )
-                    setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
-                    isLooping = true
-                    prepare()
-                    setVolume(FULL_VOLUME, FULL_VOLUME)
-                    start()
-                }
-            }
+        val requestedSoundId = kernel.activeWakeSoundId(occurrenceId) ?: WakeSoundCatalog.defaultId
+        val resolved = WakeSoundCatalog.resolve(this, requestedSoundId)
+        activePlaybackSpec = resolved.playback
+
+        val selectedStarted = runCatching {
+            mediaPlayer = createLoopingPlayer(
+                rawResourceId = resolved.rawResourceId,
+                volume = resolved.playback.criticalGain,
+            )
+        }.isSuccess
+
+        if (selectedStarted) {
             WakeTimingTrace(this).audioStarted(occurrenceId)
-        }.onFailure {
+            return
+        }
+
+        mediaPlayer?.release()
+        mediaPlayer = null
+
+        // A bundled profile can still fail at decode/open time even if the resource exists. Fall
+        // through to the known emergency WAV before using the system tone so a corrupt profile never
+        // turns into silence and never weakens Stop/Snooze controllability.
+        if (!resolved.usedEmergencyFallback) {
+            activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
+            val emergencyStarted = runCatching {
+                mediaPlayer = createLoopingPlayer(
+                    rawResourceId = com.wakemyway.app.R.raw.emergency_alarm,
+                    volume = activePlaybackSpec.criticalGain,
+                )
+            }.isSuccess
+            if (emergencyStarted) {
+                WakeTimingTrace(this).audioStarted(occurrenceId)
+                return
+            }
             mediaPlayer?.release()
             mediaPlayer = null
-            // The tone fallback intentionally stays at full alarm volume. We only duck the bundled
-            // MediaPlayer path because a degraded playback path must remain maximally reliable.
-            toneFallback = ToneGenerator(AudioManager.STREAM_ALARM, 100).also { tone ->
-                tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
-            }
-            WakeTimingTrace(this).audioStarted(occurrenceId)
+        }
+
+        // Last-resort platform tone stays at full alarm volume. It deliberately does not duck for
+        // speech because degraded critical playback must remain maximally reliable.
+        activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
+        toneFallback = ToneGenerator(AudioManager.STREAM_ALARM, 100).also { tone ->
+            tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
+        }
+        WakeTimingTrace(this).audioStarted(occurrenceId)
+    }
+
+    private fun createLoopingPlayer(
+        @RawRes rawResourceId: Int,
+        volume: Float,
+    ): MediaPlayer = resources.openRawResourceFd(rawResourceId).use { descriptor ->
+        MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+            )
+            setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+            isLooping = true
+            prepare()
+            setVolume(volume, volume)
+            start()
         }
     }
 
     /**
      * Makes a spoken/listening turn intelligible without surrendering alarm ownership.
-     * The service, not WakeActivity, owns the lease and restores full volume automatically.
+     * The service, not WakeActivity, owns the lease and restores the profile's critical volume
+     * automatically. A ToneGenerator fallback is intentionally never ducked.
      */
     private fun beginVoiceWindow() {
-        setCriticalPlaybackVolume(VOICE_WINDOW_VOLUME)
+        setCriticalPlaybackVolume(activePlaybackSpec.voiceWindowGain)
         mainHandler.removeCallbacks(restoreAlarmVolume)
         mainHandler.postDelayed(restoreAlarmVolume, VOICE_WINDOW_MAX_MILLIS)
     }
 
     private fun endVoiceWindow() {
         mainHandler.removeCallbacks(restoreAlarmVolume)
-        setCriticalPlaybackVolume(FULL_VOLUME)
+        setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
     }
 
     private fun setCriticalPlaybackVolume(volume: Float) {
@@ -227,12 +273,13 @@ class AlarmPlaybackService : Service() {
         toneFallback?.stopTone()
         toneFallback?.release()
         toneFallback = null
+        activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
     }
 
     private fun alarmNotification(occurrenceId: WakeOccurrenceId) =
         NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Wake My Way")
+            .setContentTitle("WakeMyWay")
             .setContentText("Time to wake up")
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -317,8 +364,6 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
-        private const val FULL_VOLUME = 1f
-        private const val VOICE_WINDOW_VOLUME = 0.12f
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
         private val DEFAULT_SNOOZE: Duration = Duration.ofMinutes(5)
