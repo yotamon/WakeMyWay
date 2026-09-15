@@ -66,6 +66,51 @@ Cloud data may eventually include privacy-safe records such as:
 
 Sensitive morning content is not uploaded merely because storage exists. Raw microphone audio is not retained by default. Tomorrow Contract text, transcripts, calendar content, and generated prompts follow the explicit privacy rules in `16-privacy-security.md`.
 
+## Backup and migration contract
+
+The first Android sync seam is intentionally **backup/migration**, not live cloud scheduling authority.
+
+A cloud snapshot may contain normal consumer intent only:
+
+- syncable Profile/default preferences;
+- rich `AlarmDefinition` product intent;
+- version/timestamp metadata needed to validate the backup contract.
+
+It explicitly does not contain:
+
+- device-local onboarding completion;
+- Direct-Boot Critical Wake state;
+- AlarmManager registration or next-occurrence authority;
+- active Wake Session / Wake Runtime state;
+- Stop/Snooze terminal state;
+- private Tomorrow Contract text or Prepared Wake Plan content;
+- raw microphone audio or transcripts.
+
+Restore is conservative:
+
+```text
+remote backup
+     │
+     ▼
+validate + plan
+     │
+     ├─ same alarm id exists locally → local alarm wins, remote copy skipped
+     └─ remote-only alarm → import disabled
+                                  │
+                                  └─ user must explicitly enable locally
+```
+
+Two explicit preference modes exist:
+
+- **Migrate to fresh device:** restore syncable convenience/default preferences while keeping onboarding local to the new installation.
+- **Merge into existing device:** current-device preferences win; only remote-only alarms are offered/imported under the disabled rule.
+
+The Android migration adapter must recheck both rich local product state and any Alarm Kernel slot immediately before import. A stale cloud plan therefore cannot replace or cancel a locally committed wake by reusing its id.
+
+The cloud gateway is account/session scoped but provider-neutral inside Android. Supabase Auth may later acquire identity/session state, while backup/restore domain traffic still goes through the Wake API. No sign-in UI should be exposed until a real authenticated backend path exists.
+
+A cloud/account outage during restore must fail before local mutation. Backup upload failure is likewise non-mutating. These properties are regression-tested independently of a real provider.
+
 ## Server access
 
 Vercel/server code should connect to Supabase PostgreSQL using the connection mode appropriate for serverless workloads at implementation time. Re-verify Supabase connection/pooling guidance when the backend is introduced.
@@ -111,5 +156,7 @@ The exact preview-database strategy is deferred until cloud development begins.
 - PostgreSQL portability is retained
 - mobile clients remain insulated from database schema churn
 - auth/storage capabilities can be adopted incrementally instead of forcing account infrastructure into V1
+- cloud backup cannot silently schedule, replace or stop a local alarm
+- restoring a remote alarm always requires a later explicit local enable action
 - Supabase outage cannot make a locally prepared alarm fail
 - provider-specific platform features require explicit justification before entering the architecture
