@@ -10,7 +10,7 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 
 /**
- * Android presentation capabilities required for a controllable Wake My Way alarm.
+ * Android presentation capabilities required for a controllable WakeMyWay alarm.
  *
  * These are execution-safety capabilities. Exact-alarm access is deliberately not part of this
  * value because it answers a different question: whether Android may schedule a future occurrence.
@@ -33,10 +33,20 @@ enum class AlarmRepairTarget {
 }
 
 /**
- * Future-scheduling readiness. A new/reconciled occurrence needs exact-alarm capability as well as
- * a presentation path that keeps Stop/Snooze immediately reachable.
+ * Context-aware repair target used by product/recovery flows.
+ *
+ * A planned future occurrence needs exact-alarm capability. Once a wake is already active, exact
+ * scheduling is no longer an execution-safety requirement and must not silence a controllable wake.
+ * Snooze checks exact-alarm capability independently before releasing current active authority.
  */
 fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
+    activeOccurrence != null -> activeWakeRepairTarget()
+    !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
+    else -> activeWakeRepairTarget()
+}
+
+/** Future-scheduling readiness for an explicit new/reconciled occurrence. */
+fun AlarmHealth.futureSchedulingRepairTarget(): AlarmRepairTarget = when {
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
     else -> activeWakeRepairTarget()
 }
@@ -67,7 +77,7 @@ object AlarmPresentationAccess {
                 "Active wake alarms",
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "Critical Wake My Way alarm playback and wake controls"
+                description = "Critical WakeMyWay alarm playback and wake controls"
                 // AlarmPlaybackService owns audible alarm playback. The channel itself stays silent
                 // so Android cannot produce a second overlapping notification sound.
                 setSound(null, null)
