@@ -93,6 +93,7 @@ class WakeTerminalActionsRobolectricTest {
             timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
             revision = 1,
             completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            oneShotDate = target.toLocalDate(),
         )
     }
 }
