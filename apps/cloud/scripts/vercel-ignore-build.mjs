@@ -21,7 +21,14 @@ export function changedFiles(previousSha, head = "HEAD") {
     throw new Error("VERCEL_GIT_PREVIOUS_SHA is unavailable or invalid");
   }
 
-  return execFileSync("git", ["diff", "--name-only", previousSha, head], {
+  const repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+
+  if (!repositoryRoot) throw new Error("Git repository root could not be resolved");
+
+  return execFileSync("git", ["-C", repositoryRoot, "diff", "--name-only", previousSha, head], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   })
