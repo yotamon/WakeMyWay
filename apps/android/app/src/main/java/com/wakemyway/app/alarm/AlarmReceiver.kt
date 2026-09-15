@@ -12,11 +12,12 @@ class AlarmReceiver : BroadcastReceiver() {
         val occurrenceId = WakeOccurrenceId(rawId)
         val kernel = AlarmKernel(context)
 
-        // An alarm that can make noise but cannot expose immediate controls is not safe to start.
-        // These presentation capabilities are global Android capabilities, so losing them invalidates
-        // every enabled schedule rather than only the occurrence that happened to fire first.
+        // Android has already delivered this occurrence, so execution safety is the only preflight
+        // that matters here. Exact-alarm access controls future scheduling/Snooze, not whether this
+        // already-delivered wake may become active. Presentation access is global, so losing it
+        // invalidates every enabled schedule rather than risking uncontrollable critical audio.
         val preflight = kernel.health()
-        if (preflight.repairTarget() != AlarmRepairTarget.NONE) {
+        if (preflight.activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
             return
         }

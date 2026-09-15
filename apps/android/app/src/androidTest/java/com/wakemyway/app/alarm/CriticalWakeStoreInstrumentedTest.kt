@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
+import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -14,20 +15,25 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CriticalWakeStoreInstrumentedTest {
+    private lateinit var context: Context
     private lateinit var store: CriticalWakeStore
+    private lateinit var fileName: String
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        context = ApplicationProvider.getApplicationContext()
+        fileName = "critical-wake-state-instrumented-${System.nanoTime()}.json"
         store = CriticalWakeStore(
             context = context,
-            fileName = "critical-wake-state-instrumented-${System.nanoTime()}.json",
+            fileName = fileName,
         )
     }
 
@@ -75,8 +81,10 @@ class CriticalWakeStoreInstrumentedTest {
 
         store.write(state)
         val restored = store.read()
+        val result = store.readResult()
 
         assertNotNull(restored)
+        assertTrue(result is CriticalWakeReadResult.State)
         assertEquals(3, restored!!.generation)
         assertEquals(2, restored.slots.size)
         assertFalse(restored.slots.getValue(recurring.id).enabled)
@@ -88,5 +96,18 @@ class CriticalWakeStoreInstrumentedTest {
             flightDate,
             restored.slots.getValue(oneShot.id).schedule.oneShotDate,
         )
+    }
+
+    @Test
+    fun missingAndCorruptStateRemainFailClosedButDiagnosable() {
+        assertEquals(CriticalWakeReadResult.Missing, store.readResult())
+        assertNull(store.read())
+
+        val protectedContext = context.createDeviceProtectedStorageContext()
+        File(protectedContext.noBackupFilesDir, fileName).writeText("{ definitely-not-valid-json")
+
+        val result = store.readResult()
+        assertTrue(result is CriticalWakeReadResult.Corrupt)
+        assertNull(store.read())
     }
 }
