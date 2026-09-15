@@ -75,6 +75,7 @@ class MainActivity : ComponentActivity() {
                     onEnableVoiceReplies = ::beginVoicePermissionSetup,
                     wakeSystemRevision = wakeSystemRevision,
                     onRepairWakeSystem = ::repairNextWakePrerequisite,
+                    onOpenNotificationSettings = ::openAppNotificationSettings,
                 )
 
                 if (showNotificationPermissionPrimer) {
