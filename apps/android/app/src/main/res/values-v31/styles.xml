@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WakeMyWay.Launch" parent="Theme.WakeMyWay">
+        <item name="android:windowBackground">@color/wmw_midnight</item>
+        <item name="android:windowSplashScreenBackground">@color/wmw_midnight</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_wakemyway_foreground</item>
+    </style>
+</resources>
