@@ -5,6 +5,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.runtime.SpeechIntent
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -88,7 +89,10 @@ class DebugRealtimeWakeConversation(
         }
     }
 
-    override fun respond(intent: SpeechIntent): Boolean {
+    override fun respond(
+        intent: SpeechIntent,
+        style: VoiceStyle,
+    ): Boolean {
         if (!ready) return false
         val channel = dataChannel ?: return false
         if (channel.state() != DataChannel.State.OPEN) return false
@@ -99,7 +103,7 @@ class DebugRealtimeWakeConversation(
                 JSONObject()
                     .put("conversation", "auto")
                     .put("output_modalities", JSONArray().put("audio"))
-                    .put("instructions", AlfredRealtimePrompt.turn(intent)),
+                    .put("instructions", AlfredRealtimePrompt.turn(intent, style)),
             ),
         )
     }
@@ -471,15 +475,29 @@ class DebugRealtimeWakeConversation(
     private object AlfredRealtimePrompt {
         const val SYSTEM = """You are Alfred, Wake My Way's calm British morning wake companion. Your only job is helping a sleepy person move from sleep inertia into being physically upright and engaged. Sound warm, intelligent, dryly witty, concise and human. Speak in one or two short sentences. React naturally to what the user just said. Never shame, threaten, diagnose, make medical claims, or pretend to know sensor/context facts you were not given. Never claim the alarm stopped, wake completed, or snooze succeeded. If the user bargains, complains or jokes, engage naturally but keep steering toward one small wake action. Yield immediately if interrupted. Never ask 'How can I help?'."""
 
-        fun turn(intent: SpeechIntent): String = SYSTEM + "\nCurrent Wake Runtime directive: " + when (intent) {
-            SpeechIntent.InitialWake -> "Open naturally with a brief greeting."
-            SpeechIntent.AskToSitUp -> "Ask them to sit upright and answer out loud when they are sitting."
-            SpeechIntent.AskToMove -> "React to their reply, then ask for feet on the floor or one similarly safe small movement and ask them to tell you when done."
-            SpeechIntent.KeepEngaging -> "React genuinely to their latest reply. Continue the thread, request one safe tiny wake action, and end with a natural prompt so they answer again. Avoid repeating wording."
-            is SpeechIntent.ReEngage -> "They did not give usable engagement. Re-engage at firmness ${intent.escalationLevel} of 3, respectfully requesting one spoken reply and one small physical action."
-            SpeechIntent.SnoozeConfirmation -> "Briefly ask them to confirm snooze. Never say it succeeded."
-            SpeechIntent.SnoozeFailed -> "Say snooze did not schedule and gently continue the wake."
-            SpeechIntent.Orientation -> "Wake Runtime has enough evidence. Give one brief satisfying closing line without claiming biological wakefulness."
+        fun turn(intent: SpeechIntent, style: VoiceStyle): String = buildString {
+            append(SYSTEM)
+            append("\nVoice style: ")
+            append(
+                when (style) {
+                    VoiceStyle.DEFAULT -> "Calm, concise, supportive and lightly dry. Keep the established Alfred tone."
+                    VoiceStyle.MOTIVATIONAL -> "A little more energetic and encouraging. Celebrate small progress without hype, pressure, guilt or cheerleading."
+                    VoiceStyle.MINIMAL -> "Extremely concise. Use one short sentence whenever possible, ideally under eight words, with no conversational filler."
+                },
+            )
+            append("\nCurrent Wake Runtime directive: ")
+            append(
+                when (intent) {
+                    SpeechIntent.InitialWake -> "Open naturally with a brief greeting."
+                    SpeechIntent.AskToSitUp -> "Ask them to sit upright and answer out loud when they are sitting."
+                    SpeechIntent.AskToMove -> "React to their reply, then ask for feet on the floor or one similarly safe small movement and ask them to tell you when done."
+                    SpeechIntent.KeepEngaging -> "React genuinely to their latest reply. Continue the thread, request one safe tiny wake action, and end with a natural prompt so they answer again. Avoid repeating wording."
+                    is SpeechIntent.ReEngage -> "They did not give usable engagement. Re-engage at firmness ${intent.escalationLevel} of 3, respectfully requesting one spoken reply and one small physical action."
+                    SpeechIntent.SnoozeConfirmation -> "Briefly ask them to confirm snooze. Never say it succeeded."
+                    SpeechIntent.SnoozeFailed -> "Say snooze did not schedule and gently continue the wake."
+                    SpeechIntent.Orientation -> "Wake Runtime has enough evidence. Give one brief satisfying closing line without claiming biological wakefulness."
+                },
+            )
         }
     }
 
