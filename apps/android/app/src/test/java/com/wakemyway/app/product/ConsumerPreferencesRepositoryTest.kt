@@ -39,6 +39,7 @@ class ConsumerPreferencesRepositoryTest {
             defaultVoiceStyle = VoiceStyle.MINIMAL,
             defaultSnoozeMinutes = 15,
             defaultFirstMove = "Open the curtains",
+            appearance = AppAppearance.SOFT_DAWN,
         )
 
         repository.replace(expected)
@@ -53,6 +54,7 @@ class ConsumerPreferencesRepositoryTest {
             ConsumerPreferences(
                 displayName = "Yotam",
                 defaultSoundId = WakeSoundId.MORNING_PULSE,
+                appearance = AppAppearance.WARM_SUNRISE,
             ),
         )
 
@@ -61,6 +63,68 @@ class ConsumerPreferencesRepositoryTest {
         assertTrue(updated.onboardingCompleted)
         assertEquals("Yotam", updated.displayName)
         assertEquals(WakeSoundId.MORNING_PULSE, updated.defaultSoundId)
+        assertEquals(AppAppearance.WARM_SUNRISE, updated.appearance)
+    }
+
+    @Test
+    fun `schema v1 document without appearance keeps existing preferences`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "onboardingCompleted": true,
+              "displayName": "Yotam",
+              "defaultSoundId": "soft-start",
+              "defaultVoiceCheckInEnabled": false,
+              "defaultVoiceStyle": "MINIMAL",
+              "defaultSnoozeMinutes": 15,
+              "defaultFirstMove": "Open the curtains"
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+        val preferences = ConsumerPreferencesRepository(context, fileName).get()
+
+        assertTrue(preferences.onboardingCompleted)
+        assertEquals("Yotam", preferences.displayName)
+        assertEquals(WakeSoundId.SOFT_START, preferences.defaultSoundId)
+        assertFalse(preferences.defaultVoiceCheckInEnabled)
+        assertEquals(VoiceStyle.MINIMAL, preferences.defaultVoiceStyle)
+        assertEquals(15, preferences.defaultSnoozeMinutes)
+        assertEquals("Open the curtains", preferences.defaultFirstMove)
+        assertEquals(AppAppearance.DAYLIGHT, preferences.appearance)
+    }
+
+    @Test
+    fun `unknown appearance falls back without discarding other preferences`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "onboardingCompleted": true,
+              "displayName": "Yotam",
+              "defaultSoundId": "soft-start",
+              "defaultVoiceCheckInEnabled": false,
+              "defaultVoiceStyle": "MINIMAL",
+              "defaultSnoozeMinutes": 15,
+              "defaultFirstMove": "Open the curtains",
+              "appearance": "FUTURE_ATMOSPHERE"
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+        val preferences = ConsumerPreferencesRepository(context, fileName).get()
+
+        assertTrue(preferences.onboardingCompleted)
+        assertEquals("Yotam", preferences.displayName)
+        assertEquals(WakeSoundId.SOFT_START, preferences.defaultSoundId)
+        assertFalse(preferences.defaultVoiceCheckInEnabled)
+        assertEquals(VoiceStyle.MINIMAL, preferences.defaultVoiceStyle)
+        assertEquals(15, preferences.defaultSnoozeMinutes)
+        assertEquals("Open the curtains", preferences.defaultFirstMove)
+        assertEquals(AppAppearance.DAYLIGHT, preferences.appearance)
     }
 
     @Test
@@ -76,12 +140,14 @@ class ConsumerPreferencesRepositoryTest {
                 onboardingCompleted = true,
                 displayName = "Yotam",
                 defaultSoundId = WakeSoundId.SOFT_START,
+                appearance = AppAppearance.WARM_SUNRISE,
             )
         }
 
         assertTrue(recovered.onboardingCompleted)
         assertEquals("Yotam", recovered.displayName)
         assertEquals(WakeSoundId.SOFT_START, recovered.defaultSoundId)
+        assertEquals(AppAppearance.WARM_SUNRISE, recovered.appearance)
         assertEquals(recovered, repository.get())
     }
 
@@ -98,6 +164,7 @@ class ConsumerPreferencesRepositoryTest {
         assertEquals(VoiceStyle.DEFAULT, preferences.defaultVoiceStyle)
         assertEquals(5, preferences.defaultSnoozeMinutes)
         assertNull(preferences.defaultFirstMove)
+        assertEquals(AppAppearance.DAYLIGHT, preferences.appearance)
     }
 
     private fun repository(): ConsumerPreferencesRepository = ConsumerPreferencesRepository(

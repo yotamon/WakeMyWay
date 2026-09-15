@@ -46,6 +46,7 @@ fun ProfileScreen(
     onPreferencesChanged: (ConsumerPreferences) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenAppearance: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -226,8 +227,8 @@ fun ProfileScreen(
                 )
                 ProfileLink(
                     title = "Appearance",
-                    detail = "Light planning surfaces · branded dark wake surface",
-                    onClick = null,
+                    detail = "${appearanceName(preferences.appearance)} planning atmosphere",
+                    onClick = onOpenAppearance,
                 )
                 ProfileLink(
                     title = "About WakeMyWay",

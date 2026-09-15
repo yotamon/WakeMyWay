@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.preparation.WakePreparationManager
+import com.wakemyway.app.product.AppAppearance
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
@@ -13,6 +14,7 @@ import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
@@ -60,6 +62,30 @@ class ProductVisualRegressionTest {
     fun tonightReady() {
         captureRoboImage("tonight_ready.png") {
             WakeMyWayTheme {
+                TonightScreen(
+                    state = TonightUiState(
+                        wakeTime = "07:30",
+                        dateLabel = "Tuesday, 14 Jan",
+                        hasOccurrence = true,
+                        wakeReady = true,
+                        readinessDetail = "Scheduled locally and ready for tomorrow.",
+                        hasTomorrowContract = true,
+                        tomorrowContractPrepared = true,
+                        tomorrowContractText = "Design review at 10:00. You wanted time to shower and eat.",
+                        firstMove = "Shower",
+                    ),
+                    onOpenWakeSetup = {},
+                    onOpenTomorrowPlan = {},
+                    onOpenWakeLab = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun tonightSoftDawn() {
+        captureRoboImage("tonight_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
                 TonightScreen(
                     state = TonightUiState(
                         wakeTime = "07:30",
@@ -219,7 +245,21 @@ class ProductVisualRegressionTest {
                     onPreferencesChanged = {},
                     onOpenNotifications = {},
                     onOpenPrivacy = {},
+                    onOpenAppearance = {},
                     onOpenAbout = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun appearanceSoftDawn() {
+        captureRoboImage("appearance_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
+                AppearanceScreen(
+                    appearance = AppAppearance.SOFT_DAWN,
+                    onAppearanceChanged = {},
+                    onBack = {},
                 )
             }
         }
@@ -277,6 +317,21 @@ class ProductVisualRegressionTest {
     fun wakeEmerging() {
         captureRoboImage("wake_emerging.png") {
             WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "07:30",
+                    displayDate = "Tuesday · 14 Jan",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun wakeEmergingIgnoresPlanningAppearance() {
+        captureRoboImage("wake_emerging_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
                 WakeSurface(
                     preparedPlan = null,
                     onSnooze = {},
