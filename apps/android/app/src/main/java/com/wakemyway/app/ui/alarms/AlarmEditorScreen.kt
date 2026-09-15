@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -78,47 +79,32 @@ fun AlarmEditorScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val locale = Locale.getDefault()
-    val nowDate = LocalDate.now()
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0] ?: Locale.getDefault()
+    val today = LocalDate.now()
     val initialMode = when (existing?.schedule) {
         is AlarmSchedulePattern.OneShot -> EditorScheduleMode.ONE_SHOT
         else -> EditorScheduleMode.WEEKLY
     }
     val initialTime = existing?.schedule?.time ?: LocalTime.of(7, 0)
-    val initialDays = (existing?.schedule as? AlarmSchedulePattern.Weekly)?.days
-        ?: setOf(
-            DayOfWeek.MONDAY,
-            DayOfWeek.TUESDAY,
-            DayOfWeek.WEDNESDAY,
-            DayOfWeek.THURSDAY,
-            DayOfWeek.FRIDAY,
-        )
-    val initialDate = (existing?.schedule as? AlarmSchedulePattern.OneShot)?.date
-        ?: nowDate.plusDays(1)
+    val initialDays = (existing?.schedule as? AlarmSchedulePattern.Weekly)?.days ?: WEEKDAYS
+    val initialDate = (existing?.schedule as? AlarmSchedulePattern.OneShot)?.date ?: today.plusDays(1)
 
     var label by remember(existing?.revision) { mutableStateOf(existing?.label.orEmpty()) }
     var mode by remember(existing?.revision) { mutableStateOf(initialMode) }
     var time by remember(existing?.revision) { mutableStateOf(initialTime) }
     var days by remember(existing?.revision) { mutableStateOf(initialDays) }
     var date by remember(existing?.revision) { mutableStateOf(initialDate) }
-    var voiceCheckIn by remember(existing?.revision) {
-        mutableStateOf(existing?.voiceCheckInEnabled ?: true)
-    }
-    var voiceStyle by remember(existing?.revision) {
-        mutableStateOf(existing?.voiceStyle ?: VoiceStyle.DEFAULT)
-    }
-    var snoozeEnabled by remember(existing?.revision) {
-        mutableStateOf(existing?.snoozePolicy?.enabled ?: true)
-    }
+    var voiceCheckIn by remember(existing?.revision) { mutableStateOf(existing?.voiceCheckInEnabled ?: true) }
+    var voiceStyle by remember(existing?.revision) { mutableStateOf(existing?.voiceStyle ?: VoiceStyle.DEFAULT) }
+    var snoozeEnabled by remember(existing?.revision) { mutableStateOf(existing?.snoozePolicy?.enabled ?: true) }
     var snoozeMinutes by remember(existing?.revision) {
         mutableStateOf(existing?.snoozePolicy?.duration?.toMinutes()?.toInt() ?: 5)
     }
     var contractMode by remember(existing?.revision) {
         mutableStateOf(existing?.tomorrowContractMode ?: TomorrowContractMode.OPTIONAL)
     }
-    var firstMove by remember(existing?.revision) {
-        mutableStateOf(existing?.firstMoveDefault.orEmpty())
-    }
+    var firstMove by remember(existing?.revision) { mutableStateOf(existing?.firstMoveDefault.orEmpty()) }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
 
     fun chooseTime() {
@@ -158,7 +144,8 @@ fun AlarmEditorScreen(
             error = "Choose a future date."
             return
         }
-        val instant = Instant.now()
+
+        val now = Instant.now()
         val definition = AlarmDefinition(
             id = existing?.id ?: AlarmDefinitionId("alarm-${UUID.randomUUID()}"),
             label = label.trim(),
@@ -168,8 +155,7 @@ fun AlarmEditorScreen(
                 EditorScheduleMode.WEEKLY -> AlarmSchedulePattern.Weekly(days = days, time = time)
                 EditorScheduleMode.ONE_SHOT -> AlarmSchedulePattern.OneShot(date = date, time = time)
             },
-            // The branded sound selector is intentionally not exposed until the three WAV assets
-            // are bundled and AlarmPlaybackService resolves this id at runtime.
+            // Sound remains internal until the real branded WAV assets are bundled and selectable.
             soundId = existing?.soundId ?: WakeSoundId.MORNING_LIGHT,
             voiceCheckInEnabled = voiceCheckIn,
             characterId = existing?.characterId ?: CharacterId.ALFRED,
@@ -182,8 +168,8 @@ fun AlarmEditorScreen(
             tomorrowContractMode = contractMode,
             firstMoveDefault = firstMove.trim().ifBlank { null },
             revision = (existing?.revision ?: 0L) + 1L,
-            createdAt = existing?.createdAt ?: instant,
-            updatedAt = instant,
+            createdAt = existing?.createdAt ?: now,
+            updatedAt = now,
         )
         val result = runCatching { onSave(definition) }
             .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
@@ -199,9 +185,7 @@ fun AlarmEditorScreen(
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
@@ -223,7 +207,7 @@ fun AlarmEditorScreen(
                 color = WmwColors.LightQuietText,
             )
 
-            EditorSection(title = "Basic", modifier = Modifier.padding(top = 28.dp)) {
+            EditorSection("Basic", Modifier.padding(top = 28.dp)) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it.take(AlarmDefinition.MAX_LABEL_CHARACTERS) },
@@ -236,12 +220,7 @@ fun AlarmEditorScreen(
                 ChoiceRow(
                     options = EditorScheduleMode.entries,
                     selected = mode,
-                    label = { selectedMode ->
-                        when (selectedMode) {
-                            EditorScheduleMode.WEEKLY -> "Weekly"
-                            EditorScheduleMode.ONE_SHOT -> "One time"
-                        }
-                    },
+                    label = { if (it == EditorScheduleMode.WEEKLY) "Weekly" else "One time" },
                     onSelected = { mode = it },
                 )
                 if (mode == EditorScheduleMode.WEEKLY) {
@@ -257,7 +236,7 @@ fun AlarmEditorScreen(
                 }
             }
 
-            EditorSection(title = "Voice", modifier = Modifier.padding(top = WmwSpacing.Md)) {
+            EditorSection("Voice", Modifier.padding(top = WmwSpacing.Md)) {
                 ToggleSetting(
                     title = "Voice Check-In",
                     detail = "Alfred speaks with you and waits for a real response.",
@@ -269,8 +248,8 @@ fun AlarmEditorScreen(
                     ChoiceRow(
                         options = VoiceStyle.entries,
                         selected = voiceStyle,
-                        label = { style ->
-                            when (style) {
+                        label = {
+                            when (it) {
                                 VoiceStyle.DEFAULT -> "Default"
                                 VoiceStyle.MOTIVATIONAL -> "Motivational"
                                 VoiceStyle.MINIMAL -> "Minimal"
@@ -281,7 +260,7 @@ fun AlarmEditorScreen(
                 }
             }
 
-            EditorSection(title = "More", modifier = Modifier.padding(top = WmwSpacing.Md)) {
+            EditorSection("More", Modifier.padding(top = WmwSpacing.Md)) {
                 ToggleSetting(
                     title = "Snooze",
                     detail = if (snoozeEnabled) "$snoozeMinutes minutes" else "Disabled",
@@ -305,8 +284,8 @@ fun AlarmEditorScreen(
                 ChoiceRow(
                     options = TomorrowContractMode.entries,
                     selected = contractMode,
-                    label = { value ->
-                        when (value) {
+                    label = {
+                        when (it) {
                             TomorrowContractMode.OPTIONAL -> "Optional"
                             TomorrowContractMode.ALWAYS_PROMPT -> "Prompt"
                             TomorrowContractMode.DISABLED -> "Off"
@@ -347,12 +326,10 @@ fun AlarmEditorScreen(
                 TextButton(
                     onClick = {
                         val result = runCatching { onDelete(existing) }
-                            .getOrElse { AlarmEditorResult(false, it.message) }
+                            .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
                         if (result.saved) onBack() else error = result.detail ?: "Could not delete this alarm."
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = WmwSpacing.Sm),
+                    modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 ) {
                     Text("Delete alarm", color = WmwColors.Danger)
                 }
@@ -375,9 +352,7 @@ private fun EditorSection(
             color = WmwColors.LightQuietText,
         )
         WmwCard(onLightSurface = true) {
-            Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                content()
-            }
+            Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md), content = content)
         }
     }
 }
@@ -385,9 +360,7 @@ private fun EditorSection(
 @Composable
 private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         color = WmwColors.MorningPaper,
         border = BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -413,16 +386,11 @@ private fun DayPicker(
     locale: Locale,
     onToggle: (DayOfWeek) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         DayOfWeek.entries.forEach { day ->
             val selected = day in days
             Surface(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clickable { onToggle(day) },
+                modifier = Modifier.size(38.dp).clickable { onToggle(day) },
                 shape = CircleShape,
                 color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
                 border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -432,7 +400,7 @@ private fun DayPicker(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
-                        day.getDisplayName(TextStyle.NARROW, locale).uppercase(),
+                        day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
                     )
@@ -449,10 +417,7 @@ private fun ToggleSetting(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = WmwColors.Midnight)
             Text(
@@ -508,9 +473,7 @@ private fun <T> ChoiceRow(
         options.forEach { option ->
             val active = option == selected
             Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { onSelected(option) },
+                modifier = Modifier.weight(1f).clickable { onSelected(option) },
                 shape = CircleShape,
                 color = if (active) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
                 border = if (active) null else BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -525,3 +488,11 @@ private fun <T> ChoiceRow(
         }
     }
 }
+
+private val WEEKDAYS = setOf(
+    DayOfWeek.MONDAY,
+    DayOfWeek.TUESDAY,
+    DayOfWeek.WEDNESDAY,
+    DayOfWeek.THURSDAY,
+    DayOfWeek.FRIDAY,
+)
