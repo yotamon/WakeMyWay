@@ -129,14 +129,17 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.titleSmall,
                     color = WmwColors.Midnight,
                 )
-                ChoiceRow(
-                    options = soundOptions.ifEmpty { listOf(WakeSoundCatalog.defaultId) },
-                    selected = preferences.defaultSoundId,
-                    label = ::soundName,
-                    onSelected = { sound ->
-                        onPreferencesChanged(preferences.copy(defaultSoundId = sound))
-                    },
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                    soundOptions.ifEmpty { listOf(WakeSoundCatalog.defaultId) }.forEach { sound ->
+                        ProfileSoundChoice(
+                            id = sound,
+                            selected = sound == preferences.defaultSoundId,
+                            onSelected = {
+                                onPreferencesChanged(preferences.copy(defaultSoundId = sound))
+                            },
+                        )
+                    }
+                }
 
                 ToggleSetting(
                     title = "Voice Check-In",
@@ -341,6 +344,55 @@ private fun ProfileSection(
             Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
                 content()
             }
+        }
+    }
+}
+
+@Composable
+private fun ProfileSoundChoice(
+    id: WakeSoundId,
+    selected: Boolean,
+    onSelected: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelected),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) WmwColors.Midnight else WmwColors.MorningPaper,
+        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = soundName(id),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (selected) WmwColors.WarmLight else WmwColors.Midnight,
+                )
+                Text(
+                    text = if (id == WakeSoundCatalog.defaultId) {
+                        "WakeMyWay default"
+                    } else {
+                        "Built-in wake sound"
+                    },
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (selected) {
+                        WmwColors.WarmLight.copy(alpha = 0.72f)
+                    } else {
+                        WmwColors.LightQuietText
+                    },
+                )
+            }
+            Text(
+                text = if (selected) "●" else "○",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (selected) WmwColors.Sunrise else WmwColors.LightQuietText,
+            )
         }
     }
 }
