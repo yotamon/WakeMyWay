@@ -88,6 +88,7 @@ class WakeSessionViewModel internal constructor(
                                 occurrenceId = occurrenceId,
                                 onUiState = onUiState,
                                 onCompleted = onCompleted,
+                                voiceStyle = policy.voiceStyle,
                             )
                         } else {
                             AlarmOnlyWakeSessionController()
