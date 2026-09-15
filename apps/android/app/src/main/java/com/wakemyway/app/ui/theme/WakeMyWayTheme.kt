@@ -6,13 +6,59 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.product.AppAppearance
 
-private val WakeMyWayColors = lightColorScheme(
+data class WmwPlanningAtmosphere(
+    val top: Color,
+    val middle: Color,
+    val bottom: Color,
+    val sunriseGlow: Color,
+    val sunriseGlowAlpha: Float,
+    val dawnGlow: Color,
+    val dawnGlowAlpha: Float,
+)
+
+private val DaylightAtmosphere = WmwPlanningAtmosphere(
+    top = WmwColors.Paper,
+    middle = WmwColors.Cloud,
+    bottom = Color(0xFFF3F1F7),
+    sunriseGlow = WmwColors.Sunrise,
+    sunriseGlowAlpha = 0.12f,
+    dawnGlow = WmwColors.Dawn,
+    dawnGlowAlpha = 0.10f,
+)
+
+private val WarmSunriseAtmosphere = WmwPlanningAtmosphere(
+    top = WmwColors.Paper,
+    middle = WmwColors.MorningPaper,
+    bottom = Color(0xFFFFEFE4),
+    sunriseGlow = WmwColors.SunriseSoft,
+    sunriseGlowAlpha = 0.18f,
+    dawnGlow = WmwColors.GoldenLight,
+    dawnGlowAlpha = 0.09f,
+)
+
+private val SoftDawnAtmosphere = WmwPlanningAtmosphere(
+    top = WmwColors.Paper,
+    middle = Color(0xFFF6F5FA),
+    bottom = Color(0xFFECEFFA),
+    sunriseGlow = WmwColors.Sunrise,
+    sunriseGlowAlpha = 0.08f,
+    dawnGlow = WmwColors.Dawn,
+    dawnGlowAlpha = 0.18f,
+)
+
+val LocalWmwPlanningAtmosphere = staticCompositionLocalOf { DaylightAtmosphere }
+
+private val DaylightColors = lightColorScheme(
     primary = WmwColors.Sunrise,
     onPrimary = WmwColors.Midnight,
     primaryContainer = WmwColors.SunriseSoft,
@@ -26,6 +72,44 @@ private val WakeMyWayColors = lightColorScheme(
     surface = WmwColors.Paper,
     onSurface = WmwColors.Midnight,
     surfaceVariant = WmwColors.LightSurfaceMuted,
+    onSurfaceVariant = WmwColors.LightQuietText,
+    outline = WmwColors.DarkHairline,
+    error = WmwColors.Danger,
+)
+
+private val WarmSunriseColors = lightColorScheme(
+    primary = WmwColors.Sunrise,
+    onPrimary = WmwColors.Midnight,
+    primaryContainer = Color(0xFFFFD7C2),
+    onPrimaryContainer = WmwColors.Midnight,
+    secondary = Color(0xFF8A74C9),
+    onSecondary = WmwColors.WarmLight,
+    secondaryContainer = Color(0xFFF1E9FF),
+    onSecondaryContainer = WmwColors.Midnight,
+    background = Color(0xFFFFF6EE),
+    onBackground = WmwColors.Midnight,
+    surface = WmwColors.Paper,
+    onSurface = WmwColors.Midnight,
+    surfaceVariant = Color(0xFFFFEEE4),
+    onSurfaceVariant = WmwColors.LightQuietText,
+    outline = WmwColors.DarkHairline,
+    error = WmwColors.Danger,
+)
+
+private val SoftDawnColors = lightColorScheme(
+    primary = WmwColors.DawnDeep,
+    onPrimary = WmwColors.WarmLight,
+    primaryContainer = Color(0xFFE3E7FF),
+    onPrimaryContainer = WmwColors.Midnight,
+    secondary = WmwColors.Sunrise,
+    onSecondary = WmwColors.Midnight,
+    secondaryContainer = Color(0xFFFFE8DC),
+    onSecondaryContainer = WmwColors.Midnight,
+    background = Color(0xFFF3F4FA),
+    onBackground = WmwColors.Midnight,
+    surface = WmwColors.Paper,
+    onSurface = WmwColors.Midnight,
+    surfaceVariant = Color(0xFFEEEFFA),
     onSurfaceVariant = WmwColors.LightQuietText,
     outline = WmwColors.DarkHairline,
     error = WmwColors.Danger,
@@ -136,11 +220,27 @@ private val WakeMyWayShapes = Shapes(
 )
 
 @Composable
-fun WakeMyWayTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = WakeMyWayColors,
-        typography = WakeMyWayTypography,
-        shapes = WakeMyWayShapes,
-        content = content,
-    )
+fun WakeMyWayTheme(
+    appearance: AppAppearance = AppAppearance.DAYLIGHT,
+    content: @Composable () -> Unit,
+) {
+    val colorScheme = when (appearance) {
+        AppAppearance.DAYLIGHT -> DaylightColors
+        AppAppearance.WARM_SUNRISE -> WarmSunriseColors
+        AppAppearance.SOFT_DAWN -> SoftDawnColors
+    }
+    val atmosphere = when (appearance) {
+        AppAppearance.DAYLIGHT -> DaylightAtmosphere
+        AppAppearance.WARM_SUNRISE -> WarmSunriseAtmosphere
+        AppAppearance.SOFT_DAWN -> SoftDawnAtmosphere
+    }
+
+    CompositionLocalProvider(LocalWmwPlanningAtmosphere provides atmosphere) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = WakeMyWayTypography,
+            shapes = WakeMyWayShapes,
+            content = content,
+        )
+    }
 }
