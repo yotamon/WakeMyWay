@@ -330,7 +330,8 @@ class AlarmKernel(
     }
 
     fun health(): AlarmHealth {
-        val state = store.read()
+        val readResult = store.readResult()
+        val state = (readResult as? CriticalWakeReadResult.State)?.value
         val enabled = enabledSlots(state)
         val exactAllowed = registrar.canScheduleExactAlarms()
         val presentation = AlarmPresentationAccess.snapshot(appContext)
@@ -356,12 +357,15 @@ class AlarmKernel(
             nextOccurrence = next,
             activeOccurrence = active,
             detail = when {
+                readResult is CriticalWakeReadResult.Corrupt ->
+                    "Critical wake state is unreadable; reconfigure the affected alarms"
+                readResult == CriticalWakeReadResult.Missing -> "No wake schedules configured"
                 enabled.isEmpty() -> "No enabled wake schedules"
-                !exactAllowed -> "Exact alarm capability unavailable"
                 !presentation.notificationsAllowed -> "Notification access required for alarm controls"
                 !presentation.highImportanceChannel -> "Active wake alerts must be high priority"
                 !presentation.fullScreenIntentAllowed -> "Full-screen alarm access required"
                 active != null && readyCount == enabled.size -> "Wake execution is active"
+                !exactAllowed -> "Exact alarm capability unavailable"
                 readyCount != enabled.size -> "${enabled.size - readyCount} wake schedule(s) need reconciliation"
                 else -> "Wake Ready"
             },
@@ -371,7 +375,7 @@ class AlarmKernel(
     }
 
     fun health(scheduleId: WakeScheduleId): AlarmScheduleHealth? {
-        val state = store.read() ?: return null
+        val state = (store.readResult() as? CriticalWakeReadResult.State)?.value ?: return null
         val slot = state.slots[scheduleId] ?: return null
         val exactAllowed = registrar.canScheduleExactAlarms()
         val presentation = AlarmPresentationAccess.snapshot(appContext)
@@ -454,11 +458,17 @@ class AlarmKernel(
         enabled = false,
     )
 
-    private fun stateOrEmpty(): CriticalAlarmState = store.read() ?: CriticalAlarmState(
-        slots = emptyMap(),
-        activeOccurrence = null,
-        generation = 0,
-    )
+    private fun stateOrEmpty(): CriticalAlarmState = when (val result = store.readResult()) {
+        is CriticalWakeReadResult.State -> result.value
+        CriticalWakeReadResult.Missing -> CriticalAlarmState(
+            slots = emptyMap(),
+            activeOccurrence = null,
+            generation = 0,
+        )
+        is CriticalWakeReadResult.Corrupt -> error(
+            "Critical wake state is unreadable; refusing to overwrite durable alarm authority",
+        )
+    }
 
     private fun enabledSlots(state: CriticalAlarmState?): List<CriticalScheduleSlot> =
         state?.slots?.values?.filter(CriticalScheduleSlot::enabled).orEmpty()
