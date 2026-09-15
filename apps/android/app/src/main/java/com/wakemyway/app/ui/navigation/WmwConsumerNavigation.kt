@@ -33,11 +33,12 @@ import com.wakemyway.app.ui.theme.WmwSpacing
 enum class ConsumerTab(val label: String) {
     HOME("Home"),
     ALARMS("Alarms"),
+    PROFILE("Profile"),
 }
 
 /**
- * Consumer shell navigation deliberately exposes only destinations that have real product behavior.
- * Insights and Profile join this bar in later phases once their backing data/actions exist.
+ * Consumer shell navigation exposes only destinations backed by real product behavior.
+ * Insights joins this bar in Phase D once wake-history data is actually available.
  */
 @Composable
 fun WmwConsumerScaffold(
@@ -87,7 +88,7 @@ private fun WmwBottomBar(
                         )
                         .clickable(role = Role.Tab) { onTabSelected(tab) }
                         .semantics { this.selected = selected }
-                        .padding(horizontal = WmwSpacing.Md, vertical = 13.dp),
+                        .padding(horizontal = WmwSpacing.Sm, vertical = 13.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -133,6 +134,24 @@ private fun ConsumerNavGlyph(
                 drawLine(color, center, Offset(center.x + 2.6.dp.toPx(), center.y + 1.8.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(4.dp.toPx(), 2.5.dp.toPx()), Offset(2.dp.toPx(), 4.5.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(size.width - 4.dp.toPx(), 2.5.dp.toPx()), Offset(size.width - 2.dp.toPx(), 4.5.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            }
+
+            ConsumerTab.PROFILE -> {
+                drawCircle(
+                    color = color,
+                    radius = 3.2.dp.toPx(),
+                    center = Offset(center.x, 5.3.dp.toPx()),
+                    style = stroke,
+                )
+                drawArc(
+                    color = color,
+                    startAngle = 200f,
+                    sweepAngle = 140f,
+                    useCenter = false,
+                    topLeft = Offset(3.dp.toPx(), 9.dp.toPx()),
+                    size = androidx.compose.ui.geometry.Size(12.dp.toPx(), 7.dp.toPx()),
+                    style = stroke,
+                )
             }
         }
     }
