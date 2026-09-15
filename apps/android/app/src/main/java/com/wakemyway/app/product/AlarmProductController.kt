@@ -3,15 +3,13 @@ package com.wakemyway.app.product
 import android.content.Context
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmScheduleHealth
+import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.alarm.AlarmScheduleCompiler
 import com.wakemyway.core.alarm.AlarmSchedulePattern
-import com.wakemyway.core.alarm.CharacterId
 import com.wakemyway.core.alarm.SnoozePolicy
 import com.wakemyway.core.alarm.TomorrowContractMode
-import com.wakemyway.core.alarm.VoiceStyle
-import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -61,7 +59,10 @@ class AlarmProductController(
         repository.upsert(definition)
         return try {
             if (definition.enabled) {
-                kernel.commitSchedule(compiler.compile(definition))
+                kernel.commitSchedule(
+                    schedule = compiler.compile(definition),
+                    policy = CriticalWakePolicy.from(definition),
+                )
             } else {
                 kernel.cancelSchedule(WakeScheduleId(definition.id.value))
             }
@@ -100,7 +101,12 @@ class AlarmProductController(
         } catch (error: Throwable) {
             repository.replaceAll(before)
             if (existing.enabled) {
-                runCatching { kernel.commitSchedule(compiler.compile(existing)) }
+                runCatching {
+                    kernel.commitSchedule(
+                        schedule = compiler.compile(existing),
+                        policy = CriticalWakePolicy.from(existing),
+                    )
+                }
             }
             throw error
         }
@@ -127,6 +133,7 @@ class AlarmProductController(
             schedule.toAlarmDefinition(
                 now = now,
                 fallbackOneShotDate = nextBySchedule[schedule.id]?.scheduledAt?.toLocalDate(),
+                policy = kernel.policy(schedule.id) ?: CriticalWakePolicy.DEFAULT,
             )
         }
         if (migrated.isNotEmpty()) repository.replaceAll(migrated)
@@ -135,6 +142,7 @@ class AlarmProductController(
     private fun WakeSchedule.toAlarmDefinition(
         now: Instant,
         fallbackOneShotDate: java.time.LocalDate?,
+        policy: CriticalWakePolicy,
     ): AlarmDefinition? {
         val pattern = when (completionPolicy) {
             WakeCompletionPolicy.RECURRING -> {
@@ -158,11 +166,14 @@ class AlarmProductController(
             enabled = true,
             zoneId = zoneId,
             schedule = pattern,
-            soundId = WakeSoundId.MORNING_LIGHT,
-            voiceCheckInEnabled = true,
-            characterId = CharacterId.ALFRED,
-            voiceStyle = VoiceStyle.DEFAULT,
-            snoozePolicy = SnoozePolicy(),
+            soundId = policy.soundId,
+            voiceCheckInEnabled = policy.voiceCheckInEnabled,
+            characterId = policy.characterId,
+            voiceStyle = policy.voiceStyle,
+            snoozePolicy = SnoozePolicy(
+                enabled = policy.snoozeEnabled,
+                duration = policy.snoozeDuration,
+            ),
             tomorrowContractMode = TomorrowContractMode.OPTIONAL,
             revision = revision.coerceAtLeast(1),
             createdAt = now,
