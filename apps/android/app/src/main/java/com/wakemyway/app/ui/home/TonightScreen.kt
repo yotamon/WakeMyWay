@@ -64,6 +64,9 @@ data class TonightUiState(
     val tomorrowContractPrepared: Boolean,
     val tomorrowContractText: String? = null,
     val firstMove: String? = null,
+    val voiceCheckInEnabled: Boolean = true,
+    val tomorrowContractAvailable: Boolean = true,
+    val tomorrowContractPromptRequired: Boolean = false,
 )
 
 enum class VoiceWakeReadiness {
@@ -149,53 +152,59 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Md))
-            TomorrowContractPreview(
-                state = state,
-                onClick = onOpenTomorrowPlan,
-            )
+            if (state.tomorrowContractAvailable) {
+                Spacer(Modifier.height(WmwSpacing.Md))
+                TomorrowContractPreview(
+                    state = state,
+                    onClick = onOpenTomorrowPlan,
+                )
+            }
 
-            voiceWakeReadiness?.takeIf { it != VoiceWakeReadiness.READY }?.let { readiness ->
-                WmwCard(
-                    modifier = Modifier.padding(top = WmwSpacing.Md),
-                    onLightSurface = true,
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
-                        Text(
-                            text = stringResource(R.string.tonight_voice_wake_title).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = WmwColors.LightQuietText,
-                        )
-                        Text(
-                            text = stringResource(
-                                when (readiness) {
-                                    VoiceWakeReadiness.READY -> R.string.tonight_voice_wake_ready_detail
-                                    VoiceWakeReadiness.SETUP_REQUIRED -> R.string.tonight_voice_wake_setup_detail
-                                    VoiceWakeReadiness.UNAVAILABLE -> R.string.tonight_voice_wake_unavailable_detail
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.Midnight,
-                        )
-                        if (readiness == VoiceWakeReadiness.SETUP_REQUIRED) {
-                            WmwSecondaryAction(
-                                label = stringResource(R.string.tonight_voice_wake_enable),
-                                onClick = onEnableVoiceReplies,
-                                onLightSurface = true,
+            voiceWakeReadiness
+                ?.takeIf { state.voiceCheckInEnabled && it != VoiceWakeReadiness.READY }
+                ?.let { readiness ->
+                    WmwCard(
+                        modifier = Modifier.padding(top = WmwSpacing.Md),
+                        onLightSurface = true,
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                            Text(
+                                text = stringResource(R.string.tonight_voice_wake_title).uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = WmwColors.LightQuietText,
                             )
+                            Text(
+                                text = stringResource(
+                                    when (readiness) {
+                                        VoiceWakeReadiness.READY -> R.string.tonight_voice_wake_ready_detail
+                                        VoiceWakeReadiness.SETUP_REQUIRED -> R.string.tonight_voice_wake_setup_detail
+                                        VoiceWakeReadiness.UNAVAILABLE -> R.string.tonight_voice_wake_unavailable_detail
+                                    },
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = WmwColors.Midnight,
+                            )
+                            if (readiness == VoiceWakeReadiness.SETUP_REQUIRED) {
+                                WmwSecondaryAction(
+                                    label = stringResource(R.string.tonight_voice_wake_enable),
+                                    onClick = onEnableVoiceReplies,
+                                    onLightSurface = true,
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            AlfredSignature(
-                quote = if (state.hasOccurrence) {
-                    stringResource(R.string.tonight_alfred_quote, state.wakeTime)
-                } else {
-                    stringResource(R.string.tonight_alfred_empty_quote)
-                },
-                modifier = Modifier.padding(top = WmwSpacing.Md),
-            )
+            if (state.voiceCheckInEnabled) {
+                AlfredSignature(
+                    quote = if (state.hasOccurrence) {
+                        stringResource(R.string.tonight_alfred_quote, state.wakeTime)
+                    } else {
+                        stringResource(R.string.tonight_alfred_empty_quote)
+                    },
+                    modifier = Modifier.padding(top = WmwSpacing.Md),
+                )
+            }
 
             Spacer(Modifier.height(WmwSpacing.Xl))
             WmwPrimaryAction(
@@ -332,10 +341,10 @@ private fun TomorrowContractPreview(
                     color = WmwColors.LightQuietText,
                 )
                 Text(
-                    text = if (state.hasTomorrowContract) {
-                        stringResource(R.string.tonight_contract_ready)
-                    } else {
-                        stringResource(R.string.tonight_contract_optional)
+                    text = when {
+                        state.hasTomorrowContract -> stringResource(R.string.tonight_contract_ready)
+                        state.tomorrowContractPromptRequired -> stringResource(R.string.tonight_contract_prompt)
+                        else -> stringResource(R.string.tonight_contract_optional)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.DawnDeep,
@@ -348,7 +357,13 @@ private fun TomorrowContractPreview(
             )
             Text(
                 text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
-                    ?: stringResource(R.string.tonight_contract_empty),
+                    ?: stringResource(
+                        if (state.tomorrowContractPromptRequired) {
+                            R.string.tonight_contract_prompt_empty
+                        } else {
+                            R.string.tonight_contract_empty
+                        },
+                    ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
             )
