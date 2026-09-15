@@ -56,7 +56,7 @@ fun AlarmsScreen(
     modifier: Modifier = Modifier,
 ) {
     val configuration = LocalConfiguration.current
-    val locale = configuration.locales[0] ?: Locale.getDefault()
+    val locale = configuration.locales[0]
 
     WmwCircadianSurface(
         stage = WmwCircadianStage.PLANNING,
@@ -70,9 +70,7 @@ fun AlarmsScreen(
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
             WmwBrandHeader(
-                trailing = {
-                    AddAlarmButton(onClick = onAddAlarm)
-                },
+                trailing = { AddAlarmButton(onClick = onAddAlarm) },
             )
             Spacer(Modifier.height(36.dp))
             Text(
