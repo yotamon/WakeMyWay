@@ -7,6 +7,7 @@ import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import org.junit.After
@@ -26,7 +27,7 @@ class CriticalWakeStoreInstrumentedTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         store = CriticalWakeStore(
             context = context,
-            fileName = "critical-wake-snapshot-instrumented-${System.nanoTime()}.json",
+            fileName = "critical-wake-state-instrumented-${System.nanoTime()}.json",
         )
     }
 
@@ -36,32 +37,56 @@ class CriticalWakeStoreInstrumentedTest {
     }
 
     @Test
-    fun roundTripPreservesOneShotPolicyAndCancellationTombstone() {
-        val schedule = WakeSchedule(
-            id = WakeScheduleId("instrumented-one-shot"),
+    fun roundTripPreservesIndependentSlotsAndExactOneShotDate() {
+        val recurring = WakeSchedule(
+            id = WakeScheduleId("workdays"),
             zoneId = ZoneId.of("Europe/Berlin"),
             timesByDay = mapOf(DayOfWeek.MONDAY to LocalTime.of(7, 30)),
             revision = 42,
-            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            completionPolicy = WakeCompletionPolicy.RECURRING,
         )
-        val snapshot = CriticalWakeSnapshot(
-            schedule = schedule,
-            nextOccurrence = null,
+        val flightDate = LocalDate.of(2026, 9, 22)
+        val oneShot = WakeSchedule(
+            id = WakeScheduleId("flight"),
+            zoneId = ZoneId.of("Europe/Berlin"),
+            timesByDay = mapOf(flightDate.dayOfWeek to LocalTime.of(5, 45)),
+            revision = 3,
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            oneShotDate = flightDate,
+        )
+        val state = CriticalAlarmState(
+            slots = linkedMapOf(
+                recurring.id to CriticalScheduleSlot(
+                    schedule = recurring,
+                    nextOccurrence = null,
+                    registeredOccurrenceId = null,
+                    enabled = false,
+                ),
+                oneShot.id to CriticalScheduleSlot(
+                    schedule = oneShot,
+                    nextOccurrence = null,
+                    registeredOccurrenceId = null,
+                    enabled = false,
+                ),
+            ),
             activeOccurrence = null,
-            registeredOccurrenceId = null,
             generation = 3,
-            enabled = false,
         )
 
-        store.write(snapshot)
+        store.write(state)
         val restored = store.read()
 
         assertNotNull(restored)
-        assertFalse(restored!!.enabled)
-        assertEquals(3, restored.generation)
-        assertEquals(WakeCompletionPolicy.ONE_SHOT, restored.schedule.completionPolicy)
-        assertEquals(schedule.id, restored.schedule.id)
-        assertEquals(schedule.zoneId, restored.schedule.zoneId)
-        assertEquals(schedule.timesByDay, restored.schedule.timesByDay)
+        assertEquals(3, restored!!.generation)
+        assertEquals(2, restored.slots.size)
+        assertFalse(restored.slots.getValue(recurring.id).enabled)
+        assertEquals(
+            WakeCompletionPolicy.ONE_SHOT,
+            restored.slots.getValue(oneShot.id).schedule.completionPolicy,
+        )
+        assertEquals(
+            flightDate,
+            restored.slots.getValue(oneShot.id).schedule.oneShotDate,
+        )
     }
 }

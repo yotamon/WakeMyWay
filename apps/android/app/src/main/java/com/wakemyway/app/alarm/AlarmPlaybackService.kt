@@ -17,7 +17,6 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.wakemyway.app.R
 import com.wakemyway.app.WakeActivity
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.Duration
@@ -135,18 +134,31 @@ class AlarmPlaybackService : Service() {
             return START_NOT_STICKY
         }
 
-        val beginResult = kernel.beginActive(occurrenceId)
-        if (beginResult == BeginActiveResult.STALE) {
-            stopSelf()
-            return START_NOT_STICKY
+        when (kernel.beginActive(occurrenceId)) {
+            BeginActiveResult.STALE -> {
+                // A delayed start for one alarm must not tear down a different valid active wake.
+                return preserveCurrentExecutionOrStop(kernel)
+            }
+
+            BeginActiveResult.CONFLICT -> {
+                // Exactly one physical wake execution may own audio/foreground presentation. A
+                // colliding valid occurrence remains kernel state to reconcile after the current
+                // chain ends, while the existing active occurrence keeps service authority.
+                return preserveCurrentExecutionOrStop(kernel)
+            }
+
+            BeginActiveResult.STARTED,
+            BeginActiveResult.ALREADY_ACTIVE,
+            -> Unit
         }
 
+        val activeId = kernel.activeOccurrence()?.id ?: occurrenceId
         val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
-        startForeground(NOTIFICATION_ID, alarmNotification(occurrenceId))
+        startForeground(NOTIFICATION_ID, alarmNotification(activeId))
         if (!playbackAlreadyActive) {
-            WakeTimingTrace(this).foreground(occurrenceId)
+            WakeTimingTrace(this).foreground(activeId)
         }
-        startPlayback(occurrenceId)
+        startPlayback(activeId)
         return START_REDELIVER_INTENT
     }
 
@@ -154,7 +166,7 @@ class AlarmPlaybackService : Service() {
         if (mediaPlayer?.isPlaying == true || toneFallback != null) return
 
         runCatching {
-            resources.openRawResourceFd(R.raw.emergency_alarm).use { descriptor ->
+            resources.openRawResourceFd(com.wakemyway.app.R.raw.emergency_alarm).use { descriptor ->
                 mediaPlayer = MediaPlayer().apply {
                     setAudioAttributes(
                         AudioAttributes.Builder()

@@ -13,8 +13,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val kernel = AlarmKernel(context)
 
         // An alarm that can make noise but cannot expose immediate controls is not safe to start.
-        // This is a last-line runtime guard for old schedules and permissions revoked after setup.
-        // Product scheduling preflight should normally make this branch unreachable.
+        // These presentation capabilities are global Android capabilities, so losing them invalidates
+        // every enabled schedule rather than only the occurrence that happened to fire first.
         val preflight = kernel.health()
         if (preflight.repairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
@@ -30,7 +30,9 @@ class AlarmReceiver : BroadcastReceiver() {
             }
 
             BeginActiveResult.ALREADY_ACTIVE -> AlarmPlaybackService.start(context, occurrenceId)
-            BeginActiveResult.STALE -> Unit
+            BeginActiveResult.CONFLICT,
+            BeginActiveResult.STALE,
+            -> Unit
         }
     }
 }

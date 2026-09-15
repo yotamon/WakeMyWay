@@ -14,24 +14,30 @@ class CriticalWakeStore(
         File(protectedContext.noBackupFilesDir, fileName),
     )
 
+    /**
+     * Reads schema v2 critical state and transparently decodes the legacy schema-v1 single snapshot.
+     * The next successful kernel mutation/reconciliation rewrites the same atomic file as v2.
+     */
     @Synchronized
-    fun read(): CriticalWakeSnapshot? = try {
+    fun read(): CriticalAlarmState? = try {
         atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
-            CriticalWakeSnapshot.decode(reader.readText())
+            CriticalAlarmState.decodeOrMigrate(reader.readText())
         }
     } catch (_: FileNotFoundException) {
         null
     } catch (_: IllegalArgumentException) {
+        null
+    } catch (_: IllegalStateException) {
         null
     } catch (_: org.json.JSONException) {
         null
     }
 
     @Synchronized
-    fun write(snapshot: CriticalWakeSnapshot) {
+    fun write(state: CriticalAlarmState) {
         val stream = atomicFile.startWrite()
         try {
-            stream.write(snapshot.encode().toByteArray(Charsets.UTF_8))
+            stream.write(state.encode().toByteArray(Charsets.UTF_8))
             stream.flush()
             atomicFile.finishWrite(stream)
         } catch (error: Throwable) {
@@ -46,6 +52,7 @@ class CriticalWakeStore(
     }
 
     companion object {
+        // Keep the legacy filename so upgrades can decode/migrate the existing scheduled wake.
         const val DEFAULT_FILE_NAME = "critical-wake-snapshot.json"
     }
 }

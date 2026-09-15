@@ -58,6 +58,24 @@ class AlarmKernelInstrumentedTest {
     }
 
     @Test
+    fun independentScheduleCancellationPreservesOtherAlarm() {
+        val first = oneShotSchedule("multi-first", minutesFromNow = 20)
+        val second = oneShotSchedule("multi-second", minutesFromNow = 40)
+        kernel.commitSchedule(first).nextOccurrence?.id?.let(registeredIds::add)
+        kernel.commitSchedule(second).nextOccurrence?.id?.let(registeredIds::add)
+
+        assertEquals(2, kernel.currentSchedules().size)
+        assertEquals(2, kernel.nextOccurrences().size)
+
+        kernel.cancelSchedule(first.id)
+
+        assertFalse(requireNotNull(kernel.health(first.id)).enabled)
+        assertTrue(requireNotNull(kernel.health(second.id)).enabled)
+        assertEquals(second.id, kernel.health().nextOccurrence?.wakeScheduleId)
+        assertEquals(1, kernel.currentSchedules().size)
+    }
+
+    @Test
     fun cancellationTombstonePreventsStaleOccurrenceResurrection() {
         val committed = kernel.commitSchedule(oneShotSchedule("cancel"))
         val primary = requireNotNull(committed.nextOccurrence)
@@ -111,14 +129,18 @@ class AlarmKernelInstrumentedTest {
         assertEquals(BeginActiveResult.STALE, kernel.beginActive(snooze.id))
     }
 
-    private fun oneShotSchedule(suffix: String): WakeSchedule {
-        val target = ZonedDateTime.now().plusMinutes(20).withNano(0)
+    private fun oneShotSchedule(
+        suffix: String,
+        minutesFromNow: Long = 20,
+    ): WakeSchedule {
+        val target = ZonedDateTime.now().plusMinutes(minutesFromNow).withNano(0)
         return WakeSchedule(
             id = WakeScheduleId("instrumented-$suffix-${System.nanoTime()}"),
             zoneId = target.zone,
             timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
             revision = System.currentTimeMillis().coerceAtLeast(1),
             completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+            oneShotDate = target.toLocalDate(),
         )
     }
 }
