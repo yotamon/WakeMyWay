@@ -38,19 +38,7 @@ jobs:
               -o "$metadata"
 
             local audio_url
-            audio_url="$(python3 - "$metadata" <<'PY'
-import json, sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
-    data = json.load(f)
-urls = data.get('media_urls') or []
-preferred = None
-for content_type in ('m4a-opus', 'mp3'):
-    preferred = next((item.get('url') for item in urls if item.get('content_type') == content_type and item.get('url')), None)
-    if preferred:
-        break
-print(preferred or data.get('audio_url') or '')
-PY
-)"
+            audio_url="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); media=d.get("media_urls") or []; u=next((x.get("url") for t in ("m4a-opus","mp3") for x in media if x.get("content_type")==t and x.get("url")), None); print(u or d.get("audio_url") or "")' "$metadata")"
 
             if [[ -z "$audio_url" || "$audio_url" == *"/api/forbidden"* ]]; then
               audio_url="https://cdn1.suno.ai/${clip_id}.mp3"
@@ -74,20 +62,10 @@ PY
               -application audio \
               "$output"
 
-            python3 - "$output" <<'PY'
-import os, subprocess, sys
-path = sys.argv[1]
-size = os.path.getsize(path)
-if size < 100_000:
-    raise SystemExit(f'{path} is unexpectedly small: {size} bytes')
-duration = float(subprocess.check_output([
-    'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-    '-of', 'default=noprint_wrappers=1:nokey=1', path,
-], text=True).strip())
-if not 25.0 <= duration <= 70.0:
-    raise SystemExit(f'{path} has unexpected duration: {duration:.2f}s')
-print(f'{path}: {size} bytes, {duration:.2f}s')
-PY
+            local size duration
+            size="$(stat -c '%s' "$output")"
+            duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$output")"
+            python3 -c 'import sys; size=int(sys.argv[1]); duration=float(sys.argv[2]); path=sys.argv[3]; assert size >= 100000, f"{path} is unexpectedly small: {size} bytes"; assert 25.0 <= duration <= 70.0, f"{path} has unexpected duration: {duration:.2f}s"; print(f"{path}: {size} bytes, {duration:.2f}s")' "$size" "$duration" "$output"
           }
 
           fetch_and_encode '48978004-63ac-4d7f-9368-1ae614870d88' 'morning_light'
