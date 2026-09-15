@@ -283,6 +283,7 @@ fun WakeMyWayApp(
                 }
                 TomorrowPlanScreen(
                     wakeOccurrence = occurrence,
+                    defaultFirstMove = owner?.firstMoveDefault,
                     onBack = {
                         refreshProductState(reconcile = false)
                         backStack.removeLastOrNull()
