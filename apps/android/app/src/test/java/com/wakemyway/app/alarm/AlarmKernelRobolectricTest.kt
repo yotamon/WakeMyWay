@@ -1,5 +1,6 @@
 package com.wakemyway.app.alarm
 
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -71,6 +72,31 @@ class AlarmKernelRobolectricTest {
 
         assertFalse(kernel.stopActive(primary.id))
         assertEquals(snooze.id, kernel.activeOccurrence()?.id)
+    }
+
+    @Test
+    fun `selected wake sound is durable for active execution and snooze chain`() {
+        val schedule = oneShotSchedule("sound-chain")
+        val committed = kernel.commitSchedule(schedule, WakeSoundId.SOFT_START)
+        val primary = requireNotNull(committed.nextOccurrence)
+
+        assertEquals(WakeSoundId.SOFT_START, kernel.wakeSoundId(schedule.id))
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(primary.id))
+        assertEquals(WakeSoundId.SOFT_START, kernel.activeWakeSoundId(primary.id))
+
+        val snooze = requireNotNull(kernel.snoozeActive(primary.id, Duration.ofMinutes(5)))
+        assertEquals(WakeSoundId.SOFT_START, kernel.wakeSoundId(schedule.id))
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(snooze.id))
+        assertEquals(WakeSoundId.SOFT_START, kernel.activeWakeSoundId(snooze.id))
+    }
+
+    @Test
+    fun `default schedule commit uses morning light sound id`() {
+        val schedule = oneShotSchedule("default-sound")
+
+        kernel.commitSchedule(schedule)
+
+        assertEquals(WakeSoundId.MORNING_LIGHT, kernel.wakeSoundId(schedule.id))
     }
 
     @Test
