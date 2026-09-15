@@ -2,150 +2,139 @@
 
 **Last updated:** 2026-09-15  
 **Product:** WakeMyWay (WMW)  
-**Platform:** Android first; optional non-critical Vercel cloud  
-**Current product phase:** Phase C consumer foundation + founder physical reliability proof  
-**Current product PR:** #70  
+**Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
+**Current product phase:** Phase C consumer shell + optional account/sync boundary  
+**Current product PR:** #73  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
-**Cloud rule:** cloud conversation is optional enrichment only; Alarm Kernel remains durable alarm/terminal authority and WakeRuntime remains behavioral activation/orientation authority
+**Cloud rule:** cloud/account state is never Alarm Kernel or Wake Runtime authority
 
 ## Current product shape
 
-WakeMyWay is a local-first Android wake system built around reliable alarms, a deterministic behavioral runtime and optional conversational enrichment.
+WakeMyWay is a local-first Android wake system built around reliable alarms, deterministic behavioral waking and optional conversational/cloud enrichment.
 
 ```text
-First-run onboarding / Profile defaults
-              ↓
-      Alarm library + editor
-              ↓ strict new-Wake preflight
-AlarmDefinitionRepository · credential protected
-              ↓ compile critical policy
-Alarm Kernel · schema v2 independent schedule slots
-              ↓
-AlarmManager.setAlarmClock()
-              ↓
-         AlarmReceiver
-              ↓ active-execution safety check
-     AlarmPlaybackService
-       ├─ selected bundled WakeMyWay sound
-       ├─ notification terminal controls
-       └─ full-screen WakeActivity
-                   ↓
-           WakeSessionViewModel
-             ├─ acknowledged Stop/Snooze → Alarm Kernel
-             └─ behavioral session
-                        ↓
-             WakeVoiceSessionController
-                        ↓
-                   WakeRuntime
-          ├─ local Alfred
-          ├─ on-device voice replies
-          ├─ motion evidence
-          └─ optional founder/debug Realtime enrichment
-```
+Onboarding / Profile / planning Appearance
+                 ↓
+        Alarm library + editor
+                 ↓ strict new-Wake preflight
+ AlarmDefinitionRepository · credential protected
+                 ↓ compile critical policy
+ Alarm Kernel · Direct-Boot critical authority
+                 ↓
+       AlarmManager.setAlarmClock()
+                 ↓
+          AlarmReceiver
+                 ↓
+      AlarmPlaybackService
+        ├─ selected bundled WakeMyWay sound
+        ├─ notification Stop/Snooze
+        └─ full-screen WakeActivity
+                    ↓
+            WakeSessionViewModel
+                    ↓
+               WakeRuntime
+        ├─ local Alfred / voice replies
+        ├─ motion evidence
+        └─ optional non-critical enrichment
 
-The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration live on warm light surfaces; Active Wake intentionally begins in midnight navy and resolves toward daylight. The same sunrise-wave geometry is used by the launcher identity, Wake Line and first-run experience.
+Optional account backup/migration
+        │
+        └─ normal consumer intent only
+           never Direct-Boot / active-wake authority
+```
 
 ## Phase B: alarms, sounds and voice configuration
 
 Phase B is complete. Issue #56 is closed.
 
-Merged slices:
+Merged slices include the consumer alarm library/editor, reviewed alarm visuals, fail-safe branded audio, deterministic asset verification, the approved `Morning Light`, `Soft Start` and `Morning Pulse` masters, real sound selection and lifecycle-safe in-editor preview.
 
-- #61 consumer multi-alarm experience;
-- #64 reviewed alarm/editor visual goldens;
-- #65 fail-safe branded wake-sound runtime;
-- #66 deterministic branded-audio importer and CI checksum guard;
-- #68 approved full-length `Morning Light`, `Soft Start` and `Morning Pulse` masters plus real sound selection;
-- #69 lifecycle-safe in-editor sound preview.
-
-The three approved WakeMyWay sounds are physically bundled and selectable per alarm. Preview playback is deliberately non-critical: it uses the media audio path, never substitutes the emergency alarm, owns only one preview session at a time, releases focus/player resources on stop or editor exit, and is bounded to a short sample. Actual wake playback remains owned by the foreground alarm path and fails safe to the private emergency asset/platform alarm tone if a branded resource cannot be resolved.
+Actual wake playback remains owned by the foreground alarm path and fails safe to the private emergency asset/platform alarm tone if a branded resource cannot be resolved.
 
 ## Phase C: consumer foundation
 
-PR #70 is the active Phase C foundation. It adds consumer behavior only when there is real backing state or a real action.
+Merged:
 
-Implemented in the current branch:
+- #70: authored first-run onboarding, Profile, credential-protected consumer preferences, default Sound / Voice Check-In / Alfred style / Snooze / First Move behavior, Notifications, Privacy and About;
+- #71: native branded Android launch treatment, explicitly scoped away from `WakeActivity`;
+- #72: real configurable planning Appearance with `Daylight`, `Warm Sunrise` and `Soft Dawn`, including visual proof that planning appearance does not alter active Wake states.
 
-- branded first-run onboarding explaining the wake model before Android capability repair;
-- versioned credential-protected `ConsumerPreferencesRepository`;
-- real Profile destination in the consumer bottom navigation;
-- local display-name profile;
-- truthful local-only account status with no fake sign-in action;
-- default Wake Sound, Voice Check-In, Alfred style and Snooze preferences;
-- reusable First Move preference;
-- saved defaults seed brand-new alarm drafts only;
-- existing alarms retain their own persisted values when Profile defaults change;
-- Notifications opens the real Android app-notification settings surface;
-- Privacy and About screens;
-- no Insights tab until Phase D has real wake-history data;
-- no fake appearance switch while normal app appearance is not yet genuinely configurable.
+Current #73 adds the provider-neutral backup/migration boundary before a real account provider is attached.
 
-Consumer preferences remain credential-protected normal product state. They are not copied into Direct Boot critical authority. Alarm delivery therefore does not depend on onboarding, Profile, an account or preference-storage availability after a wake has already been committed.
+### Account/sync boundary in #73
 
-## Multi-alarm execution foundation
+Cloud backup is a copy of normal consumer intent, not execution authority.
 
-WakeMyWay no longer uses one mutable primary schedule as product truth.
+The snapshot can include:
 
-- rich product alarm intent lives independently from the critical Android execution snapshot;
-- schema-v2 Direct-Boot state stores independent schedule slots keyed by `WakeScheduleId`;
-- editing or disabling one alarm leaves unrelated alarm slots and Android registrations untouched;
-- modern one-shot alarms carry an exact local date;
-- stale revisions cannot become active after an alarm is edited;
-- only one physical wake execution may own foreground/audio authority at a time;
-- a colliding valid occurrence returns `CONFLICT` and remains durable for deterministic reconciliation rather than starting competing audio;
-- Snoozing one alarm chain preserves unrelated scheduled alarms;
-- schema-v1 critical state remains migration-compatible and is rewritten as schema v2 on the next successful mutation/reconciliation.
+- syncable Profile/default preferences;
+- rich consumer `AlarmDefinition` intent;
+- snapshot schema/timestamp metadata.
 
-ADR 022 and the Alarm Kernel documentation remain the canonical product/execution decisions.
+It excludes by construction:
+
+- device-local onboarding completion;
+- Direct-Boot Critical Wake state;
+- AlarmManager / next-occurrence authority;
+- active Wake Session / Wake Runtime state;
+- Stop/Snooze terminal state;
+- Tomorrow Contract / Prepared Wake Plan private text;
+- raw audio/transcripts.
+
+Restore semantics are conservative:
+
+```text
+same alarm id local + remote → local wins
+remote-only alarm             → import disabled
+fresh-device preference move  → restore syncable defaults, keep onboarding local
+merge into existing device    → existing-device preferences win
+```
+
+Before an imported alarm is persisted, the Android adapter rechecks both rich product state and the Alarm Kernel slot for that id. A stale cloud plan cannot replace or cancel a locally committed wake.
+
+There is still no user-facing Sign In action in the Android product because no authenticated WakeMyWay account backend has been provisioned yet. ADR-013 remains the backend direction: optional Supabase Auth for session acquisition, Wake API for domain operations, Supabase PostgreSQL behind the API.
 
 ## Reliability and authority boundaries
 
-The critical wake path is fully local and usable without cloud access.
+The critical wake path remains fully local and usable without cloud/account access.
 
-- New Voice Wake creation remains strict. Required Android scheduling/presentation capabilities and required local voice capability are checked before commit.
-- Losing microphone/on-device recognition after scheduling does not silently delete an otherwise controllable alarm. Voice degrades independently.
-- Once an occurrence is delivered, active execution does not depend on future exact-alarm capability. Stop remains immediate; Snooze remains fail-closed because it requires a durable exact replacement.
-- `WakeSessionViewModel` uses acknowledged terminal actions. Stop/Snooze commit Alarm Kernel state before behavioral resources are released or the Wake Surface closes.
-- Duplicate terminal actions are suppressed. Rejected/failed Snooze leaves the current wake visible, audible and controllable.
-- Critical Direct-Boot corruption is diagnosable and fail-closed.
-- A stale UI surface belonging to an older occurrence cannot stop playback owned by a newer occurrence.
+- `AlarmKernel` owns exact scheduling, critical persistence, Direct Boot, active occurrence authority and durable Stop/Snooze mutations.
+- `WakeRuntime` owns deterministic behavioral activation/orientation decisions.
+- `AlarmPlaybackService` owns foreground alarm playback and terminal notification controls independently of `WakeActivity` lifetime.
+- New Voice Wake creation remains strict about required local Android capabilities.
+- Losing optional voice/cloud capability never silently deletes an otherwise controllable committed alarm.
+- Snooze remains fail-closed because it requires a durable exact replacement.
+- A stale UI surface cannot stop playback owned by a newer occurrence.
 - Task dismissal is not a terminal alarm action.
-- Snooze replacement is registered before current Active Wake authority is released.
 
-Canonical readiness semantics are recorded in ADR 019.
+Account/cloud failure cannot become a readiness predicate. #73 additionally regression-tests that restore download failure performs zero local read/apply and backup upload failure performs no local mutation.
 
 ## Privacy invariants
 
-WakeMyWay intentionally separates normal private product state from the minimal Direct-Boot wake snapshot.
+WakeMyWay separates normal private product state from the minimal Direct-Boot wake snapshot.
 
 - Alarm labels, Profile preferences and reusable defaults are credential-protected normal app state.
-- Tomorrow Contract / Prepared Wake Plan content remains credential-protected, is not copied into Direct Boot state, is not read while locked and is protected by `FLAG_SECURE` when rendered.
-- Direct-Boot critical state contains only the execution policy required to wake safely before unlock.
+- Tomorrow Contract / Prepared Wake Plan content remains credential-protected, is excluded from Direct Boot and is excluded from the initial backup/migration snapshot.
+- Direct-Boot state contains only execution policy required to wake safely before unlock.
 - Raw microphone audio and raw high-frequency motion samples are not persisted by the local wake path.
 - Local alarms work without an account.
-- Account/cloud outage must never become alarm authority.
+- No operator/server secret is shipped in the Android app.
 
-## WakeRuntime and conversational Alfred
+## Brand and UX state
 
-`WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` owns durable scheduling and real terminal Stop/Snooze mutations. `AlarmPlaybackService` owns foreground playback, notification actions and playback teardown/recovery.
+The sunrise + Wake Line identity from PR #51 remains canonical.
 
-Founder/debug OpenAI Realtime over WebRTC is optional enrichment. It may render natural speech and report conversational turn boundaries, but it cannot:
-
-- schedule or cancel alarms;
-- Stop/Snooze execution;
-- mutate WakePolicy;
-- directly create activation evidence;
-- decide Wake completion;
-- become a Wake Ready dependency.
-
-Local Alfred remains the fallback when cloud/network/provider setup fails.
-
-Founder installation pairing uses a one-time high-entropy access code and returns a scoped installation credential stored through Android Keystore. Server credential roles remain separated between internal API authorization, founder-token signing and one-time pairing.
+- Consumer wordmark: **WakeMyWay**
+- Brand line: **Brighter mornings. Your way.**
+- Planning/configuration uses Cloud/Paper morning surfaces with Sunrise/Dawn accents.
+- Active Wake begins in Midnight/Deep Navy and progresses intentionally toward morning light.
+- Planning Appearance is configurable, but `EMERGING`, `ENGAGED`, `ACTIVE`, `ORIENTED` and `COMPLETE` retain their authored wake-state visuals.
+- Insights remains deferred until Phase D has real local wake-history/session data.
 
 ## Automated quality gates
 
-Repository quality gates include:
+Repository gates include:
 
 - pure `:wake-core` unit tests;
 - Android app unit/Robolectric tests;
@@ -157,32 +146,17 @@ Repository quality gates include:
 - Cloud AI Platform tests;
 - documentation validation.
 
-The final PR #70 head must pass the full Android CI, visual regression and API-36 reliability gate set before merge. New Phase C visual goldens must be reviewed from rendered screenshots before their hashes are promoted.
+Phase C slices are merged only after the relevant exact head passes Android CI, visual regression and API-36 reliability. New visual goldens are reviewed before promotion. #73 is intentionally non-visual, so the approved visual hash set must remain unchanged.
 
 ## Physical proof still required
 
-Automated/emulator evidence is not sufficient for a wake product. Issue #9 remains the release gate for repeated physical-device proof, including:
-
-- locked-screen T+2m cycles;
-- Doze/idle;
-- process/service recreation;
-- reboot / Direct Boot before unlock;
-- timezone/time changes;
-- presentation and exact-alarm capability changes;
-- Stop/Snooze resurrection checks;
-- the three branded sounds during real wake execution;
-- branded sound plus Voice Check-In coexistence;
-- Bluetooth/audio-route behavior;
-- motion calibration and false-positive behavior;
-- representative reliability-report retention.
-
-Broader release should not be declared complete until the supported-device reliability envelope is measured rather than inferred.
+Issue #9 remains the broader release gate. Emulator/CI evidence does not replace repeated physical-device mornings, including locked-screen T+2m cycles, Doze/idle, process/service recreation, reboot/Direct Boot, timezone/time changes, capability changes, Stop/Snooze resurrection checks, the three branded sounds, Voice Check-In coexistence, Bluetooth/audio routing and motion calibration.
 
 ## Remaining product work
 
-- Complete Phase C optional account/sync boundary without making local alarms account-dependent.
-- Decide and implement a genuinely configurable normal-app appearance mode before exposing an appearance control.
+- Finish and merge #73 provider-neutral backup/migration boundary and outage proof.
+- Provision the actual WakeMyWay account backend when ready, then implement authenticated account/session acquisition and Wake API backup/restore without changing alarm authority.
+- Only after that backend exists, expose truthful Sign In / backup UX.
 - Phase D: wake history and Insights backed by real local session data, not synthetic metrics.
-- M7 live learning/journal persistence, calibration and learned-policy selection remain tracked separately.
-- Founder Realtime production environment/rate-limit work remains separate from local alarm readiness.
+- M7 learning/journal persistence and calibration remain tracked separately.
 - Physical-device reliability evidence under #9 remains mandatory before broader release.
