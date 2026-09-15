@@ -2,7 +2,7 @@ package com.wakemyway.app
 
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmRepairTarget
-import com.wakemyway.app.alarm.repairTarget
+import com.wakemyway.app.alarm.futureSchedulingRepairTarget
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 
 /**
@@ -24,7 +24,8 @@ fun wakeSchedulingBlocker(
     voiceReadiness: VoiceWakeReadiness?,
     requiresVoiceReplies: Boolean = true,
 ): WakeSchedulingBlocker = when {
-    alarmHealth.repairTarget() != AlarmRepairTarget.NONE -> WakeSchedulingBlocker.ALARM_SYSTEM
+    alarmHealth.futureSchedulingRepairTarget() != AlarmRepairTarget.NONE ->
+        WakeSchedulingBlocker.ALARM_SYSTEM
     !requiresVoiceReplies -> WakeSchedulingBlocker.NONE
     voiceReadiness == VoiceWakeReadiness.SETUP_REQUIRED -> WakeSchedulingBlocker.VOICE_PERMISSION
     voiceReadiness == VoiceWakeReadiness.UNAVAILABLE || voiceReadiness == null ->
