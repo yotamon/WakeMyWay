@@ -8,7 +8,10 @@ const isoInstant = z.string().refine(value => {
   return Number.isFinite(parsed) && /T/.test(value);
 }, 'Expected an ISO-8601 timestamp.');
 
-const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}, 'Expected a valid local calendar date.');
 const localTime = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,9})?)?$/);
 const zoneId = z.string().min(1).max(80).refine(value => {
   try {
