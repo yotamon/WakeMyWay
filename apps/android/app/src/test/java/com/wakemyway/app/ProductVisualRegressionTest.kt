@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.preparation.WakePreparationManager
+import com.wakemyway.app.product.AppAppearance
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
@@ -60,6 +61,30 @@ class ProductVisualRegressionTest {
     fun tonightReady() {
         captureRoboImage("tonight_ready.png") {
             WakeMyWayTheme {
+                TonightScreen(
+                    state = TonightUiState(
+                        wakeTime = "07:30",
+                        dateLabel = "Tuesday, 14 Jan",
+                        hasOccurrence = true,
+                        wakeReady = true,
+                        readinessDetail = "Scheduled locally and ready for tomorrow.",
+                        hasTomorrowContract = true,
+                        tomorrowContractPrepared = true,
+                        tomorrowContractText = "Design review at 10:00. You wanted time to shower and eat.",
+                        firstMove = "Shower",
+                    ),
+                    onOpenWakeSetup = {},
+                    onOpenTomorrowPlan = {},
+                    onOpenWakeLab = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun tonightSoftDawn() {
+        captureRoboImage("tonight_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
                 TonightScreen(
                     state = TonightUiState(
                         wakeTime = "07:30",
