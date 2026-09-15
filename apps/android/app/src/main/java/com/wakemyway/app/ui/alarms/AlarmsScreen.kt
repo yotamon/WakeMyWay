@@ -3,7 +3,6 @@ package com.wakemyway.app.ui.alarms
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -41,7 +41,6 @@ import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmSchedulePattern
-import com.wakemyway.core.alarm.WakeSoundId
 import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -159,9 +158,10 @@ private fun AlarmCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
-                    MetadataChip(soundLabel(alarm.soundId))
-                    if (alarm.voiceCheckInEnabled) MetadataChip("Alfred voice")
+                if (alarm.voiceCheckInEnabled) {
+                    MetadataChip("Alfred voice")
+                } else {
+                    Spacer(Modifier.size(1.dp))
                 }
                 when {
                     !alarm.enabled -> WmwStatusPill("Off", positive = false, onLightSurface = true)
@@ -256,7 +256,9 @@ private fun EmptyAlarmState(onAddAlarm: () -> Unit) {
 }
 
 private fun scheduleSummary(schedule: AlarmSchedulePattern): String = when (schedule) {
-    is AlarmSchedulePattern.OneShot -> schedule.date.format(DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.getDefault()))
+    is AlarmSchedulePattern.OneShot -> schedule.date.format(
+        DateTimeFormatter.ofPattern("EEEE, d MMM", Locale.getDefault()),
+    )
     is AlarmSchedulePattern.Weekly -> weeklyDaysLabel(schedule.days)
 }
 
@@ -276,11 +278,4 @@ private fun weeklyDaysLabel(days: Set<DayOfWeek>): String {
             .sortedBy(DayOfWeek::getValue)
             .joinToString(" · ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
     }
-}
-
-private fun soundLabel(id: WakeSoundId): String = when (id) {
-    WakeSoundId.MORNING_LIGHT -> "Morning Light"
-    WakeSoundId.SOFT_START -> "Soft Start"
-    WakeSoundId.MORNING_PULSE -> "Morning Pulse"
-    else -> id.value
 }
