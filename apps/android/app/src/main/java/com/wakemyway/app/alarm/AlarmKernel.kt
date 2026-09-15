@@ -26,12 +26,18 @@ class AlarmKernel(
     /**
      * Creates or replaces exactly one schedule slot. Unrelated alarm slots remain untouched.
      *
+     * The optional [policy] is the small non-sensitive execution contract required before credential
+     * unlock. Legacy callers keep the historic default behavior.
+     *
      * Durable authority is always written before an obsolete OS registration is cancelled. A stale
      * PendingIntent may therefore still arrive after a crash, but [beginActive] rejects it by exact
      * occurrence identity and schedule revision.
      */
     @Synchronized
-    fun commitSchedule(schedule: WakeSchedule): AlarmHealth {
+    fun commitSchedule(
+        schedule: WakeSchedule,
+        policy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT,
+    ): AlarmHealth {
         val state = stateOrEmpty()
         check(state.activeOccurrence?.wakeScheduleId != schedule.id) {
             "Cannot replace a wake schedule while its wake execution is active"
@@ -44,6 +50,7 @@ class AlarmKernel(
             nextOccurrence = next,
             registeredOccurrenceId = null,
             enabled = true,
+            policy = policy,
         )
         var plannedState = state.copy(
             slots = state.slots + (schedule.id to plannedSlot),
@@ -238,6 +245,17 @@ class AlarmKernel(
     fun nextOccurrences(): List<WakeOccurrence> = enabledSlots(store.read())
         .mapNotNull(CriticalScheduleSlot::nextOccurrence)
         .sortedBy { it.scheduledAt.toInstant() }
+
+    /** Policy for one schedule, including disabled slots retained as cancellation tombstones. */
+    fun policy(scheduleId: WakeScheduleId): CriticalWakePolicy? =
+        store.read()?.slots?.get(scheduleId)?.policy
+
+    /** Runtime policy for the occurrence that currently owns physical wake execution. */
+    fun activePolicy(occurrenceId: WakeOccurrenceId): CriticalWakePolicy? {
+        val state = store.read() ?: return null
+        val active = state.activeOccurrence?.takeIf { it.id == occurrenceId } ?: return null
+        return state.slots[active.wakeScheduleId]?.policy
+    }
 
     /**
      * Repairs every independent OS registration from durable critical state.
