@@ -29,9 +29,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import com.wakemyway.app.alarm.AlarmKernel
@@ -109,19 +111,11 @@ class WakeActivity : ComponentActivity() {
                     preparedPlan = preparedPlan,
                     defaultFirstMove = defaultFirstMove,
                     onSnooze = if (wakePolicy.snoozeEnabled) {
-                        {
-                            viewModel.closeForTerminalAction()
-                            AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
-                            finishAndRemoveTask()
-                        }
+                        { viewModel.requestSnooze() }
                     } else {
                         null
                     },
-                    onStop = {
-                        viewModel.closeForTerminalAction()
-                        AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
-                        finishAndRemoveTask()
-                    },
+                    onStop = { viewModel.requestStop() },
                     voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
                     snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
                     voiceState = voiceState,
@@ -294,6 +288,13 @@ private fun WakeFrame(
 }
 
 @Composable
+private fun adaptiveWakeSpace(referenceDp: Int): Dp {
+    val heightDp = LocalConfiguration.current.screenHeightDp
+    val scale = (heightDp / 852f).coerceIn(0.72f, 1.06f)
+    return (referenceDp * scale).dp
+}
+
+@Composable
 private fun AlarmOnlyWakeSurface(
     preparedPlan: PreparedWakePlan?,
     displayTime: String,
@@ -303,7 +304,7 @@ private fun AlarmOnlyWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
-        Spacer(Modifier.height(96.dp))
+        Spacer(Modifier.height(adaptiveWakeSpace(96)))
         Text(
             text = stringResource(R.string.wake_alarm_only_title),
             style = MaterialTheme.typography.headlineMedium,
@@ -318,7 +319,7 @@ private fun AlarmOnlyWakeSurface(
         )
         WmwWakeLine(
             state = WmwWakeLineState.QUIET,
-            modifier = Modifier.padding(top = 54.dp),
+            modifier = Modifier.padding(top = adaptiveWakeSpace(54)),
             height = WmwSizes.WakeWaveHeight,
             sunrise = true,
         )
@@ -349,7 +350,7 @@ private fun EmergingWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
-        Spacer(Modifier.height(96.dp))
+        Spacer(Modifier.height(adaptiveWakeSpace(96)))
         Text(
             text = stringResource(R.string.wake_character_name).uppercase(),
             style = MaterialTheme.typography.labelMedium,
@@ -363,7 +364,7 @@ private fun EmergingWakeSurface(
         )
         WmwWakeLine(
             state = WmwWakeLineState.QUIET,
-            modifier = Modifier.padding(top = 54.dp),
+            modifier = Modifier.padding(top = adaptiveWakeSpace(54)),
             height = WmwSizes.WakeWaveHeight,
             sunrise = true,
         )
@@ -391,7 +392,7 @@ private fun EngagedWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
-        Spacer(Modifier.height(82.dp))
+        Spacer(Modifier.height(adaptiveWakeSpace(82)))
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
             style = MaterialTheme.typography.headlineMedium,
@@ -405,8 +406,8 @@ private fun EngagedWakeSurface(
         )
         WmwWakeLine(
             state = WmwWakeLineState.LISTENING,
-            modifier = Modifier.padding(top = 58.dp),
-            height = 146.dp,
+            modifier = Modifier.padding(top = adaptiveWakeSpace(58)),
+            height = adaptiveWakeSpace(146),
             sunrise = true,
         )
         Text(
@@ -437,7 +438,7 @@ private fun ActiveWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
-        Spacer(Modifier.height(72.dp))
+        Spacer(Modifier.height(adaptiveWakeSpace(72)))
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_instruction),
             style = MaterialTheme.typography.headlineLarge,
@@ -451,8 +452,8 @@ private fun ActiveWakeSurface(
         )
         WmwWakeLine(
             state = WmwWakeLineState.MOVING,
-            modifier = Modifier.padding(top = 42.dp),
-            height = 156.dp,
+            modifier = Modifier.padding(top = adaptiveWakeSpace(42)),
+            height = adaptiveWakeSpace(156),
             sunrise = true,
         )
         Surface(
@@ -488,7 +489,7 @@ private fun OrientedWakeSurface(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 72.dp),
+                .padding(top = adaptiveWakeSpace(72)),
             horizontalAlignment = Alignment.Start,
         ) {
             Text(
@@ -513,8 +514,8 @@ private fun OrientedWakeSurface(
         WmwWakeLine(
             state = WmwWakeLineState.SETTLED,
             onLightSurface = true,
-            modifier = Modifier.padding(top = 58.dp),
-            height = 100.dp,
+            modifier = Modifier.padding(top = adaptiveWakeSpace(58)),
+            height = adaptiveWakeSpace(100),
             sunrise = true,
         )
 
@@ -559,7 +560,7 @@ private fun CompleteWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.COMPLETE, modifier) {
-        Spacer(Modifier.height(74.dp))
+        Spacer(Modifier.height(adaptiveWakeSpace(74)))
         Text(
             text = stringResource(R.string.wake_voice_complete).uppercase(),
             style = MaterialTheme.typography.labelMedium,
@@ -575,7 +576,7 @@ private fun CompleteWakeSurface(
             state = WmwWakeLineState.SETTLED,
             onLightSurface = true,
             modifier = Modifier.padding(top = WmwSpacing.Xl),
-            height = 118.dp,
+            height = adaptiveWakeSpace(118),
             sunrise = true,
         )
         Text(
@@ -603,7 +604,7 @@ private fun FirstMoveTile(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.height(124.dp),
+        modifier = modifier.height(adaptiveWakeSpace(124)),
         shape = MaterialTheme.shapes.medium,
         color = WmwColors.PaperCard.copy(alpha = 0.92f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
