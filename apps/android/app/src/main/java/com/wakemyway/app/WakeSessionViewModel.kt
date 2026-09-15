@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.alarm.CriticalWakePolicy
+import com.wakemyway.app.voice.AlarmOnlyWakeSessionController
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
@@ -71,6 +74,7 @@ class WakeSessionViewModel internal constructor(
             occurrenceId: WakeOccurrenceId,
         ): ViewModelProvider.Factory {
             val appContext = context.applicationContext
+            val policy = AlarmKernel(appContext).activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -78,12 +82,16 @@ class WakeSessionViewModel internal constructor(
                         "Unsupported ViewModel class: ${modelClass.name}"
                     }
                     return WakeSessionViewModel { onUiState, onCompleted ->
-                        WakeVoiceSessionController(
-                            context = appContext,
-                            occurrenceId = occurrenceId,
-                            onUiState = onUiState,
-                            onCompleted = onCompleted,
-                        )
+                        if (policy.voiceCheckInEnabled) {
+                            WakeVoiceSessionController(
+                                context = appContext,
+                                occurrenceId = occurrenceId,
+                                onUiState = onUiState,
+                                onCompleted = onCompleted,
+                            )
+                        } else {
+                            AlarmOnlyWakeSessionController()
+                        }
                     } as T
                 }
             }
