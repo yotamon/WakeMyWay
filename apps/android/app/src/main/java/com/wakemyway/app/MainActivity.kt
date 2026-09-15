@@ -29,12 +29,14 @@ import com.wakemyway.app.alarm.AlarmPresentationAccess
 import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.alarm.repairTarget
+import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.navigation.WakeMyWayApp
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 
 class MainActivity : ComponentActivity() {
     private val alarmKernel by lazy { AlarmKernel(this) }
+    private val alarmController by lazy { AlarmProductController(this) }
 
     private var showVoicePermissionPrimer by mutableStateOf(false)
     private var showNotificationPermissionPrimer by mutableStateOf(false)
@@ -134,14 +136,23 @@ class MainActivity : ComponentActivity() {
         refreshVoiceWakeReadiness()
         val health = alarmKernel.reconcile()
 
-        // Schedules created by older builds, or schedules whose permissions were later revoked,
-        // must not survive as future uncontrollable alarms. Voice Wake is the product contract for
-        // this build, so microphone/on-device recognition is part of pre-scheduling readiness too.
-        if (
-            health.nextOccurrence != null &&
-            wakeSchedulingBlocker(health, voiceWakeReadiness) != WakeSchedulingBlocker.NONE
-        ) {
+        // Android alarm/presentation capability is shared by every schedule, so losing it makes all
+        // future critical wakes unsafe. Voice capability is different: only alarms with Voice
+        // Check-In enabled depend on microphone/on-device recognition. Keep non-voice alarms intact.
+        if (health.nextOccurrence != null && health.repairTarget() != AlarmRepairTarget.NONE) {
             alarmKernel.cancelSchedule()
+        } else if (voiceWakeReadiness != VoiceWakeReadiness.READY) {
+            val activeScheduleId = alarmKernel.activeOccurrence()?.wakeScheduleId?.value
+            alarmController.list()
+                .asSequence()
+                .filter { alarm ->
+                    alarm.enabled &&
+                        alarm.voiceCheckInEnabled &&
+                        alarm.id.value != activeScheduleId
+                }
+                .forEach { alarm ->
+                    runCatching { alarmController.setEnabled(alarm.id, false) }
+                }
         }
 
         wakeSystemRevision++
