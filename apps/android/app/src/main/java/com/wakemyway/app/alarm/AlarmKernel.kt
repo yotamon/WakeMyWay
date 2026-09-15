@@ -1,6 +1,7 @@
 package com.wakemyway.app.alarm
 
 import android.content.Context
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.NextWakeOccurrenceResolver
 import com.wakemyway.core.schedule.SnoozeOccurrenceFactory
 import com.wakemyway.core.schedule.WakeCompletionPolicy
@@ -26,12 +27,17 @@ class AlarmKernel(
     /**
      * Creates or replaces exactly one schedule slot. Unrelated alarm slots remain untouched.
      *
+     * The selected bundled wake-sound id is committed in the same AtomicFile write as timing
+     * authority, so Direct Boot playback never depends on a second preference/product store.
      * Durable authority is always written before an obsolete OS registration is cancelled. A stale
      * PendingIntent may therefore still arrive after a crash, but [beginActive] rejects it by exact
      * occurrence identity and schedule revision.
      */
     @Synchronized
-    fun commitSchedule(schedule: WakeSchedule): AlarmHealth {
+    fun commitSchedule(
+        schedule: WakeSchedule,
+        wakeSoundId: WakeSoundId = WakeSoundCatalog.defaultId,
+    ): AlarmHealth {
         val state = stateOrEmpty()
         check(state.activeOccurrence?.wakeScheduleId != schedule.id) {
             "Cannot replace a wake schedule while its wake execution is active"
@@ -44,6 +50,7 @@ class AlarmKernel(
             nextOccurrence = next,
             registeredOccurrenceId = null,
             enabled = true,
+            wakeSoundId = wakeSoundId,
         )
         var plannedState = state.copy(
             slots = state.slots + (schedule.id to plannedSlot),
@@ -234,6 +241,16 @@ class AlarmKernel(
         enabledSlots(store.read()).map(CriticalScheduleSlot::schedule)
 
     fun activeOccurrence(): WakeOccurrence? = store.read()?.activeOccurrence
+
+    /** Sound selection owned by the same durable slot as the active occurrence. */
+    fun activeWakeSoundId(occurrenceId: WakeOccurrenceId): WakeSoundId? {
+        val state = store.read() ?: return null
+        val active = state.activeOccurrence?.takeIf { it.id == occurrenceId } ?: return null
+        return state.slots[active.wakeScheduleId]?.wakeSoundId
+    }
+
+    fun wakeSoundId(scheduleId: WakeScheduleId): WakeSoundId? =
+        store.read()?.slots?.get(scheduleId)?.wakeSoundId
 
     fun nextOccurrences(): List<WakeOccurrence> = enabledSlots(store.read())
         .mapNotNull(CriticalScheduleSlot::nextOccurrence)
