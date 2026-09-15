@@ -23,11 +23,11 @@ export function bearerAccessToken(request: Request): string | undefined {
 
 export async function requireAccountIdentity(
   request: Request,
-  verifier: AccountTokenVerifier = configuredAccountTokenVerifier(),
+  verifier?: AccountTokenVerifier,
 ): Promise<AccountIdentity> {
   const token = bearerAccessToken(request);
   if (!token) throw new HttpError(401, 'Unauthorized.');
-  return verifier(token);
+  return (verifier ?? configuredAccountTokenVerifier())(token);
 }
 
 export function createSupabaseAccountTokenVerifier(supabaseUrl: string): AccountTokenVerifier {
