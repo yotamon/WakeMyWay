@@ -13,9 +13,9 @@
 WakeMyWay is a local-first Android wake system with a deterministic behavioral runtime and optional conversational enrichment.
 
 ```text
-Wake Setup
+Wake Setup / Alarm Library
     ↓ strict new-Wake preflight
-Alarm Kernel
+Alarm Kernel · schema v2 independent schedule slots
     ↓
 AlarmManager.setAlarmClock()
     ↓
@@ -41,6 +41,22 @@ AlarmPlaybackService
 
 The sunrise-wave consumer brand from PR #51 is the current presentation truth. Planning surfaces are light/premium; active wake remains intentionally darker and resolves toward morning light. The same sunrise-wave geometry is used by the launcher identity and the stateful Wake Line.
 
+## Multi-alarm product foundation
+
+PR #53 and the subsequent Alarm Kernel migration moved WakeMyWay from a single primary schedule toward the real consumer alarm model. PR #54 is applied on top of that architecture rather than reverting it.
+
+- product alarm intent is represented independently from the critical Android execution snapshot;
+- the schema-v2 Direct-Boot state stores independent schedule slots keyed by `WakeScheduleId`;
+- editing or disabling one alarm leaves unrelated alarm slots and Android registrations untouched;
+- modern one-shot alarms carry an exact local date instead of relying only on weekday/time intent;
+- stale revisions cannot become active after an alarm is edited;
+- only one physical wake execution may own foreground/audio authority at a time;
+- a second valid occurrence colliding with an active wake returns `CONFLICT` and remains durable for deterministic reconciliation rather than starting competing audio;
+- Snoozing one alarm chain preserves unrelated scheduled alarms;
+- schema-v1 critical state remains migration-compatible and the next successful mutation/reconciliation rewrites it as schema v2.
+
+ADR 022 and the Alarm Kernel documentation are the canonical multi-alarm product/execution decisions. The hardening below preserves these invariants while tightening failure handling and active-wake safety semantics.
+
 ## Reliability hardening in PR #54
 
 The deep application review identified readiness and authority boundaries that had become broader than necessary. PR #54 hardens them without weakening alarm safety:
@@ -49,17 +65,19 @@ The deep application review identified readiness and authority boundaries that h
 - **Existing safe alarms survive later voice degradation.** Losing microphone/on-device recognition after scheduling no longer silently deletes an otherwise controllable alarm. Voice degrades to the remaining local capabilities.
 - **Active wakes do not depend on future exact scheduling.** Once Android delivers an occurrence, active execution safety is notification/channel/full-screen controllability. Losing exact-alarm capability does not silence the current wake; Snooze remains fail-closed because it requires a durable exact replacement.
 - **Stop/Snooze have one acknowledged live UI path.** `WakeSessionViewModel` calls `WakeTerminalActions`, which commits the Alarm Kernel transaction before releasing behavioral resources or dismissing the Wake Surface. Duplicate terminal actions are suppressed; rejected/failed Snooze keeps the current wake visible, audible and controllable.
-- **Critical Direct-Boot corruption is diagnosable.** `CriticalWakeStore` distinguishes `Missing` from `Corrupt` while mutation paths remain fail-closed. Alarm Health now reports an unreadable critical state instead of presenting corruption as an ordinary empty setup.
+- **Critical Direct-Boot corruption is diagnosable and fail-closed.** `CriticalWakeStore` distinguishes `Missing` from `Corrupt`. Alarm Health surfaces unreadable authority, mutation reads remain fail-closed, and a new schedule commit refuses to overwrite a corrupt critical file.
 - **The branded wake surface is adaptive.** Canonical 393×852 composition is preserved while decorative vertical rhythm and large Wake Line regions compress on shorter devices. A compact 360×640 render smoke test supplements the canonical golden set.
 - **Schedule controls meet the sleepy-use touch target.** Day selectors retain their branded 40dp visual circle inside a 48dp interactive target, compact-width planning uses narrower brand spacing so all seven targets fit at 360dp, and summary copy is resource-backed rather than hardcoded English.
 
-Canonical semantics are recorded in ADR 019.
+Canonical readiness semantics are recorded in ADR 019.
 
 ## Alarm and privacy invariants
 
 The critical wake path remains fully local and usable without cloud access.
 
 - Alarm scheduling, playback, Stop, Snooze, recovery and Direct Boot do not depend on Vercel, OpenAI, Supabase or an account.
+- each enabled alarm owns an isolated durable schedule slot; product edits/cancellation target a concrete `WakeScheduleId`;
+- global cancellation is reserved for global Android safety loss where no WakeMyWay alarm can remain safely controllable;
 - Snooze replacement is registered before Active Wake authority is released; failure leaves the current wake active.
 - stale occurrence IDs cannot stop or replace a newer Active Wake.
 - task dismissal is not a terminal alarm action; a healthy foreground alarm survives it only while immediate verified terminal controls remain reachable.
@@ -71,6 +89,8 @@ The critical wake path remains fully local and usable without cloud access.
 `WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` owns durable alarm scheduling/state and real terminal Stop/Snooze mutations. `AlarmPlaybackService` owns foreground playback, notification actions and playback teardown/recovery.
 
 The production Wake Surface does not disappear on a fire-and-forget terminal request. `WakeTerminalActions` first commits Stop or the durable Snooze replacement in `AlarmKernel`; only success is acknowledged back to `WakeSessionViewModel`, which then releases behavioral resources and closes the surface. Notification actions remain independently safe through the service path.
+
+A stale UI surface belonging to an older occurrence cannot stop playback owned by a newer active occurrence. Automatic WakeRuntime completion follows the same acknowledged terminal boundary instead of closing behavioral resources before durable alarm state is resolved.
 
 The pure runtime still contains typed terminal protocol concepts for deterministic replay/testing and future journal integration, but those concepts do not become a second durable execution authority. Live terminal results should be observed by future journal/learning integration.
 
@@ -122,7 +142,7 @@ Repository quality gates include:
 - Cloud AI Platform tests;
 - documentation validation.
 
-PR #54 adds regression coverage for the scheduling-vs-active safety split, acknowledged single-shot terminal transactions, rejected/failed Snooze behavior, critical-state corruption, dedicated founder token-signing rotation and compact wake rendering.
+The multi-alarm foundation adds coverage for slot isolation, independent edits/cancellation, exact-date one-shots, stale revisions, collision ownership and Snooze isolation. PR #54 adds coverage for the scheduling-vs-active safety split, acknowledged terminal transactions, rejected/failed Snooze behavior, stale wake surfaces, critical-state corruption, dedicated founder token-signing rotation and compact wake rendering.
 
 Exact PR #54 pass/fail evidence must be taken from the final PR head before merge; this document must not claim a green gate before GitHub reports it.
 
@@ -145,7 +165,7 @@ Broader release should not be declared complete until the supported-device relia
 
 ## Remaining product boundaries
 
-- The approved custom wake-sound files are not currently committed in the repository. The critical path therefore still uses the bundled emergency alarm asset; the multi-profile alarm sound/ramp/preview product model remains to be completed when those source assets are available.
+- The product alarm model now has branded sound configuration, but the three approved source WAV files are not currently committed in the repository. Critical playback therefore still uses the bundled emergency alarm asset; profile-to-bundled-resource playback, preview/ramp/duck tuning and the approved binaries remain to be completed when those source assets are available.
 - Founder Realtime transport/provider selection is still evidence-gated by #28; direct OpenAI WebRTC is a strong implemented candidate, not a final provider declaration without physical latency/route/cost evidence.
 - M7 live learning/journal wiring remains open.
 - broader consumer authentication/account sync is intentionally not part of the critical alarm architecture.
