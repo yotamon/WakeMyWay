@@ -1,14 +1,16 @@
 package com.wakemyway.app.ui.profile
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -17,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.product.AppAppearance
 import com.wakemyway.app.ui.components.WmwCard
@@ -36,6 +40,7 @@ fun AppearanceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
@@ -124,7 +129,11 @@ private fun AppearanceChoice(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelected),
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onSelected,
+            ),
         shape = RoundedCornerShape(22.dp),
         color = preview,
         border = BorderStroke(
@@ -153,6 +162,7 @@ private fun AppearanceChoice(
             }
             Text(
                 text = if (selected) "●" else "○",
+                modifier = Modifier.clearAndSetSemantics { },
                 style = MaterialTheme.typography.titleLarge,
                 color = if (selected) WmwColors.Sunrise else WmwColors.LightQuietText,
             )
