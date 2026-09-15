@@ -70,7 +70,10 @@ fun ProfileScreen(
         ) {
             WmwBrandHeader()
             Text(
-                text = preferences.displayName?.takeIf { it.isNotBlank() }?.let { "Good to see you, $it." }
+                text = preferences.displayName
+                    ?.takeIf { it.isNotBlank() }
+                    ?.trim()
+                    ?.let { "Good to see you, $it." }
                     ?: "Make mornings yours.",
                 modifier = Modifier.padding(top = 28.dp),
                 style = MaterialTheme.typography.headlineLarge,
@@ -90,7 +93,7 @@ fun ProfileScreen(
                         val next = value.take(ConsumerPreferences.MAX_DISPLAY_NAME_LENGTH)
                         displayName = next
                         onPreferencesChanged(
-                            preferences.copy(displayName = next.trim().ifBlank { null }),
+                            preferences.copy(displayName = next.takeIf { it.isNotBlank() }),
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -100,23 +103,23 @@ fun ProfileScreen(
                 )
 
                 WmwCard(onLightSurface = true) {
-                    Text(
-                        text = "LOCAL PROFILE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
-                    )
-                    Text(
-                        text = "No account connected",
-                        modifier = Modifier.padding(top = WmwSpacing.Xs),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = WmwColors.Midnight,
-                    )
-                    Text(
-                        text = "Alarms and preferences work fully on this phone. Account sync will remain optional when it is enabled.",
-                        modifier = Modifier.padding(top = WmwSpacing.Xs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = WmwColors.LightQuietText,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                        Text(
+                            text = "LOCAL PROFILE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WmwColors.DawnDeep,
+                        )
+                        Text(
+                            text = "No account connected",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.Midnight,
+                        )
+                        Text(
+                            text = "Alarms and preferences work fully on this phone. Account sync will remain optional when it is enabled.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WmwColors.LightQuietText,
+                        )
+                    }
                 }
             }
 
@@ -198,7 +201,7 @@ fun ProfileScreen(
                         val next = value.take(ConsumerPreferences.MAX_FIRST_MOVE_LENGTH)
                         firstMove = next
                         onPreferencesChanged(
-                            preferences.copy(defaultFirstMove = next.trim().ifBlank { null }),
+                            preferences.copy(defaultFirstMove = next.takeIf { it.isNotBlank() }),
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -455,13 +458,14 @@ private fun PrivacyFact(title: String, body: String) {
         modifier = Modifier.padding(top = WmwSpacing.Md),
         onLightSurface = true,
     ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = WmwColors.Midnight)
-        Text(
-            body,
-            modifier = Modifier.padding(top = WmwSpacing.Xs),
-            style = MaterialTheme.typography.bodyMedium,
-            color = WmwColors.LightQuietText,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = WmwColors.Midnight)
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
+            )
+        }
     }
 }
 
