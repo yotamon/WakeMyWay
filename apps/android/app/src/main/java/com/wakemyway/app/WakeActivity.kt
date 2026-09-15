@@ -8,7 +8,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,13 +29,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
+import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakeTimePreparedContent
@@ -64,6 +64,7 @@ class WakeActivity : ComponentActivity() {
     private var occurrenceId: WakeOccurrenceId? = null
     private var preparedPlan by mutableStateOf<PreparedWakePlan?>(null)
     private var sessionViewModel: WakeSessionViewModel? = null
+    private var wakePolicy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +80,8 @@ class WakeActivity : ComponentActivity() {
                 return
             }
         occurrenceId = wakeOccurrenceId
+        wakePolicy = AlarmKernel(applicationContext).activePolicy(wakeOccurrenceId)
+            ?: CriticalWakePolicy.DEFAULT
         refreshPreparedPlanIfUnlocked()
 
         val viewModel = ViewModelProvider(
@@ -101,16 +104,22 @@ class WakeActivity : ComponentActivity() {
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = preparedPlan,
-                    onSnooze = {
-                        viewModel.closeForTerminalAction()
-                        AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
-                        finishAndRemoveTask()
+                    onSnooze = if (wakePolicy.snoozeEnabled) {
+                        {
+                            viewModel.closeForTerminalAction()
+                            AlarmPlaybackService.requestSnooze(this, wakeOccurrenceId)
+                            finishAndRemoveTask()
+                        }
+                    } else {
+                        null
                     },
                     onStop = {
                         viewModel.closeForTerminalAction()
                         AlarmPlaybackService.requestStop(this, wakeOccurrenceId)
                         finishAndRemoveTask()
                     },
+                    voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
+                    snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
                     voiceState = voiceState,
                 )
             }
@@ -163,13 +172,27 @@ class WakeActivity : ComponentActivity() {
 @Composable
 internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
     displayDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMM")),
+    voiceCheckInEnabled: Boolean = true,
+    snoozeMinutes: Long = 5,
     voiceState: WakeVoiceUiState? = null,
 ) {
+    if (!voiceCheckInEnabled) {
+        AlarmOnlyWakeSurface(
+            preparedPlan = preparedPlan,
+            displayTime = displayTime,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
+            modifier = modifier,
+        )
+        return
+    }
+
     when (voiceState?.mode) {
         null,
         WakeVoiceMode.STARTING,
@@ -181,6 +204,7 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -189,6 +213,7 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -197,6 +222,7 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -206,6 +232,7 @@ internal fun WakeSurface(
             displayDate = displayDate,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -241,12 +268,58 @@ private fun WakeFrame(
 }
 
 @Composable
+private fun AlarmOnlyWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    displayTime: String,
+    onSnooze: (() -> Unit)?,
+    onStop: () -> Unit,
+    snoozeMinutes: Long,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.EMERGING, modifier) {
+        Spacer(Modifier.height(96.dp))
+        Text(
+            text = stringResource(R.string.wake_alarm_only_title),
+            style = MaterialTheme.typography.headlineMedium,
+            color = WmwColors.WarmLight,
+            textAlign = TextAlign.Center,
+        )
+        WmwTimeDisplay(
+            time = displayTime,
+            modifier = Modifier.padding(top = WmwSpacing.Sm),
+            compact = true,
+            color = WmwColors.WarmLight,
+        )
+        WmwWakeLine(
+            state = WmwWakeLineState.QUIET,
+            modifier = Modifier.padding(top = 54.dp),
+            height = WmwSizes.WakeWaveHeight,
+            sunrise = true,
+        )
+        Text(
+            text = if (preparedPlan != null) {
+                stringResource(R.string.wake_private_context_ready)
+            } else {
+                stringResource(R.string.wake_alarm_only_detail)
+            },
+            modifier = Modifier.padding(top = WmwSpacing.Md),
+            style = MaterialTheme.typography.bodyMedium,
+            color = WmwColors.QuietText,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
+    }
+}
+
+@Composable
 private fun EmergingWakeSurface(
     preparedPlan: PreparedWakePlan?,
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
@@ -278,7 +351,7 @@ private fun EmergingWakeSurface(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
@@ -286,8 +359,9 @@ private fun EmergingWakeSurface(
 private fun EngagedWakeSurface(
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
@@ -323,7 +397,7 @@ private fun EngagedWakeSurface(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
@@ -331,8 +405,9 @@ private fun EngagedWakeSurface(
 private fun ActiveWakeSurface(
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
@@ -368,7 +443,7 @@ private fun ActiveWakeSurface(
             )
         }
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
@@ -377,8 +452,9 @@ private fun OrientedWakeSurface(
     preparedPlan: PreparedWakePlan?,
     spokenLine: String?,
     displayDate: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ORIENTED, modifier) {
@@ -442,7 +518,7 @@ private fun OrientedWakeSurface(
         }
 
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = true)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
     }
 }
 
@@ -518,8 +594,9 @@ private fun FirstMoveTile(
 
 @Composable
 private fun WakeSafetyFooter(
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     onLightSurface: Boolean,
 ) {
     val textColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.72f) else WmwColors.QuietText
@@ -527,17 +604,19 @@ private fun WakeSafetyFooter(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
     ) {
-        TextButton(
-            onClick = onSnooze,
-            modifier = Modifier
-                .weight(1f)
-                .height(WmwSizes.SleepyTouchTarget),
-        ) {
-            Text(
-                text = stringResource(R.string.wake_snooze_short),
-                style = MaterialTheme.typography.bodySmall,
-                color = textColor,
-            )
+        if (onSnooze != null) {
+            TextButton(
+                onClick = onSnooze,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(WmwSizes.SleepyTouchTarget),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_snooze_minutes, snoozeMinutes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                )
+            }
         }
         TextButton(
             onClick = onStop,
