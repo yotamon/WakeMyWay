@@ -18,6 +18,18 @@ class WakeSchedulingGateTest {
     }
 
     @Test
+    fun `alarm system still blocks an alarm that does not use voice`() {
+        assertEquals(
+            WakeSchedulingBlocker.ALARM_SYSTEM,
+            wakeSchedulingBlocker(
+                alarmHealth = health(exactAlarmAllowed = false),
+                voiceReadiness = VoiceWakeReadiness.UNAVAILABLE,
+                requiresVoiceReplies = false,
+            ),
+        )
+    }
+
+    @Test
     fun `microphone setup blocks scheduling when alarm system is controllable`() {
         assertEquals(
             WakeSchedulingBlocker.VOICE_PERMISSION,
@@ -35,6 +47,26 @@ class WakeSchedulingGateTest {
             wakeSchedulingBlocker(
                 alarmHealth = health(),
                 voiceReadiness = VoiceWakeReadiness.UNAVAILABLE,
+            ),
+        )
+    }
+
+    @Test
+    fun `voice-free alarm does not depend on microphone or on-device recognition`() {
+        assertEquals(
+            WakeSchedulingBlocker.NONE,
+            wakeSchedulingBlocker(
+                alarmHealth = health(),
+                voiceReadiness = VoiceWakeReadiness.UNAVAILABLE,
+                requiresVoiceReplies = false,
+            ),
+        )
+        assertEquals(
+            WakeSchedulingBlocker.NONE,
+            wakeSchedulingBlocker(
+                alarmHealth = health(),
+                voiceReadiness = VoiceWakeReadiness.SETUP_REQUIRED,
+                requiresVoiceReplies = false,
             ),
         )
     }

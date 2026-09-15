@@ -21,7 +21,7 @@ class CriticalWakeStore(
     )
 
     /**
-     * Reads schema v2 critical state and transparently decodes the legacy schema-v1 single snapshot.
+     * Reads current schema-v3 critical state and transparently decodes legacy schema-v1/v2 state.
      * Missing state and unreadable/corrupt state remain distinct for diagnostics while mutation paths
      * continue to fail closed through [read].
      */
@@ -41,7 +41,7 @@ class CriticalWakeStore(
         CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake JSON")
     }
 
-    /** Fail-closed compatibility accessor for Alarm Kernel mutation paths. */
+    /** Fail-closed compatibility accessor for Alarm Kernel non-creating read paths. */
     @Synchronized
     fun read(): CriticalAlarmState? = when (val result = readResult()) {
         is CriticalWakeReadResult.State -> result.value
@@ -69,7 +69,6 @@ class CriticalWakeStore(
     }
 
     companion object {
-        // Keep the legacy filename so upgrades can decode/migrate the existing scheduled wake.
         const val DEFAULT_FILE_NAME = "critical-wake-snapshot.json"
     }
 }

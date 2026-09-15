@@ -36,10 +36,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
+import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakeTimePreparedContent
+import com.wakemyway.app.product.AlarmDefinitionRepository
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwBrandLockup
 import com.wakemyway.app.ui.components.WmwCircadianStage
@@ -54,6 +57,7 @@ import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
+import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.LocalDate
@@ -63,7 +67,9 @@ import java.time.format.DateTimeFormatter
 class WakeActivity : ComponentActivity() {
     private var occurrenceId: WakeOccurrenceId? = null
     private var preparedPlan by mutableStateOf<PreparedWakePlan?>(null)
+    private var defaultFirstMove by mutableStateOf<String?>(null)
     private var sessionViewModel: WakeSessionViewModel? = null
+    private var wakePolicy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,7 +85,9 @@ class WakeActivity : ComponentActivity() {
                 return
             }
         occurrenceId = wakeOccurrenceId
-        refreshPreparedPlanIfUnlocked()
+        wakePolicy = AlarmKernel(applicationContext).activePolicy(wakeOccurrenceId)
+            ?: CriticalWakePolicy.DEFAULT
+        refreshPrivateWakeContextIfUnlocked()
 
         val viewModel = ViewModelProvider(
             this,
@@ -101,8 +109,15 @@ class WakeActivity : ComponentActivity() {
             WakeMyWayTheme {
                 WakeSurface(
                     preparedPlan = preparedPlan,
-                    onSnooze = { viewModel.requestSnooze() },
+                    defaultFirstMove = defaultFirstMove,
+                    onSnooze = if (wakePolicy.snoozeEnabled) {
+                        { viewModel.requestSnooze() }
+                    } else {
+                        null
+                    },
                     onStop = { viewModel.requestStop() },
+                    voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
+                    snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
                     voiceState = voiceState,
                 )
             }
@@ -115,28 +130,47 @@ class WakeActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshPreparedPlanIfUnlocked()
+        refreshPrivateWakeContextIfUnlocked()
         sessionViewModel?.onSurfaceVisible()
     }
 
     override fun onPause() {
         sessionViewModel?.onSurfaceHidden()
         preparedPlan = null
+        defaultFirstMove = null
         super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus && preparedPlan == null) refreshPreparedPlanIfUnlocked()
+        if (hasFocus && preparedPlan == null && defaultFirstMove == null) {
+            refreshPrivateWakeContextIfUnlocked()
+        }
     }
 
-    private fun refreshPreparedPlanIfUnlocked() {
+    private fun refreshPrivateWakeContextIfUnlocked() {
         val id = occurrenceId ?: return
         val userManager = getSystemService(UserManager::class.java)
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!userManager.isUserUnlocked || keyguard.isDeviceLocked) {
             preparedPlan = null
+            defaultFirstMove = null
             return
+        }
+
+        val kernel = AlarmKernel(applicationContext)
+        val activeScheduleId = kernel.activeOccurrence()
+            ?.takeIf { active -> active.id == id }
+            ?.wakeScheduleId
+
+        defaultFirstMove = activeScheduleId?.let { scheduleId ->
+            runCatching {
+                AlarmDefinitionRepository(this)
+                    .get(AlarmDefinitionId(scheduleId.value))
+                    ?.firstMoveDefault
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+            }.getOrNull()
         }
 
         preparedPlan = runCatching {
@@ -146,7 +180,7 @@ class WakeActivity : ComponentActivity() {
             }
         }.getOrNull()
 
-        if (preparedPlan != null) {
+        if (preparedPlan != null || defaultFirstMove != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
@@ -155,13 +189,28 @@ class WakeActivity : ComponentActivity() {
 @Composable
 internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
     displayDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMM")),
+    voiceCheckInEnabled: Boolean = true,
+    snoozeMinutes: Long = 5,
     voiceState: WakeVoiceUiState? = null,
+    defaultFirstMove: String? = null,
 ) {
+    if (!voiceCheckInEnabled) {
+        AlarmOnlyWakeSurface(
+            preparedPlan = preparedPlan,
+            displayTime = displayTime,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
+            modifier = modifier,
+        )
+        return
+    }
+
     when (voiceState?.mode) {
         null,
         WakeVoiceMode.STARTING,
@@ -173,6 +222,7 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -181,6 +231,7 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
@@ -189,20 +240,24 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
         WakeVoiceMode.ORIENTING -> OrientedWakeSurface(
             preparedPlan = preparedPlan,
+            defaultFirstMove = defaultFirstMove,
             spokenLine = voiceState.spokenLine,
             displayDate = displayDate,
             onSnooze = onSnooze,
             onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
 
         WakeVoiceMode.COMPLETE -> CompleteWakeSurface(
             preparedPlan = preparedPlan,
+            defaultFirstMove = defaultFirstMove,
             displayTime = displayTime,
             onStop = onStop,
             modifier = modifier,
@@ -240,12 +295,58 @@ private fun adaptiveWakeSpace(referenceDp: Int): Dp {
 }
 
 @Composable
+private fun AlarmOnlyWakeSurface(
+    preparedPlan: PreparedWakePlan?,
+    displayTime: String,
+    onSnooze: (() -> Unit)?,
+    onStop: () -> Unit,
+    snoozeMinutes: Long,
+    modifier: Modifier,
+) {
+    WakeFrame(WmwCircadianStage.EMERGING, modifier) {
+        Spacer(Modifier.height(adaptiveWakeSpace(96)))
+        Text(
+            text = stringResource(R.string.wake_alarm_only_title),
+            style = MaterialTheme.typography.headlineMedium,
+            color = WmwColors.WarmLight,
+            textAlign = TextAlign.Center,
+        )
+        WmwTimeDisplay(
+            time = displayTime,
+            modifier = Modifier.padding(top = WmwSpacing.Sm),
+            compact = true,
+            color = WmwColors.WarmLight,
+        )
+        WmwWakeLine(
+            state = WmwWakeLineState.QUIET,
+            modifier = Modifier.padding(top = adaptiveWakeSpace(54)),
+            height = WmwSizes.WakeWaveHeight,
+            sunrise = true,
+        )
+        Text(
+            text = if (preparedPlan != null) {
+                stringResource(R.string.wake_private_context_ready)
+            } else {
+                stringResource(R.string.wake_alarm_only_detail)
+            },
+            modifier = Modifier.padding(top = WmwSpacing.Md),
+            style = MaterialTheme.typography.bodyMedium,
+            color = WmwColors.QuietText,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.weight(1f))
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
+    }
+}
+
+@Composable
 private fun EmergingWakeSurface(
     preparedPlan: PreparedWakePlan?,
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
@@ -277,7 +378,7 @@ private fun EmergingWakeSurface(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
@@ -285,8 +386,9 @@ private fun EmergingWakeSurface(
 private fun EngagedWakeSurface(
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
@@ -322,7 +424,7 @@ private fun EngagedWakeSurface(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
@@ -330,8 +432,9 @@ private fun EngagedWakeSurface(
 private fun ActiveWakeSurface(
     spokenLine: String?,
     displayTime: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ACTIVE, modifier) {
@@ -367,17 +470,19 @@ private fun ActiveWakeSurface(
             )
         }
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = false)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
 }
 
 @Composable
 private fun OrientedWakeSurface(
     preparedPlan: PreparedWakePlan?,
+    defaultFirstMove: String?,
     spokenLine: String?,
     displayDate: String,
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ORIENTED, modifier) {
@@ -431,6 +536,7 @@ private fun OrientedWakeSurface(
         ) {
             FirstMoveTile(
                 label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+                    ?: defaultFirstMove
                     ?: stringResource(R.string.wake_first_move_fallback),
                 modifier = Modifier.weight(1f),
             )
@@ -441,13 +547,14 @@ private fun OrientedWakeSurface(
         }
 
         Spacer(Modifier.weight(1f))
-        WakeSafetyFooter(onSnooze, onStop, onLightSurface = true)
+        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
     }
 }
 
 @Composable
 private fun CompleteWakeSurface(
     preparedPlan: PreparedWakePlan?,
+    defaultFirstMove: String?,
     displayTime: String,
     onStop: () -> Unit,
     modifier: Modifier,
@@ -474,6 +581,7 @@ private fun CompleteWakeSurface(
         )
         Text(
             text = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+                ?: defaultFirstMove
                 ?: stringResource(R.string.wake_first_move_fallback),
             modifier = Modifier.padding(top = WmwSpacing.Xl),
             style = MaterialTheme.typography.headlineSmall,
@@ -517,8 +625,9 @@ private fun FirstMoveTile(
 
 @Composable
 private fun WakeSafetyFooter(
-    onSnooze: () -> Unit,
+    onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    snoozeMinutes: Long,
     onLightSurface: Boolean,
 ) {
     val textColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.72f) else WmwColors.QuietText
@@ -526,17 +635,19 @@ private fun WakeSafetyFooter(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
     ) {
-        TextButton(
-            onClick = onSnooze,
-            modifier = Modifier
-                .weight(1f)
-                .height(WmwSizes.SleepyTouchTarget),
-        ) {
-            Text(
-                text = stringResource(R.string.wake_snooze_short),
-                style = MaterialTheme.typography.bodySmall,
-                color = textColor,
-            )
+        if (onSnooze != null) {
+            TextButton(
+                onClick = onSnooze,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(WmwSizes.SleepyTouchTarget),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_snooze_minutes, snoozeMinutes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor,
+                )
+            }
         }
         TextButton(
             onClick = onStop,

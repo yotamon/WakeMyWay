@@ -19,7 +19,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.wakemyway.app.WakeActivity
 import com.wakemyway.core.schedule.WakeOccurrenceId
-import java.time.Duration
 
 class AlarmPlaybackService : Service() {
     private var mediaPlayer: MediaPlayer? = null
@@ -66,26 +65,32 @@ class AlarmPlaybackService : Service() {
             }
 
             ACTION_SNOOZE -> {
-                val replacement = kernel.snoozeActive(occurrenceId, DEFAULT_SNOOZE)
-                if (replacement == null) {
-                    // A delayed PendingIntent from an older occurrence, or a failed exact-alarm
-                    // replacement, must never tear down the current wake. If a durable active wake
-                    // exists, re-assert its foreground/audio execution instead.
+                val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
+                if (!policy.snoozeEnabled) {
                     preserveCurrentExecutionOrStop(kernel)
                 } else {
-                    trace.snoozed(occurrenceId)
-                    trace.expected(
-                        occurrence = replacement,
-                        scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
-                        expectFullScreen = kernel.health().fullScreenIntentAllowed,
-                    )
-                    stopExecution()
-                    START_NOT_STICKY
+                    val replacement = kernel.snoozeActive(occurrenceId, policy.snoozeDuration)
+                    if (replacement == null) {
+                        // A delayed PendingIntent from an older occurrence, or a failed exact-alarm
+                        // replacement, must never tear down the current wake. If a durable active
+                        // wake exists, re-assert its foreground/audio execution instead.
+                        preserveCurrentExecutionOrStop(kernel)
+                    } else {
+                        trace.snoozed(occurrenceId)
+                        trace.expected(
+                            occurrence = replacement,
+                            scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
+                            expectFullScreen = kernel.health().fullScreenIntentAllowed,
+                        )
+                        stopExecution()
+                        START_NOT_STICKY
+                    }
                 }
             }
 
             ACTION_VOICE_WINDOW -> {
-                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
+                if (kernel.activeOccurrence()?.id == occurrenceId && policy.voiceCheckInEnabled) {
                     beginVoiceWindow()
                     START_STICKY
                 } else {
@@ -153,8 +158,9 @@ class AlarmPlaybackService : Service() {
         }
 
         val activeId = kernel.activeOccurrence()?.id ?: occurrenceId
+        val policy = kernel.activePolicy(activeId) ?: CriticalWakePolicy.DEFAULT
         val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
-        startForeground(NOTIFICATION_ID, alarmNotification(activeId))
+        startForeground(NOTIFICATION_ID, alarmNotification(activeId, policy))
         if (!playbackAlreadyActive) {
             WakeTimingTrace(this).foreground(activeId)
         }
@@ -229,31 +235,37 @@ class AlarmPlaybackService : Service() {
         toneFallback = null
     }
 
-    private fun alarmNotification(occurrenceId: WakeOccurrenceId) =
-        NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Wake My Way")
-            .setContentText("Time to wake up")
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setOnlyAlertOnce(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(wakeActivityIntent(occurrenceId))
-            .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
-            .addAction(
-                android.R.drawable.ic_lock_idle_alarm,
-                "Snooze 5 min",
-                commandIntent(ACTION_SNOOZE, occurrenceId),
-            )
-            .addAction(
+    private fun alarmNotification(
+        occurrenceId: WakeOccurrenceId,
+        policy: CriticalWakePolicy,
+    ) = NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+        .setContentTitle("Wake My Way")
+        .setContentText("Time to wake up")
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setOnlyAlertOnce(true)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        .setContentIntent(wakeActivityIntent(occurrenceId))
+        .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
+        .apply {
+            if (policy.snoozeEnabled) {
+                addAction(
+                    android.R.drawable.ic_lock_idle_alarm,
+                    "Snooze ${policy.snoozeDuration.toMinutes().coerceAtLeast(1)} min",
+                    commandIntent(ACTION_SNOOZE, occurrenceId),
+                )
+            }
+            addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Stop",
                 commandIntent(ACTION_STOP, occurrenceId),
             )
-            .build()
+        }
+        .build()
 
     /**
      * Android 15+ no longer grants a PendingIntent creator's background-activity-launch privilege
@@ -321,7 +333,6 @@ class AlarmPlaybackService : Service() {
         private const val VOICE_WINDOW_VOLUME = 0.12f
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
-        private val DEFAULT_SNOOZE: Duration = Duration.ofMinutes(5)
 
         fun start(context: Context, occurrenceId: WakeOccurrenceId) {
             ContextCompat.startForegroundService(

@@ -26,12 +26,18 @@ class AlarmKernel(
     /**
      * Creates or replaces exactly one schedule slot. Unrelated alarm slots remain untouched.
      *
+     * The optional [policy] is the small non-sensitive execution contract required before credential
+     * unlock. Legacy callers keep the historic default behavior.
+     *
      * Durable authority is always written before an obsolete OS registration is cancelled. A stale
      * PendingIntent may therefore still arrive after a crash, but [beginActive] rejects it by exact
      * occurrence identity and schedule revision.
      */
     @Synchronized
-    fun commitSchedule(schedule: WakeSchedule): AlarmHealth {
+    fun commitSchedule(
+        schedule: WakeSchedule,
+        policy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT,
+    ): AlarmHealth {
         val state = stateOrEmpty()
         check(state.activeOccurrence?.wakeScheduleId != schedule.id) {
             "Cannot replace a wake schedule while its wake execution is active"
@@ -44,6 +50,7 @@ class AlarmKernel(
             nextOccurrence = next,
             registeredOccurrenceId = null,
             enabled = true,
+            policy = policy,
         )
         var plannedState = state.copy(
             slots = state.slots + (schedule.id to plannedSlot),
@@ -134,9 +141,6 @@ class AlarmKernel(
         val next = requireNotNull(slot.nextOccurrence)
 
         if (state.activeOccurrence != null) {
-            // Android has consumed this PendingIntent, but another wake owns physical execution.
-            // Keep the due occurrence durable so reconciliation can deterministically mark it missed
-            // or advance it after the active chain ends. Do not claim it is still OS-registered.
             if (slot.registeredOccurrenceId != null) {
                 store.write(
                     state.copy(
@@ -172,8 +176,6 @@ class AlarmKernel(
         if (active.id != occurrenceId) return false
 
         completeOrAdvanceActive(state)
-        // A second alarm may have fired while this wake was active. Resolve any now-overdue slot
-        // immediately rather than waiting for a later boot/time-change reconciliation.
         runCatching { reconcile() }
         return true
     }
@@ -196,9 +198,6 @@ class AlarmKernel(
             duration = duration,
         )
 
-        // The currently active wake stays authoritative until Android has accepted the exact
-        // replacement. If registration or the atomic hand-off fails, cancel any partial replacement
-        // and leave the previous active state intact.
         return try {
             registrar.register(snooze)
             store.write(
@@ -221,10 +220,6 @@ class AlarmKernel(
         }
     }
 
-    /**
-     * Legacy UI compatibility: returns the earliest enabled schedule. New multi-alarm product code
-     * should use [currentSchedules] or a concrete schedule id.
-     */
     fun currentSchedule(): WakeSchedule? =
         enabledSlots(store.read()).minByOrNull { slot ->
             slot.nextOccurrence?.scheduledAt?.toInstant() ?: Instant.MAX
@@ -239,13 +234,15 @@ class AlarmKernel(
         .mapNotNull(CriticalScheduleSlot::nextOccurrence)
         .sortedBy { it.scheduledAt.toInstant() }
 
-    /**
-     * Repairs every independent OS registration from durable critical state.
-     *
-     * [afterBoot] forces re-registration because AlarmManager registrations are not trusted across
-     * reboot. [recalculateFuture] is used for wall-clock/timezone changes and recomputes recurring
-     * or exact-date schedules from local intent rather than preserving an obsolete instant.
-     */
+    fun policy(scheduleId: WakeScheduleId): CriticalWakePolicy? =
+        store.read()?.slots?.get(scheduleId)?.policy
+
+    fun activePolicy(occurrenceId: WakeOccurrenceId): CriticalWakePolicy? {
+        val state = store.read() ?: return null
+        val active = state.activeOccurrence?.takeIf { it.id == occurrenceId } ?: return null
+        return state.slots[active.wakeScheduleId]?.policy
+    }
+
     @Synchronized
     fun reconcile(
         afterBoot: Boolean = false,
@@ -492,7 +489,6 @@ class AlarmKernel(
 enum class BeginActiveResult {
     STARTED,
     ALREADY_ACTIVE,
-    /** A different valid Wake Occurrence already owns physical active execution. */
     CONFLICT,
     STALE,
 }
@@ -508,12 +504,4 @@ data class AlarmHealth(
     val detail: String,
     val enabledScheduleCount: Int = 0,
     val readyScheduleCount: Int = 0,
-)
-
-data class AlarmScheduleHealth(
-    val scheduleId: WakeScheduleId,
-    val enabled: Boolean,
-    val ready: Boolean,
-    val nextOccurrence: WakeOccurrence?,
-    val activeOccurrence: WakeOccurrence?,
 )

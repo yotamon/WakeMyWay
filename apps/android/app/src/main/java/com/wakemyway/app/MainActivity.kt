@@ -29,13 +29,16 @@ import com.wakemyway.app.alarm.AlarmPresentationAccess
 import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.alarm.activeWakeRepairTarget
-import com.wakemyway.app.alarm.repairTarget
+import com.wakemyway.app.alarm.futureSchedulingRepairTarget
+import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.navigation.WakeMyWayApp
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.core.alarm.AlarmDefinitionId
 
 class MainActivity : ComponentActivity() {
     private val alarmKernel by lazy { AlarmKernel(this) }
+    private val alarmController by lazy { AlarmProductController(this) }
 
     private var showVoicePermissionPrimer by mutableStateOf(false)
     private var showNotificationPermissionPrimer by mutableStateOf(false)
@@ -134,16 +137,32 @@ class MainActivity : ComponentActivity() {
     private fun refreshProductReadiness() {
         refreshVoiceWakeReadiness()
         val health = alarmKernel.reconcile()
+        val activeScheduleId = health.activeOccurrence?.wakeScheduleId?.value
 
-        // A future occurrence must never survive loss of the Android capabilities required to
-        // schedule and present it safely. Voice capability is different: it is required when a new
-        // Voice Wake is committed, but revoking microphone/on-device STT later degrades the morning
-        // experience instead of silently deleting an otherwise safe alarm.
+        // Future scheduling readiness and active execution safety are different. If exact-alarm or
+        // presentation access is missing, disable every future alarm through the product boundary so
+        // rich metadata and Direct Boot state remain consistent. Never disable the currently active
+        // slot here: recoverOrResumeActiveWake handles active presentation safety separately, and
+        // loss of exact-alarm access alone must not silence an already-delivered wake.
         if (
             health.nextOccurrence != null &&
-            health.repairTarget() != AlarmRepairTarget.NONE
+            health.futureSchedulingRepairTarget() != AlarmRepairTarget.NONE
         ) {
-            alarmKernel.cancelSchedule()
+            alarmController.list()
+                .asSequence()
+                .filter { alarm -> alarm.enabled && alarm.id.value != activeScheduleId }
+                .forEach { alarm -> runCatching { alarmController.setEnabled(alarm.id, false) } }
+        } else if (voiceWakeReadiness != VoiceWakeReadiness.READY) {
+            // Voice capability is per alarm. Keep alarm-only wakes intact and never mutate the slot
+            // that currently owns physical wake execution.
+            alarmController.list()
+                .asSequence()
+                .filter { alarm ->
+                    alarm.enabled &&
+                        alarm.voiceCheckInEnabled &&
+                        alarm.id.value != activeScheduleId
+                }
+                .forEach { alarm -> runCatching { alarmController.setEnabled(alarm.id, false) } }
         }
 
         wakeSystemRevision++
@@ -152,17 +171,20 @@ class MainActivity : ComponentActivity() {
     /**
      * Opening the app during an active alarm is always a recovery action.
      *
-     * If critical presentation access has disappeared, clear durable authority and stop the service
-     * component directly. Do not route through the normal recurring Stop path because an unsafe wake
-     * must not create a replacement occurrence. Exact-alarm access and voice capability are not
-     * execution-safety requirements for a wake that is already active.
+     * If critical presentation access has disappeared, disable that alarm through the product
+     * boundary and stop its playback component. Exact-alarm access and voice capability are not
+     * execution-safety requirements for an already-active wake.
      */
     private fun recoverOrResumeActiveWake() {
         val health = alarmKernel.health()
         val active = health.activeOccurrence ?: return
 
         if (health.activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
-            alarmKernel.cancelSchedule()
+            val alarmId = AlarmDefinitionId(active.wakeScheduleId.value)
+            val disabled = runCatching { alarmController.setEnabled(alarmId, false) }.isSuccess
+            if (!disabled) {
+                runCatching { alarmKernel.cancelSchedule(active.wakeScheduleId) }
+            }
             stopService(Intent(this, AlarmPlaybackService::class.java))
             return
         }
@@ -187,7 +209,7 @@ class MainActivity : ComponentActivity() {
      * committing an alarm before the sequence is complete.
      */
     private fun repairNextWakePrerequisite() {
-        when (alarmKernel.health().repairTarget()) {
+        when (alarmKernel.health().futureSchedulingRepairTarget()) {
             AlarmRepairTarget.EXACT_ALARM -> openAppDetailsSettings()
             AlarmRepairTarget.NOTIFICATIONS -> beginNotificationPermissionSetup()
             AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> openActiveWakeChannelSettings()

@@ -1,5 +1,8 @@
 package com.wakemyway.app.alarm
 
+import com.wakemyway.core.alarm.CharacterId
+import com.wakemyway.core.alarm.VoiceStyle
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.LocalTimeResolution
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeOccurrence
@@ -8,6 +11,7 @@ import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -19,9 +23,10 @@ import org.json.JSONObject
 /**
  * Minimal device-protected authority for every locally scheduled alarm.
  *
- * Product metadata such as labels, voice style, Tomorrow Contract text and account information must
- * never be added here. Multiple future schedule slots may coexist, but exactly one wake execution
- * may be active at a time.
+ * Private product metadata such as labels, Tomorrow Contract text, First Move text, transcripts and
+ * account information must never be added here. A tiny non-sensitive [CriticalWakePolicy] is stored
+ * per slot because sound/voice/snooze behavior must remain deterministic before credential unlock.
+ * Multiple future schedule slots may coexist, but exactly one wake execution may be active at a time.
  */
 data class CriticalAlarmState(
     val slots: Map<WakeScheduleId, CriticalScheduleSlot>,
@@ -62,7 +67,8 @@ data class CriticalAlarmState(
     }.toString()
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 2
+        const val CURRENT_SCHEMA_VERSION = 3
+        private const val PREVIOUS_MULTI_SLOT_SCHEMA_VERSION = 2
 
         private const val KEY_SCHEMA_VERSION = "schemaVersion"
         private const val KEY_GENERATION = "generation"
@@ -72,7 +78,8 @@ data class CriticalAlarmState(
         fun decodeOrMigrate(raw: String): CriticalAlarmState {
             val json = JSONObject(raw)
             return when (val schema = json.getInt(KEY_SCHEMA_VERSION)) {
-                CURRENT_SCHEMA_VERSION -> decodeV2(json)
+                CURRENT_SCHEMA_VERSION -> decodeV3(json)
+                PREVIOUS_MULTI_SLOT_SCHEMA_VERSION -> migrateV2(json)
                 CriticalWakeSnapshot.CURRENT_SCHEMA_VERSION -> migrateLegacy(
                     CriticalWakeSnapshot.decode(raw),
                 )
@@ -80,11 +87,28 @@ data class CriticalAlarmState(
             }
         }
 
-        private fun decodeV2(json: JSONObject): CriticalAlarmState {
+        private fun decodeV3(json: JSONObject): CriticalAlarmState = decodeMultiSlot(
+            json = json,
+            includePolicy = true,
+        )
+
+        /** Schema 2 already had isolated schedule slots but no pre-unlock execution policy. */
+        private fun migrateV2(json: JSONObject): CriticalAlarmState = decodeMultiSlot(
+            json = json,
+            includePolicy = false,
+        )
+
+        private fun decodeMultiSlot(
+            json: JSONObject,
+            includePolicy: Boolean,
+        ): CriticalAlarmState {
             val slotArray = json.getJSONArray(KEY_SLOTS)
             val slots = buildMap {
                 repeat(slotArray.length()) { index ->
-                    val slot = slotFromJson(slotArray.getJSONObject(index))
+                    val slot = slotFromJson(
+                        json = slotArray.getJSONObject(index),
+                        includePolicy = includePolicy,
+                    )
                     require(put(slot.schedule.id, slot) == null) {
                         "Duplicate critical schedule slot ${slot.schedule.id.value}"
                     }
@@ -113,6 +137,7 @@ data class CriticalAlarmState(
                         nextOccurrence = snapshot.nextOccurrence,
                         registeredOccurrenceId = snapshot.registeredOccurrenceId,
                         enabled = snapshot.enabled,
+                        policy = CriticalWakePolicy.DEFAULT,
                     ),
                 ),
                 activeOccurrence = snapshot.activeOccurrence,
@@ -124,9 +149,13 @@ data class CriticalAlarmState(
             put(KEY_NEXT_OCCURRENCE, nextOccurrence?.toJson() ?: JSONObject.NULL)
             put(KEY_REGISTERED_OCCURRENCE_ID, registeredOccurrenceId?.value ?: JSONObject.NULL)
             put(KEY_ENABLED, enabled)
+            put(KEY_POLICY, policy.toJson())
         }
 
-        private fun slotFromJson(json: JSONObject): CriticalScheduleSlot {
+        private fun slotFromJson(
+            json: JSONObject,
+            includePolicy: Boolean,
+        ): CriticalScheduleSlot {
             val schedule = scheduleFromJson(json.getJSONObject(KEY_SCHEDULE))
             return CriticalScheduleSlot(
                 schedule = schedule,
@@ -139,8 +168,31 @@ data class CriticalAlarmState(
                     WakeOccurrenceId(json.getString(KEY_REGISTERED_OCCURRENCE_ID))
                 },
                 enabled = json.getBoolean(KEY_ENABLED),
+                policy = if (includePolicy) {
+                    json.optJSONObject(KEY_POLICY)?.let(::policyFromJson) ?: CriticalWakePolicy.DEFAULT
+                } else {
+                    CriticalWakePolicy.DEFAULT
+                },
             )
         }
+
+        private fun CriticalWakePolicy.toJson(): JSONObject = JSONObject().apply {
+            put(KEY_SOUND_ID, soundId.value)
+            put(KEY_VOICE_CHECK_IN_ENABLED, voiceCheckInEnabled)
+            put(KEY_CHARACTER_ID, characterId.value)
+            put(KEY_VOICE_STYLE, voiceStyle.name)
+            put(KEY_SNOOZE_ENABLED, snoozeEnabled)
+            put(KEY_SNOOZE_DURATION_SECONDS, snoozeDuration.seconds)
+        }
+
+        private fun policyFromJson(json: JSONObject): CriticalWakePolicy = CriticalWakePolicy(
+            soundId = WakeSoundId(json.getString(KEY_SOUND_ID)),
+            voiceCheckInEnabled = json.getBoolean(KEY_VOICE_CHECK_IN_ENABLED),
+            characterId = CharacterId(json.getString(KEY_CHARACTER_ID)),
+            voiceStyle = VoiceStyle.valueOf(json.getString(KEY_VOICE_STYLE)),
+            snoozeEnabled = json.getBoolean(KEY_SNOOZE_ENABLED),
+            snoozeDuration = Duration.ofSeconds(json.getLong(KEY_SNOOZE_DURATION_SECONDS)),
+        )
 
         private fun WakeSchedule.toJson(): JSONObject = JSONObject().apply {
             put(KEY_ID, id.value)
@@ -212,6 +264,13 @@ data class CriticalAlarmState(
         private const val KEY_NEXT_OCCURRENCE = "nextOccurrence"
         private const val KEY_REGISTERED_OCCURRENCE_ID = "registeredOccurrenceId"
         private const val KEY_ENABLED = "enabled"
+        private const val KEY_POLICY = "policy"
+        private const val KEY_SOUND_ID = "soundId"
+        private const val KEY_VOICE_CHECK_IN_ENABLED = "voiceCheckInEnabled"
+        private const val KEY_CHARACTER_ID = "characterId"
+        private const val KEY_VOICE_STYLE = "voiceStyle"
+        private const val KEY_SNOOZE_ENABLED = "snoozeEnabled"
+        private const val KEY_SNOOZE_DURATION_SECONDS = "snoozeDurationSeconds"
         private const val KEY_ID = "id"
         private const val KEY_ZONE_ID = "zoneId"
         private const val KEY_REVISION = "revision"
@@ -232,6 +291,7 @@ data class CriticalScheduleSlot(
     val nextOccurrence: WakeOccurrence?,
     val registeredOccurrenceId: WakeOccurrenceId?,
     val enabled: Boolean = true,
+    val policy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT,
 ) {
     init {
         nextOccurrence?.let { occurrence ->

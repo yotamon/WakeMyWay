@@ -23,6 +23,10 @@ import com.wakemyway.app.alarm.repairTarget
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
+import com.wakemyway.app.product.AlarmProductController
+import com.wakemyway.app.ui.alarms.AlarmEditorResult
+import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
@@ -30,19 +34,23 @@ import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
-import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
-import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.wakeSchedulingBlocker
+import com.wakemyway.core.alarm.AlarmDefinition
+import com.wakemyway.core.alarm.AlarmDefinitionId
+import com.wakemyway.core.alarm.TomorrowContractMode
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.serialization.Serializable
 
 @Serializable
-private data object TonightRoute : NavKey
+private data object HomeRoute : NavKey
 
 @Serializable
-private data object WakeSetupRoute : NavKey
+private data object AlarmsRoute : NavKey
+
+@Serializable
+private data class AlarmEditorRoute(val alarmId: String? = null) : NavKey
 
 @Serializable
 private data object TomorrowPlanRoute : NavKey
@@ -62,145 +70,232 @@ fun WakeMyWayApp(
     val voiceSetupRequiredCopy = stringResource(R.string.tonight_voice_wake_setup_detail)
     val voiceUnavailableCopy = stringResource(R.string.tonight_voice_wake_unavailable_detail)
     val alarmKernel = remember { AlarmKernel(context) }
+    val alarmController = remember { AlarmProductController(context) }
     val preparationManager = remember { WakePreparationManager(context) }
     val showDeveloperTools = remember(context) {
         (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
-    val backStack = rememberNavBackStack(TonightRoute)
+    var alarms by remember { mutableStateOf(alarmController.list()) }
+    val backStack = rememberNavBackStack(HomeRoute)
+
+    fun refreshProductState(reconcile: Boolean = true) {
+        alarmHealth = if (reconcile) alarmKernel.reconcile() else alarmKernel.health()
+        alarms = alarmController.list()
+    }
+
+    fun navigateTop(tab: ConsumerTab) {
+        backStack.clear()
+        backStack.add(
+            when (tab) {
+                ConsumerTab.HOME -> HomeRoute
+                ConsumerTab.ALARMS -> AlarmsRoute
+            },
+        )
+    }
+
+    fun preflight(definition: AlarmDefinition): AlarmEditorResult? {
+        if (!definition.enabled) return null
+        return when (
+            wakeSchedulingBlocker(
+                alarmHealth = alarmKernel.health(),
+                voiceReadiness = voiceWakeReadiness,
+                requiresVoiceReplies = definition.voiceCheckInEnabled,
+            )
+        ) {
+            WakeSchedulingBlocker.ALARM_SYSTEM -> {
+                onRepairWakeSystem()
+                AlarmEditorResult(saved = false, detail = alarmSetupRequiredCopy)
+            }
+
+            WakeSchedulingBlocker.VOICE_PERMISSION -> {
+                onRepairWakeSystem()
+                AlarmEditorResult(saved = false, detail = voiceSetupRequiredCopy)
+            }
+
+            WakeSchedulingBlocker.VOICE_UNAVAILABLE ->
+                AlarmEditorResult(saved = false, detail = voiceUnavailableCopy)
+
+            WakeSchedulingBlocker.NONE -> null
+        }
+    }
 
     LaunchedEffect(wakeSystemRevision) {
-        alarmHealth = alarmKernel.reconcile()
+        refreshProductState()
     }
 
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
-            entry<TonightRoute> {
-                val preparation = alarmHealth.nextOccurrence
-                    ?.let { preparationManager.snapshotFor(it.id) }
-                TonightScreen(
-                    state = alarmHealth.toTonightUiState(context, preparation),
-                    onOpenWakeSetup = {
-                        alarmHealth = alarmKernel.reconcile()
-                        backStack.add(WakeSetupRoute)
-                    },
-                    onOpenTomorrowPlan = {
-                        alarmHealth = alarmKernel.health()
-                        backStack.add(TomorrowPlanRoute)
-                    },
-                    onOpenWakeLab = {
-                        alarmHealth = alarmKernel.reconcile()
-                        backStack.add(WakeLabRoute)
-                    },
-                    showDeveloperTools = showDeveloperTools,
-                    voiceWakeReadiness = voiceWakeReadiness,
-                    onEnableVoiceReplies = onEnableVoiceReplies,
-                    onRepairWakeSystem = onRepairWakeSystem,
-                )
+            entry<HomeRoute> {
+                val occurrence = alarmHealth.nextOccurrence
+                val preparation = occurrence?.let { preparationManager.snapshotFor(it.id) }
+                val nextAlarm = occurrence?.let { next ->
+                    alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                }
+                val nextAlarmReady = nextAlarm
+                    ?.let { alarmController.health(it.id)?.ready }
+                    ?: alarmHealth.ready
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.HOME,
+                    onTabSelected = ::navigateTop,
+                ) { contentModifier ->
+                    TonightScreen(
+                        state = alarmHealth.toTonightUiState(
+                            context = context,
+                            preparation = preparation,
+                            alarm = nextAlarm,
+                            nextAlarmReady = nextAlarmReady,
+                        ),
+                        onOpenWakeSetup = {
+                            backStack.add(AlarmEditorRoute(nextAlarm?.id?.value))
+                        },
+                        onOpenTomorrowPlan = {
+                            if (nextAlarm?.tomorrowContractMode != TomorrowContractMode.DISABLED) {
+                                refreshProductState(reconcile = false)
+                                backStack.add(TomorrowPlanRoute)
+                            }
+                        },
+                        onOpenWakeLab = {
+                            refreshProductState()
+                            backStack.add(WakeLabRoute)
+                        },
+                        modifier = contentModifier,
+                        showDeveloperTools = showDeveloperTools,
+                        voiceWakeReadiness = voiceWakeReadiness,
+                        onEnableVoiceReplies = onEnableVoiceReplies,
+                        onRepairWakeSystem = onRepairWakeSystem,
+                    )
+                }
             }
-            entry<WakeSetupRoute> {
-                WakeScheduleMockupScreen(
-                    existingSchedule = alarmKernel.currentSchedule(),
+
+            entry<AlarmsRoute> {
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.ALARMS,
+                    onTabSelected = ::navigateTop,
+                ) { contentModifier ->
+                    AlarmsScreen(
+                        alarms = alarms,
+                        healthFor = { alarm -> alarmController.health(alarm.id) },
+                        onAddAlarm = { backStack.add(AlarmEditorRoute()) },
+                        onEditAlarm = { alarm -> backStack.add(AlarmEditorRoute(alarm.id.value)) },
+                        onSetEnabled = { alarm, enabled ->
+                            val target = alarm.copy(
+                                enabled = enabled,
+                                revision = alarm.revision + 1,
+                                updatedAt = java.time.Instant.now(),
+                            )
+                            val blocked = if (enabled) preflight(target) else null
+                            if (blocked == null) {
+                                val previous = alarmController.health(alarm.id)?.nextOccurrence
+                                runCatching { alarmController.setEnabled(alarm.id, enabled) }
+                                    .onSuccess {
+                                        if (!enabled && previous != null) {
+                                            runCatching {
+                                                if (preparationManager.snapshotFor(previous.id)?.contract != null) {
+                                                    preparationManager.clear()
+                                                }
+                                            }
+                                        }
+                                        refreshProductState(reconcile = false)
+                                    }
+                            }
+                        },
+                        modifier = contentModifier,
+                    )
+                }
+            }
+
+            entry<AlarmEditorRoute> { route ->
+                val existing = route.alarmId?.let { id ->
+                    alarmController.get(AlarmDefinitionId(id))
+                }
+                AlarmEditorScreen(
+                    existing = existing,
                     onBack = {
-                        alarmHealth = alarmKernel.health()
+                        refreshProductState(reconcile = false)
                         backStack.removeLastOrNull()
                     },
-                    onCommit = { schedule ->
-                        val preflightHealth = alarmKernel.health()
-                        when (wakeSchedulingBlocker(preflightHealth, voiceWakeReadiness)) {
-                            WakeSchedulingBlocker.ALARM_SYSTEM -> {
-                                onRepairWakeSystem()
-                                WakeSetupCommitResult(
-                                    committed = false,
-                                    detail = alarmSetupRequiredCopy,
-                                    wakeReady = false,
+                    onSave = { definition ->
+                        preflight(definition) ?: run {
+                            val previousOccurrence = existing
+                                ?.let { alarmController.health(it.id)?.nextOccurrence }
+                            val previousPreparation = previousOccurrence
+                                ?.let { preparationManager.snapshotFor(it.id) }
+                            runCatching { alarmController.save(definition) }
+                                .fold(
+                                    onSuccess = {
+                                        val newOccurrence = alarmController.health(definition.id)?.nextOccurrence
+                                        reconcilePreparationAfterScheduleChange(
+                                            previousOccurrence = previousOccurrence,
+                                            newOccurrence = newOccurrence,
+                                            previousPreparation = previousPreparation,
+                                            preparationManager = preparationManager,
+                                        )
+                                        if (definition.tomorrowContractMode == TomorrowContractMode.DISABLED) {
+                                            runCatching {
+                                                if (newOccurrence != null &&
+                                                    preparationManager.snapshotFor(newOccurrence.id)?.contract != null
+                                                ) {
+                                                    preparationManager.clear()
+                                                }
+                                            }
+                                        }
+                                        refreshProductState(reconcile = false)
+                                        AlarmEditorResult(saved = true)
+                                    },
+                                    onFailure = { error ->
+                                        AlarmEditorResult(saved = false, detail = error.message)
+                                    },
                                 )
-                            }
-
-                            WakeSchedulingBlocker.VOICE_PERMISSION -> {
-                                onRepairWakeSystem()
-                                WakeSetupCommitResult(
-                                    committed = false,
-                                    detail = voiceSetupRequiredCopy,
-                                    wakeReady = false,
-                                )
-                            }
-
-                            WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
-                                WakeSetupCommitResult(
-                                    committed = false,
-                                    detail = voiceUnavailableCopy,
-                                    wakeReady = false,
-                                )
-                            }
-
-                            WakeSchedulingBlocker.NONE -> {
-                                val previousOccurrence = preflightHealth.nextOccurrence
-                                val previousPreparation = previousOccurrence
-                                    ?.let { preparationManager.snapshotFor(it.id) }
-
-                                runCatching { alarmKernel.commitSchedule(schedule) }
-                                    .fold(
-                                        onSuccess = { health ->
-                                            reconcilePreparationAfterScheduleChange(
-                                                previousOccurrence = previousOccurrence,
-                                                newOccurrence = health.nextOccurrence,
-                                                previousPreparation = previousPreparation,
-                                                preparationManager = preparationManager,
-                                            )
-                                            alarmHealth = health
-                                            WakeSetupCommitResult(
-                                                committed = true,
-                                                wakeReady = health.ready,
-                                            )
-                                        },
-                                        onFailure = { error ->
-                                            WakeSetupCommitResult(
-                                                committed = false,
-                                                detail = error.message,
-                                            )
-                                        },
-                                    )
-                            }
                         }
                     },
-                    onDisable = {
-                        runCatching {
-                            alarmKernel.cancelSchedule()
-                            runCatching { preparationManager.clear() }
-                            alarmKernel.health()
-                        }.fold(
-                            onSuccess = { health ->
-                                alarmHealth = health
-                                WakeSetupCommitResult(committed = true)
-                            },
-                            onFailure = { error ->
-                                WakeSetupCommitResult(
-                                    committed = false,
-                                    detail = error.message,
+                    onDelete = existing?.let { alarm ->
+                        { _: AlarmDefinition ->
+                            val previousOccurrence = alarmController.health(alarm.id)?.nextOccurrence
+                            runCatching { alarmController.delete(alarm.id) }
+                                .fold(
+                                    onSuccess = {
+                                        if (previousOccurrence != null) {
+                                            runCatching {
+                                                if (preparationManager.snapshotFor(previousOccurrence.id)?.contract != null) {
+                                                    preparationManager.clear()
+                                                }
+                                            }
+                                        }
+                                        refreshProductState(reconcile = false)
+                                        AlarmEditorResult(saved = true)
+                                    },
+                                    onFailure = { error ->
+                                        AlarmEditorResult(saved = false, detail = error.message)
+                                    },
                                 )
-                            },
-                        )
+                        }
                     },
-                    onWakeAccessRequired = onRepairWakeSystem,
                 )
             }
+
             entry<TomorrowPlanRoute> {
+                val occurrence = alarmKernel.health().nextOccurrence
+                val owner = occurrence?.let { next ->
+                    alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                }
                 TomorrowPlanScreen(
-                    wakeOccurrence = alarmKernel.health().nextOccurrence,
+                    wakeOccurrence = occurrence,
+                    defaultFirstMove = owner?.firstMoveDefault,
                     onBack = {
-                        alarmHealth = alarmKernel.health()
+                        refreshProductState(reconcile = false)
                         backStack.removeLastOrNull()
                     },
                 )
             }
+
             entry<WakeLabRoute> {
                 WmwCircadianSurface(stage = WmwCircadianStage.EMERGING) {
                     WakeAlarmLabScreen(
                         onBack = {
-                            alarmHealth = alarmKernel.reconcile()
+                            refreshProductState()
                             backStack.removeLastOrNull()
                         },
                         voiceWakeReadiness = voiceWakeReadiness,
@@ -247,15 +342,17 @@ private fun reconcilePreparationAfterScheduleChange(
 private fun AlarmHealth.toTonightUiState(
     context: Context,
     preparation: WakePreparationSnapshot?,
+    alarm: AlarmDefinition?,
+    nextAlarmReady: Boolean,
 ): TonightUiState {
     val occurrence = nextOccurrence
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM", locale)
-    val target = if (occurrence != null && !ready) repairTarget() else AlarmRepairTarget.NONE
+    val target = if (occurrence != null && !nextAlarmReady) repairTarget() else AlarmRepairTarget.NONE
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
-        ready -> context.getString(R.string.tonight_readiness_ready)
+        nextAlarmReady -> context.getString(R.string.tonight_readiness_ready)
         target == AlarmRepairTarget.EXACT_ALARM -> context.getString(R.string.tonight_readiness_exact_alarm)
         target == AlarmRepairTarget.NOTIFICATIONS -> context.getString(R.string.tonight_readiness_notifications)
         target == AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> context.getString(R.string.tonight_readiness_channel)
@@ -269,18 +366,22 @@ private fun AlarmHealth.toTonightUiState(
         AlarmRepairTarget.FULL_SCREEN_INTENT -> context.getString(R.string.tonight_repair_full_screen)
         AlarmRepairTarget.NONE -> null
     }
+    val contractMode = alarm?.tomorrowContractMode ?: TomorrowContractMode.DISABLED
 
     return TonightUiState(
         wakeTime = occurrence?.scheduledAt?.format(timeFormatter) ?: "--:--",
         dateLabel = occurrence?.scheduledAt?.format(dateFormatter)
             ?: context.getString(R.string.tonight_section_tomorrow),
         hasOccurrence = occurrence != null,
-        wakeReady = ready,
+        wakeReady = nextAlarmReady,
         readinessDetail = readinessCopy,
         wakeRepairActionLabel = repairLabel,
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
         tomorrowContractText = preparation?.contract?.rawText,
-        firstMove = preparation?.contract?.firstMove,
+        firstMove = preparation?.contract?.firstMove ?: alarm?.firstMoveDefault,
+        voiceCheckInEnabled = occurrence != null && alarm?.voiceCheckInEnabled == true,
+        tomorrowContractAvailable = occurrence != null && contractMode != TomorrowContractMode.DISABLED,
+        tomorrowContractPromptRequired = contractMode == TomorrowContractMode.ALWAYS_PROMPT,
     )
 }

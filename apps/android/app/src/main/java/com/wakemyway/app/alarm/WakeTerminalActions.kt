@@ -11,6 +11,9 @@ import java.time.Duration
  * AlarmKernel is the durable authority. The Wake Surface may disappear only after the durable Stop
  * or Snooze mutation succeeds, or when this occurrence is already no longer active because another
  * terminal surface won the race. A stale old surface must never stop playback for a newer wake.
+ *
+ * Phase B adds per-alarm Snooze policy. The policy is read from device-protected critical state so
+ * the exact same terminal behavior is available before first unlock.
  */
 class WakeTerminalActions internal constructor(
     context: Context,
@@ -41,7 +44,7 @@ class WakeTerminalActions internal constructor(
 
     fun snooze(
         occurrenceId: WakeOccurrenceId,
-        duration: Duration = DEFAULT_SNOOZE,
+        duration: Duration? = null,
     ): Boolean {
         when (activeState(occurrenceId)) {
             ActiveState.ALREADY_TERMINAL -> {
@@ -52,7 +55,11 @@ class WakeTerminalActions internal constructor(
             ActiveState.CURRENT -> Unit
         }
 
-        val replacement = runCatching { kernel.snoozeActive(occurrenceId, duration) }
+        val policy = kernel.activePolicy(occurrenceId)
+        if (policy != null && !policy.snoozeEnabled) return false
+        val resolvedDuration = duration ?: policy?.snoozeDuration ?: DEFAULT_SNOOZE
+
+        val replacement = runCatching { kernel.snoozeActive(occurrenceId, resolvedDuration) }
             .getOrNull()
             ?: return acknowledgePostMutationState(occurrenceId, recordStop = false)
 

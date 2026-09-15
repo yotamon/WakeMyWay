@@ -9,6 +9,7 @@ import com.wakemyway.app.character.LocalCharacterSpeaker
 import com.wakemyway.app.character.LocalSpeechResult
 import com.wakemyway.app.character.LocalSpeechState
 import com.wakemyway.app.motion.AndroidMotionObserver
+import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.character.AlfredCharacter
 import com.wakemyway.core.character.WakeLineKey
 import com.wakemyway.core.runtime.SpeechIntent
@@ -25,25 +26,18 @@ import com.wakemyway.core.runtime.WakeSessionSnapshot
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.Duration
 
-/** Lifecycle contract owned by the retained wake-session holder. */
 interface WakeSessionController : AutoCloseable {
     fun onSurfaceVisible()
     fun onSurfaceHidden()
     fun closeForTerminalAction()
 }
 
-/**
- * Android adapter around the pure Wake Runtime.
- *
- * Wake Runtime remains the only behavioral authority. This controller may choose an optional
- * conversational speech renderer when available, but model/network state can never Stop/Snooze,
- * complete a session, or replace typed activation evidence. Local TTS/STT remains the fallback.
- */
 class WakeVoiceSessionController(
     context: Context,
     private val occurrenceId: WakeOccurrenceId,
     private val onUiState: (WakeVoiceUiState) -> Unit,
     private val onCompleted: () -> Unit,
+    private val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -109,8 +103,6 @@ class WakeVoiceSessionController(
                     if (closed || !realtimeTurnInFlight || !started) return@post
                     speaking = false
                     if (interrupted) {
-                        // VAD will shortly emit the user's completed turn. That VoiceResponseObserved
-                        // becomes the sole runtime transition, preventing a double response.
                         mode = WakeVoiceMode.LISTENING
                         publish()
                         return@post
@@ -178,9 +170,6 @@ class WakeVoiceSessionController(
                         publish()
                     }
 
-                    // Preserve the exact typed runtime intent. A network/provider failure changes
-                    // rendering only; it must not create a parallel behavioral transition. If no
-                    // local renderer exists either, report the failed speech fact to WakeRuntime.
                     if (failedDuringTurn && started && snapshot.phase != WakePhase.FINISHED) {
                         if (speaker.state() is LocalSpeechState.Ready) {
                             speakLocally(failedIntent)
@@ -188,8 +177,6 @@ class WakeVoiceSessionController(
                             dispatch(WakeInput.SpeechFailed(nextInputId("realtime-speech-failed")))
                         }
                     } else if (started) {
-                        // If Realtime failed while it was listening, preserve the runtime's request
-                        // and fall back to local STT immediately when the surface is still visible.
                         syncSurfaceBoundResources()
                         syncWatchdog()
                     }
@@ -279,10 +266,6 @@ class WakeVoiceSessionController(
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
     }
 
-    /**
-     * Use immediately after a durable terminal Alarm Kernel transaction succeeds.
-     * No restore-volume command is sent because terminal playback teardown is already authoritative.
-     */
     override fun closeForTerminalAction() {
         closeInternal(restoreCriticalAudio = false)
     }
@@ -390,9 +373,6 @@ class WakeVoiceSessionController(
                 stopMotionObservation()
             }
 
-            // Live terminal effects are deliberately owned by AlarmKernel/WakeTerminalActions.
-            // These pure-runtime protocol directives remain useful for replay/journal semantics but
-            // this Android behavioral adapter must not create a second Stop/Snooze authority.
             is WakeDirective.OfferSnooze -> Unit
             is WakeDirective.RequestSnoozeSchedule -> Unit
             WakeDirective.RequestStopExecution -> Unit
@@ -413,10 +393,6 @@ class WakeVoiceSessionController(
                 if (directive.outcome == WakeOutcome.COMPLETED) {
                     mode = WakeVoiceMode.COMPLETE
                     publish()
-
-                    // WakeRuntime may declare behavioral completion, but the UI is not terminal
-                    // until the durable Alarm Kernel Stop transition is acknowledged. If it cannot
-                    // be committed, keep the Complete surface visible so its Finish action can retry.
                     if (terminalActions.stop(occurrenceId)) {
                         closeInternal(restoreCriticalAudio = false)
                         onCompleted()
@@ -443,7 +419,7 @@ class WakeVoiceSessionController(
             liveConversation.setInputEnabled(true)
             AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
             publish()
-            if (liveConversation.respond(intent)) return
+            if (liveConversation.respond(intent, voiceStyle)) return
 
             realtimeTurnInFlight = false
             realtimeIntent = null
@@ -465,6 +441,7 @@ class WakeVoiceSessionController(
         val line = AlfredCharacter.render(
             intent = intent,
             key = WakeLineKey("${occurrenceId.value}:${speechSequence++}"),
+            style = voiceStyle,
         )
         currentLine = line.text
         publish()

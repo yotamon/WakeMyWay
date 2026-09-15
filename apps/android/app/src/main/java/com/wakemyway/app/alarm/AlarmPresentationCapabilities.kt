@@ -32,33 +32,17 @@ enum class AlarmRepairTarget {
     NONE,
 }
 
-/**
- * Context-aware repair target used by product/recovery flows.
- *
- * A planned future occurrence needs exact-alarm capability. Once a wake is already active, exact
- * scheduling is no longer an execution-safety requirement and must not silence a controllable wake.
- * Snooze checks exact-alarm capability independently before releasing current active authority.
- */
 fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
     activeOccurrence != null -> activeWakeRepairTarget()
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
     else -> activeWakeRepairTarget()
 }
 
-/** Future-scheduling readiness for an explicit new/reconciled occurrence. */
 fun AlarmHealth.futureSchedulingRepairTarget(): AlarmRepairTarget = when {
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
     else -> activeWakeRepairTarget()
 }
 
-/**
- * Safety of an occurrence that is firing or already active.
- *
- * Exact-alarm access is intentionally ignored here. Once Android has delivered an occurrence,
- * losing the ability to schedule another exact alarm must not silence a wake that still has safe,
- * reachable terminal controls. Snooze remains independently fail-closed if exact scheduling is no
- * longer possible.
- */
 fun AlarmHealth.activeWakeRepairTarget(): AlarmRepairTarget = when {
     !notificationsAllowed -> AlarmRepairTarget.NOTIFICATIONS
     !notificationChannelHighImportance -> AlarmRepairTarget.ACTIVE_WAKE_CHANNEL
@@ -78,8 +62,6 @@ object AlarmPresentationAccess {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "Critical WakeMyWay alarm playback and wake controls"
-                // AlarmPlaybackService owns audible alarm playback. The channel itself stays silent
-                // so Android cannot produce a second overlapping notification sound.
                 setSound(null, null)
                 enableVibration(false)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
