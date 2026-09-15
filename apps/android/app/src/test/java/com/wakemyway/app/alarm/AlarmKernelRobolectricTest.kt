@@ -1,5 +1,6 @@
 package com.wakemyway.app.alarm
 
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -71,6 +72,21 @@ class AlarmKernelRobolectricTest {
 
         assertFalse(kernel.stopActive(primary.id))
         assertEquals(snooze.id, kernel.activeOccurrence()?.id)
+    }
+
+    @Test
+    fun `selected sound policy follows active execution and snooze replacement`() {
+        val schedule = oneShotSchedule("sound-chain")
+        val policy = CriticalWakePolicy(soundId = WakeSoundId.SOFT_START)
+        val primary = requireNotNull(kernel.commitSchedule(schedule, policy).nextOccurrence)
+
+        assertEquals(policy, kernel.policy(schedule.id))
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(primary.id))
+        assertEquals(WakeSoundId.SOFT_START, kernel.activePolicy(primary.id)?.soundId)
+
+        val snooze = requireNotNull(kernel.snoozeActive(primary.id, Duration.ofMinutes(5)))
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(snooze.id))
+        assertEquals(WakeSoundId.SOFT_START, kernel.activePolicy(snooze.id)?.soundId)
     }
 
     @Test
