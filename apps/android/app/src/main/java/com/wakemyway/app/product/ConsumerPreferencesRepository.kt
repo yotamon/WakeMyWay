@@ -43,6 +43,11 @@ data class ConsumerPreferences(
  * needed to deliver an already committed wake and therefore must not be copied into device-
  * protected Alarm Kernel state. Critical per-alarm execution policy remains compiled separately
  * from each saved AlarmDefinition.
+ *
+ * Preference corruption is deliberately non-fatal. This repository fails open to safe product
+ * defaults so non-critical personalization can never prevent the app from opening or interfere
+ * with an already committed wake. A later successful preference mutation atomically replaces the
+ * unreadable document.
  */
 class ConsumerPreferencesRepository(
     context: Context,
@@ -75,9 +80,7 @@ class ConsumerPreferencesRepository(
 
         if (text.isBlank()) return ConsumerPreferences()
         return runCatching { decode(JSONObject(text)) }
-            .getOrElse { error ->
-                throw IllegalStateException("Consumer preferences are unreadable", error)
-            }
+            .getOrElse { ConsumerPreferences() }
     }
 
     private fun write(preferences: ConsumerPreferences) {
