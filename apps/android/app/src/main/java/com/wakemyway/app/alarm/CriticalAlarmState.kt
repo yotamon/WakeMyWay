@@ -1,5 +1,6 @@
 package com.wakemyway.app.alarm
 
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.schedule.LocalTimeResolution
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeOccurrence
@@ -20,8 +21,9 @@ import org.json.JSONObject
  * Minimal device-protected authority for every locally scheduled alarm.
  *
  * Product metadata such as labels, voice style, Tomorrow Contract text and account information must
- * never be added here. Multiple future schedule slots may coexist, but exactly one wake execution
- * may be active at a time.
+ * never be added here. The selected bundled wake-sound id is the narrow exception because critical
+ * playback must survive reboot/Direct Boot without reading credential-protected product storage.
+ * Multiple future schedule slots may coexist, but exactly one wake execution may be active at a time.
  */
 data class CriticalAlarmState(
     val slots: Map<WakeScheduleId, CriticalScheduleSlot>,
@@ -121,6 +123,7 @@ data class CriticalAlarmState(
 
         private fun CriticalScheduleSlot.toJson(): JSONObject = JSONObject().apply {
             put(KEY_SCHEDULE, schedule.toJson())
+            put(KEY_WAKE_SOUND_ID, wakeSoundId.value)
             put(KEY_NEXT_OCCURRENCE, nextOccurrence?.toJson() ?: JSONObject.NULL)
             put(KEY_REGISTERED_OCCURRENCE_ID, registeredOccurrenceId?.value ?: JSONObject.NULL)
             put(KEY_ENABLED, enabled)
@@ -130,6 +133,13 @@ data class CriticalAlarmState(
             val schedule = scheduleFromJson(json.getJSONObject(KEY_SCHEDULE))
             return CriticalScheduleSlot(
                 schedule = schedule,
+                wakeSoundId = if (json.has(KEY_WAKE_SOUND_ID) && !json.isNull(KEY_WAKE_SOUND_ID)) {
+                    WakeSoundId(json.getString(KEY_WAKE_SOUND_ID))
+                } else {
+                    // Backward-compatible schema-v2 default for state written before sound selection
+                    // became part of Direct-Boot execution authority.
+                    WakeSoundId.MORNING_LIGHT
+                },
                 nextOccurrence = json.optJSONObject(KEY_NEXT_OCCURRENCE)?.let {
                     occurrenceFromJson(it, schedule)
                 },
@@ -209,6 +219,7 @@ data class CriticalAlarmState(
         }
 
         private const val KEY_SCHEDULE = "schedule"
+        private const val KEY_WAKE_SOUND_ID = "wakeSoundId"
         private const val KEY_NEXT_OCCURRENCE = "nextOccurrence"
         private const val KEY_REGISTERED_OCCURRENCE_ID = "registeredOccurrenceId"
         private const val KEY_ENABLED = "enabled"
@@ -232,6 +243,7 @@ data class CriticalScheduleSlot(
     val nextOccurrence: WakeOccurrence?,
     val registeredOccurrenceId: WakeOccurrenceId?,
     val enabled: Boolean = true,
+    val wakeSoundId: WakeSoundId = WakeSoundId.MORNING_LIGHT,
 ) {
     init {
         nextOccurrence?.let { occurrence ->
