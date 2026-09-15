@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.character.LocalCharacterSpeaker
 import com.wakemyway.app.character.LocalSpeechResult
 import com.wakemyway.app.character.LocalSpeechState
@@ -25,20 +26,12 @@ import com.wakemyway.core.runtime.WakeSessionSnapshot
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import java.time.Duration
 
-/** Lifecycle contract owned by the retained wake-session holder. */
 interface WakeSessionController : AutoCloseable {
     fun onSurfaceVisible()
     fun onSurfaceHidden()
     fun closeForTerminalAction()
 }
 
-/**
- * Android adapter around the pure Wake Runtime.
- *
- * Wake Runtime remains the only behavioral authority. This controller may choose an optional
- * conversational speech renderer when available, but model/network state can never Stop/Snooze,
- * complete a session, or replace typed activation evidence. Local TTS/STT remains the fallback.
- */
 class WakeVoiceSessionController(
     context: Context,
     private val occurrenceId: WakeOccurrenceId,
@@ -48,6 +41,7 @@ class WakeVoiceSessionController(
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val terminalActions = WakeTerminalActions(appContext)
     private val runtime = WakeRuntime()
     private val policy = WakePolicy()
     private val voiceListener = LocalVoiceListener(
@@ -109,8 +103,6 @@ class WakeVoiceSessionController(
                     if (closed || !realtimeTurnInFlight || !started) return@post
                     speaking = false
                     if (interrupted) {
-                        // VAD will shortly emit the user's completed turn. That VoiceResponseObserved
-                        // becomes the sole runtime transition, preventing a double response.
                         mode = WakeVoiceMode.LISTENING
                         publish()
                         return@post
@@ -178,9 +170,6 @@ class WakeVoiceSessionController(
                         publish()
                     }
 
-                    // Preserve the exact typed runtime intent. A network/provider failure changes
-                    // rendering only; it must not create a parallel behavioral transition. If no
-                    // local renderer exists either, report the failed speech fact to WakeRuntime.
                     if (failedDuringTurn && started && snapshot.phase != WakePhase.FINISHED) {
                         if (speaker.state() is LocalSpeechState.Ready) {
                             speakLocally(failedIntent)
@@ -188,8 +177,6 @@ class WakeVoiceSessionController(
                             dispatch(WakeInput.SpeechFailed(nextInputId("realtime-speech-failed")))
                         }
                     } else if (started) {
-                        // If Realtime failed while it was listening, preserve the runtime's request
-                        // and fall back to local STT immediately when the surface is still visible.
                         syncSurfaceBoundResources()
                         syncWatchdog()
                     }
@@ -279,10 +266,6 @@ class WakeVoiceSessionController(
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
     }
 
-    /**
-     * Use immediately before a terminal AlarmPlaybackService command such as Stop or Snooze.
-     * No restore-volume command is sent because the terminal command itself owns playback teardown.
-     */
     override fun closeForTerminalAction() {
         closeInternal(restoreCriticalAudio = false)
     }
@@ -410,9 +393,10 @@ class WakeVoiceSessionController(
                 if (directive.outcome == WakeOutcome.COMPLETED) {
                     mode = WakeVoiceMode.COMPLETE
                     publish()
-                    closeInternal(restoreCriticalAudio = false)
-                    AlarmPlaybackService.requestStop(appContext, occurrenceId)
-                    onCompleted()
+                    if (terminalActions.stop(occurrenceId)) {
+                        closeInternal(restoreCriticalAudio = false)
+                        onCompleted()
+                    }
                 }
             }
         }
