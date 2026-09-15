@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.wakemyway.app.ui.theme.LocalWmwPlanningAtmosphere
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
@@ -60,9 +61,14 @@ fun WmwCircadianSurface(
     ambientGlow: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val planningAtmosphere = LocalWmwPlanningAtmosphere.current
     val background = when (stage) {
         WmwCircadianStage.PLANNING -> Brush.verticalGradient(
-            listOf(WmwColors.Paper, WmwColors.Cloud, Color(0xFFF3F1F7)),
+            listOf(
+                planningAtmosphere.top,
+                planningAtmosphere.middle,
+                planningAtmosphere.bottom,
+            ),
         )
         WmwCircadianStage.EMERGING -> Brush.verticalGradient(
             listOf(Color(0xFF050B19), WmwColors.Midnight, Color(0xFF0C1D3D)),
@@ -93,8 +99,12 @@ fun WmwCircadianSurface(
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    WmwColors.Sunrise.copy(alpha = 0.12f),
-                                    WmwColors.GoldenLight.copy(alpha = 0.06f),
+                                    planningAtmosphere.sunriseGlow.copy(
+                                        alpha = planningAtmosphere.sunriseGlowAlpha,
+                                    ),
+                                    WmwColors.GoldenLight.copy(
+                                        alpha = planningAtmosphere.sunriseGlowAlpha * 0.50f,
+                                    ),
                                     Color.Transparent,
                                 ),
                                 center = Offset(size.width * 0.85f, size.height * 0.08f),
@@ -106,7 +116,9 @@ fun WmwCircadianSurface(
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    WmwColors.Dawn.copy(alpha = 0.10f),
+                                    planningAtmosphere.dawnGlow.copy(
+                                        alpha = planningAtmosphere.dawnGlowAlpha,
+                                    ),
                                     Color.Transparent,
                                 ),
                                 center = Offset(size.width * 0.10f, size.height * 0.92f),
