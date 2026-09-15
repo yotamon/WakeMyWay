@@ -1,5 +1,7 @@
 # Plan hardening review — 2026-09-09
 
+> **Historical review.** This document records the final pre-M0 risk review and the build order chosen at that time. Later accepted ADRs and current implementation may supersede individual assumptions. In particular, the single-schedule assumption was superseded by [`adr/022-multi-alarm-product-model.md`](adr/022-multi-alarm-product-model.md). Use [`../CONTEXT.md`](../CONTEXT.md) and [`00-project-status.md`](00-project-status.md) for current truth.
+
 ## Purpose
 
 After the deep-module architecture review simplified Wake My Way, the full plan received one final pre-implementation review focused on **product-risk ordering and real Android lifecycle gaps** rather than abstraction quality alone.
@@ -180,23 +182,15 @@ Decision:
 
 The exact one-tap/confirmation/gesture UX remains a dogfood/accessibility question.
 
-## 6. Safety Backup is a trust-transition hypothesis, not multi-alarm architecture
+## 6. Safety Backup is now historical context, not multi-alarm architecture
 
 Target users often arrive from a habit of setting several backup alarms. Asking them to instantly trust one new adaptive alarm can itself be a migration barrier.
 
-During founder/trusted dogfood, WMW may offer an optional later conventional Safety Backup.
+At the time of this review, WMW considered an optional later conventional Safety Backup during founder/trusted dogfood.
 
-Rules:
+That historical hypothesis did not define the later multi-alarm product model. ADR-022 introduced independent WakeMyWay Alarm Definitions and a multi-slot kernel deliberately, while preserving exactly one physical Active Wake Execution authority.
 
-- temporary/trust-building
-- not a second adaptive Wake Schedule
-- WMW reliability measured independently
-- track whether users stop needing it
-- do not redesign the Alarm Kernel as a generic many-alarm coordinator
-
-Public V1 inclusion remains an evidence-based open question.
-
-## Resulting build order
+## Resulting historical build order
 
 ```text
 M0  Foundation
@@ -226,7 +220,7 @@ M11 Dogfood hardening
 M12 Closed beta
 ```
 
-## What did not change
+## What did not change at the time
 
 The hardening review did **not** reopen:
 
@@ -241,22 +235,11 @@ The hardening review did **not** reopen:
 - no account required for initial use
 - no KMP/React Native/Flutter
 - no ML before meaningful real data
-- one active adaptive Wake Schedule in V1
+
+The historical single-schedule item that originally appeared in this list was later superseded by ADR-022 and is intentionally not presented here as a current invariant.
 
 ## Outcome
 
-**Ready for M0.**
+At the time of this review, the project was **ready for M0**.
 
-The implementation order now proves risk in the intended order:
-
-```text
-Can Android deliver and sustain a trustworthy alarm?
-        ↓
-Can deterministic behavior get the user moving?
-        ↓
-Can WMW learn a better future strategy?
-        ↓
-Only then: does realtime AI materially improve the experience?
-```
-
-This sequence is the current canonical product/engineering plan.
+The durable lesson was to prove risk in the intended order rather than letting implementation momentum choose the product sequence. New product behavior now follows the broader Explore → Shape → Build → Harden → Learn workflow in [`34-product-development-workflow.md`](34-product-development-workflow.md), while current implementation truth lives in `00-project-status.md`.

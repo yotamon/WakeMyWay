@@ -1,5 +1,7 @@
 # Pre-implementation architecture review — 2026-09-09
 
+> **Historical review.** This document records the reasoning used before M0 and should not be treated as current product state when later accepted decisions differ. In particular, the original single-schedule V1 assumption below was superseded by [`adr/022-multi-alarm-product-model.md`](adr/022-multi-alarm-product-model.md). Current domain truth lives in [`../CONTEXT.md`](../CONTEXT.md) and current implementation truth in [`00-project-status.md`](00-project-status.md).
+
 ## Purpose
 
 Before writing the first application code, the entire Wake My Way specification was reviewed using deep-module/codebase-design principles from the `improve-codebase-architecture` skill.
@@ -95,9 +97,9 @@ Metrics now use **Wake Success** and **activation criterion** terminology.
 
 ### 8. Define V1 schedule cardinality
 
-V1 supports **one active Wake Schedule** at a time. It may express weekday-specific times and always produces one next Wake Occurrence.
+Historical decision at the time of this review: V1 supports **one active Wake Schedule** at a time. It may express weekday-specific times and always produces one next Wake Occurrence.
 
-Multiple independent alarms are deferred because they immediately multiply collision, snapshot, snooze, readiness, and reconciliation semantics before the core adaptive wake thesis is proven.
+This assumption was later superseded by ADR-022 after the consumer product was deliberately expanded to independent Alarm Definitions and a multi-slot Alarm Kernel while preserving exactly one physical Active Wake Execution at a time.
 
 ### 9. Add Direct Boot architecture
 
@@ -167,10 +169,10 @@ M2 prove reliability envelope
 only then build wake intelligence
 ```
 
-That is intentional. Wake My Way earns complexity in the order users depend on it.
+That was intentional. Wake My Way earns complexity in the order users depend on it.
 
 ## Review outcome
 
-**Ready to begin implementation.**
+At the time of the review, the project was **ready to begin implementation**.
 
-The highest-risk conceptual gaps have explicit owners, the critical path is smaller, speculative seams have been removed, and remaining unknowns are documented as questions rather than silently encoded as architecture.
+The enduring lesson is to simplify and test high-risk assumptions before implementation makes them expensive. New product behavior now follows the broader Explore → Shape → Build → Harden → Learn workflow in [`34-product-development-workflow.md`](34-product-development-workflow.md).
