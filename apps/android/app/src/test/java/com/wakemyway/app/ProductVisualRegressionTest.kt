@@ -2,7 +2,11 @@ package com.wakemyway.app
 
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.preparation.WakePreparationManager
+import com.wakemyway.app.ui.alarms.AlarmEditorResult
+import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
@@ -11,6 +15,13 @@ import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceUiState
+import com.wakemyway.core.alarm.AlarmDefinition
+import com.wakemyway.core.alarm.AlarmDefinitionId
+import com.wakemyway.core.alarm.AlarmSchedulePattern
+import com.wakemyway.core.alarm.SnoozePolicy
+import com.wakemyway.core.alarm.TomorrowContractMode
+import com.wakemyway.core.alarm.VoiceStyle
+import com.wakemyway.core.alarm.WakeSoundId
 import com.wakemyway.core.preparation.PreparedWakePlanPreparer
 import com.wakemyway.core.preparation.TomorrowContract
 import com.wakemyway.core.preparation.TomorrowContractId
@@ -22,6 +33,8 @@ import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
@@ -80,6 +93,74 @@ class ProductVisualRegressionTest {
                     onOpenWakeSetup = {},
                     onOpenTomorrowPlan = {},
                     onOpenWakeLab = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun alarmsOverview() {
+        val ready = visualAlarm(
+            id = "visual-weekday-ready",
+            label = "Morning focus",
+            time = LocalTime.of(7, 30),
+            days = WEEKDAYS,
+            voiceCheckInEnabled = true,
+        )
+        val attention = visualAlarm(
+            id = "visual-gym-attention",
+            label = "Gym morning",
+            time = LocalTime.of(6, 45),
+            days = setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY),
+            voiceCheckInEnabled = false,
+        )
+        val disabled = visualAlarm(
+            id = "visual-weekend-off",
+            label = "Weekend",
+            time = LocalTime.of(8, 30),
+            days = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+            enabled = false,
+            voiceCheckInEnabled = true,
+        )
+        val health = mapOf(
+            ready.id to visualHealth(ready, ready = true),
+            attention.id to visualHealth(attention, ready = false),
+        )
+
+        captureRoboImage("alarms_overview.png") {
+            WakeMyWayTheme {
+                AlarmsScreen(
+                    alarms = listOf(ready, attention, disabled),
+                    healthFor = { alarm -> health[alarm.id] },
+                    onAddAlarm = {},
+                    onEditAlarm = {},
+                    onSetEnabled = { _, _ -> },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun alarmEditorConfigured() {
+        val alarm = visualAlarm(
+            id = "visual-editor",
+            label = "Morning focus",
+            time = LocalTime.of(7, 30),
+            days = WEEKDAYS,
+            voiceCheckInEnabled = true,
+            voiceStyle = VoiceStyle.MOTIVATIONAL,
+            snoozeMinutes = 10,
+            contractMode = TomorrowContractMode.ALWAYS_PROMPT,
+            firstMove = "Open the curtains",
+        )
+
+        captureRoboImage("alarm_editor_configured.png") {
+            WakeMyWayTheme {
+                AlarmEditorScreen(
+                    existing = alarm,
+                    onBack = {},
+                    onSave = { AlarmEditorResult(saved = true) },
+                    onDelete = { AlarmEditorResult(saved = true) },
                 )
             }
         }
@@ -211,6 +292,48 @@ class ProductVisualRegressionTest {
         }
     }
 
+    private fun visualAlarm(
+        id: String,
+        label: String,
+        time: LocalTime,
+        days: Set<DayOfWeek>,
+        enabled: Boolean = true,
+        voiceCheckInEnabled: Boolean,
+        voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
+        snoozeMinutes: Long = 5,
+        contractMode: TomorrowContractMode = TomorrowContractMode.OPTIONAL,
+        firstMove: String? = null,
+    ) = AlarmDefinition(
+        id = AlarmDefinitionId(id),
+        label = label,
+        enabled = enabled,
+        zoneId = ZoneId.of("Europe/Berlin"),
+        schedule = AlarmSchedulePattern.Weekly(days = days, time = time),
+        soundId = WakeSoundId.MORNING_LIGHT,
+        voiceCheckInEnabled = voiceCheckInEnabled,
+        voiceStyle = voiceStyle,
+        snoozePolicy = SnoozePolicy(
+            enabled = true,
+            duration = Duration.ofMinutes(snoozeMinutes),
+        ),
+        tomorrowContractMode = contractMode,
+        firstMoveDefault = firstMove,
+        revision = 3,
+        createdAt = VISUAL_INSTANT,
+        updatedAt = VISUAL_INSTANT,
+    )
+
+    private fun visualHealth(
+        alarm: AlarmDefinition,
+        ready: Boolean,
+    ) = AlarmScheduleHealth(
+        scheduleId = WakeScheduleId(alarm.id.value),
+        enabled = alarm.enabled,
+        ready = ready,
+        nextOccurrence = null,
+        activeOccurrence = null,
+    )
+
     private fun visualPreparedPlan() = PreparedWakePlanPreparer.prepare(
         contract = TomorrowContract(
             id = TomorrowContractId("visual-contract"),
@@ -233,6 +356,17 @@ class ProductVisualRegressionTest {
             scheduledAt = ZonedDateTime.of(local, zone),
             scheduleRevision = 1L,
             localTimeResolution = LocalTimeResolution.EXACT,
+        )
+    }
+
+    companion object {
+        private val VISUAL_INSTANT: Instant = Instant.parse("2026-09-15T05:30:00Z")
+        private val WEEKDAYS = setOf(
+            DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY,
+            DayOfWeek.WEDNESDAY,
+            DayOfWeek.THURSDAY,
+            DayOfWeek.FRIDAY,
         )
     }
 }
