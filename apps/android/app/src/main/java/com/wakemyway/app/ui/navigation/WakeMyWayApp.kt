@@ -24,7 +24,9 @@ import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
+import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
 import com.wakemyway.app.ui.alarms.AlarmsScreen
@@ -112,7 +114,7 @@ fun WakeMyWayApp(
         alarms = alarmController.list()
     }
 
-    fun savePreferences(next: com.wakemyway.app.product.ConsumerPreferences) {
+    fun savePreferences(next: ConsumerPreferences) {
         preferences = preferencesRepository.replace(next)
     }
 
@@ -346,6 +348,13 @@ fun WakeMyWayApp(
                                 )
                         }
                     },
+                    defaults = AlarmEditorDefaults(
+                        soundId = preferences.defaultSoundId,
+                        voiceCheckInEnabled = preferences.defaultVoiceCheckInEnabled,
+                        voiceStyle = preferences.defaultVoiceStyle,
+                        snoozeMinutes = preferences.defaultSnoozeMinutes,
+                        firstMove = preferences.defaultFirstMove,
+                    ),
                 )
             }
 
