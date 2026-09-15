@@ -71,6 +71,7 @@ fun TomorrowPlanScreen(
     wakeOccurrence: WakeOccurrence?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    defaultFirstMove: String? = null,
 ) {
     val context = LocalContext.current
     val savedCopy = stringResource(R.string.tomorrow_plan_saved)
@@ -85,7 +86,12 @@ fun TomorrowPlanScreen(
     val initialSnapshot = remember(occurrenceId) { occurrenceId?.let(manager::snapshotFor) }
     var snapshot by remember(occurrenceId) { mutableStateOf(initialSnapshot) }
     var rawText by remember(occurrenceId) { mutableStateOf(initialSnapshot?.contract?.rawText.orEmpty()) }
-    var firstMove by remember(occurrenceId) { mutableStateOf(initialSnapshot?.contract?.firstMove.orEmpty()) }
+    var firstMove by remember(occurrenceId, defaultFirstMove) {
+        mutableStateOf(
+            initialSnapshot?.contract?.firstMove
+                ?: defaultFirstMove.orEmpty(),
+        )
+    }
     var message by remember(occurrenceId) { mutableStateOf<String?>(null) }
     var isListening by remember(occurrenceId) { mutableStateOf(false) }
     var showClearConfirmation by remember { mutableStateOf(false) }
@@ -329,7 +335,7 @@ fun TomorrowPlanScreen(
                         isListening = false
                         manager.clear()
                         rawText = ""
-                        firstMove = ""
+                        firstMove = defaultFirstMove.orEmpty()
                         snapshot = manager.snapshotFor(wakeOccurrence.id)
                         message = clearedCopy
                         showClearConfirmation = false
@@ -358,55 +364,56 @@ private fun ContractVoiceButton(
     val border = if (listening) WmwColors.Sunrise else WmwColors.DarkHairline
     Surface(
         modifier = modifier
-            .size(88.dp)
-            .clickable(enabled = enabled, onClick = onClick)
+            .size(84.dp)
             .semantics {
                 role = Role.Button
                 this.contentDescription = contentDescription
-            },
+            }
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            ),
         shape = CircleShape,
-        color = if (listening) WmwColors.Sunrise.copy(alpha = 0.14f) else WmwColors.Cloud,
-        border = androidx.compose.foundation.BorderStroke(1.2.dp, border),
+        color = if (listening) WmwColors.Sunrise.copy(alpha = 0.14f) else WmwColors.MorningPaper,
+        border = androidx.compose.foundation.BorderStroke(1.dp, border),
     ) {
-        Canvas(Modifier.padding(25.dp)) {
-            val accent = if (listening) WmwColors.Sunrise else WmwColors.Midnight
-            val micWidth = size.width * 0.34f
-            val micHeight = size.height * 0.52f
-            val micTop = center.y - micHeight * 0.58f
-            drawRoundRect(
-                color = accent,
-                topLeft = Offset(center.x - micWidth / 2f, micTop),
-                size = Size(micWidth, micHeight),
-                cornerRadius = CornerRadius(micWidth / 2f, micWidth / 2f),
-                style = Stroke(width = 1.8.dp.toPx()),
-            )
-            val cradle = Path().apply {
-                moveTo(center.x - size.width * 0.28f, center.y)
-                cubicTo(
-                    center.x - size.width * 0.28f, center.y + size.height * 0.30f,
-                    center.x + size.width * 0.28f, center.y + size.height * 0.30f,
-                    center.x + size.width * 0.28f, center.y,
+        Box(contentAlignment = Alignment.Center) {
+            Canvas(Modifier.size(34.dp)) {
+                val strokeWidth = 2.dp.toPx()
+                val bodyWidth = size.width * 0.34f
+                val bodyHeight = size.height * 0.50f
+                drawRoundRect(
+                    color = if (listening) WmwColors.Sunrise else WmwColors.Midnight,
+                    topLeft = Offset((size.width - bodyWidth) / 2f, size.height * 0.12f),
+                    size = Size(bodyWidth, bodyHeight),
+                    cornerRadius = CornerRadius(bodyWidth / 2f),
+                    style = Stroke(width = strokeWidth),
+                )
+                val path = Path().apply {
+                    moveTo(size.width * 0.27f, size.height * 0.48f)
+                    cubicTo(
+                        size.width * 0.27f,
+                        size.height * 0.72f,
+                        size.width * 0.73f,
+                        size.height * 0.72f,
+                        size.width * 0.73f,
+                        size.height * 0.48f,
+                    )
+                }
+                drawPath(
+                    path,
+                    color = if (listening) WmwColors.Sunrise else WmwColors.Midnight,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                )
+                drawLine(
+                    color = if (listening) WmwColors.Sunrise else WmwColors.Midnight,
+                    start = Offset(size.width / 2f, size.height * 0.72f),
+                    end = Offset(size.width / 2f, size.height * 0.88f),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
                 )
             }
-            drawPath(
-                path = cradle,
-                color = accent,
-                style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round),
-            )
-            drawLine(
-                color = accent,
-                start = Offset(center.x, center.y + size.height * 0.29f),
-                end = Offset(center.x, center.y + size.height * 0.45f),
-                strokeWidth = 1.8.dp.toPx(),
-                cap = StrokeCap.Round,
-            )
-            drawLine(
-                color = accent,
-                start = Offset(center.x - size.width * 0.16f, center.y + size.height * 0.45f),
-                end = Offset(center.x + size.width * 0.16f, center.y + size.height * 0.45f),
-                strokeWidth = 1.8.dp.toPx(),
-                cap = StrokeCap.Round,
-            )
         }
     }
 }
@@ -414,19 +421,11 @@ private fun ContractVoiceButton(
 @Composable
 private fun ProtectPrivateScreenFromCapture() {
     val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-
-    DisposableEffect(activity) {
-        val window = activity?.window
-        val secureWasAlreadySet = window != null &&
-            (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
-        if (window != null && !secureWasAlreadySet) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
+    DisposableEffect(context) {
+        val activity = context.findActivity()
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         onDispose {
-            if (window != null && !secureWasAlreadySet) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 }
