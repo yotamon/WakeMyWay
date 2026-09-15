@@ -14,6 +14,7 @@ import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
@@ -244,7 +245,21 @@ class ProductVisualRegressionTest {
                     onPreferencesChanged = {},
                     onOpenNotifications = {},
                     onOpenPrivacy = {},
+                    onOpenAppearance = {},
                     onOpenAbout = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun appearanceSoftDawn() {
+        captureRoboImage("appearance_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
+                AppearanceScreen(
+                    appearance = AppAppearance.SOFT_DAWN,
+                    onAppearanceChanged = {},
+                    onBack = {},
                 )
             }
         }
