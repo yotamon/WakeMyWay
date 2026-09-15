@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HttpError } from '../src/http';
 import {
   FOUNDER_PAIRING_CODE_MIN_LENGTH,
+  FOUNDER_SIGNING_KEY_MIN_LENGTH,
   founderRealtimeSetupStatus,
   pairFounderInstallation,
   requireFounderRealtimeAuthorization,
@@ -13,7 +14,8 @@ const readyEnvironment: NodeJS.ProcessEnv = {
   OPENAI_API_KEY: 'server-only-openai-key',
   WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
   WMW_OPENAI_SAFETY_IDENTIFIER: 'sha256:founder-device-fixture',
-  WMW_INTERNAL_API_KEY: 's'.repeat(64),
+  WMW_INTERNAL_API_KEY: 'i'.repeat(64),
+  WMW_FOUNDER_TOKEN_SIGNING_KEY: 's'.repeat(64),
   WMW_FOUNDER_PAIRING_CODE: 'WakeMyWay-Founder-Connect-2026',
 };
 
@@ -28,7 +30,8 @@ describe('founder Realtime server readiness', () => {
       'OpenAI API key',
       'founder Realtime gate',
       'OpenAI safety identifier',
-      'server signing key',
+      'internal API key',
+      'founder token signing key',
       'founder access code',
     ]);
   });
@@ -37,16 +40,20 @@ describe('founder Realtime server readiness', () => {
     expect(founderRealtimeSetupStatus(readyEnvironment)).toEqual({ available: true, missing: [] });
   });
 
-  it('does not treat a short founder secret as configured', () => {
-    const shortEnvironment = {
-      ...readyEnvironment,
-      WMW_FOUNDER_PAIRING_CODE: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1),
-    };
+  it('does not treat short founder secrets as configured', () => {
+    expect(
+      founderRealtimeSetupStatus({
+        ...readyEnvironment,
+        WMW_FOUNDER_PAIRING_CODE: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1),
+      }),
+    ).toEqual({ available: false, missing: ['founder access code'] });
 
-    expect(founderRealtimeSetupStatus(shortEnvironment)).toEqual({
-      available: false,
-      missing: ['founder access code'],
-    });
+    expect(
+      founderRealtimeSetupStatus({
+        ...readyEnvironment,
+        WMW_FOUNDER_TOKEN_SIGNING_KEY: 'x'.repeat(FOUNDER_SIGNING_KEY_MIN_LENGTH - 1),
+      }),
+    ).toEqual({ available: false, missing: ['founder token signing key'] });
   });
 });
 
@@ -59,6 +66,7 @@ describe('founder installation pairing', () => {
 
     expect(paired.deviceToken).not.toContain(readyEnvironment.WMW_FOUNDER_PAIRING_CODE!);
     expect(paired.deviceToken).not.toContain(readyEnvironment.WMW_INTERNAL_API_KEY!);
+    expect(paired.deviceToken).not.toContain(readyEnvironment.WMW_FOUNDER_TOKEN_SIGNING_KEY!);
     expect(paired.expiresAt).toBeGreaterThan(1_800_000_000);
 
     const verified = verifyFounderDeviceToken(paired.deviceToken, {
@@ -84,6 +92,23 @@ describe('founder installation pairing', () => {
         { code: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1), installationId },
         { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
       ),
+    ).toThrow(HttpError);
+  });
+
+  it('rejects credentials when the dedicated signing key changes', () => {
+    const paired = pairFounderInstallation(
+      { code: readyEnvironment.WMW_FOUNDER_PAIRING_CODE, installationId },
+      { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
+    );
+
+    expect(() =>
+      verifyFounderDeviceToken(paired.deviceToken, {
+        environment: {
+          ...readyEnvironment,
+          WMW_FOUNDER_TOKEN_SIGNING_KEY: 'r'.repeat(64),
+        },
+        nowSeconds: 1_800_000_001,
+      }),
     ).toThrow(HttpError);
   });
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.character.LocalCharacterSpeaker
 import com.wakemyway.app.character.LocalSpeechResult
 import com.wakemyway.app.character.LocalSpeechState
@@ -46,6 +47,7 @@ class WakeVoiceSessionController(
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val terminalActions = WakeTerminalActions(appContext)
     private val runtime = WakeRuntime()
     private val policy = WakePolicy()
     private val voiceListener = LocalVoiceListener(
@@ -278,8 +280,8 @@ class WakeVoiceSessionController(
     }
 
     /**
-     * Use immediately before a terminal AlarmPlaybackService command such as Stop or Snooze.
-     * No restore-volume command is sent because the terminal command itself owns playback teardown.
+     * Use immediately after a durable terminal Alarm Kernel transaction succeeds.
+     * No restore-volume command is sent because terminal playback teardown is already authoritative.
      */
     override fun closeForTerminalAction() {
         closeInternal(restoreCriticalAudio = false)
@@ -388,6 +390,9 @@ class WakeVoiceSessionController(
                 stopMotionObservation()
             }
 
+            // Live terminal effects are deliberately owned by AlarmKernel/WakeTerminalActions.
+            // These pure-runtime protocol directives remain useful for replay/journal semantics but
+            // this Android behavioral adapter must not create a second Stop/Snooze authority.
             is WakeDirective.OfferSnooze -> Unit
             is WakeDirective.RequestSnoozeSchedule -> Unit
             WakeDirective.RequestStopExecution -> Unit
@@ -408,9 +413,14 @@ class WakeVoiceSessionController(
                 if (directive.outcome == WakeOutcome.COMPLETED) {
                     mode = WakeVoiceMode.COMPLETE
                     publish()
-                    closeInternal(restoreCriticalAudio = false)
-                    AlarmPlaybackService.requestStop(appContext, occurrenceId)
-                    onCompleted()
+
+                    // WakeRuntime may declare behavioral completion, but the UI is not terminal
+                    // until the durable Alarm Kernel Stop transition is acknowledged. If it cannot
+                    // be committed, keep the Complete surface visible so its Finish action can retry.
+                    if (terminalActions.stop(occurrenceId)) {
+                        closeInternal(restoreCriticalAudio = false)
+                        onCompleted()
+                    }
                 }
             }
         }

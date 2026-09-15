@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
-import { getAIConfig, parseAIConfig } from './ai/config.js';
+import { parseAIConfig } from './ai/config.js';
 import { HttpError, isInternallyAuthorized, secureEqual } from './http.js';
 import { parseDirectOpenAiRealtimeConfig } from './voice-spike/direct-openai.js';
 
@@ -10,6 +10,7 @@ const DEVICE_TOKEN_VERSION = 1;
 const DEVICE_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
 const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
 export const FOUNDER_PAIRING_CODE_MIN_LENGTH = 24;
+export const FOUNDER_SIGNING_KEY_MIN_LENGTH = 32;
 
 const pairingInputSchema = z.object({
   code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),
@@ -41,6 +42,11 @@ function pairingCode(environment: NodeJS.ProcessEnv): string | undefined {
   return value && value.length >= FOUNDER_PAIRING_CODE_MIN_LENGTH ? value : undefined;
 }
 
+function founderSigningKey(environment: NodeJS.ProcessEnv): string | undefined {
+  const value = environment.WMW_FOUNDER_TOKEN_SIGNING_KEY?.trim();
+  return value && value.length >= FOUNDER_SIGNING_KEY_MIN_LENGTH ? value : undefined;
+}
+
 export function founderRealtimeSetupStatus(
   environment: NodeJS.ProcessEnv = process.env,
 ): FounderRealtimeSetupStatus {
@@ -51,15 +57,16 @@ export function founderRealtimeSetupStatus(
   if (!realtime.configured) missing.push('OpenAI API key');
   if (!realtime.founderDogfoodEnabled) missing.push('founder Realtime gate');
   if (!realtime.safetyIdentifier) missing.push('OpenAI safety identifier');
-  if (!ai.internalApiKey) missing.push('server signing key');
+  if (!ai.internalApiKey) missing.push('internal API key');
+  if (!founderSigningKey(environment)) missing.push('founder token signing key');
   if (!pairingCode(environment)) missing.push('founder access code');
 
   return { available: missing.length === 0, missing };
 }
 
 function requireSigningKey(environment: NodeJS.ProcessEnv): string {
-  const key = parseAIConfig(environment).internalApiKey;
-  if (!key) throw new HttpError(503, 'Founder Realtime server signing is not configured.');
+  const key = founderSigningKey(environment);
+  if (!key) throw new HttpError(503, 'Founder Realtime token signing is not configured.');
   return key;
 }
 
@@ -154,7 +161,3 @@ function signPayload(payload: TokenPayload, signingKey: string): string {
 function signatureFor(body: string, signingKey: string): string {
   return createHmac('sha256', signingKey).update(body).digest('base64url');
 }
-
-// Keep a direct reference so bundlers/type-checkers preserve the same authoritative environment
-// schema used by existing internal authentication.
-void getAIConfig;

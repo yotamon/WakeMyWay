@@ -5,6 +5,12 @@ import android.util.AtomicFile
 import java.io.File
 import java.io.FileNotFoundException
 
+sealed interface CriticalWakeReadResult {
+    data class State(val value: CriticalAlarmState) : CriticalWakeReadResult
+    data object Missing : CriticalWakeReadResult
+    data class Corrupt(val reason: String) : CriticalWakeReadResult
+}
+
 class CriticalWakeStore(
     context: Context,
     fileName: String = DEFAULT_FILE_NAME,
@@ -16,21 +22,32 @@ class CriticalWakeStore(
 
     /**
      * Reads schema v2 critical state and transparently decodes the legacy schema-v1 single snapshot.
-     * The next successful kernel mutation/reconciliation rewrites the same atomic file as v2.
+     * Missing state and unreadable/corrupt state remain distinct for diagnostics while mutation paths
+     * continue to fail closed through [read].
      */
     @Synchronized
-    fun read(): CriticalAlarmState? = try {
-        atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
+    fun readResult(): CriticalWakeReadResult = try {
+        val state = atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
             CriticalAlarmState.decodeOrMigrate(reader.readText())
         }
+        CriticalWakeReadResult.State(state)
     } catch (_: FileNotFoundException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
-    } catch (_: IllegalStateException) {
-        null
-    } catch (_: org.json.JSONException) {
-        null
+        CriticalWakeReadResult.Missing
+    } catch (error: IllegalArgumentException) {
+        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
+    } catch (error: IllegalStateException) {
+        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
+    } catch (error: org.json.JSONException) {
+        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake JSON")
+    }
+
+    /** Fail-closed compatibility accessor for Alarm Kernel mutation paths. */
+    @Synchronized
+    fun read(): CriticalAlarmState? = when (val result = readResult()) {
+        is CriticalWakeReadResult.State -> result.value
+        CriticalWakeReadResult.Missing,
+        is CriticalWakeReadResult.Corrupt,
+        -> null
     }
 
     @Synchronized

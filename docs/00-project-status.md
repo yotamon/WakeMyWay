@@ -1,204 +1,171 @@
 # Project status
 
-**Last updated:** 2026-09-14  
+**Last updated:** 2026-09-15  
 **Product:** WakeMyWay (WMW)  
-**Platform:** Android first, optional non-critical Vercel cloud  
-**Current engineering phase:** founder dogfood plus consumer brand-system hardening  
-**Merged foundations:** PR #36 local Voice Wake; PR #37 modern Android presentation/BAL hardening; PR #38 permission-gated controllability; PR #39 Realtime conversation foundation; PR #40 seamless server-safe founder pairing; PR #41 critical-path reliability/security hardening  
-**Reliability rule:** a wake may not be armed or resurrected without verified local terminal controllability  
-**Realtime rule:** cloud conversation is optional enrichment only; Alarm Kernel and WakeRuntime remain authoritative
+**Platform:** Android first; optional non-critical Vercel cloud  
+**Current engineering phase:** reliability/product hardening + founder physical dogfood  
+**Current hardening PR:** #54  
+**Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
+**Realtime rule:** cloud conversation is optional enrichment only; Alarm Kernel remains durable alarm/terminal authority and WakeRuntime remains behavioral activation/orientation authority
 
-## Sunrise-wave brand implementation
+## Current product shape
 
-PR #51 introduces the canonical WakeMyWay consumer identity without changing wake authority or the local reliability envelope:
-
-- consumer-facing naming is normalized to **WakeMyWay**;
-- the primary symbol is a simple rising sun meeting one continuous horizon that reads as both a calm sound wave and a mountain landscape;
-- the same geometry powers the in-product Wake Line so brand identity changes with real wake state rather than becoming decorative logo repetition;
-- the canonical palette is Midnight Navy, Sunrise Peach, Golden Light, Dawn Lavender and Cloud/Paper neutrals;
-- Tonight, Wake Schedule and Tomorrow Contract now live in a light premium planning world, while active wake remains intentionally dark and sparse before resolving into a light morning surface;
-- Android adaptive, round and monochrome themed launcher icons use the sunrise-wave mark;
-- live wake presentation was reworked without changing `AlarmPlaybackService`, Alarm Kernel authority, `WakeSessionViewModel`, WakeRuntime decisions, Direct Boot privacy, private-contract gating or immediate local Stop/Snooze behavior;
-- curated Roborazzi states were visually inspected and promoted to new canonical baselines rather than bypassing visual-regression protection.
-
-The durable product decision is recorded in `docs/26-decisions-log.md`; implementation rules and exact palette/mark guidance live in `docs/07-design-system.md`.
-
-## Reliability hardening baseline
-
-PR #41 completed a repository-wide reliability, correctness, security and performance review without changing product ownership boundaries:
-
-- Snooze previously cleared Active Wake authority before proving the replacement exact alarm had been accepted by Android. Snooze now registers the replacement first and only then performs the durable active → snoozed hand-off. If exact-alarm access or persistence fails, the current wake remains active instead of going silent without a replacement.
-- A delayed/stale Stop or Snooze `PendingIntent` could stop `AlarmPlaybackService` even when the command occurrence ID no longer matched the current Active Wake. Terminal commands now tear down playback only after the Alarm Kernel accepts that exact occurrence; stale/malformed service commands either re-assert the current durable active execution or stop an idle service instance.
-- Realtime conversation availability could diverge from `WakeRuntime.capabilities.speechAvailable` when the remote renderer connected or failed after runtime startup. The controller now synchronizes those transitions, starts immediately when Realtime becomes ready during TTS initialization, and emits a typed `SpeechFailed` fact when both remote and local rendering are unavailable.
-- Realtime WebRTC failures are scoped to the connection generation that observed them. A late callback from an obsolete peer/request cannot fail a newer reconnect, a current failure restores the previous Android audio route before local fallback, and duplicate in-flight connection attempts are suppressed.
-- Shared cloud JSON parsing enforces the request-body byte limit while streaming instead of loading an unbounded body before checking its size. Oversized bodies are rejected early, including requests without `Content-Length` and multibyte UTF-8 payloads.
-- Android CI explicitly runs `:app:testDebugUnitTest` in addition to `:wake-core:test`, so application-level Robolectric regressions are a first-class merge gate.
-
-Robolectric regression coverage verifies that loss of exact-alarm access during Snooze leaves the current occurrence active and that stale terminal occurrence IDs cannot replace current active authority. Cloud tests cover bounded JSON parsing for normal, streamed oversized, declared oversized and multibyte bodies.
-
-PR #41 final head `519227f3240f994d20dc0f6d7a271b70d00bd065` passed Android CI, application unit/Robolectric tests, lint/build, curated visual regression, API-36 device reliability, Cloud AI Platform CI and documentation validation. It squash-merged to `main` as `e34b202dabe2614672b5d27ea71bf90b679855ef`.
-
-No ADR change was required: these fixes enforce existing Snooze durability, Active Wake idempotency, local fallback, non-authoritative Realtime and bounded-cloud-input invariants.
-
-## Wake-session lifecycle hardening
-
-PR #43 adds the second hardening pass around Android lifecycle continuity and surface-bound resources:
-
-- `WakeVoiceSessionController` / `WakeRuntime` is owned by a keyed `WakeSessionViewModel`, so Activity configuration recreation does not reset activation evidence, escalation state, input deduplication, speech sequencing or the optional Realtime session.
-- Alarm Kernel and `AlarmPlaybackService` remain the durable execution authority. The ViewModel retains only behavioral in-memory state across configuration recreation; process death intentionally starts a fresh behavioral session rather than persisting evidence that could falsely imply the user is already awake.
-- voice listening and motion observation are represented as runtime-requested resources. When the Wake Surface becomes hidden, actual microphone/Realtime input and motion sensors are suspended. When it becomes visible again, only resources still requested by the runtime are restored.
-- a Realtime failure while voice input is requested preserves that request so local on-device STT can take over instead of silently losing the turn.
-- founder pairing now requires an access code of at least 24 characters consistently in the Android setup UI, Android pairing client, cloud endpoint schema and server readiness/auth logic.
-- reliable pairing brute-force protection is intentionally not implemented as a process-local serverless map. Issue #42 tracks the required Vercel Firewall rate-limit rule for `POST /api/founder/realtime/pair`.
-
-`WakeSessionViewModelTest` verifies that a recreated Activity provider backed by the same `ViewModelStore` receives the same behavioral session/controller, creates it only once and closes it exactly once when the owner is truly cleared.
-
-## Physical truth
-
-The permission/control regression found during founder testing was corrected by PR #38 and passed a physical Android phone wake test: the wake screen opened and the alarm was controllable.
-
-The critical path remains local:
+WakeMyWay is a local-first Android wake system with a deterministic behavioral runtime and optional conversational enrichment.
 
 ```text
-Wake Setup
-    ↓
-WakeSchedulingGate
-    ↓
-Alarm Kernel
+Wake Setup / Alarm Library
+    ↓ strict new-Wake preflight
+Alarm Kernel · schema v2 independent schedule slots
     ↓
 AlarmManager.setAlarmClock()
     ↓
-AlarmReceiver safety recheck
-    ↓
-AlarmPlaybackService safety recheck
-    ├─ critical local alarm audio
-    ├─ immediate Stop / Snooze controls
-    └─ Android 15/16 BAL-safe full-screen PendingIntent
-                         ↓
-                    WakeActivity
-                         ↓
-                WakeSessionViewModel
-                         ↓
-              WakeVoiceSessionController
-                         ↓
-                    WakeRuntime
+AlarmReceiver
+    ↓ active-execution safety check
+AlarmPlaybackService
+    ├─ bundled critical alarm audio
+    ├─ notification terminal controls
+    └─ full-screen WakeActivity
+                ↓
+        WakeSessionViewModel
+          ├─ acknowledged Stop/Snooze → Alarm Kernel
+          └─ behavioral session
+                     ↓
+          WakeVoiceSessionController
+                     ↓
+                WakeRuntime
+       ├─ local Alfred
+       ├─ on-device voice replies
+       ├─ motion evidence
+       └─ optional debug/founder Realtime enrichment
 ```
 
-`Wake Ready` requires exact-alarm capability, notifications, HIGH alarm channel, full-screen alarm access, microphone permission and on-device speech recognition. Unsafe planned/active occurrences fail closed rather than starting an uncontrollable foreground alarm.
+The sunrise-wave consumer brand from PR #51 is the current presentation truth. Planning surfaces are light/premium; active wake remains intentionally darker and resolves toward morning light. The same sunrise-wave geometry is used by the launcher identity and the stateful Wake Line.
 
-## Conversational Wake
+## Multi-alarm product foundation
 
-PR #39 added optional founder/debug OpenAI Realtime WebRTC speech enrichment. ADR [`020`](adr/020-conversational-wake-enrichment.md) preserves the non-authoritative AI boundary.
+PR #53 and the subsequent Alarm Kernel migration moved WakeMyWay from a single primary schedule toward the real consumer alarm model. PR #54 is applied on top of that architecture rather than reverting it.
 
-```text
-WakeRuntime
-    ↓ typed SpeechIntent
-WakeConversationEnrichment
-    ├─ debug/founder OpenAI Realtime WebRTC
-    │      ↕ natural audio conversation
-    └─ deterministic local Alfred fallback
-```
+- product alarm intent is represented independently from the critical Android execution snapshot;
+- the schema-v2 Direct-Boot state stores independent schedule slots keyed by `WakeScheduleId`;
+- editing or disabling one alarm leaves unrelated alarm slots and Android registrations untouched;
+- modern one-shot alarms carry an exact local date instead of relying only on weekday/time intent;
+- stale revisions cannot become active after an alarm is edited;
+- only one physical wake execution may own foreground/audio authority at a time;
+- a second valid occurrence colliding with an active wake returns `CONFLICT` and remains durable for deterministic reconciliation rather than starting competing audio;
+- Snoozing one alarm chain preserves unrelated scheduled alarms;
+- schema-v1 critical state remains migration-compatible and the next successful mutation/reconciliation rewrites it as schema v2.
 
-`SpeechIntent.KeepEngaging` allows repeated `Alfred → user → Alfred` turns while activation remains below threshold. The Realtime model may provide natural wording/audio and turn-boundary observations, but it cannot schedule/cancel alarms, Stop/Snooze, mutate WakePolicy, directly write activation evidence, decide completion, or become a Wake Ready dependency.
+ADR 022 and the Alarm Kernel documentation are the canonical multi-alarm product/execution decisions. The hardening below preserves these invariants while tightening failure handling and active-wake safety semantics.
 
-## Seamless founder pairing
+## Reliability hardening in PR #54
 
-PR #40 replaced the developer-only broker URL + reusable internal bearer form with a one-field `Connect Alfred` flow. Canonical decision: ADR [`021`](adr/021-founder-realtime-pairing.md).
+The deep application review identified readiness and authority boundaries that had become broader than necessary. PR #54 hardens them without weakening alarm safety:
 
-```text
-Tonight
-   ↓
-Conversational Alfred · Connect
-   ↓
-founder access code (once, 24+ chars)
-   ↓ HTTPS
-WakeMyWay pairing endpoint
-   ↓
-scoped + expiring installation credential
-   ↓ encrypted with Android Keystore
-future Wake Session
-   ↓
-WakeMyWay Realtime broker
-   ↓
-short-lived OpenAI Realtime client secret
-   ↓
-WebRTC conversation
-```
+- **New Voice Wake creation stays strict.** Exact-alarm capability, notifications, HIGH active-wake channel, full-screen access, microphone permission and on-device recognition are required before committing a new Voice Wake.
+- **Existing safe alarms survive later voice degradation.** Losing microphone/on-device recognition after scheduling no longer silently deletes an otherwise controllable alarm. Voice degrades to the remaining local capabilities.
+- **Active wakes do not depend on future exact scheduling.** Once Android delivers an occurrence, active execution safety is notification/channel/full-screen controllability. Losing exact-alarm capability does not silence the current wake; Snooze remains fail-closed because it requires a durable exact replacement.
+- **Stop/Snooze have one acknowledged live UI path.** `WakeSessionViewModel` calls `WakeTerminalActions`, which commits the Alarm Kernel transaction before releasing behavioral resources or dismissing the Wake Surface. Duplicate terminal actions are suppressed; rejected/failed Snooze keeps the current wake visible, audible and controllable.
+- **Critical Direct-Boot corruption is diagnosable and fail-closed.** `CriticalWakeStore` distinguishes `Missing` from `Corrupt`. Alarm Health surfaces unreadable authority, mutation reads remain fail-closed, and a new schedule commit refuses to overwrite a corrupt critical file.
+- **The branded wake surface is adaptive.** Canonical 393×852 composition is preserved while decorative vertical rhythm and large Wake Line regions compress on shorter devices. A compact 360×640 render smoke test supplements the canonical golden set.
+- **Schedule controls meet the sleepy-use touch target.** Day selectors retain their branded 40dp visual circle inside a 48dp interactive target, compact-width planning uses narrower brand spacing so all seven targets fit at 360dp, and summary copy is resource-backed rather than hardcoded English.
 
-Security/product invariants:
+Canonical readiness semantics are recorded in ADR 019.
 
-- `OPENAI_API_KEY` stays server-side.
-- `WMW_INTERNAL_API_KEY` stays server-side.
-- Android has a fixed WakeMyWay backend URL and never asks for infrastructure URLs.
-- Founder pairing uses a separate high-entropy access code with a 24-character minimum and returns a scope-limited 90-day installation credential.
-- Android encrypts the installation credential with Android Keystore.
-- Before showing Conversational Alfred as Ready, Android probes the complete WakeMyWay → OpenAI client-secret path.
-- Realtime setup does not alter `Wake Ready` and cannot block the local alarm.
-- Failure/expiry/network loss falls back to local Alfred.
-- No Tomorrow Contract or prepared private context is sent to Realtime in this founder slice.
-- WMW does not persist Realtime audio or transcripts.
+## Alarm and privacy invariants
 
-## Validation evidence
+The critical wake path remains fully local and usable without cloud access.
 
-PR #40 final head `5b671692795a489ceb32c03251b87bc137d1a057` passed:
+- Alarm scheduling, playback, Stop, Snooze, recovery and Direct Boot do not depend on Vercel, OpenAI, Supabase or an account.
+- each enabled alarm owns an isolated durable schedule slot; product edits/cancellation target a concrete `WakeScheduleId`;
+- global cancellation is reserved for global Android safety loss where no WakeMyWay alarm can remain safely controllable;
+- Snooze replacement is registered before Active Wake authority is released; failure leaves the current wake active.
+- stale occurrence IDs cannot stop or replace a newer Active Wake.
+- task dismissal is not a terminal alarm action; a healthy foreground alarm survives it only while immediate verified terminal controls remain reachable.
+- private Tomorrow Contract / Prepared Wake Plan content stays in credential-protected `noBackupFilesDir`, is never copied into the device-protected critical snapshot, is not read while locked, and is protected by `FLAG_SECURE` when rendered.
+- raw microphone audio and raw high-frequency motion samples are not persisted by the local wake path.
 
-- Cloud AI Platform CI, including pairing/auth tests;
-- Android wake-core tests and lint;
-- instrumentation-test compile and debug APK assembly;
-- curated Android visual regression;
-- API-36 device reliability instrumentation.
+## WakeRuntime and terminal authority
 
-PR #40 squash-merged to `main` as `4365eddddca899f14159b80d372935de011de556`.
+`WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` owns durable alarm scheduling/state and real terminal Stop/Snooze mutations. `AlarmPlaybackService` owns foreground playback, notification actions and playback teardown/recovery.
 
-PR #41 passed the same repository gates plus the new explicit Android application unit/Robolectric gate and squash-merged to `main` as `e34b202dabe2614672b5d27ea71bf90b679855ef`.
+The production Wake Surface does not disappear on a fire-and-forget terminal request. `WakeTerminalActions` first commits Stop or the durable Snooze replacement in `AlarmKernel`; only success is acknowledged back to `WakeSessionViewModel`, which then releases behavioral resources and closes the surface. Notification actions remain independently safe through the service path.
 
-PR #43 adds retained-session lifecycle tests and the stronger founder pairing policy. Its exact final-head CI evidence is recorded in the pull request before merge.
+A stale UI surface belonging to an older occurrence cannot stop playback owned by a newer active occurrence. Automatic WakeRuntime completion follows the same acknowledged terminal boundary instead of closing behavioral resources before durable alarm state is resolved.
 
-## Current external deployment boundary
+The pure runtime still contains typed terminal protocol concepts for deterministic replay/testing and future journal integration, but those concepts do not become a second durable execution authority. Live terminal results should be observed by future journal/learning integration.
 
-The previous Hobby deployment-quota blocker is no longer current. Vercel successfully built a production deployment for PR #41/main (`e34b202dabe2614672b5d27ea71bf90b679855ef`) and reports that deployment `READY`.
+M7 local learning core exists, but real-session journal persistence, calibration and learned-policy selection remain tracked in #27 / #21.
 
-However, the production hostname currently returns Vercel `404 NOT_FOUND` for `GET /api/founder/realtime/status`. The same 404 occurs on the PR #43 preview. The repository already documents the required Vercel project configuration in `apps/cloud/README.md`: **Root Directory must be `apps/cloud`**. The current Vercel project is deploying the repository root instead, so the nested cloud `/api` functions are not exposed.
+## Conversational Alfred
 
-Issue #44 tracks the required platform correction: set the existing `wakemyway` Vercel project Root Directory to `apps/cloud`, redeploy `main`, then verify `/api/health` and `/api/founder/realtime/status` return the expected cloud responses.
+Founder/debug OpenAI Realtime over WebRTC is optional enrichment. It may render natural speech and report turn boundaries, but it cannot:
 
-After that routing/root correction, production Realtime founder dogfood also requires the appropriate Vercel environment configuration, including:
+- schedule/cancel alarms;
+- Stop/Snooze execution;
+- mutate WakePolicy;
+- directly create activation evidence;
+- decide Wake completion;
+- become a Wake Ready dependency.
 
-- `OPENAI_API_KEY`
-- `WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD=true`
-- `WMW_OPENAI_SAFETY_IDENTIFIER`
-- `WMW_INTERNAL_API_KEY`
-- `WMW_FOUNDER_PAIRING_CODE` with at least 24 characters
+Local Alfred remains the fallback when cloud/network/provider setup fails.
 
-Secret values must be entered only through an authorized Vercel settings surface. They must never be committed to Git or embedded in the APK.
+Founder installation pairing uses a one-time 24+ character access code and returns a scoped 90-day installation credential stored through Android Keystore. PR #54 separates server credential roles:
 
-Issue #42 separately tracks edge rate limiting for the public pairing exchange. A process-local limiter is not considered a valid security boundary for horizontally scaled/ephemeral Vercel Functions.
+- `WMW_INTERNAL_API_KEY` → internal/admin API authorization;
+- `WMW_FOUNDER_TOKEN_SIGNING_KEY` → HMAC signing of founder installation credentials;
+- `WMW_FOUNDER_PAIRING_CODE` → one-time installation pairing secret.
 
-Until #44 and the required server configuration are complete, the local alarm and local Alfred continue working; Conversational Alfred must not claim Ready.
+ADR 021 is the canonical pairing/security decision.
 
-## Next physical proof
+## Cloud deployment status
 
-After the production cloud root/configuration is corrected:
+The previous Vercel Root Directory problem is resolved; issue #44 is closed. Production cloud routes are exposed from `apps/cloud`.
 
-1. verify production `GET /api/health` and `GET /api/founder/realtime/status` are reachable and the latter reports `available: true`;
-2. configure and verify the Vercel Firewall pairing rate limit from #42;
-3. install the final founder debug APK;
-4. Tonight → `Conversational Alfred` → `Connect Alfred`;
-5. enter the founder access code once and approve the cloud-audio disclosure;
-6. require the app to report `Ready` only after the server → OpenAI probe succeeds;
-7. run the production-path T+2m Wake Lab wake and lock the phone;
-8. verify at least two natural user/Alfred turns and barge-in;
-9. background/foreground or recreate the Wake Surface and verify the behavioral session continues while microphone/motion resources suspend when hidden;
-10. verify network/provider loss falls back locally without affecting alarm controls;
-11. verify Stop/Snooze stay immediate and local and audio routing restores after termination.
+Founder Realtime production readiness is still intentionally incomplete:
 
-## Open boundaries
+- #47 tracks Production-scoped environment configuration, including the new dedicated `WMW_FOUNDER_TOKEN_SIGNING_KEY`;
+- #42 tracks Vercel Firewall rate limiting for `POST /api/founder/realtime/pair`;
+- secret values must be configured only through authorized Vercel settings and never committed to Git or embedded in Android;
+- release Android intentionally has no Internet permission / remote Realtime implementation yet.
 
-- Vercel project Root Directory is currently incorrect for the nested cloud app; tracked by #44.
-- Vercel Firewall brute-force protection for founder pairing is tracked by #42.
-- required production Realtime environment configuration must be verified only after the cloud routes are actually exposed;
-- broader consumer authentication is not solved by founder pairing;
-- OpenAI project privacy/data-control posture must be reviewed before broader rollout;
-- release Android still intentionally has no Internet permission and no remote Realtime implementation;
-- Bluetooth/audio-route behavior and motion calibration remain physical-device proof items;
+The local alarm and local Alfred remain valid regardless of those cloud blockers.
+
+## Automated quality gates
+
+Repository quality gates include:
+
+- pure `:wake-core` unit tests;
+- Android app unit/Robolectric tests;
+- lint + debug assembly + instrumentation compilation;
+- curated Roborazzi visual regression;
+- API-36 device reliability instrumentation;
+- Cloud AI Platform tests;
+- documentation validation.
+
+The multi-alarm foundation adds coverage for slot isolation, independent edits/cancellation, exact-date one-shots, stale revisions, collision ownership and Snooze isolation. PR #54 adds coverage for the scheduling-vs-active safety split, acknowledged terminal transactions, rejected/failed Snooze behavior, stale wake surfaces, critical-state corruption, dedicated founder token-signing rotation and compact wake rendering.
+
+Exact PR #54 pass/fail evidence must be taken from the final PR head before merge; this document must not claim a green gate before GitHub reports it.
+
+## Physical proof still required
+
+Automated/emulator evidence is not sufficient for a wake product. Issue #9 remains the release gate for repeated physical-device proof, including:
+
+- locked-screen T+2m cycles;
+- Doze/idle;
+- process/service recreation;
+- reboot / Direct Boot before unlock;
+- timezone/time changes;
+- presentation and exact-alarm capability changes;
+- Stop/Snooze resurrection checks;
+- Bluetooth/audio-route behavior;
+- motion calibration and false-positive behavior;
+- representative reliability-report retention.
+
+Broader release should not be declared complete until the supported-device reliability envelope is measured rather than inferred.
+
+## Remaining product boundaries
+
+- The product alarm model now has branded sound configuration, but the three approved source WAV files are not currently committed in the repository. Critical playback therefore still uses the bundled emergency alarm asset; profile-to-bundled-resource playback, preview/ramp/duck tuning and the approved binaries remain to be completed when those source assets are available.
+- Founder Realtime transport/provider selection is still evidence-gated by #28; direct OpenAI WebRTC is a strong implemented candidate, not a final provider declaration without physical latency/route/cost evidence.
 - M7 live learning/journal wiring remains open.
+- broader consumer authentication/account sync is intentionally not part of the critical alarm architecture.
