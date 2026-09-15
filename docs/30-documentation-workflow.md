@@ -14,17 +14,25 @@ Use this precedence:
 4. topic docs — detailed product/architecture/design plans
 5. backlog — planned work, not architecture authority
 
+`docs/34-product-development-workflow.md` defines **how** new product ideas move from uncertainty into production. It does not replace any product source of truth above.
+
 If two sources conflict, fix the conflict rather than choosing whichever is convenient.
 
-## Before implementation work
+## Before product implementation work
 
-Read:
+If the task introduces or materially changes user behavior, product scope, interaction design, or durable product semantics, start with `docs/34-product-development-workflow.md` and determine whether the work is still in Explore/Shape or is actually ready for Build.
+
+Do not use production implementation to resolve material product uncertainty that belongs in Explore or Shape.
+
+Once the work is ready for Build, read only the context needed for that slice:
 
 1. `CONTEXT.md`
 2. `AGENTS.md`
 3. `docs/00-project-status.md`
 4. relevant topic docs/ADRs
-5. active milestone in `docs/21-roadmap-implementation-plan.md`
+5. active milestone in `docs/21-roadmap-implementation-plan.md` when the change is milestone-related
+
+Small maintenance, known bug fixes, test repairs, or mechanical refactors with unambiguous expected behavior may enter Build directly.
 
 ## After meaningful implementation work
 
@@ -49,9 +57,17 @@ When implementation invalidates a plan/hypothesis, rewrite the plan to reflect r
 
 Record durable product decisions/reversals.
 
+### Update `docs/27-open-questions.md`
+
+Use this when evidence reveals an important unresolved product question. Do not let the implementation silently decide it.
+
 ### Add/update ADR
 
 Use an ADR for technical choices that materially constrain future implementation, provider/platform shape, critical reliability, storage/security, or module architecture.
+
+### Complete the Learn loop when evidence warrants it
+
+After meaningful dogfood, release, usability, or device evidence, compare expectation with observation using `docs/34-product-development-workflow.md`. Promote only durable learning into canonical docs; do not create a permanent document for every experiment or conversation.
 
 ## ADR lifecycle
 
@@ -92,4 +108,6 @@ Use explicit labels where ambiguity matters:
 
 ## Avoid documentation drift
 
-Do not create a second glossary, second roadmap, or duplicate canonical state-machine description. Link to the authoritative source and add local detail only where needed.
+Do not create a second glossary, second roadmap, duplicate product contract, or duplicate canonical state-machine description. Link to the authoritative source and add local detail only where needed.
+
+Feature-specific Explore/Shape material should normally live with the issue, PR, or working conversation unless it becomes durable product truth. This keeps prototypes and hypotheses cheap to discard.

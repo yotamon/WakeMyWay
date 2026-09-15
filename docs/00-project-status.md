@@ -1,10 +1,10 @@
 # Project status
 
-**Last updated:** 2026-09-15  
+**Last updated:** 2026-09-16  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud  
-**Current product phase:** Phase C consumer foundation + founder physical reliability proof  
-**Current product PR:** #70  
+**Current product phase:** Phase C consumer foundation complete + founder physical reliability proof  
+**Current product PR:** none; Phase C slices #70–#72 are merged  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud conversation is optional enrichment only; Alarm Kernel remains durable alarm/terminal authority and WakeRuntime remains behavioral activation/orientation authority
@@ -44,7 +44,7 @@ AlarmManager.setAlarmClock()
           └─ optional founder/debug Realtime enrichment
 ```
 
-The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration live on warm light surfaces; Active Wake intentionally begins in midnight navy and resolves toward daylight. The same sunrise-wave geometry is used by the launcher identity, Wake Line and first-run experience.
+The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration use the selected local planning atmosphere, while Active Wake intentionally follows the fixed authored midnight-to-daylight progression. The same sunrise-wave geometry is used by the launcher identity, system launch treatment, Wake Line and first-run experience.
 
 ## Phase B: alarms, sounds and voice configuration
 
@@ -63,9 +63,9 @@ The three approved WakeMyWay sounds are physically bundled and selectable per al
 
 ## Phase C: consumer foundation
 
-PR #70 is the active Phase C foundation. It adds consumer behavior only when there is real backing state or a real action.
+The Phase C consumer foundation is complete across merged PRs #70, #71 and #72. Consumer behavior is exposed only when there is real backing state or a real action.
 
-Implemented in the current branch:
+Implemented:
 
 - branded first-run onboarding explaining the wake model before Android capability repair;
 - versioned credential-protected `ConsumerPreferencesRepository`;
@@ -79,9 +79,11 @@ Implemented in the current branch:
 - Notifications opens the real Android app-notification settings surface;
 - Privacy and About screens;
 - no Insights tab until Phase D has real wake-history data;
-- no fake appearance switch while normal app appearance is not yet genuinely configurable.
+- system-native branded Android launch treatment scoped to normal consumer launch, not alarm presentation;
+- three real local planning atmospheres: Daylight, Warm Sunrise and Soft Dawn;
+- Appearance changes planning/configuration surfaces only and never changes the authored Active Wake progression.
 
-Consumer preferences remain credential-protected normal product state. They are not copied into Direct Boot critical authority. Alarm delivery therefore does not depend on onboarding, Profile, an account or preference-storage availability after a wake has already been committed.
+Consumer preferences remain credential-protected normal product state. They are not copied into Direct Boot critical authority. Alarm delivery therefore does not depend on onboarding, Profile, appearance, an account or preference-storage availability after a wake has already been committed.
 
 ## Multi-alarm execution foundation
 
@@ -157,7 +159,7 @@ Repository quality gates include:
 - Cloud AI Platform tests;
 - documentation validation.
 
-The final PR #70 head must pass the full Android CI, visual regression and API-36 reliability gate set before merge. New Phase C visual goldens must be reviewed from rendered screenshots before their hashes are promoted.
+New canonical visual states must be rendered and reviewed before their hashes are promoted. Product-facing work now also follows the Explore → Shape → Build → Harden → Learn workflow in `docs/34-product-development-workflow.md` so expensive engineering gates validate an accepted product slice rather than act as the first design feedback loop.
 
 ## Physical proof still required
 
@@ -180,9 +182,8 @@ Broader release should not be declared complete until the supported-device relia
 
 ## Remaining product work
 
-- Complete Phase C optional account/sync boundary without making local alarms account-dependent.
-- Decide and implement a genuinely configurable normal-app appearance mode before exposing an appearance control.
-- Phase D: wake history and Insights backed by real local session data, not synthetic metrics.
+- Explore/shape the Phase C optional account/sync boundary before implementation; local alarms must remain account-independent.
+- Phase D: shape wake history and Insights around real local session data, not synthetic metrics.
 - M7 live learning/journal persistence, calibration and learned-policy selection remain tracked separately.
 - Founder Realtime production environment/rate-limit work remains separate from local alarm readiness.
 - Physical-device reliability evidence under #9 remains mandatory before broader release.
