@@ -14,9 +14,13 @@ The repository documentation is the persistent product/engineering memory for Wa
 4. relevant topic document
 5. active milestone in [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md)
 
+### New product behavior / feature shaping
+
+Start with [`34-product-development-workflow.md`](34-product-development-workflow.md). Determine whether the work is in Explore, Shape, Build, Harden, or Learn before production implementation. Then read the relevant product/UX documents below.
+
 ### Alarm/reliability work
 
-Read `08`, `10`, `17`, `18`, [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md), then ADRs `002`, `009`, `011`, `014`, `015`.
+Read `08`, `10`, `17`, `18`, [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md), then ADRs `002`, `009`, `011`, `014`, `015`, `019`, and `022` as relevant.
 
 ### Wake behavior / learning work
 
@@ -24,7 +28,7 @@ Read `04`, `05`, `11`, `12`, `14`, `22`, then ADRs `003`, `005`.
 
 ### UI/brand work
 
-Read `03`, `04`, `05`, `06`, `07`.
+Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 
 ## Living context
 
@@ -35,15 +39,16 @@ Read `03`, `04`, `05`, `06`, `07`.
 | [`26-decisions-log.md`](26-decisions-log.md) | Chronological durable decisions/reversals |
 | [`27-open-questions.md`](27-open-questions.md) | Deliberately unresolved questions |
 | [`30-documentation-workflow.md`](30-documentation-workflow.md) | How documentation stays current |
-| [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Deep-module simplification review before M0 |
+| [`34-product-development-workflow.md`](34-product-development-workflow.md) | Canonical Explore → Shape → Build → Harden → Learn workflow and Definition of Ready |
+| [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
-| [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Final pre-M0 risk review: active alarm lifecycle, early learning, calibrated success, Android baseline |
+| [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
 
 ## Product
 
 | Document | Purpose |
 |---|---|
-| [`01-product-vision.md`](01-product-vision.md) | Vision, problem, thesis, V1 scope |
+| [`01-product-vision.md`](01-product-vision.md) | Vision, problem, thesis, current V1 scope |
 | [`02-market-and-positioning.md`](02-market-and-positioning.md) | Competition/opportunity/positioning |
 | [`03-product-principles.md`](03-product-principles.md) | Non-negotiable product constraints |
 | [`22-product-metrics-experiments.md`](22-product-metrics-experiments.md) | Activation Completion vs Confirmed Wake Success, friction, experiments |
@@ -114,3 +119,5 @@ Key alarm ADRs currently include:
 - ADR-011: Direct Boot critical-state privacy split
 - ADR-014: Active Wake Execution survives UI/process churn
 - ADR-015: exact-alarm, full-screen and foreground execution policy
+- ADR-019: separate scheduling, active execution, voice and Snooze readiness semantics
+- ADR-022: independent multi-alarm product model and kernel migration
