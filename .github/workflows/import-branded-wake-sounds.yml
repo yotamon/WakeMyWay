@@ -3,97 +3,11 @@ name: Import branded wake sounds
 on:
   push:
     branches:
-      - feature/branded-wake-sounds-v2
-    paths:
-      - ".github/workflows/import-branded-wake-sounds.yml"
-
-permissions:
-  contents: write
+      - "feature/branded-wake-sounds-v2"
 
 jobs:
-  import-sounds:
+  smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: feature/branded-wake-sounds-v2
-          fetch-depth: 0
-
-      - name: Set up FFmpeg
-        uses: AnimMouse/setup-ffmpeg@178e0b4a408f06ce40d896c3cd79f50fa6f8b0c3
-
-      - name: Fetch exact Suno sources and package app assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p apps/android/app/src/main/res/raw "$RUNNER_TEMP/wmw-audio"
-
-          fetch_and_encode() {
-            local clip_id="$1"
-            local output_name="$2"
-            local input="$RUNNER_TEMP/wmw-audio/${output_name}.source"
-            local output="apps/android/app/src/main/res/raw/${output_name}.ogg"
-            local metadata="$RUNNER_TEMP/wmw-audio/${output_name}.json"
-            local candidates="$RUNNER_TEMP/wmw-audio/${output_name}.candidates"
-
-            curl --fail --silent --show-error --location --retry 3 \
-              -H 'Accept: application/json' \
-              "https://studio-api-prod.suno.com/api/clip/${clip_id}" \
-              -o "$metadata"
-
-            python3 -c 'import json,sys; d=json.load(open(sys.argv[1],encoding="utf-8")); c=[]; add=lambda n,u: c.append((n,u)) if isinstance(u,str) and u else None; add("video_url",d.get("video_url")); add("audio_url",d.get("audio_url")); [add("media_"+str(i)+"_"+str(x.get("content_type","unknown")),x.get("url")) for i,x in enumerate(d.get("media_urls") or [])]; open(sys.argv[2],"w",encoding="utf-8").write("\n".join(n+"\t"+u for n,u in c))' "$metadata" "$candidates"
-
-            local selected=""
-            while IFS=$'\t' read -r candidate_name candidate_url; do
-              [[ -n "$candidate_url" ]] || continue
-              rm -f "$input"
-              if curl --fail --silent --show-error --location --retry 2 \
-                -H 'Referer: https://suno.com/' \
-                -H 'User-Agent: Mozilla/5.0 WakeMyWayAssetImporter/1.0' \
-                "$candidate_url" \
-                -o "$input" 2>/dev/null && \
-                ffprobe -v error "$input" >/dev/null 2>&1; then
-                selected="$candidate_name"
-                break
-              fi
-            done < "$candidates"
-
-            if [[ -z "$selected" ]]; then
-              echo "No decodable source rendition is available for ${output_name}." >&2
-              exit 1
-            fi
-            echo "Using decodable ${selected} rendition for ${output_name}."
-
-            ffmpeg -hide_banner -loglevel error -y \
-              -i "$input" \
-              -map_metadata 0 \
-              -vn \
-              -c:a libopus \
-              -b:a 96k \
-              -vbr on \
-              -compression_level 10 \
-              -application audio \
-              "$output"
-
-            local size duration
-            size="$(stat -c '%s' "$output")"
-            duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$output")"
-            python3 -c 'import sys; size=int(sys.argv[1]); duration=float(sys.argv[2]); path=sys.argv[3]; assert size>=100000, f"{path} is unexpectedly small: {size} bytes"; assert 25.0<=duration<=70.0, f"{path} has unexpected duration: {duration:.2f}s"; print(f"{path}: {size} bytes, {duration:.2f}s")' "$size" "$duration" "$output"
-          }
-
-          fetch_and_encode '48978004-63ac-4d7f-9368-1ae614870d88' 'morning_light'
-          fetch_and_encode '320340bd-207c-416f-a240-5ae0b715e3cf' 'morning_pulse'
-          fetch_and_encode 'd76c102f-ec19-4d1e-b639-2ba126449682' 'soft_start'
-
-      - name: Commit packaged sounds and remove one-shot importer
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git rm .github/workflows/import-branded-wake-sounds.yml
-          git add apps/android/app/src/main/res/raw/morning_light.ogg \
-                  apps/android/app/src/main/res/raw/morning_pulse.ogg \
-                  apps/android/app/src/main/res/raw/soft_start.ogg
-          git commit -m 'Bundle branded wake sound assets'
-          git push origin HEAD:feature/branded-wake-sounds-v2
+      - name: Confirm workflow parsing
+        run: echo "workflow-ok"
