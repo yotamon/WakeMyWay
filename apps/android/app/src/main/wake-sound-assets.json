@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "purpose": "Approved WakeMyWay branded wake-sound assets",
+  "assets": [
+    {
+      "sound_id": "morning-light",
+      "source_filename": "Morning Light.wav",
+      "resource_filename": "morning_light.wav",
+      "sha256": "b3d3c235a8b20257b61d802f0932dea8ebc5ccabd014137559f0e86ecba84afb",
+      "bytes": 11510804,
+      "wav": {
+        "audio_format": 1,
+        "channels": 2,
+        "sample_rate_hz": 48000,
+        "bits_per_sample": 16,
+        "data_bytes": 11496960,
+        "duration_ms": 59880
+      }
+    },
+    {
+      "sound_id": "soft-start",
+      "source_filename": "Soft Start.wav",
+      "resource_filename": "soft_start.wav",
+      "sha256": "a7303436557685ebd90456746ccc58dbe2e16f35f8e06b89af39c518d436d16b",
+      "bytes": 6111764,
+      "wav": {
+        "audio_format": 1,
+        "channels": 2,
+        "sample_rate_hz": 48000,
+        "bits_per_sample": 16,
+        "data_bytes": 6097920,
+        "duration_ms": 31760
+      }
+    },
+    {
+      "sound_id": "morning-pulse",
+      "source_filename": "Morning Pulse.wav",
+      "resource_filename": "morning_pulse.wav",
+      "sha256": "9ee88e3cc20cc3de6e3dafa470b4c0199dde052d7aaaab1ec8e78864b06436f4",
+      "bytes": 11503124,
+      "wav": {
+        "audio_format": 1,
+        "channels": 2,
+        "sample_rate_hz": 48000,
+        "bits_per_sample": 16,
+        "data_bytes": 11489280,
+        "duration_ms": 59840
+      }
+    }
+  ]
+}

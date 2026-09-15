@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwBrandLockup
 import com.wakemyway.app.ui.components.WmwCard
@@ -90,12 +91,22 @@ fun AlarmEditorScreen(
     val initialTime = existing?.schedule?.time ?: LocalTime.of(7, 0)
     val initialDays = (existing?.schedule as? AlarmSchedulePattern.Weekly)?.days ?: WEEKDAYS
     val initialDate = (existing?.schedule as? AlarmSchedulePattern.OneShot)?.date ?: today.plusDays(1)
+    val bundledSoundIds = remember(context) {
+        WakeSoundCatalog.availableProfiles(context).map { it.id }
+    }
+    val soundOptions = remember(bundledSoundIds) {
+        bundledSoundIds.ifEmpty { listOf(WakeSoundCatalog.defaultId) }
+    }
+    val initialSoundId = existing?.soundId
+        ?.takeIf { it in soundOptions }
+        ?: WakeSoundCatalog.defaultId
 
     var label by remember(existing?.revision) { mutableStateOf(existing?.label.orEmpty()) }
     var mode by remember(existing?.revision) { mutableStateOf(initialMode) }
     var time by remember(existing?.revision) { mutableStateOf(initialTime) }
     var days by remember(existing?.revision) { mutableStateOf(initialDays) }
     var date by remember(existing?.revision) { mutableStateOf(initialDate) }
+    var soundId by remember(existing?.revision, soundOptions) { mutableStateOf(initialSoundId) }
     var voiceCheckIn by remember(existing?.revision) { mutableStateOf(existing?.voiceCheckInEnabled ?: true) }
     var voiceStyle by remember(existing?.revision) { mutableStateOf(existing?.voiceStyle ?: VoiceStyle.DEFAULT) }
     var snoozeEnabled by remember(existing?.revision) { mutableStateOf(existing?.snoozePolicy?.enabled ?: true) }
@@ -162,7 +173,7 @@ fun AlarmEditorScreen(
                 EditorScheduleMode.WEEKLY -> AlarmSchedulePattern.Weekly(days = days, time = time)
                 EditorScheduleMode.ONE_SHOT -> AlarmSchedulePattern.OneShot(date = date, time = time)
             },
-            soundId = existing?.soundId ?: WakeSoundId.MORNING_LIGHT,
+            soundId = soundId,
             voiceCheckInEnabled = voiceCheckIn,
             characterId = existing?.characterId ?: CharacterId.ALFRED,
             voiceStyle = voiceStyle,
@@ -242,6 +253,21 @@ fun AlarmEditorScreen(
                         title = "Date",
                         detail = date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", locale)),
                         onClick = ::chooseDate,
+                    )
+                }
+            }
+
+            EditorSection("Wake sound", Modifier.padding(top = WmwSpacing.Md)) {
+                Text(
+                    text = "Bundled locally and available without network access.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
+                )
+                soundOptions.forEach { option ->
+                    WakeSoundChoice(
+                        id = option,
+                        selected = option == soundId,
+                        onSelected = { soundId = option },
                     )
                 }
             }
@@ -419,6 +445,47 @@ private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
 }
 
 @Composable
+private fun WakeSoundChoice(
+    id: WakeSoundId,
+    selected: Boolean,
+    onSelected: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelected),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) WmwColors.Midnight else WmwColors.MorningPaper,
+        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = wakeSoundName(id),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (selected) WmwColors.WarmLight else WmwColors.Midnight,
+                )
+                Text(
+                    text = if (id == WakeSoundCatalog.defaultId) "WakeMyWay default" else "Built-in wake sound",
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (selected) WmwColors.WarmLight.copy(alpha = 0.72f) else WmwColors.LightQuietText,
+                )
+            }
+            Text(
+                text = if (selected) "●" else "○",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (selected) WmwColors.Sunrise else WmwColors.LightQuietText,
+            )
+        }
+    }
+}
+
+@Composable
 private fun DayPicker(
     days: Set<DayOfWeek>,
     locale: Locale,
@@ -525,6 +592,13 @@ private fun <T> ChoiceRow(
             }
         }
     }
+}
+
+private fun wakeSoundName(id: WakeSoundId): String = when (id) {
+    WakeSoundId.MORNING_LIGHT -> "Morning Light"
+    WakeSoundId.SOFT_START -> "Soft Start"
+    WakeSoundId.MORNING_PULSE -> "Morning Pulse"
+    else -> "Wake sound"
 }
 
 private val WEEKDAYS = setOf(
