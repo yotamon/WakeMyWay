@@ -27,11 +27,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
-import com.wakemyway.app.product.AppAppearance
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
@@ -48,6 +46,7 @@ fun ProfileScreen(
     onPreferencesChanged: (ConsumerPreferences) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenAppearance: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -215,30 +214,6 @@ fun ProfileScreen(
                 )
             }
 
-            ProfileSection("Appearance", Modifier.padding(top = WmwSpacing.Lg)) {
-                Text(
-                    text = "Planning atmosphere",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = WmwColors.Midnight,
-                )
-                Text(
-                    text = "Changes the normal app only. Your active wake keeps the same night-to-morning progression.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.LightQuietText,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
-                    AppAppearance.entries.forEach { appearance ->
-                        AppearanceChoice(
-                            appearance = appearance,
-                            selected = preferences.appearance == appearance,
-                            onSelected = {
-                                onPreferencesChanged(preferences.copy(appearance = appearance))
-                            },
-                        )
-                    }
-                }
-            }
-
             ProfileSection("App", Modifier.padding(top = WmwSpacing.Lg)) {
                 ProfileLink(
                     title = "Notifications",
@@ -249,6 +224,11 @@ fun ProfileScreen(
                     title = "Privacy",
                     detail = "See what stays local and what never enters the wake path",
                     onClick = onOpenPrivacy,
+                )
+                ProfileLink(
+                    title = "Appearance",
+                    detail = "${appearanceName(preferences.appearance)} planning atmosphere",
+                    onClick = onOpenAppearance,
                 )
                 ProfileLink(
                     title = "About WakeMyWay",
@@ -419,55 +399,6 @@ private fun ProfileSoundChoice(
 }
 
 @Composable
-private fun AppearanceChoice(
-    appearance: AppAppearance,
-    selected: Boolean,
-    onSelected: () -> Unit,
-) {
-    val preview = when (appearance) {
-        AppAppearance.DAYLIGHT -> WmwColors.Cloud
-        AppAppearance.WARM_SUNRISE -> Color(0xFFFFEFE4)
-        AppAppearance.SOFT_DAWN -> Color(0xFFECEFFA)
-    }
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelected),
-        shape = RoundedCornerShape(18.dp),
-        color = preview,
-        border = BorderStroke(
-            width = if (selected) 1.5.dp else 1.dp,
-            color = if (selected) WmwColors.Midnight else WmwColors.DarkHairline,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = 13.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = appearanceName(appearance),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = WmwColors.Midnight,
-                )
-                Text(
-                    text = appearanceDetail(appearance),
-                    modifier = Modifier.padding(top = 2.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.LightQuietText,
-                )
-            }
-            Text(
-                text = if (selected) "●" else "○",
-                style = MaterialTheme.typography.titleMedium,
-                color = if (selected) WmwColors.Sunrise else WmwColors.LightQuietText,
-            )
-        }
-    }
-}
-
-@Composable
 private fun ToggleSetting(
     title: String,
     detail: String,
@@ -589,18 +520,6 @@ private fun PrivacyFact(title: String, body: String) {
             )
         }
     }
-}
-
-private fun appearanceName(appearance: AppAppearance): String = when (appearance) {
-    AppAppearance.DAYLIGHT -> "Daylight"
-    AppAppearance.WARM_SUNRISE -> "Warm Sunrise"
-    AppAppearance.SOFT_DAWN -> "Soft Dawn"
-}
-
-private fun appearanceDetail(appearance: AppAppearance): String = when (appearance) {
-    AppAppearance.DAYLIGHT -> "Clean paper and cloud"
-    AppAppearance.WARM_SUNRISE -> "A little more morning warmth"
-    AppAppearance.SOFT_DAWN -> "Cool lavender calm"
 }
 
 private fun soundName(id: WakeSoundId): String = when (id) {
