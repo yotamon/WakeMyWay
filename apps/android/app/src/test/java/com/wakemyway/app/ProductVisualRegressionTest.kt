@@ -314,6 +314,21 @@ class ProductVisualRegressionTest {
     }
 
     @Test
+    fun wakeEmergingIgnoresPlanningAppearance() {
+        captureRoboImage("wake_emerging_soft_dawn.png") {
+            WakeMyWayTheme(appearance = AppAppearance.SOFT_DAWN) {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "07:30",
+                    displayDate = "Tuesday · 14 Jan",
+                )
+            }
+        }
+    }
+
+    @Test
     fun wakeListening() {
         captureRoboImage("wake_listening.png") {
             WakeMyWayTheme {
