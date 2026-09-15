@@ -209,6 +209,33 @@ describe('account consumer backup API', () => {
     expect(store.putCalls).toBe(0);
   });
 
+  it('rejects impossible one-shot calendar dates before storage', async () => {
+    const store = new MemoryBackupStore();
+    const base = snapshot();
+    const alarm = base.alarms[0]!;
+    const payload = {
+      ...base,
+      alarms: [
+        {
+          ...alarm,
+          schedule: {
+            type: 'oneShot',
+            date: '2026-02-31',
+            time: '07:30',
+          },
+        },
+      ],
+    };
+
+    const response = await handleAccountBackupRequest(
+      request('PUT', 'token-a', payload),
+      dependencies(store),
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.putCalls).toBe(0);
+  });
+
   it('fails closed with a redacted response when account storage is unavailable', async () => {
     const store = new MemoryBackupStore();
     store.failReads = true;
