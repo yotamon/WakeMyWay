@@ -69,7 +69,9 @@ fun WakeScheduleMockupScreen(
     onWakeAccessRequired: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val locale = LocalConfiguration.current.locales[0]
+    val configuration = LocalConfiguration.current
+    val locale = configuration.locales[0]
+    val horizontalPadding = if (configuration.screenWidthDp < 384) WmwSpacing.Xs else WmwSpacing.Lg
     val saveFailedCopy = stringResource(R.string.setup_save_failed)
     val disableFailedCopy = stringResource(R.string.setup_disable_failed)
     val zoneId = ZoneId.systemDefault()
@@ -141,7 +143,7 @@ fun WakeScheduleMockupScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
+                .padding(horizontal = horizontalPadding, vertical = WmwSpacing.Md),
         ) {
             Row(
                 modifier = Modifier
@@ -417,20 +419,25 @@ private fun TomorrowRow(
 
 @Composable
 private fun DayCircle(label: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
+    Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(48.dp)
             .clickable(onClick = onClick),
-        shape = CircleShape,
-        color = if (selected) WmwColors.Sunrise else WmwColors.PaperCard,
-        border = BorderStroke(0.75.dp, if (selected) WmwColors.Sunrise else WmwColors.DarkHairline),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText,
-            )
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            color = if (selected) WmwColors.Sunrise else WmwColors.PaperCard,
+            border = BorderStroke(0.75.dp, if (selected) WmwColors.Sunrise else WmwColors.DarkHairline),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText,
+                )
+            }
         }
     }
 }
@@ -454,12 +461,19 @@ private fun switchColors() = SwitchDefaults.colors(
     uncheckedBorderColor = WmwColors.DarkHairline,
 )
 
+@Composable
 private fun weeklySummary(times: Map<DayOfWeek, LocalTime>, locale: Locale): String {
-    val weekdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
+    val weekdays = setOf(
+        DayOfWeek.MONDAY,
+        DayOfWeek.TUESDAY,
+        DayOfWeek.WEDNESDAY,
+        DayOfWeek.THURSDAY,
+        DayOfWeek.FRIDAY,
+    )
     return when {
-        times.isEmpty() -> "No days selected"
-        times.keys == weekdays -> "Weekdays"
-        times.keys.size == 7 -> "Every day"
+        times.isEmpty() -> stringResource(R.string.setup_no_days_selected)
+        times.keys == weekdays -> stringResource(R.string.setup_weekdays)
+        times.keys.size == 7 -> stringResource(R.string.setup_every_day)
         else -> times.keys.sortedBy { it.value }
             .joinToString(" · ") { it.getDisplayName(TextStyle.SHORT, locale) }
     }

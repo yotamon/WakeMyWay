@@ -22,7 +22,7 @@ class WakeSessionViewModelTest {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 creations += 1
-                return WakeSessionViewModel { _, _ -> fake } as T
+                return WakeSessionViewModel({ _, _ -> fake }) as T
             }
         }
 
@@ -49,11 +49,11 @@ class WakeSessionViewModelTest {
         val fake = FakeWakeSessionController()
         lateinit var publishState: (WakeVoiceUiState) -> Unit
         lateinit var complete: () -> Unit
-        val viewModel = WakeSessionViewModel { onUiState, onCompleted ->
+        val viewModel = WakeSessionViewModel({ onUiState, onCompleted ->
             publishState = onUiState
             complete = onCompleted
             fake
-        }
+        })
         val state = WakeVoiceUiState(
             mode = WakeVoiceMode.MOVING,
             activationScore = 3,
@@ -79,7 +79,7 @@ class WakeSessionViewModelTest {
     @Test
     fun `explicit terminal action closes once and suppresses following onPause`() {
         val fake = FakeWakeSessionController()
-        val viewModel = WakeSessionViewModel { _, _ -> fake }
+        val viewModel = WakeSessionViewModel({ _, _ -> fake })
 
         viewModel.onSurfaceVisible()
         viewModel.closeForTerminalAction()
@@ -90,6 +90,72 @@ class WakeSessionViewModelTest {
         assertEquals(1, fake.visibleCalls)
         assertEquals(1, fake.terminalCloseCalls)
         assertEquals(0, fake.hiddenCalls)
+    }
+
+    @Test
+    fun `stop commits exactly one terminal transaction before releasing behavioral resources`() {
+        val fake = FakeWakeSessionController()
+        var stopCalls = 0
+        var snoozeCalls = 0
+        val viewModel = WakeSessionViewModel(
+            controllerFactory = { _, _ -> fake },
+            requestStopExecution = {
+                stopCalls += 1
+                true
+            },
+            requestSnoozeExecution = {
+                snoozeCalls += 1
+                true
+            },
+        )
+
+        assertTrue(viewModel.requestStop())
+        assertFalse(viewModel.requestStop())
+        assertFalse(viewModel.requestSnooze())
+
+        assertEquals(1, stopCalls)
+        assertEquals(0, snoozeCalls)
+        assertEquals(1, fake.terminalCloseCalls)
+        assertTrue(viewModel.completed)
+    }
+
+    @Test
+    fun `rejected snooze transaction keeps the wake surface and behavioral session alive`() {
+        val fake = FakeWakeSessionController()
+        var snoozeCalls = 0
+        val viewModel = WakeSessionViewModel(
+            controllerFactory = { _, _ -> fake },
+            requestSnoozeExecution = {
+                snoozeCalls += 1
+                false
+            },
+        )
+
+        viewModel.onSurfaceVisible()
+        assertFalse(viewModel.requestSnooze())
+        viewModel.onSurfaceHidden()
+
+        assertEquals(1, snoozeCalls)
+        assertFalse(viewModel.completed)
+        assertEquals(0, fake.terminalCloseCalls)
+        assertEquals(1, fake.hiddenCalls)
+    }
+
+    @Test
+    fun `terminal transaction exception keeps the wake session alive`() {
+        val fake = FakeWakeSessionController()
+        val viewModel = WakeSessionViewModel(
+            controllerFactory = { _, _ -> fake },
+            requestSnoozeExecution = { error("terminal transaction failed") },
+        )
+
+        viewModel.onSurfaceVisible()
+        assertFalse(viewModel.requestSnooze())
+        viewModel.onSurfaceHidden()
+
+        assertFalse(viewModel.completed)
+        assertEquals(0, fake.terminalCloseCalls)
+        assertEquals(1, fake.hiddenCalls)
     }
 
     private class FakeWakeSessionController : WakeSessionController {

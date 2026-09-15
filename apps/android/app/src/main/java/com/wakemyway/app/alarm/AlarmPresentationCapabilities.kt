@@ -10,12 +10,10 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 
 /**
- * Android presentation capabilities that are required for a controllable Wake My Way alarm.
+ * Android presentation capabilities required for a controllable Wake My Way alarm.
  *
- * Critical audio can still execute when one of these capabilities is missing, but the product must
- * not call that state Wake Ready: without notifications / a high-importance channel / full-screen
- * alarm access, a sleeping user can end up hearing critical audio without the intended Wake Surface
- * or immediately reachable Stop/Snooze controls.
+ * These are execution-safety capabilities. Exact-alarm access is deliberately not part of this
+ * value because it answers a different question: whether Android may schedule a future occurrence.
  */
 data class AlarmPresentationCapabilities(
     val notificationsAllowed: Boolean,
@@ -35,11 +33,23 @@ enum class AlarmRepairTarget {
 }
 
 /**
- * One canonical priority for critical wake repair. Product copy and the action it launches must
- * never disagree when more than one Android capability is missing.
+ * Future-scheduling readiness. A new/reconciled occurrence needs exact-alarm capability as well as
+ * a presentation path that keeps Stop/Snooze immediately reachable.
  */
 fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM
+    else -> activeWakeRepairTarget()
+}
+
+/**
+ * Safety of an occurrence that is firing or already active.
+ *
+ * Exact-alarm access is intentionally ignored here. Once Android has delivered an occurrence,
+ * losing the ability to schedule another exact alarm must not silence a wake that still has safe,
+ * reachable terminal controls. Snooze remains independently fail-closed if exact scheduling is no
+ * longer possible.
+ */
+fun AlarmHealth.activeWakeRepairTarget(): AlarmRepairTarget = when {
     !notificationsAllowed -> AlarmRepairTarget.NOTIFICATIONS
     !notificationChannelHighImportance -> AlarmRepairTarget.ACTIVE_WAKE_CHANNEL
     !fullScreenIntentAllowed -> AlarmRepairTarget.FULL_SCREEN_INTENT
