@@ -34,26 +34,36 @@ jobs:
             local input="$RUNNER_TEMP/wmw-audio/${output_name}.source"
             local output="apps/android/app/src/main/res/raw/${output_name}.ogg"
             local metadata="$RUNNER_TEMP/wmw-audio/${output_name}.json"
+            local candidates="$RUNNER_TEMP/wmw-audio/${output_name}.candidates"
 
             curl --fail --silent --show-error --location --retry 3 \
               -H 'Accept: application/json' \
               "https://studio-api-prod.suno.com/api/clip/${clip_id}" \
               -o "$metadata"
 
-            local audio_url
-            audio_url="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); media=d.get("media_urls") or []; u=next((x.get("url") for t in ("m4a-opus","mp3") for x in media if x.get("content_type")==t and x.get("url")), None); print(u or d.get("audio_url") or "")' "$metadata")"
-            if [[ -z "$audio_url" ]]; then
-              echo "No downloadable audio URL returned for ${clip_id}" >&2
+            python3 -c 'import json,sys; d=json.load(open(sys.argv[1],encoding="utf-8")); c=[]; add=lambda n,u: c.append((n,u)) if isinstance(u,str) and u else None; add("video_url",d.get("video_url")); add("audio_url",d.get("audio_url")); [add("media_"+str(i)+"_"+str(x.get("content_type","unknown")),x.get("url")) for i,x in enumerate(d.get("media_urls") or [])]; open(sys.argv[2],"w",encoding="utf-8").write("\n".join(n+"\t"+u for n,u in c))' "$metadata" "$candidates"
+
+            local selected=""
+            while IFS=$'\t' read -r candidate_name candidate_url; do
+              [[ -n "$candidate_url" ]] || continue
+              rm -f "$input"
+              if curl --fail --silent --show-error --location --retry 2 \
+                -H 'Referer: https://suno.com/' \
+                -H 'User-Agent: Mozilla/5.0 WakeMyWayAssetImporter/1.0' \
+                "$candidate_url" \
+                -o "$input" 2>/dev/null && \
+                ffprobe -v error "$input" >/dev/null 2>&1; then
+                selected="$candidate_name"
+                break
+              fi
+            done < "$candidates"
+
+            if [[ -z "$selected" ]]; then
+              echo "No decodable source rendition is available for ${output_name}." >&2
               exit 1
             fi
+            echo "Using decodable ${selected} rendition for ${output_name}."
 
-            curl --fail --silent --show-error --location --retry 3 \
-              -H 'Referer: https://suno.com/' \
-              -H 'User-Agent: Mozilla/5.0 WakeMyWayAssetImporter/1.0' \
-              "$audio_url" \
-              -o "$input"
-
-            ffprobe -v error "$input"
             ffmpeg -hide_banner -loglevel error -y \
               -i "$input" \
               -map_metadata 0 \
