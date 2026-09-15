@@ -1,11 +1,12 @@
 package com.wakemyway.core.character
 
+import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.runtime.SpeechIntent
 
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 3,
+        version = 4,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -15,10 +16,11 @@ object AlfredCharacter {
     fun render(
         intent: SpeechIntent,
         key: WakeLineKey,
+        style: VoiceStyle = VoiceStyle.DEFAULT,
     ): RenderedWakeLine {
-        val variants = variantsFor(intent)
+        val variants = variantsFor(intent, style)
         val index = stableVariantIndex(
-            value = "${spec.id.value}|${spec.version}|${intent.catalogKey()}|${key.value}",
+            value = "${spec.id.value}|${spec.version}|${style.name}|${intent.catalogKey()}|${key.value}",
             variantCount = variants.size,
         )
         return RenderedWakeLine(
@@ -30,7 +32,16 @@ object AlfredCharacter {
         )
     }
 
-    private fun variantsFor(intent: SpeechIntent): List<String> = when (intent) {
+    private fun variantsFor(
+        intent: SpeechIntent,
+        style: VoiceStyle,
+    ): List<String> = when (style) {
+        VoiceStyle.DEFAULT -> defaultVariantsFor(intent)
+        VoiceStyle.MOTIVATIONAL -> motivationalVariantsFor(intent)
+        VoiceStyle.MINIMAL -> minimalVariantsFor(intent)
+    }
+
+    private fun defaultVariantsFor(intent: SpeechIntent): List<String> = when (intent) {
         SpeechIntent.InitialWake -> INITIAL_WAKE
         SpeechIntent.AskToSitUp -> ASK_TO_SIT_UP
         SpeechIntent.AskToMove -> ASK_TO_MOVE
@@ -39,6 +50,32 @@ object AlfredCharacter {
         SpeechIntent.SnoozeConfirmation -> SNOOZE_CONFIRMATION
         SpeechIntent.SnoozeFailed -> SNOOZE_FAILED
         SpeechIntent.Orientation -> ORIENTATION
+    }
+
+    private fun motivationalVariantsFor(intent: SpeechIntent): List<String> = when (intent) {
+        SpeechIntent.InitialWake -> MOTIVATIONAL_INITIAL_WAKE
+        SpeechIntent.AskToSitUp -> MOTIVATIONAL_ASK_TO_SIT_UP
+        SpeechIntent.AskToMove -> MOTIVATIONAL_ASK_TO_MOVE
+        SpeechIntent.KeepEngaging -> MOTIVATIONAL_KEEP_ENGAGING
+        is SpeechIntent.ReEngage -> MOTIVATIONAL_RE_ENGAGE[
+            intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
+        ]
+        SpeechIntent.SnoozeConfirmation -> MOTIVATIONAL_SNOOZE_CONFIRMATION
+        SpeechIntent.SnoozeFailed -> MOTIVATIONAL_SNOOZE_FAILED
+        SpeechIntent.Orientation -> MOTIVATIONAL_ORIENTATION
+    }
+
+    private fun minimalVariantsFor(intent: SpeechIntent): List<String> = when (intent) {
+        SpeechIntent.InitialWake -> MINIMAL_INITIAL_WAKE
+        SpeechIntent.AskToSitUp -> MINIMAL_ASK_TO_SIT_UP
+        SpeechIntent.AskToMove -> MINIMAL_ASK_TO_MOVE
+        SpeechIntent.KeepEngaging -> MINIMAL_KEEP_ENGAGING
+        is SpeechIntent.ReEngage -> MINIMAL_RE_ENGAGE[
+            intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
+        ]
+        SpeechIntent.SnoozeConfirmation -> MINIMAL_SNOOZE_CONFIRMATION
+        SpeechIntent.SnoozeFailed -> MINIMAL_SNOOZE_FAILED
+        SpeechIntent.Orientation -> MINIMAL_ORIENTATION
     }
 
     private fun SpeechIntent.catalogKey(): String = when (this) {
@@ -142,5 +179,135 @@ object AlfredCharacter {
         "Good. Let us orient the morning.",
         "Now we can work out what comes first.",
         "That will do. Take a moment and find your morning.",
+    )
+
+    private val MOTIVATIONAL_INITIAL_WAKE = listOf(
+        "Morning. Let's make a clean start together.",
+        "Good morning. One small win first, then the day can follow.",
+        "Morning. You've got this. Let's begin with one clear move.",
+    )
+
+    private val MOTIVATIONAL_ASK_TO_SIT_UP = listOf(
+        "Good start. Sit up, then tell me when you're there.",
+        "You've got this. Sit up, then give me a quick answer.",
+        "One strong first move: sit up, then tell me you're there.",
+    )
+
+    private val MOTIVATIONAL_ASK_TO_MOVE = listOf(
+        "Nice. Feet on the floor next, then tell me they're down.",
+        "Keep that start going. Feet down, then answer me.",
+        "Good. Give me feet on the floor, then tell me when it's done.",
+    )
+
+    private val MOTIVATIONAL_KEEP_ENGAGING = listOf(
+        "That's it. Keep the momentum. One more clear move, then answer me.",
+        "Good work. One more small action, then tell me you're there.",
+        "Keep it going. One more deliberate move, then answer me.",
+    )
+
+    private val MOTIVATIONAL_RE_ENGAGE = listOf(
+        listOf(
+            "Come back to me. One small move, then answer.",
+            "We're still on track. Sit up and tell me you're here.",
+            "Stay with it. Make one movement, then answer me.",
+        ),
+        listOf(
+            "Keep going. Feet down, then tell me you're with me.",
+            "You can do this. Get upright, then answer me.",
+            "Let's keep the start alive. One clear move, then answer.",
+        ),
+        listOf(
+            "Time for a decisive move. Feet down, then answer me.",
+            "Stay with the morning. Sit up now, then answer.",
+            "One strong move now. Get upright, then tell me.",
+        ),
+        listOf(
+            "Let's finish the wake. Feet down now, then answer me.",
+            "This is the firm nudge. Upright now, then tell me.",
+            "One clear action now. Feet on the floor, then answer.",
+        ),
+    )
+
+    private val MOTIVATIONAL_SNOOZE_CONFIRMATION = listOf(
+        "Need the pause? Confirm snooze and I'll step aside.",
+        "A short pause is available. Confirm it if that's your choice.",
+        "If you want the snooze, confirm it and take the short reset.",
+    )
+
+    private val MOTIVATIONAL_SNOOZE_FAILED = listOf(
+        "Snooze didn't schedule. Stay with me; we're still going.",
+        "That pause didn't take. Keep moving while the alarm stays active.",
+        "Snooze is unavailable. No problem; take the next small move.",
+    )
+
+    private val MOTIVATIONAL_ORIENTATION = listOf(
+        "Good. You're making progress. Take a moment and find the first move.",
+        "Nice work. Get your bearings, then choose what comes first.",
+        "Good. Keep that momentum and find the next useful move.",
+    )
+
+    private val MINIMAL_INITIAL_WAKE = listOf(
+        "Morning. Time to begin.",
+        "Morning. Let's start.",
+        "Good morning. Begin now.",
+    )
+
+    private val MINIMAL_ASK_TO_SIT_UP = listOf(
+        "Sit up. Then answer.",
+        "Sit up. Tell me when.",
+        "Up to sitting. Then answer.",
+    )
+
+    private val MINIMAL_ASK_TO_MOVE = listOf(
+        "Feet down. Then answer.",
+        "Feet on the floor. Tell me.",
+        "Move now. Feet down.",
+    )
+
+    private val MINIMAL_KEEP_ENGAGING = listOf(
+        "One more move. Then answer.",
+        "Keep moving. Then tell me.",
+        "Another move. Stay with me.",
+    )
+
+    private val MINIMAL_RE_ENGAGE = listOf(
+        listOf(
+            "Still here. Sit up.",
+            "Come back. Then answer.",
+            "One move. Answer me.",
+        ),
+        listOf(
+            "Sit up now. Answer.",
+            "Feet down. Stay with me.",
+            "Get upright. Then answer.",
+        ),
+        listOf(
+            "Feet down now. Answer.",
+            "Sit up. No drifting.",
+            "Upright now. Then answer.",
+        ),
+        listOf(
+            "Feet down. Answer now.",
+            "Upright now. Tell me.",
+            "Move now. Then answer.",
+        ),
+    )
+
+    private val MINIMAL_SNOOZE_CONFIRMATION = listOf(
+        "Confirm snooze if you want it.",
+        "Want snooze? Confirm it.",
+        "Confirm the snooze now.",
+    )
+
+    private val MINIMAL_SNOOZE_FAILED = listOf(
+        "Snooze failed. Alarm stays on.",
+        "No snooze. Keep going.",
+        "Snooze unavailable. Alarm remains active.",
+    )
+
+    private val MINIMAL_ORIENTATION = listOf(
+        "Good. Find your next move.",
+        "Good. Get your bearings.",
+        "Now choose what comes first.",
     )
 }
