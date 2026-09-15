@@ -41,6 +41,7 @@ import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.profile.AboutScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
+import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
@@ -165,230 +166,232 @@ fun WakeMyWayApp(
         refreshProductState()
     }
 
-    NavDisplay(
-        backStack = backStack,
-        onBack = { backStack.removeLastOrNull() },
-        entryProvider = entryProvider {
-            entry<OnboardingRoute> {
-                OnboardingScreen(
-                    onComplete = ::completeOnboarding,
-                    onSkip = ::completeOnboarding,
-                )
-            }
-
-            entry<HomeRoute> {
-                val occurrence = alarmHealth.nextOccurrence
-                val preparation = occurrence?.let { preparationManager.snapshotFor(it.id) }
-                val nextAlarm = occurrence?.let { next ->
-                    alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
-                }
-                val nextAlarmReady = nextAlarm
-                    ?.let { alarmController.health(it.id)?.ready }
-                    ?: alarmHealth.ready
-                WmwConsumerScaffold(
-                    selectedTab = ConsumerTab.HOME,
-                    onTabSelected = ::navigateTop,
-                ) { contentModifier ->
-                    TonightScreen(
-                        state = alarmHealth.toTonightUiState(
-                            context = context,
-                            preparation = preparation,
-                            alarm = nextAlarm,
-                            nextAlarmReady = nextAlarmReady,
-                        ),
-                        onOpenWakeSetup = {
-                            backStack.add(AlarmEditorRoute(nextAlarm?.id?.value))
-                        },
-                        onOpenTomorrowPlan = {
-                            if (nextAlarm?.tomorrowContractMode != TomorrowContractMode.DISABLED) {
-                                refreshProductState(reconcile = false)
-                                backStack.add(TomorrowPlanRoute)
-                            }
-                        },
-                        onOpenWakeLab = {
-                            refreshProductState()
-                            backStack.add(WakeLabRoute)
-                        },
-                        modifier = contentModifier,
-                        showDeveloperTools = showDeveloperTools,
-                        voiceWakeReadiness = voiceWakeReadiness,
-                        onEnableVoiceReplies = onEnableVoiceReplies,
-                        onRepairWakeSystem = onRepairWakeSystem,
+    WakeMyWayTheme(appearance = preferences.appearance) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = { backStack.removeLastOrNull() },
+            entryProvider = entryProvider {
+                entry<OnboardingRoute> {
+                    OnboardingScreen(
+                        onComplete = ::completeOnboarding,
+                        onSkip = ::completeOnboarding,
                     )
                 }
-            }
 
-            entry<AlarmsRoute> {
-                WmwConsumerScaffold(
-                    selectedTab = ConsumerTab.ALARMS,
-                    onTabSelected = ::navigateTop,
-                ) { contentModifier ->
-                    AlarmsScreen(
-                        alarms = alarms,
-                        healthFor = { alarm -> alarmController.health(alarm.id) },
-                        onAddAlarm = { backStack.add(AlarmEditorRoute()) },
-                        onEditAlarm = { alarm -> backStack.add(AlarmEditorRoute(alarm.id.value)) },
-                        onSetEnabled = { alarm, enabled ->
-                            val target = alarm.copy(
-                                enabled = enabled,
-                                revision = alarm.revision + 1,
-                                updatedAt = java.time.Instant.now(),
-                            )
-                            val blocked = if (enabled) preflight(target) else null
-                            if (blocked == null) {
-                                val previous = alarmController.health(alarm.id)?.nextOccurrence
-                                runCatching { alarmController.setEnabled(alarm.id, enabled) }
-                                    .onSuccess {
-                                        if (!enabled && previous != null) {
-                                            runCatching {
-                                                if (preparationManager.snapshotFor(previous.id)?.contract != null) {
-                                                    preparationManager.clear()
-                                                }
-                                            }
-                                        }
-                                        refreshProductState(reconcile = false)
-                                    }
-                            }
-                        },
-                        modifier = contentModifier,
-                    )
+                entry<HomeRoute> {
+                    val occurrence = alarmHealth.nextOccurrence
+                    val preparation = occurrence?.let { preparationManager.snapshotFor(it.id) }
+                    val nextAlarm = occurrence?.let { next ->
+                        alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                    }
+                    val nextAlarmReady = nextAlarm
+                        ?.let { alarmController.health(it.id)?.ready }
+                        ?: alarmHealth.ready
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.HOME,
+                        onTabSelected = ::navigateTop,
+                    ) { contentModifier ->
+                        TonightScreen(
+                            state = alarmHealth.toTonightUiState(
+                                context = context,
+                                preparation = preparation,
+                                alarm = nextAlarm,
+                                nextAlarmReady = nextAlarmReady,
+                            ),
+                            onOpenWakeSetup = {
+                                backStack.add(AlarmEditorRoute(nextAlarm?.id?.value))
+                            },
+                            onOpenTomorrowPlan = {
+                                if (nextAlarm?.tomorrowContractMode != TomorrowContractMode.DISABLED) {
+                                    refreshProductState(reconcile = false)
+                                    backStack.add(TomorrowPlanRoute)
+                                }
+                            },
+                            onOpenWakeLab = {
+                                refreshProductState()
+                                backStack.add(WakeLabRoute)
+                            },
+                            modifier = contentModifier,
+                            showDeveloperTools = showDeveloperTools,
+                            voiceWakeReadiness = voiceWakeReadiness,
+                            onEnableVoiceReplies = onEnableVoiceReplies,
+                            onRepairWakeSystem = onRepairWakeSystem,
+                        )
+                    }
                 }
-            }
 
-            entry<ProfileRoute> {
-                WmwConsumerScaffold(
-                    selectedTab = ConsumerTab.PROFILE,
-                    onTabSelected = ::navigateTop,
-                ) { contentModifier ->
-                    ProfileScreen(
-                        preferences = preferences,
-                        onPreferencesChanged = ::savePreferences,
-                        onOpenNotifications = onOpenNotificationSettings,
-                        onOpenPrivacy = { backStack.add(PrivacyRoute) },
-                        onOpenAbout = { backStack.add(AboutRoute) },
-                        modifier = contentModifier,
-                    )
-                }
-            }
-
-            entry<PrivacyRoute> {
-                PrivacyScreen(onBack = { backStack.removeLastOrNull() })
-            }
-
-            entry<AboutRoute> {
-                AboutScreen(
-                    versionName = appVersionName,
-                    onBack = { backStack.removeLastOrNull() },
-                )
-            }
-
-            entry<AlarmEditorRoute> { route ->
-                val existing = route.alarmId?.let { id ->
-                    alarmController.get(AlarmDefinitionId(id))
-                }
-                AlarmEditorScreen(
-                    existing = existing,
-                    onBack = {
-                        refreshProductState(reconcile = false)
-                        backStack.removeLastOrNull()
-                    },
-                    onSave = { definition ->
-                        preflight(definition) ?: run {
-                            val previousOccurrence = existing
-                                ?.let { alarmController.health(it.id)?.nextOccurrence }
-                            val previousPreparation = previousOccurrence
-                                ?.let { preparationManager.snapshotFor(it.id) }
-                            runCatching { alarmController.save(definition) }
-                                .fold(
-                                    onSuccess = {
-                                        val newOccurrence = alarmController.health(definition.id)?.nextOccurrence
-                                        reconcilePreparationAfterScheduleChange(
-                                            previousOccurrence = previousOccurrence,
-                                            newOccurrence = newOccurrence,
-                                            previousPreparation = previousPreparation,
-                                            preparationManager = preparationManager,
-                                        )
-                                        if (definition.tomorrowContractMode == TomorrowContractMode.DISABLED) {
-                                            runCatching {
-                                                if (newOccurrence != null &&
-                                                    preparationManager.snapshotFor(newOccurrence.id)?.contract != null
-                                                ) {
-                                                    preparationManager.clear()
-                                                }
-                                            }
-                                        }
-                                        refreshProductState(reconcile = false)
-                                        AlarmEditorResult(saved = true)
-                                    },
-                                    onFailure = { error ->
-                                        AlarmEditorResult(saved = false, detail = error.message)
-                                    },
+                entry<AlarmsRoute> {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.ALARMS,
+                        onTabSelected = ::navigateTop,
+                    ) { contentModifier ->
+                        AlarmsScreen(
+                            alarms = alarms,
+                            healthFor = { alarm -> alarmController.health(alarm.id) },
+                            onAddAlarm = { backStack.add(AlarmEditorRoute()) },
+                            onEditAlarm = { alarm -> backStack.add(AlarmEditorRoute(alarm.id.value)) },
+                            onSetEnabled = { alarm, enabled ->
+                                val target = alarm.copy(
+                                    enabled = enabled,
+                                    revision = alarm.revision + 1,
+                                    updatedAt = java.time.Instant.now(),
                                 )
-                        }
-                    },
-                    onDelete = existing?.let { alarm ->
-                        { _: AlarmDefinition ->
-                            val previousOccurrence = alarmController.health(alarm.id)?.nextOccurrence
-                            runCatching { alarmController.delete(alarm.id) }
-                                .fold(
-                                    onSuccess = {
-                                        if (previousOccurrence != null) {
-                                            runCatching {
-                                                if (preparationManager.snapshotFor(previousOccurrence.id)?.contract != null) {
-                                                    preparationManager.clear()
+                                val blocked = if (enabled) preflight(target) else null
+                                if (blocked == null) {
+                                    val previous = alarmController.health(alarm.id)?.nextOccurrence
+                                    runCatching { alarmController.setEnabled(alarm.id, enabled) }
+                                        .onSuccess {
+                                            if (!enabled && previous != null) {
+                                                runCatching {
+                                                    if (preparationManager.snapshotFor(previous.id)?.contract != null) {
+                                                        preparationManager.clear()
+                                                    }
                                                 }
                                             }
+                                            refreshProductState(reconcile = false)
                                         }
-                                        refreshProductState(reconcile = false)
-                                        AlarmEditorResult(saved = true)
-                                    },
-                                    onFailure = { error ->
-                                        AlarmEditorResult(saved = false, detail = error.message)
-                                    },
-                                )
-                        }
-                    },
-                    defaults = AlarmEditorDefaults(
-                        soundId = preferences.defaultSoundId,
-                        voiceCheckInEnabled = preferences.defaultVoiceCheckInEnabled,
-                        voiceStyle = preferences.defaultVoiceStyle,
-                        snoozeMinutes = preferences.defaultSnoozeMinutes,
-                        firstMove = preferences.defaultFirstMove,
-                    ),
-                )
-            }
-
-            entry<TomorrowPlanRoute> {
-                val occurrence = alarmKernel.health().nextOccurrence
-                val owner = occurrence?.let { next ->
-                    alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                                }
+                            },
+                            modifier = contentModifier,
+                        )
+                    }
                 }
-                TomorrowPlanScreen(
-                    wakeOccurrence = occurrence,
-                    defaultFirstMove = owner?.firstMoveDefault,
-                    onBack = {
-                        refreshProductState(reconcile = false)
-                        backStack.removeLastOrNull()
-                    },
-                )
-            }
 
-            entry<WakeLabRoute> {
-                WmwCircadianSurface(stage = WmwCircadianStage.EMERGING) {
-                    WakeAlarmLabScreen(
+                entry<ProfileRoute> {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.PROFILE,
+                        onTabSelected = ::navigateTop,
+                    ) { contentModifier ->
+                        ProfileScreen(
+                            preferences = preferences,
+                            onPreferencesChanged = ::savePreferences,
+                            onOpenNotifications = onOpenNotificationSettings,
+                            onOpenPrivacy = { backStack.add(PrivacyRoute) },
+                            onOpenAbout = { backStack.add(AboutRoute) },
+                            modifier = contentModifier,
+                        )
+                    }
+                }
+
+                entry<PrivacyRoute> {
+                    PrivacyScreen(onBack = { backStack.removeLastOrNull() })
+                }
+
+                entry<AboutRoute> {
+                    AboutScreen(
+                        versionName = appVersionName,
+                        onBack = { backStack.removeLastOrNull() },
+                    )
+                }
+
+                entry<AlarmEditorRoute> { route ->
+                    val existing = route.alarmId?.let { id ->
+                        alarmController.get(AlarmDefinitionId(id))
+                    }
+                    AlarmEditorScreen(
+                        existing = existing,
                         onBack = {
-                            refreshProductState()
+                            refreshProductState(reconcile = false)
                             backStack.removeLastOrNull()
                         },
-                        voiceWakeReadiness = voiceWakeReadiness,
-                        readinessRevision = wakeSystemRevision,
-                        onRepairWakeSystem = onRepairWakeSystem,
-                        onEnableVoiceReplies = onEnableVoiceReplies,
+                        onSave = { definition ->
+                            preflight(definition) ?: run {
+                                val previousOccurrence = existing
+                                    ?.let { alarmController.health(it.id)?.nextOccurrence }
+                                val previousPreparation = previousOccurrence
+                                    ?.let { preparationManager.snapshotFor(it.id) }
+                                runCatching { alarmController.save(definition) }
+                                    .fold(
+                                        onSuccess = {
+                                            val newOccurrence = alarmController.health(definition.id)?.nextOccurrence
+                                            reconcilePreparationAfterScheduleChange(
+                                                previousOccurrence = previousOccurrence,
+                                                newOccurrence = newOccurrence,
+                                                previousPreparation = previousPreparation,
+                                                preparationManager = preparationManager,
+                                            )
+                                            if (definition.tomorrowContractMode == TomorrowContractMode.DISABLED) {
+                                                runCatching {
+                                                    if (newOccurrence != null &&
+                                                        preparationManager.snapshotFor(newOccurrence.id)?.contract != null
+                                                    ) {
+                                                        preparationManager.clear()
+                                                    }
+                                                }
+                                            }
+                                            refreshProductState(reconcile = false)
+                                            AlarmEditorResult(saved = true)
+                                        },
+                                        onFailure = { error ->
+                                            AlarmEditorResult(saved = false, detail = error.message)
+                                        },
+                                    )
+                            }
+                        },
+                        onDelete = existing?.let { alarm ->
+                            { _: AlarmDefinition ->
+                                val previousOccurrence = alarmController.health(alarm.id)?.nextOccurrence
+                                runCatching { alarmController.delete(alarm.id) }
+                                    .fold(
+                                        onSuccess = {
+                                            if (previousOccurrence != null) {
+                                                runCatching {
+                                                    if (preparationManager.snapshotFor(previousOccurrence.id)?.contract != null) {
+                                                        preparationManager.clear()
+                                                    }
+                                                }
+                                            }
+                                            refreshProductState(reconcile = false)
+                                            AlarmEditorResult(saved = true)
+                                        },
+                                        onFailure = { error ->
+                                            AlarmEditorResult(saved = false, detail = error.message)
+                                        },
+                                    )
+                            }
+                        },
+                        defaults = AlarmEditorDefaults(
+                            soundId = preferences.defaultSoundId,
+                            voiceCheckInEnabled = preferences.defaultVoiceCheckInEnabled,
+                            voiceStyle = preferences.defaultVoiceStyle,
+                            snoozeMinutes = preferences.defaultSnoozeMinutes,
+                            firstMove = preferences.defaultFirstMove,
+                        ),
                     )
                 }
-            }
-        },
-    )
+
+                entry<TomorrowPlanRoute> {
+                    val occurrence = alarmKernel.health().nextOccurrence
+                    val owner = occurrence?.let { next ->
+                        alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                    }
+                    TomorrowPlanScreen(
+                        wakeOccurrence = occurrence,
+                        defaultFirstMove = owner?.firstMoveDefault,
+                        onBack = {
+                            refreshProductState(reconcile = false)
+                            backStack.removeLastOrNull()
+                        },
+                    )
+                }
+
+                entry<WakeLabRoute> {
+                    WmwCircadianSurface(stage = WmwCircadianStage.EMERGING) {
+                        WakeAlarmLabScreen(
+                            onBack = {
+                                refreshProductState()
+                                backStack.removeLastOrNull()
+                            },
+                            voiceWakeReadiness = voiceWakeReadiness,
+                            readinessRevision = wakeSystemRevision,
+                            onRepairWakeSystem = onRepairWakeSystem,
+                            onEnableVoiceReplies = onEnableVoiceReplies,
+                        )
+                    }
+                }
+            },
+        )
+    }
 }
 
 private fun reconcilePreparationAfterScheduleChange(
