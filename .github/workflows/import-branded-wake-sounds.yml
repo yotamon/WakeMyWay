@@ -19,18 +19,17 @@ jobs:
           ref: feature/branded-wake-sounds-v2
           fetch-depth: 0
 
-      - name: Fetch exact Suno sources and package app assets
+      - name: Fetch exact Suno MP3 sources and package app assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p apps/android/app/src/main/res/raw "$RUNNER_TEMP/wmw-audio"
 
-          fetch_and_encode() {
+          fetch_sound() {
             local clip_id="$1"
             local output_name="$2"
-            local input="$RUNNER_TEMP/wmw-audio/${output_name}.source"
-            local output="apps/android/app/src/main/res/raw/${output_name}.ogg"
             local metadata="$RUNNER_TEMP/wmw-audio/${output_name}.json"
+            local output="apps/android/app/src/main/res/raw/${output_name}.mp3"
 
             curl --fail --silent --show-error --location --retry 3 \
               -H 'Accept: application/json' \
@@ -38,9 +37,8 @@ jobs:
               -o "$metadata"
 
             local audio_url
-            audio_url="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); media=d.get("media_urls") or []; u=next((x.get("url") for t in ("m4a-opus","mp3") for x in media if x.get("content_type")==t and x.get("url")), None); print(u or d.get("audio_url") or "")' "$metadata")"
-
-            if [[ -z "$audio_url" || "$audio_url" == *"/api/forbidden"* ]]; then
+            audio_url="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); direct=d.get("audio_url") or ""; media=d.get("media_urls") or []; mp3=next((x.get("url") for x in media if x.get("content_type")=="mp3" and x.get("url")), ""); print(direct if direct and "/api/forbidden" not in direct else (mp3 or ""))' "$metadata")"
+            if [[ -z "$audio_url" ]]; then
               audio_url="https://cdn1.suno.ai/${clip_id}.mp3"
             fi
 
@@ -48,29 +46,14 @@ jobs:
               -H 'Referer: https://suno.com/' \
               -H 'User-Agent: Mozilla/5.0 WakeMyWayAssetImporter/1.0' \
               "$audio_url" \
-              -o "$input"
+              -o "$output"
 
-            ffprobe -v error "$input"
-            ffmpeg -hide_banner -loglevel error -y \
-              -i "$input" \
-              -map_metadata 0 \
-              -vn \
-              -c:a libopus \
-              -b:a 96k \
-              -vbr on \
-              -compression_level 10 \
-              -application audio \
-              "$output"
-
-            local size duration
-            size="$(stat -c '%s' "$output")"
-            duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$output")"
-            python3 -c 'import sys; size=int(sys.argv[1]); duration=float(sys.argv[2]); path=sys.argv[3]; assert size >= 100000, f"{path} is unexpectedly small: {size} bytes"; assert 25.0 <= duration <= 70.0, f"{path} has unexpected duration: {duration:.2f}s"; print(f"{path}: {size} bytes, {duration:.2f}s")' "$size" "$duration" "$output"
+            python3 -c 'import json,os,sys; p,m=sys.argv[1:3]; size=os.path.getsize(p); head=open(p,"rb").read(3); d=json.load(open(m,encoding="utf-8")); duration=float((d.get("metadata") or {}).get("duration") or 0); assert size>=100000, f"{p} is unexpectedly small: {size} bytes"; assert head==b"ID3" or (len(head)>=2 and head[0]==255 and head[1]&224==224), f"{p} is not an MP3 payload"; assert 25<=duration<=70, f"{p} has unexpected source duration: {duration:.2f}s"; print(f"{p}: {size} bytes, source {duration:.2f}s")' "$output" "$metadata"
           }
 
-          fetch_and_encode '48978004-63ac-4d7f-9368-1ae614870d88' 'morning_light'
-          fetch_and_encode '320340bd-207c-416f-a240-5ae0b715e3cf' 'morning_pulse'
-          fetch_and_encode 'd76c102f-ec19-4d1e-b639-2ba126449682' 'soft_start'
+          fetch_sound '48978004-63ac-4d7f-9368-1ae614870d88' 'morning_light'
+          fetch_sound '320340bd-207c-416f-a240-5ae0b715e3cf' 'morning_pulse'
+          fetch_sound 'd76c102f-ec19-4d1e-b639-2ba126449682' 'soft_start'
 
       - name: Commit packaged sounds and remove one-shot importer
         shell: bash
@@ -79,8 +62,8 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/import-branded-wake-sounds.yml
-          git add apps/android/app/src/main/res/raw/morning_light.ogg \
-                  apps/android/app/src/main/res/raw/morning_pulse.ogg \
-                  apps/android/app/src/main/res/raw/soft_start.ogg
+          git add apps/android/app/src/main/res/raw/morning_light.mp3 \
+                  apps/android/app/src/main/res/raw/morning_pulse.mp3 \
+                  apps/android/app/src/main/res/raw/soft_start.mp3
           git commit -m 'Bundle branded wake sound assets'
           git push origin HEAD:feature/branded-wake-sounds-v2
