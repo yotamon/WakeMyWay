@@ -8,6 +8,7 @@ import com.wakemyway.app.character.LocalCharacterSpeaker
 import com.wakemyway.app.character.LocalSpeechResult
 import com.wakemyway.app.character.LocalSpeechState
 import com.wakemyway.app.motion.AndroidMotionObserver
+import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.character.AlfredCharacter
 import com.wakemyway.core.character.WakeLineKey
 import com.wakemyway.core.runtime.SpeechIntent
@@ -43,6 +44,7 @@ class WakeVoiceSessionController(
     private val occurrenceId: WakeOccurrenceId,
     private val onUiState: (WakeVoiceUiState) -> Unit,
     private val onCompleted: () -> Unit,
+    private val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -433,7 +435,7 @@ class WakeVoiceSessionController(
             liveConversation.setInputEnabled(true)
             AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
             publish()
-            if (liveConversation.respond(intent)) return
+            if (liveConversation.respond(intent, voiceStyle)) return
 
             realtimeTurnInFlight = false
             realtimeIntent = null
@@ -455,6 +457,7 @@ class WakeVoiceSessionController(
         val line = AlfredCharacter.render(
             intent = intent,
             key = WakeLineKey("${occurrenceId.value}:${speechSequence++}"),
+            style = voiceStyle,
         )
         currentLine = line.text
         publish()
