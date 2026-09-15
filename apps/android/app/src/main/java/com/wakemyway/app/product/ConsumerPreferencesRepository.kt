@@ -8,6 +8,12 @@ import java.io.File
 import java.io.FileNotFoundException
 import org.json.JSONObject
 
+enum class AppAppearance {
+    DAYLIGHT,
+    WARM_SUNRISE,
+    SOFT_DAWN,
+}
+
 data class ConsumerPreferences(
     val onboardingCompleted: Boolean = false,
     val displayName: String? = null,
@@ -16,6 +22,7 @@ data class ConsumerPreferences(
     val defaultVoiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
     val defaultSnoozeMinutes: Int = 5,
     val defaultFirstMove: String? = null,
+    val appearance: AppAppearance = AppAppearance.DAYLIGHT,
 ) {
     init {
         require(displayName == null || displayName.length <= MAX_DISPLAY_NAME_LENGTH) {
@@ -104,6 +111,7 @@ class ConsumerPreferencesRepository(
         put(KEY_DEFAULT_VOICE_STYLE, preferences.defaultVoiceStyle.name)
         put(KEY_DEFAULT_SNOOZE_MINUTES, preferences.defaultSnoozeMinutes)
         preferences.defaultFirstMove?.let { put(KEY_DEFAULT_FIRST_MOVE, it) }
+        put(KEY_APPEARANCE, preferences.appearance.name)
     }
 
     private fun decode(root: JSONObject): ConsumerPreferences {
@@ -123,6 +131,9 @@ class ConsumerPreferencesRepository(
             ),
             defaultSnoozeMinutes = root.optInt(KEY_DEFAULT_SNOOZE_MINUTES, 5),
             defaultFirstMove = root.optString(KEY_DEFAULT_FIRST_MOVE).takeIf(String::isNotBlank),
+            appearance = AppAppearance.valueOf(
+                root.optString(KEY_APPEARANCE, AppAppearance.DAYLIGHT.name),
+            ),
         )
     }
 
@@ -137,5 +148,6 @@ class ConsumerPreferencesRepository(
         private const val KEY_DEFAULT_VOICE_STYLE = "defaultVoiceStyle"
         private const val KEY_DEFAULT_SNOOZE_MINUTES = "defaultSnoozeMinutes"
         private const val KEY_DEFAULT_FIRST_MOVE = "defaultFirstMove"
+        private const val KEY_APPEARANCE = "appearance"
     }
 }
