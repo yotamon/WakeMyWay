@@ -4,12 +4,16 @@ import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.preparation.WakePreparationManager
+import com.wakemyway.app.product.ConsumerPreferences
+import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
 import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.setup.WakeScheduleMockupScreen
 import com.wakemyway.app.ui.setup.WakeSetupCommitResult
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
@@ -161,6 +165,61 @@ class ProductVisualRegressionTest {
                     onBack = {},
                     onSave = { AlarmEditorResult(saved = true) },
                     onDelete = { AlarmEditorResult(saved = true) },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun alarmEditorUsesProfileDefaultsForNewAlarm() {
+        captureRoboImage("alarm_editor_profile_defaults.png") {
+            WakeMyWayTheme {
+                AlarmEditorScreen(
+                    existing = null,
+                    defaults = AlarmEditorDefaults(
+                        soundId = WakeSoundId.SOFT_START,
+                        voiceCheckInEnabled = true,
+                        voiceStyle = VoiceStyle.MINIMAL,
+                        snoozeMinutes = 15,
+                        firstMove = "Open the curtains",
+                    ),
+                    onBack = {},
+                    onSave = { AlarmEditorResult(saved = true) },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun onboardingFirstRun() {
+        captureRoboImage("onboarding_first_run.png") {
+            WakeMyWayTheme {
+                OnboardingScreen(
+                    onComplete = {},
+                    onSkip = {},
+                )
+            }
+        }
+    }
+
+    @Test
+    fun profileConfigured() {
+        captureRoboImage("profile_configured.png") {
+            WakeMyWayTheme {
+                ProfileScreen(
+                    preferences = ConsumerPreferences(
+                        onboardingCompleted = true,
+                        displayName = "Yotam",
+                        defaultSoundId = WakeSoundId.SOFT_START,
+                        defaultVoiceCheckInEnabled = true,
+                        defaultVoiceStyle = VoiceStyle.MINIMAL,
+                        defaultSnoozeMinutes = 15,
+                        defaultFirstMove = "Open the curtains",
+                    ),
+                    onPreferencesChanged = {},
+                    onOpenNotifications = {},
+                    onOpenPrivacy = {},
+                    onOpenAbout = {},
                 )
             }
         }

@@ -76,12 +76,34 @@ data class AlarmEditorResult(
     val detail: String? = null,
 )
 
+data class AlarmEditorDefaults(
+    val soundId: WakeSoundId = WakeSoundCatalog.defaultId,
+    val voiceCheckInEnabled: Boolean = true,
+    val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
+    val snoozeMinutes: Int = 5,
+    val firstMove: String? = null,
+) {
+    init {
+        require(snoozeMinutes in ALLOWED_SNOOZE_MINUTES) {
+            "Alarm editor snooze default must be one of $ALLOWED_SNOOZE_MINUTES"
+        }
+        require(firstMove == null || firstMove.length <= AlarmDefinition.MAX_FIRST_MOVE_CHARACTERS) {
+            "Alarm editor First Move default is too long"
+        }
+    }
+
+    private companion object {
+        val ALLOWED_SNOOZE_MINUTES = setOf(5, 10, 15)
+    }
+}
+
 @Composable
 fun AlarmEditorScreen(
     existing: AlarmDefinition?,
     onBack: () -> Unit,
     onSave: (AlarmDefinition) -> AlarmEditorResult,
     onDelete: ((AlarmDefinition) -> AlarmEditorResult)? = null,
+    defaults: AlarmEditorDefaults = AlarmEditorDefaults(),
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -104,6 +126,7 @@ fun AlarmEditorScreen(
     }
     val initialSoundId = existing?.soundId
         ?.takeIf { it in soundOptions }
+        ?: defaults.soundId.takeIf { it in soundOptions }
         ?: WakeSoundCatalog.defaultId
     val soundPreviewPlayer = remember(appContext) {
         WakeSoundPreviewPlayer.create(appContext)
@@ -114,19 +137,27 @@ fun AlarmEditorScreen(
     var time by remember(existing?.revision) { mutableStateOf(initialTime) }
     var days by remember(existing?.revision) { mutableStateOf(initialDays) }
     var date by remember(existing?.revision) { mutableStateOf(initialDate) }
-    var soundId by remember(existing?.revision, soundOptions) { mutableStateOf(initialSoundId) }
+    var soundId by remember(existing?.revision, soundOptions, defaults.soundId) {
+        mutableStateOf(initialSoundId)
+    }
     var previewingSoundId by remember(existing?.revision) { mutableStateOf<WakeSoundId?>(null) }
     var previewError by remember(existing?.revision) { mutableStateOf<String?>(null) }
-    var voiceCheckIn by remember(existing?.revision) { mutableStateOf(existing?.voiceCheckInEnabled ?: true) }
-    var voiceStyle by remember(existing?.revision) { mutableStateOf(existing?.voiceStyle ?: VoiceStyle.DEFAULT) }
+    var voiceCheckIn by remember(existing?.revision, defaults.voiceCheckInEnabled) {
+        mutableStateOf(existing?.voiceCheckInEnabled ?: defaults.voiceCheckInEnabled)
+    }
+    var voiceStyle by remember(existing?.revision, defaults.voiceStyle) {
+        mutableStateOf(existing?.voiceStyle ?: defaults.voiceStyle)
+    }
     var snoozeEnabled by remember(existing?.revision) { mutableStateOf(existing?.snoozePolicy?.enabled ?: true) }
-    var snoozeMinutes by remember(existing?.revision) {
-        mutableStateOf(existing?.snoozePolicy?.duration?.toMinutes()?.toInt() ?: 5)
+    var snoozeMinutes by remember(existing?.revision, defaults.snoozeMinutes) {
+        mutableStateOf(existing?.snoozePolicy?.duration?.toMinutes()?.toInt() ?: defaults.snoozeMinutes)
     }
     var contractMode by remember(existing?.revision) {
         mutableStateOf(existing?.tomorrowContractMode ?: TomorrowContractMode.OPTIONAL)
     }
-    var firstMove by remember(existing?.revision) { mutableStateOf(existing?.firstMoveDefault.orEmpty()) }
+    var firstMove by remember(existing?.revision, defaults.firstMove) {
+        mutableStateOf((existing?.firstMoveDefault ?: defaults.firstMove).orEmpty())
+    }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember(existing?.id) { mutableStateOf(false) }
 

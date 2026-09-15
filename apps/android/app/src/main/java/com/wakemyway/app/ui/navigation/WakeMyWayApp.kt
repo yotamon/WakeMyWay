@@ -24,6 +24,9 @@ import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
+import com.wakemyway.app.product.ConsumerPreferences
+import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
 import com.wakemyway.app.ui.alarms.AlarmsScreen
@@ -33,7 +36,11 @@ import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
+import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
+import com.wakemyway.app.ui.profile.AboutScreen
+import com.wakemyway.app.ui.profile.PrivacyScreen
+import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
@@ -44,10 +51,22 @@ import java.util.Locale
 import kotlinx.serialization.Serializable
 
 @Serializable
+private data object OnboardingRoute : NavKey
+
+@Serializable
 private data object HomeRoute : NavKey
 
 @Serializable
 private data object AlarmsRoute : NavKey
+
+@Serializable
+private data object ProfileRoute : NavKey
+
+@Serializable
+private data object PrivacyRoute : NavKey
+
+@Serializable
+private data object AboutRoute : NavKey
 
 @Serializable
 private data class AlarmEditorRoute(val alarmId: String? = null) : NavKey
@@ -64,6 +83,7 @@ fun WakeMyWayApp(
     onEnableVoiceReplies: () -> Unit = {},
     wakeSystemRevision: Int = 0,
     onRepairWakeSystem: () -> Unit = {},
+    onOpenNotificationSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val alarmSetupRequiredCopy = stringResource(R.string.tonight_readiness_attention)
@@ -72,16 +92,36 @@ fun WakeMyWayApp(
     val alarmKernel = remember { AlarmKernel(context) }
     val alarmController = remember { AlarmProductController(context) }
     val preparationManager = remember { WakePreparationManager(context) }
+    val preferencesRepository = remember { ConsumerPreferencesRepository(context) }
+    val initialPreferences = remember { preferencesRepository.get() }
+    val appVersionName = remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.1.0"
+        }.getOrDefault("0.1.0")
+    }
     val showDeveloperTools = remember(context) {
         (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     var alarms by remember { mutableStateOf(alarmController.list()) }
-    val backStack = rememberNavBackStack(HomeRoute)
+    var preferences by remember { mutableStateOf(initialPreferences) }
+    val backStack = rememberNavBackStack(
+        if (initialPreferences.onboardingCompleted) HomeRoute else OnboardingRoute,
+    )
 
     fun refreshProductState(reconcile: Boolean = true) {
         alarmHealth = if (reconcile) alarmKernel.reconcile() else alarmKernel.health()
         alarms = alarmController.list()
+    }
+
+    fun savePreferences(next: ConsumerPreferences) {
+        preferences = preferencesRepository.replace(next)
+    }
+
+    fun completeOnboarding() {
+        preferences = preferencesRepository.update { it.copy(onboardingCompleted = true) }
+        backStack.clear()
+        backStack.add(HomeRoute)
     }
 
     fun navigateTop(tab: ConsumerTab) {
@@ -90,6 +130,7 @@ fun WakeMyWayApp(
             when (tab) {
                 ConsumerTab.HOME -> HomeRoute
                 ConsumerTab.ALARMS -> AlarmsRoute
+                ConsumerTab.PROFILE -> ProfileRoute
             },
         )
     }
@@ -128,6 +169,13 @@ fun WakeMyWayApp(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
         entryProvider = entryProvider {
+            entry<OnboardingRoute> {
+                OnboardingScreen(
+                    onComplete = ::completeOnboarding,
+                    onSkip = ::completeOnboarding,
+                )
+            }
+
             entry<HomeRoute> {
                 val occurrence = alarmHealth.nextOccurrence
                 val preparation = occurrence?.let { preparationManager.snapshotFor(it.id) }
@@ -207,6 +255,33 @@ fun WakeMyWayApp(
                 }
             }
 
+            entry<ProfileRoute> {
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.PROFILE,
+                    onTabSelected = ::navigateTop,
+                ) { contentModifier ->
+                    ProfileScreen(
+                        preferences = preferences,
+                        onPreferencesChanged = ::savePreferences,
+                        onOpenNotifications = onOpenNotificationSettings,
+                        onOpenPrivacy = { backStack.add(PrivacyRoute) },
+                        onOpenAbout = { backStack.add(AboutRoute) },
+                        modifier = contentModifier,
+                    )
+                }
+            }
+
+            entry<PrivacyRoute> {
+                PrivacyScreen(onBack = { backStack.removeLastOrNull() })
+            }
+
+            entry<AboutRoute> {
+                AboutScreen(
+                    versionName = appVersionName,
+                    onBack = { backStack.removeLastOrNull() },
+                )
+            }
+
             entry<AlarmEditorRoute> { route ->
                 val existing = route.alarmId?.let { id ->
                     alarmController.get(AlarmDefinitionId(id))
@@ -273,6 +348,13 @@ fun WakeMyWayApp(
                                 )
                         }
                     },
+                    defaults = AlarmEditorDefaults(
+                        soundId = preferences.defaultSoundId,
+                        voiceCheckInEnabled = preferences.defaultVoiceCheckInEnabled,
+                        voiceStyle = preferences.defaultVoiceStyle,
+                        snoozeMinutes = preferences.defaultSnoozeMinutes,
+                        firstMove = preferences.defaultFirstMove,
+                    ),
                 )
             }
 
