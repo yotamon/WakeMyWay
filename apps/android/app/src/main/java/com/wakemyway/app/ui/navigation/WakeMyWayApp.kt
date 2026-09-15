@@ -37,6 +37,7 @@ import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
+import com.wakemyway.core.alarm.TomorrowContractMode
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -133,18 +134,28 @@ fun WakeMyWayApp(
                 val nextAlarm = occurrence?.let { next ->
                     alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
                 }
+                val nextAlarmReady = nextAlarm
+                    ?.let { alarmController.health(it.id)?.ready }
+                    ?: alarmHealth.ready
                 WmwConsumerScaffold(
                     selectedTab = ConsumerTab.HOME,
                     onTabSelected = ::navigateTop,
                 ) { contentModifier ->
                     TonightScreen(
-                        state = alarmHealth.toTonightUiState(context, preparation),
+                        state = alarmHealth.toTonightUiState(
+                            context = context,
+                            preparation = preparation,
+                            alarm = nextAlarm,
+                            nextAlarmReady = nextAlarmReady,
+                        ),
                         onOpenWakeSetup = {
                             backStack.add(AlarmEditorRoute(nextAlarm?.id?.value))
                         },
                         onOpenTomorrowPlan = {
-                            refreshProductState(reconcile = false)
-                            backStack.add(TomorrowPlanRoute)
+                            if (nextAlarm?.tomorrowContractMode != TomorrowContractMode.DISABLED) {
+                                refreshProductState(reconcile = false)
+                                backStack.add(TomorrowPlanRoute)
+                            }
                         },
                         onOpenWakeLab = {
                             refreshProductState()
@@ -222,6 +233,15 @@ fun WakeMyWayApp(
                                             previousPreparation = previousPreparation,
                                             preparationManager = preparationManager,
                                         )
+                                        if (definition.tomorrowContractMode == TomorrowContractMode.DISABLED) {
+                                            runCatching {
+                                                if (newOccurrence != null &&
+                                                    preparationManager.snapshotFor(newOccurrence.id)?.contract != null
+                                                ) {
+                                                    preparationManager.clear()
+                                                }
+                                            }
+                                        }
                                         refreshProductState(reconcile = false)
                                         AlarmEditorResult(saved = true)
                                     },
@@ -257,8 +277,12 @@ fun WakeMyWayApp(
             }
 
             entry<TomorrowPlanRoute> {
+                val occurrence = alarmKernel.health().nextOccurrence
+                val owner = occurrence?.let { next ->
+                    alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
+                }
                 TomorrowPlanScreen(
-                    wakeOccurrence = alarmKernel.health().nextOccurrence,
+                    wakeOccurrence = occurrence,
                     onBack = {
                         refreshProductState(reconcile = false)
                         backStack.removeLastOrNull()
@@ -317,15 +341,17 @@ private fun reconcilePreparationAfterScheduleChange(
 private fun AlarmHealth.toTonightUiState(
     context: Context,
     preparation: WakePreparationSnapshot?,
+    alarm: AlarmDefinition?,
+    nextAlarmReady: Boolean,
 ): TonightUiState {
     val occurrence = nextOccurrence
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM", locale)
-    val target = if (occurrence != null && !ready) repairTarget() else AlarmRepairTarget.NONE
+    val target = if (occurrence != null && !nextAlarmReady) repairTarget() else AlarmRepairTarget.NONE
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
-        ready -> context.getString(R.string.tonight_readiness_ready)
+        nextAlarmReady -> context.getString(R.string.tonight_readiness_ready)
         target == AlarmRepairTarget.EXACT_ALARM -> context.getString(R.string.tonight_readiness_exact_alarm)
         target == AlarmRepairTarget.NOTIFICATIONS -> context.getString(R.string.tonight_readiness_notifications)
         target == AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> context.getString(R.string.tonight_readiness_channel)
@@ -339,18 +365,22 @@ private fun AlarmHealth.toTonightUiState(
         AlarmRepairTarget.FULL_SCREEN_INTENT -> context.getString(R.string.tonight_repair_full_screen)
         AlarmRepairTarget.NONE -> null
     }
+    val contractMode = alarm?.tomorrowContractMode ?: TomorrowContractMode.DISABLED
 
     return TonightUiState(
         wakeTime = occurrence?.scheduledAt?.format(timeFormatter) ?: "--:--",
         dateLabel = occurrence?.scheduledAt?.format(dateFormatter)
             ?: context.getString(R.string.tonight_section_tomorrow),
         hasOccurrence = occurrence != null,
-        wakeReady = ready,
+        wakeReady = nextAlarmReady,
         readinessDetail = readinessCopy,
         wakeRepairActionLabel = repairLabel,
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
         tomorrowContractText = preparation?.contract?.rawText,
-        firstMove = preparation?.contract?.firstMove,
+        firstMove = preparation?.contract?.firstMove ?: alarm?.firstMoveDefault,
+        voiceCheckInEnabled = occurrence != null && alarm?.voiceCheckInEnabled == true,
+        tomorrowContractAvailable = occurrence != null && contractMode != TomorrowContractMode.DISABLED,
+        tomorrowContractPromptRequired = contractMode == TomorrowContractMode.ALWAYS_PROMPT,
     )
 }
