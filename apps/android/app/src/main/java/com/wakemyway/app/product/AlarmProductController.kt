@@ -21,7 +21,8 @@ import java.time.Instant
  *
  * UI code must mutate alarms through this controller rather than writing [AlarmDefinitionRepository]
  * and [AlarmKernel] independently. Product persistence is rolled back when critical scheduling fails,
- * so the app never knowingly presents an enabled alarm that it failed to hand to the kernel.
+ * and the previous critical slot is compensated where possible so product metadata and Direct Boot
+ * authority do not knowingly diverge after a partial Android-registration failure.
  */
 class AlarmProductController(
     context: Context,
@@ -49,26 +50,25 @@ class AlarmProductController(
     /**
      * Persist one rich alarm and synchronize only its critical schedule slot.
      *
-     * The previous product document is restored if scheduling throws. The Alarm Kernel itself owns
-     * its durable-before-OS-registration guarantees, so this layer never attempts to rewrite kernel
-     * internals directly.
+     * Alarm Kernel writes durable Direct Boot authority before touching AlarmManager. If Android
+     * registration fails after that durable write, restoring only product JSON would create a split
+     * brain. This method therefore compensates the affected kernel slot back to its previous alarm
+     * definition, or disables a newly-created slot, before surfacing the original failure.
      */
     @Synchronized
     fun save(definition: AlarmDefinition): AlarmDefinition {
         val before = repository.list()
+        val previous = before.firstOrNull { it.id == definition.id }
         repository.upsert(definition)
         return try {
-            if (definition.enabled) {
-                kernel.commitSchedule(
-                    schedule = compiler.compile(definition),
-                    policy = CriticalWakePolicy.from(definition),
-                )
-            } else {
-                kernel.cancelSchedule(WakeScheduleId(definition.id.value))
-            }
+            synchronizeKernel(definition)
             definition
         } catch (error: Throwable) {
             repository.replaceAll(before)
+            compensateKernelAfterFailedSave(
+                failedDefinition = definition,
+                previousDefinition = previous,
+            )
             throw error
         }
     }
@@ -101,14 +101,42 @@ class AlarmProductController(
         } catch (error: Throwable) {
             repository.replaceAll(before)
             if (existing.enabled) {
-                runCatching {
-                    kernel.commitSchedule(
-                        schedule = compiler.compile(existing),
-                        policy = CriticalWakePolicy.from(existing),
-                    )
-                }
+                runCatching { synchronizeKernel(existing) }
             }
             throw error
+        }
+    }
+
+    private fun synchronizeKernel(definition: AlarmDefinition) {
+        if (definition.enabled) {
+            kernel.commitSchedule(
+                schedule = compiler.compile(definition),
+                policy = CriticalWakePolicy.from(definition),
+            )
+        } else {
+            kernel.cancelSchedule(WakeScheduleId(definition.id.value))
+        }
+    }
+
+    /**
+     * Best-effort compensation for the single affected slot.
+     *
+     * We intentionally preserve the original exception as the caller-visible failure. Even if
+     * AlarmManager remains unavailable, [AlarmKernel.commitSchedule] writes the previous durable
+     * schedule before attempting registration, so a failed compensation still trends toward the
+     * previous product truth rather than retaining the attempted replacement.
+     */
+    private fun compensateKernelAfterFailedSave(
+        failedDefinition: AlarmDefinition,
+        previousDefinition: AlarmDefinition?,
+    ) {
+        runCatching {
+            when {
+                previousDefinition == null || !previousDefinition.enabled ->
+                    kernel.cancelSchedule(WakeScheduleId(failedDefinition.id.value))
+
+                else -> synchronizeKernel(previousDefinition)
+            }
         }
     }
 
