@@ -57,7 +57,7 @@ object WakeSoundCatalog {
         rampDurationMillis = 0L,
     )
 
-    private val emergencyPlayback = WakeSoundPlaybackSpec(
+    val emergencyPlaybackSpec = WakeSoundPlaybackSpec(
         criticalGain = 1f,
         voiceWindowGain = 0.12f,
         rampStartGain = 1f,
@@ -110,7 +110,7 @@ object WakeSoundCatalog {
             requestedId = id,
             profile = profile,
             rawResourceId = R.raw.emergency_alarm,
-            playback = emergencyPlayback,
+            playback = emergencyPlaybackSpec,
             usedEmergencyFallback = true,
         )
     }
