@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -106,6 +107,7 @@ fun AlarmEditorScreen(
     }
     var firstMove by remember(existing?.revision) { mutableStateOf(existing?.firstMoveDefault.orEmpty()) }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
+    var showDeleteConfirmation by remember(existing?.id) { mutableStateOf(false) }
 
     fun chooseTime() {
         TimePickerDialog(
@@ -140,17 +142,22 @@ fun AlarmEditorScreen(
             error = "Choose at least one day."
             return
         }
-        if (mode == EditorScheduleMode.ONE_SHOT && date.isBefore(LocalDate.now())) {
-            error = "Choose a future date."
+
+        val zoneId = existing?.zoneId ?: ZoneId.systemDefault()
+        val now = Instant.now()
+        if (
+            mode == EditorScheduleMode.ONE_SHOT &&
+            !date.atTime(time).atZone(zoneId).toInstant().isAfter(now)
+        ) {
+            error = "Choose a one-time wake in the future."
             return
         }
 
-        val now = Instant.now()
         val definition = AlarmDefinition(
             id = existing?.id ?: AlarmDefinitionId("alarm-${UUID.randomUUID()}"),
             label = label.trim(),
             enabled = existing?.enabled ?: true,
-            zoneId = existing?.zoneId ?: ZoneId.systemDefault(),
+            zoneId = zoneId,
             schedule = when (mode) {
                 EditorScheduleMode.WEEKLY -> AlarmSchedulePattern.Weekly(days = days, time = time)
                 EditorScheduleMode.ONE_SHOT -> AlarmSchedulePattern.OneShot(date = date, time = time)
@@ -166,7 +173,11 @@ fun AlarmEditorScreen(
                 maxCount = existing?.snoozePolicy?.maxCount,
             ),
             tomorrowContractMode = contractMode,
-            firstMoveDefault = firstMove.trim().ifBlank { null },
+            firstMoveDefault = if (contractMode == TomorrowContractMode.DISABLED) {
+                null
+            } else {
+                firstMove.trim().ifBlank { null }
+            },
             revision = (existing?.revision ?: 0L) + 1L,
             createdAt = existing?.createdAt ?: now,
             updatedAt = now,
@@ -324,17 +335,47 @@ fun AlarmEditorScreen(
 
             if (existing != null && onDelete != null) {
                 TextButton(
-                    onClick = {
-                        val result = runCatching { onDelete(existing) }
-                            .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
-                        if (result.saved) onBack() else error = result.detail ?: "Could not delete this alarm."
-                    },
+                    onClick = { showDeleteConfirmation = true },
                     modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 ) {
                     Text("Delete alarm", color = WmwColors.Danger)
                 }
             }
         }
+    }
+
+    if (showDeleteConfirmation && existing != null && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete this alarm?") },
+            text = {
+                Text(
+                    "This removes this wake and its future Android alarm. Other alarms stay unchanged.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val result = runCatching { onDelete(existing) }
+                            .getOrElse { AlarmEditorResult(saved = false, detail = it.message) }
+                        if (result.saved) {
+                            showDeleteConfirmation = false
+                            onBack()
+                        } else {
+                            error = result.detail ?: "Could not delete this alarm."
+                            showDeleteConfirmation = false
+                        }
+                    },
+                ) {
+                    Text("Delete", color = WmwColors.Danger)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Keep alarm")
+                }
+            },
+        )
     }
 }
 
