@@ -126,12 +126,15 @@
     <string name="wake_voice_complete">Morning started</string>
     <string name="wake_voice_answer_prompt">Answer out loud. A real reply is part of this wake.</string>
     <string name="wake_voice_privacy_note">Voice replies are recognized on-device. Audio and transcripts are not saved.</string>
+    <string name="wake_alarm_only_title">Good morning.</string>
+    <string name="wake_alarm_only_detail">Voice Check-In is off for this alarm.</string>
     <string name="wake_oriented_greeting">Good morning.</string>
     <string name="wake_oriented_ready">You’re up. Let’s make the first move easy.</string>
     <string name="wake_whats_first">What’s first?</string>
     <string name="wake_first_move_fallback">Get moving</string>
     <string name="wake_keep_moving">Keep moving</string>
     <string name="wake_snooze_short">Snooze 5 min</string>
+    <string name="wake_snooze_minutes">Snooze %1$d min</string>
     <string name="wake_snooze_five">I need five more minutes</string>
     <string name="wake_stop_alarm">Stop alarm</string>
     <string name="wake_finish">Finish</string>
