@@ -133,7 +133,7 @@ fun InsightsScreen(
                         color = WmwColors.DawnDeep,
                     )
                     TimingMetric(
-                        title = "First response",
+                        title = "First engagement",
                         duration = summary.averageFirstEngagement,
                         samples = summary.firstEngagementSampleCount,
                     )
@@ -157,7 +157,7 @@ fun InsightsScreen(
                         },
                     )
                     Text(
-                        text = "Timing starts when an interactive Wake session begins. A Snooze starts a new session, so these clocks are never combined into a fake morning duration.",
+                        text = "Timing starts when an interactive Wake session begins. Each Snooze starts a new session, so timing stays session-based.",
                         style = MaterialTheme.typography.bodySmall,
                         color = WmwColors.LightQuietText,
                     )
@@ -243,7 +243,7 @@ private fun EmptyInsights(modifier: Modifier = Modifier) {
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "Missing evidence stays unknown. WakeMyWay will not turn an absent response, sleep signal, or Health Connect permission into a zero or a score.",
+                text = "Missing evidence stays unknown. WakeMyWay will not turn absent engagement, a missing sleep signal, or Health Connect permission into a zero or a score.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
             )
