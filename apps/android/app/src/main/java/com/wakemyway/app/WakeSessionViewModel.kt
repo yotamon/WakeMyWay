@@ -112,7 +112,7 @@ class WakeSessionViewModel internal constructor(
                         before = before,
                         input = input,
                         transition = transition,
-                        elapsedSinceAlarm = elapsed,
+                        elapsedSinceRuntimeStart = elapsed,
                     )
                 }
             } ?: WakeRuntimeTransitionObserver.NONE
