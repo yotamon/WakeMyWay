@@ -62,7 +62,6 @@ class WakeHistorySessionRecorder internal constructor(
         replacement: WakeOccurrence?,
     ) {
         if (terminalRecorded || occurrence.id != this.occurrence.id) return
-        terminalRecorded = true
 
         val historyReason = when (reason) {
             WakeTerminalReason.COMPLETED -> WakeHistoryTerminalReason.COMPLETED
@@ -91,7 +90,8 @@ class WakeHistorySessionRecorder internal constructor(
             )
         }.getOrNull() ?: return
 
-        runCatching { repository.record(entry) }
+        val recorded = runCatching { repository.record(entry) }.isSuccess
+        if (recorded) terminalRecorded = true
     }
 
     private fun Instant.atLeast(minimum: Instant): Instant =
