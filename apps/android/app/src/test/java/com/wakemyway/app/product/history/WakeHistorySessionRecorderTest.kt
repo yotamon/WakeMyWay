@@ -31,7 +31,7 @@ class WakeHistorySessionRecorderTest {
     private val context get() = RuntimeEnvironment.getApplication()
 
     @Test
-    fun `alarm only terminal keeps behavior unknown`() {
+    fun `alarm only terminal keeps behavior unknown and preserves local schedule`() {
         val repository = repository()
         val occurrence = occurrence("primary")
         val recorder = WakeHistorySessionRecorder(
@@ -46,6 +46,8 @@ class WakeHistorySessionRecorderTest {
         assertEquals(WakeHistoryTerminalReason.STOPPED, entry.terminalReason)
         assertNull(entry.behavior)
         assertNull(entry.behaviorTimingOrigin)
+        assertEquals(occurrence.scheduledLocalDateTime, entry.scheduledLocalDateTime)
+        assertEquals(occurrence.scheduledAt.zone, entry.scheduledZoneId)
     }
 
     @Test
