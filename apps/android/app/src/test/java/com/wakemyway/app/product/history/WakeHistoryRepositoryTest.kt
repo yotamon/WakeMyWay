@@ -35,6 +35,7 @@ class WakeHistoryRepositoryTest {
                 timeToActivationCompletion = Duration.ofSeconds(41),
                 maxInterventionDepth = 1,
             ),
+            behaviorTimingOrigin = WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
         )
         val snoozed = entry(
             occurrence = "wake-2",
@@ -49,6 +50,47 @@ class WakeHistoryRepositoryTest {
 
         assertEquals(listOf(snoozed, completed), repository.list())
         assertNull(repository.list().first().behavior)
+    }
+
+    @Test
+    fun `schema v1 behavior is preserved with legacy unspecified timing origin`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "entries": [
+                {
+                  "sessionId": "wake-legacy",
+                  "occurrenceId": "legacy",
+                  "scheduleId": "schedule",
+                  "occurrenceKind": "PRIMARY",
+                  "scheduleRevision": 2,
+                  "scheduledAt": "2026-09-16T06:00:00Z",
+                  "startedAt": "2026-09-16T06:00:05Z",
+                  "finishedAt": "2026-09-16T06:01:00Z",
+                  "terminalReason": "COMPLETED",
+                  "behavior": {
+                    "policyVersion": 1,
+                    "firstEngagementMillis": 6000,
+                    "activationCompletionMillis": 28000,
+                    "maxInterventionDepth": 1
+                  }
+                }
+              ]
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+
+        val entry = WakeHistoryRepository(context, fileName).list().single()
+
+        assertEquals(
+            WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED,
+            entry.behaviorTimingOrigin,
+        )
+        assertEquals(Duration.ofSeconds(6), entry.behavior?.timeToFirstEngagement)
+        assertEquals(Duration.ofSeconds(28), entry.behavior?.timeToActivationCompletion)
     }
 
     @Test
@@ -126,6 +168,9 @@ class WakeHistoryRepositoryTest {
         reason: WakeHistoryTerminalReason = WakeHistoryTerminalReason.COMPLETED,
         replacement: String? = null,
         behavior: WakeBehaviorObservation? = null,
+        behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
+            WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
+        },
     ): WakeHistoryEntry = WakeHistoryEntry(
         sessionId = WakeSessionId("wake-$occurrence"),
         occurrenceId = WakeOccurrenceId(occurrence),
@@ -142,6 +187,7 @@ class WakeHistoryRepositoryTest {
         terminalReason = reason,
         replacementOccurrenceId = replacement?.let(::WakeOccurrenceId),
         behavior = behavior,
+        behaviorTimingOrigin = behaviorTimingOrigin,
     )
 
     private fun uniqueFileName(): String = "wake-history-${System.nanoTime()}.json"
