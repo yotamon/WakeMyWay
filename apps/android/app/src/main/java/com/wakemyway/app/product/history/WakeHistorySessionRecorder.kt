@@ -79,6 +79,8 @@ class WakeHistorySessionRecorder internal constructor(
                 occurrenceKind = this.occurrence.kind,
                 scheduleRevision = this.occurrence.scheduleRevision,
                 scheduledAt = this.occurrence.scheduledAt.toInstant(),
+                scheduledLocalDateTime = this.occurrence.scheduledLocalDateTime,
+                scheduledZoneId = this.occurrence.scheduledAt.zone,
                 startedAt = startedAt,
                 finishedAt = clock.instant().atLeast(startedAt),
                 terminalReason = historyReason,
