@@ -94,13 +94,14 @@ class WakeHistoryRepository(
     }
 
     private fun decodeDocument(root: JSONObject): List<WakeHistoryEntry> {
-        require(root.getInt(KEY_SCHEMA_VERSION) == SCHEMA_VERSION) {
+        val schemaVersion = root.getInt(KEY_SCHEMA_VERSION)
+        require(schemaVersion in SUPPORTED_SCHEMA_VERSIONS) {
             "Unsupported Wake history schema version"
         }
         val values = root.getJSONArray(KEY_ENTRIES)
         val entries = buildList(values.length()) {
             repeat(values.length()) { index ->
-                add(decodeEntry(values.getJSONObject(index)))
+                add(decodeEntry(values.getJSONObject(index), schemaVersion))
             }
         }
         require(entries.map { it.occurrenceId }.distinct().size == entries.size) {
@@ -120,24 +121,44 @@ class WakeHistoryRepository(
         put(KEY_FINISHED_AT, entry.finishedAt.toString())
         put(KEY_TERMINAL_REASON, entry.terminalReason.name)
         entry.replacementOccurrenceId?.let { put(KEY_REPLACEMENT_OCCURRENCE_ID, it.value) }
-        entry.behavior?.let { put(KEY_BEHAVIOR, encodeBehavior(it)) }
+        entry.behavior?.let {
+            put(KEY_BEHAVIOR, encodeBehavior(it))
+            put(
+                KEY_BEHAVIOR_TIMING_ORIGIN,
+                requireNotNull(entry.behaviorTimingOrigin).name,
+            )
+        }
     }
 
-    private fun decodeEntry(json: JSONObject): WakeHistoryEntry = WakeHistoryEntry(
-        sessionId = WakeSessionId(json.getString(KEY_SESSION_ID)),
-        occurrenceId = WakeOccurrenceId(json.getString(KEY_OCCURRENCE_ID)),
-        scheduleId = WakeScheduleId(json.getString(KEY_SCHEDULE_ID)),
-        occurrenceKind = WakeOccurrenceKind.valueOf(json.getString(KEY_OCCURRENCE_KIND)),
-        scheduleRevision = json.getLong(KEY_SCHEDULE_REVISION),
-        scheduledAt = Instant.parse(json.getString(KEY_SCHEDULED_AT)),
-        startedAt = Instant.parse(json.getString(KEY_STARTED_AT)),
-        finishedAt = Instant.parse(json.getString(KEY_FINISHED_AT)),
-        terminalReason = WakeHistoryTerminalReason.valueOf(json.getString(KEY_TERMINAL_REASON)),
-        replacementOccurrenceId = json.optString(KEY_REPLACEMENT_OCCURRENCE_ID)
-            .takeIf(String::isNotBlank)
-            ?.let(::WakeOccurrenceId),
-        behavior = json.optJSONObject(KEY_BEHAVIOR)?.let(::decodeBehavior),
-    )
+    private fun decodeEntry(
+        json: JSONObject,
+        schemaVersion: Int,
+    ): WakeHistoryEntry {
+        val behavior = json.optJSONObject(KEY_BEHAVIOR)?.let(::decodeBehavior)
+        val behaviorTimingOrigin = when {
+            behavior == null -> null
+            schemaVersion == 1 -> WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
+            else -> WakeHistoryBehaviorTimingOrigin.valueOf(
+                json.getString(KEY_BEHAVIOR_TIMING_ORIGIN),
+            )
+        }
+        return WakeHistoryEntry(
+            sessionId = WakeSessionId(json.getString(KEY_SESSION_ID)),
+            occurrenceId = WakeOccurrenceId(json.getString(KEY_OCCURRENCE_ID)),
+            scheduleId = WakeScheduleId(json.getString(KEY_SCHEDULE_ID)),
+            occurrenceKind = WakeOccurrenceKind.valueOf(json.getString(KEY_OCCURRENCE_KIND)),
+            scheduleRevision = json.getLong(KEY_SCHEDULE_REVISION),
+            scheduledAt = Instant.parse(json.getString(KEY_SCHEDULED_AT)),
+            startedAt = Instant.parse(json.getString(KEY_STARTED_AT)),
+            finishedAt = Instant.parse(json.getString(KEY_FINISHED_AT)),
+            terminalReason = WakeHistoryTerminalReason.valueOf(json.getString(KEY_TERMINAL_REASON)),
+            replacementOccurrenceId = json.optString(KEY_REPLACEMENT_OCCURRENCE_ID)
+                .takeIf(String::isNotBlank)
+                ?.let(::WakeOccurrenceId),
+            behavior = behavior,
+            behaviorTimingOrigin = behaviorTimingOrigin,
+        )
+    }
 
     private fun encodeBehavior(behavior: WakeBehaviorObservation): JSONObject = JSONObject().apply {
         put(KEY_POLICY_VERSION, behavior.policyVersion)
@@ -168,7 +189,8 @@ class WakeHistoryRepository(
         const val DEFAULT_FILE_NAME = "wake-history-v1.json"
         const val DEFAULT_MAX_ENTRIES = 512
 
-        private const val SCHEMA_VERSION = 1
+        private const val SCHEMA_VERSION = 2
+        private val SUPPORTED_SCHEMA_VERSIONS = setOf(1, SCHEMA_VERSION)
         private const val KEY_SCHEMA_VERSION = "schemaVersion"
         private const val KEY_ENTRIES = "entries"
         private const val KEY_SESSION_ID = "sessionId"
@@ -182,6 +204,7 @@ class WakeHistoryRepository(
         private const val KEY_TERMINAL_REASON = "terminalReason"
         private const val KEY_REPLACEMENT_OCCURRENCE_ID = "replacementOccurrenceId"
         private const val KEY_BEHAVIOR = "behavior"
+        private const val KEY_BEHAVIOR_TIMING_ORIGIN = "behaviorTimingOrigin"
         private const val KEY_POLICY_VERSION = "policyVersion"
         private const val KEY_FIRST_ENGAGEMENT_MILLIS = "firstEngagementMillis"
         private const val KEY_MEANINGFUL_MOVEMENT_MILLIS = "meaningfulMovementMillis"
