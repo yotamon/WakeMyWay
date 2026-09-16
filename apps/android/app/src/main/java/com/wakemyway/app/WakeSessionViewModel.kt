@@ -9,6 +9,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.app.alarm.WakeTerminalActions
+import com.wakemyway.app.alarm.WakeTerminalObserver
+import com.wakemyway.app.product.history.WakeHistorySessionRecorder
 import com.wakemyway.app.voice.AlarmOnlyWakeSessionController
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceSessionController
@@ -95,7 +97,14 @@ class WakeSessionViewModel internal constructor(
             val appContext = context.applicationContext
             val kernel = AlarmKernel(appContext)
             val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
-            val terminalActions = WakeTerminalActions(appContext)
+            val activeOccurrence = kernel.activeOccurrence()?.takeIf { it.id == occurrenceId }
+            val historyRecorder = activeOccurrence?.let { occurrence ->
+                WakeHistorySessionRecorder(appContext, occurrence)
+            }
+            val terminalActions = WakeTerminalActions(
+                context = appContext,
+                observer = historyRecorder ?: WakeTerminalObserver.NONE,
+            )
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
