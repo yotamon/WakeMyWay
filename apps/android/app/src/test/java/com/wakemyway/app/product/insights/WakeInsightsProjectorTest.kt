@@ -166,6 +166,38 @@ class WakeInsightsProjectorTest {
     }
 
     @Test
+    fun `corrupted replacement cannot pull another schedule into the morning`() {
+        val primary = entry(
+            id = "primary",
+            scheduledAt = now.minus(Duration.ofHours(2)),
+            reason = WakeHistoryTerminalReason.SNOOZED,
+            replacement = "foreign-snooze",
+            kind = WakeOccurrenceKind.PRIMARY,
+            behavior = behavior(Duration.ofSeconds(8), null, 0),
+        )
+        val foreign = entry(
+            id = "foreign-snooze",
+            scheduledAt = primary.scheduledAt.plus(Duration.ofMinutes(10)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.SNOOZE,
+            scheduleId = WakeScheduleId("other-schedule"),
+            behavior = behavior(Duration.ofSeconds(1), Duration.ofSeconds(3), 2),
+        )
+
+        val summary = WakeInsightsProjector.project(
+            entries = listOf(primary, foreign),
+            period = WakeInsightsPeriod.ALL,
+            now = now,
+        )
+
+        assertEquals(1, summary.totalMorningCount)
+        assertEquals(1, summary.mornings.single().physicalWakeCount)
+        assertEquals(WakeHistoryTerminalReason.SNOOZED, summary.mornings.single().finalReason)
+        assertEquals(1, summary.comparableBehaviorSessionCount)
+        assertEquals(Duration.ofSeconds(8), summary.averageFirstEngagement)
+    }
+
+    @Test
     fun `local schedule metadata is carried to morning insight`() {
         val local = LocalDateTime.of(2026, 9, 16, 7, 30)
         val primary = entry(
@@ -201,10 +233,11 @@ class WakeInsightsProjectorTest {
         },
         scheduledLocalDateTime: LocalDateTime? = LocalDateTime.of(2026, 9, 16, 7, 30),
         zoneId: ZoneId? = berlin,
+        scheduleId: WakeScheduleId = WakeScheduleId("schedule"),
     ) = WakeHistoryEntry(
         sessionId = WakeSessionId("session-$id"),
         occurrenceId = WakeOccurrenceId(id),
-        scheduleId = WakeScheduleId("schedule"),
+        scheduleId = scheduleId,
         occurrenceKind = kind,
         scheduleRevision = 1,
         scheduledAt = scheduledAt,
