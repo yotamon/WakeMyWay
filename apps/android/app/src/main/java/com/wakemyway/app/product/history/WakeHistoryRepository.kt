@@ -148,16 +148,16 @@ class WakeHistoryRepository(
                 json.getString(KEY_BEHAVIOR_TIMING_ORIGIN),
             )
         }
-        val scheduledLocalDateTime = if (schemaVersion >= 3) {
-            LocalDateTime.parse(json.getString(KEY_SCHEDULED_LOCAL_DATE_TIME))
-        } else {
-            null
+        val scheduledLocalDateTimeValue = json.optString(KEY_SCHEDULED_LOCAL_DATE_TIME)
+            .takeIf(String::isNotBlank)
+        val scheduledZoneIdValue = json.optString(KEY_SCHEDULED_ZONE_ID)
+            .takeIf(String::isNotBlank)
+        require((scheduledLocalDateTimeValue == null) == (scheduledZoneIdValue == null)) {
+            "Wake history local schedule metadata is incomplete"
         }
-        val scheduledZoneId = if (schemaVersion >= 3) {
-            ZoneId.of(json.getString(KEY_SCHEDULED_ZONE_ID))
-        } else {
-            null
-        }
+        val scheduledLocalDateTime = scheduledLocalDateTimeValue?.let(LocalDateTime::parse)
+        val scheduledZoneId = scheduledZoneIdValue?.let(ZoneId::of)
+
         return WakeHistoryEntry(
             sessionId = WakeSessionId(json.getString(KEY_SESSION_ID)),
             occurrenceId = WakeOccurrenceId(json.getString(KEY_OCCURRENCE_ID)),
