@@ -106,33 +106,7 @@ class WakeHistoryRepositoryTest {
     @Test
     fun `schema v2 remains readable with local schedule unknown`() {
         val fileName = uniqueFileName()
-        File(context.filesDir, fileName).writeText(
-            """
-            {
-              "schemaVersion": 2,
-              "entries": [
-                {
-                  "sessionId": "wake-v2",
-                  "occurrenceId": "v2",
-                  "scheduleId": "schedule",
-                  "occurrenceKind": "PRIMARY",
-                  "scheduleRevision": 2,
-                  "scheduledAt": "2026-09-16T06:00:00Z",
-                  "startedAt": "2026-09-16T06:00:05Z",
-                  "finishedAt": "2026-09-16T06:01:00Z",
-                  "terminalReason": "COMPLETED",
-                  "behaviorTimingOrigin": "INTERACTIVE_RUNTIME_START",
-                  "behavior": {
-                    "policyVersion": 1,
-                    "firstEngagementMillis": 5000,
-                    "maxInterventionDepth": 0
-                  }
-                }
-              ]
-            }
-            """.trimIndent(),
-            Charsets.UTF_8,
-        )
+        File(context.filesDir, fileName).writeText(schemaV2Entry(), Charsets.UTF_8)
 
         val entry = WakeHistoryRepository(context, fileName).list().single()
 
@@ -142,6 +116,33 @@ class WakeHistoryRepositoryTest {
         )
         assertNull(entry.scheduledLocalDateTime)
         assertNull(entry.scheduledZoneId)
+    }
+
+    @Test
+    fun `legacy entry survives append and schema v3 rewrite`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(schemaV2Entry(), Charsets.UTF_8)
+        val repository = WakeHistoryRepository(context, fileName)
+        val local = LocalDateTime.of(2026, 9, 17, 7, 30)
+        val zone = ZoneId.of("Europe/Berlin")
+        val fresh = entry(
+            occurrence = "fresh",
+            finishedAt = "2026-09-17T05:32:00Z",
+            scheduledLocalDateTime = local,
+            scheduledZoneId = zone,
+        )
+
+        assertEquals(1, repository.list().size)
+        repository.record(fresh)
+        val reread = WakeHistoryRepository(context, fileName).list()
+
+        assertEquals(2, reread.size)
+        val legacy = reread.single { it.occurrenceId == WakeOccurrenceId("v2") }
+        val newEntry = reread.single { it.occurrenceId == WakeOccurrenceId("fresh") }
+        assertNull(legacy.scheduledLocalDateTime)
+        assertNull(legacy.scheduledZoneId)
+        assertEquals(local, newEntry.scheduledLocalDateTime)
+        assertEquals(zone, newEntry.scheduledZoneId)
     }
 
     @Test
@@ -207,6 +208,31 @@ class WakeHistoryRepositoryTest {
             reason = WakeHistoryTerminalReason.SNOOZED,
         )
     }
+
+    private fun schemaV2Entry(): String = """
+        {
+          "schemaVersion": 2,
+          "entries": [
+            {
+              "sessionId": "wake-v2",
+              "occurrenceId": "v2",
+              "scheduleId": "schedule",
+              "occurrenceKind": "PRIMARY",
+              "scheduleRevision": 2,
+              "scheduledAt": "2026-09-16T06:00:00Z",
+              "startedAt": "2026-09-16T06:00:05Z",
+              "finishedAt": "2026-09-16T06:01:00Z",
+              "terminalReason": "COMPLETED",
+              "behaviorTimingOrigin": "INTERACTIVE_RUNTIME_START",
+              "behavior": {
+                "policyVersion": 1,
+                "firstEngagementMillis": 5000,
+                "maxInterventionDepth": 0
+              }
+            }
+          ]
+        }
+    """.trimIndent()
 
     private fun repository(): WakeHistoryRepository = WakeHistoryRepository(
         context = context,
