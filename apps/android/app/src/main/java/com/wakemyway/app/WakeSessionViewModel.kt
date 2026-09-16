@@ -12,6 +12,7 @@ import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalObserver
 import com.wakemyway.app.product.history.WakeHistorySessionRecorder
 import com.wakemyway.app.voice.AlarmOnlyWakeSessionController
+import com.wakemyway.app.voice.WakeRuntimeTransitionObserver
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
@@ -105,6 +106,16 @@ class WakeSessionViewModel internal constructor(
                 context = appContext,
                 observer = historyRecorder ?: WakeTerminalObserver.NONE,
             )
+            val runtimeTransitionObserver = historyRecorder?.let { recorder ->
+                WakeRuntimeTransitionObserver { before, input, transition, elapsed ->
+                    recorder.observeRuntimeTransition(
+                        before = before,
+                        input = input,
+                        transition = transition,
+                        elapsedSinceAlarm = elapsed,
+                    )
+                }
+            } ?: WakeRuntimeTransitionObserver.NONE
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -120,6 +131,8 @@ class WakeSessionViewModel internal constructor(
                                     onUiState = onUiState,
                                     onCompleted = onCompleted,
                                     voiceStyle = policy.voiceStyle,
+                                    terminalActions = terminalActions,
+                                    runtimeTransitionObserver = runtimeTransitionObserver,
                                 )
                             } else {
                                 AlarmOnlyWakeSessionController()
