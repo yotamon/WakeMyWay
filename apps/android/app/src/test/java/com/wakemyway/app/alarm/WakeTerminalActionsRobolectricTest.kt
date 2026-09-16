@@ -89,6 +89,18 @@ class WakeTerminalActionsRobolectricTest {
     }
 
     @Test
+    fun `runtime completion is durably attributed as completed`() {
+        val primary = activate("runtime-complete")
+
+        assertTrue(actions.stop(primary.id, WakeTerminalReason.COMPLETED))
+        assertNull(kernel.activeOccurrence())
+        assertEquals(
+            listOf(ObservedTerminal(primary.id, WakeTerminalReason.COMPLETED, null)),
+            observed,
+        )
+    }
+
+    @Test
     fun `successful snooze reports durable replacement lineage`() {
         val primary = activate("snooze-success")
 

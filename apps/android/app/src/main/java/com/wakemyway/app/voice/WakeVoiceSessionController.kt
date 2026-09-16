@@ -3,8 +3,10 @@ package com.wakemyway.app.voice
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTerminalActions
+import com.wakemyway.app.alarm.WakeTerminalReason
 import com.wakemyway.app.character.LocalCharacterSpeaker
 import com.wakemyway.app.character.LocalSpeechResult
 import com.wakemyway.app.character.LocalSpeechState
@@ -38,12 +40,20 @@ class WakeVoiceSessionController(
     private val onUiState: (WakeVoiceUiState) -> Unit,
     private val onCompleted: () -> Unit,
     private val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
+    private val terminalActions: WakeTerminalActions = WakeTerminalActions(context.applicationContext),
+    runtimeTransitionObserver: WakeRuntimeTransitionObserver = WakeRuntimeTransitionObserver.NONE,
+    elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val terminalActions = WakeTerminalActions(appContext)
     private val runtime = WakeRuntime()
     private val policy = WakePolicy()
+    private val runtimeObservation = WakeRuntimeObservationBridge(
+        runtime = runtime,
+        policy = policy,
+        elapsedRealtimeMillis = elapsedRealtimeMillis,
+        observer = runtimeTransitionObserver,
+    )
     private val voiceListener = LocalVoiceListener(
         context = context,
         languageTag = AlfredCharacter.spec.voiceLocaleTag,
@@ -298,6 +308,7 @@ class WakeVoiceSessionController(
         if (started || closed) return
         mainHandler.removeCallbacks(startFallback)
         started = true
+        runtimeObservation.begin()
         snapshot = runtime.initial(
             sessionId = WakeSessionId("wake-${occurrenceId.value}"),
             policy = policy,
@@ -344,7 +355,7 @@ class WakeVoiceSessionController(
         if (closed || !started || snapshot.phase == WakePhase.FINISHED) return
         mainHandler.removeCallbacks(silenceWatchdog)
 
-        val transition = runtime.reduce(snapshot, input, policy)
+        val transition = runtimeObservation.reduce(snapshot, input)
         if (!transition.inputApplied) return
         snapshot = transition.snapshot
         updateModeFromSnapshot()
@@ -393,7 +404,7 @@ class WakeVoiceSessionController(
                 if (directive.outcome == WakeOutcome.COMPLETED) {
                     mode = WakeVoiceMode.COMPLETE
                     publish()
-                    if (terminalActions.stop(occurrenceId)) {
+                    if (terminalActions.stop(occurrenceId, WakeTerminalReason.COMPLETED)) {
                         closeInternal(restoreCriticalAudio = false)
                         onCompleted()
                     }

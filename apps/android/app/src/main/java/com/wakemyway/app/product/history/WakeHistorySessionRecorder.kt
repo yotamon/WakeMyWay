@@ -42,7 +42,7 @@ class WakeHistorySessionRecorder internal constructor(
         before: WakeSessionSnapshot,
         input: WakeInput,
         transition: WakeTransition,
-        elapsedSinceAlarm: Duration,
+        elapsedSinceRuntimeStart: Duration,
     ) {
         if (terminalRecorded) return
         runCatching {
@@ -50,7 +50,7 @@ class WakeHistorySessionRecorder internal constructor(
                 before = before,
                 input = input,
                 transition = transition,
-                elapsedSinceAlarm = elapsedSinceAlarm,
+                elapsedSinceAlarm = elapsedSinceRuntimeStart,
             )
         }
     }
@@ -62,7 +62,6 @@ class WakeHistorySessionRecorder internal constructor(
         replacement: WakeOccurrence?,
     ) {
         if (terminalRecorded || occurrence.id != this.occurrence.id) return
-        terminalRecorded = true
 
         val historyReason = when (reason) {
             WakeTerminalReason.COMPLETED -> WakeHistoryTerminalReason.COMPLETED
@@ -72,6 +71,7 @@ class WakeHistorySessionRecorder internal constructor(
         if (historyReason == WakeHistoryTerminalReason.SNOOZED && replacement == null) return
 
         val entry = runCatching {
+            val behavior = behaviorTracker.snapshot()
             WakeHistoryEntry(
                 sessionId = sessionId,
                 occurrenceId = this.occurrence.id,
@@ -83,11 +83,15 @@ class WakeHistorySessionRecorder internal constructor(
                 finishedAt = clock.instant().atLeast(startedAt),
                 terminalReason = historyReason,
                 replacementOccurrenceId = replacement?.id,
-                behavior = behaviorTracker.snapshot(),
+                behavior = behavior,
+                behaviorTimingOrigin = behavior?.let {
+                    WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START
+                },
             )
         }.getOrNull() ?: return
 
-        runCatching { repository.record(entry) }
+        val recorded = runCatching { repository.record(entry) }.isSuccess
+        if (recorded) terminalRecorded = true
     }
 
     private fun Instant.atLeast(minimum: Instant): Instant =
