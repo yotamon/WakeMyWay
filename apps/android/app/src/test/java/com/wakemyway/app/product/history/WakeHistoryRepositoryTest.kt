@@ -8,6 +8,8 @@ import com.wakemyway.core.schedule.WakeScheduleId
 import java.io.File
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,8 +25,10 @@ class WakeHistoryRepositoryTest {
         get() = RuntimeEnvironment.getApplication()
 
     @Test
-    fun `history round trips behavioral evidence and snooze lineage`() {
+    fun `history round trips behavioral evidence snooze lineage and local schedule`() {
         val repository = repository()
+        val localTime = LocalDateTime.of(2026, 9, 16, 8, 0)
+        val zone = ZoneId.of("Europe/Berlin")
         val completed = entry(
             occurrence = "wake-1",
             finishedAt = "2026-09-16T06:02:00Z",
@@ -36,6 +40,8 @@ class WakeHistoryRepositoryTest {
                 maxInterventionDepth = 1,
             ),
             behaviorTimingOrigin = WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
+            scheduledLocalDateTime = localTime,
+            scheduledZoneId = zone,
         )
         val snoozed = entry(
             occurrence = "wake-2",
@@ -50,6 +56,8 @@ class WakeHistoryRepositoryTest {
 
         assertEquals(listOf(snoozed, completed), repository.list())
         assertNull(repository.list().first().behavior)
+        assertEquals(localTime, repository.list()[1].scheduledLocalDateTime)
+        assertEquals(zone, repository.list()[1].scheduledZoneId)
     }
 
     @Test
@@ -91,6 +99,49 @@ class WakeHistoryRepositoryTest {
         )
         assertEquals(Duration.ofSeconds(6), entry.behavior?.timeToFirstEngagement)
         assertEquals(Duration.ofSeconds(28), entry.behavior?.timeToActivationCompletion)
+        assertNull(entry.scheduledLocalDateTime)
+        assertNull(entry.scheduledZoneId)
+    }
+
+    @Test
+    fun `schema v2 remains readable with local schedule unknown`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 2,
+              "entries": [
+                {
+                  "sessionId": "wake-v2",
+                  "occurrenceId": "v2",
+                  "scheduleId": "schedule",
+                  "occurrenceKind": "PRIMARY",
+                  "scheduleRevision": 2,
+                  "scheduledAt": "2026-09-16T06:00:00Z",
+                  "startedAt": "2026-09-16T06:00:05Z",
+                  "finishedAt": "2026-09-16T06:01:00Z",
+                  "terminalReason": "COMPLETED",
+                  "behaviorTimingOrigin": "INTERACTIVE_RUNTIME_START",
+                  "behavior": {
+                    "policyVersion": 1,
+                    "firstEngagementMillis": 5000,
+                    "maxInterventionDepth": 0
+                  }
+                }
+              ]
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+
+        val entry = WakeHistoryRepository(context, fileName).list().single()
+
+        assertEquals(
+            WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
+            entry.behaviorTimingOrigin,
+        )
+        assertNull(entry.scheduledLocalDateTime)
+        assertNull(entry.scheduledZoneId)
     }
 
     @Test
@@ -171,6 +222,8 @@ class WakeHistoryRepositoryTest {
         behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
             WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
         },
+        scheduledLocalDateTime: LocalDateTime? = null,
+        scheduledZoneId: ZoneId? = null,
     ): WakeHistoryEntry = WakeHistoryEntry(
         sessionId = WakeSessionId("wake-$occurrence"),
         occurrenceId = WakeOccurrenceId(occurrence),
@@ -182,6 +235,8 @@ class WakeHistoryRepositoryTest {
         },
         scheduleRevision = 3,
         scheduledAt = Instant.parse("2026-09-16T06:00:00Z"),
+        scheduledLocalDateTime = scheduledLocalDateTime,
+        scheduledZoneId = scheduledZoneId,
         startedAt = Instant.parse("2026-09-16T06:00:05Z"),
         finishedAt = Instant.parse(finishedAt),
         terminalReason = reason,
