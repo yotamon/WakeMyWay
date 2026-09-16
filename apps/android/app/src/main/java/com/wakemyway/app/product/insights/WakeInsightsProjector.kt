@@ -4,6 +4,7 @@ import com.wakemyway.app.product.history.WakeHistoryBehaviorTimingOrigin
 import com.wakemyway.app.product.history.WakeHistoryEntry
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Duration
 import java.time.Instant
@@ -69,7 +70,7 @@ object WakeInsightsProjector {
         val byId = entries.associateBy { it.occurrenceId }
         val chains = entries
             .asSequence()
-            .filter { it.occurrenceKind == com.wakemyway.core.schedule.WakeOccurrenceKind.PRIMARY }
+            .filter { it.occurrenceKind == WakeOccurrenceKind.PRIMARY }
             .map { primary -> buildChain(primary, byId) }
             .filter { chain -> period.includes(chain.first().scheduledAt, now) }
             .sortedByDescending { chain -> chain.first().scheduledAt }
@@ -124,7 +125,14 @@ object WakeInsightsProjector {
         val visited = mutableSetOf<WakeOccurrenceId>()
         while (current != null && visited.add(current.occurrenceId)) {
             add(current)
-            current = current.replacementOccurrenceId?.let(byId::get)
+            val previous = current
+            current = previous.replacementOccurrenceId
+                ?.let(byId::get)
+                ?.takeIf { next ->
+                    next.scheduleId == primary.scheduleId &&
+                        next.occurrenceKind == WakeOccurrenceKind.SNOOZE &&
+                        !next.scheduledAt.isBefore(previous.scheduledAt)
+                }
         }
     }
 
