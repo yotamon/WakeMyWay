@@ -7,6 +7,8 @@ import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsProjector
 import com.wakemyway.app.ui.insights.InsightsScreen
+import com.wakemyway.app.ui.navigation.ConsumerTab
+import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.core.learning.WakeBehaviorObservation
 import com.wakemyway.core.runtime.WakeSessionId
@@ -41,10 +43,16 @@ class InsightsVisualRegressionTest {
 
         captureRoboImage("insights_populated.png") {
             WakeMyWayTheme {
-                InsightsScreen(
-                    summary = summary,
-                    onPeriodSelected = {},
-                )
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.INSIGHTS,
+                    onTabSelected = {},
+                ) { contentModifier ->
+                    InsightsScreen(
+                        summary = summary,
+                        onPeriodSelected = {},
+                        modifier = contentModifier,
+                    )
+                }
             }
         }
     }
@@ -59,10 +67,16 @@ class InsightsVisualRegressionTest {
 
         captureRoboImage("insights_empty.png") {
             WakeMyWayTheme {
-                InsightsScreen(
-                    summary = summary,
-                    onPeriodSelected = {},
-                )
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.INSIGHTS,
+                    onTabSelected = {},
+                ) { contentModifier ->
+                    InsightsScreen(
+                        summary = summary,
+                        onPeriodSelected = {},
+                        modifier = contentModifier,
+                    )
+                }
             }
         }
     }
@@ -180,14 +194,14 @@ class InsightsVisualRegressionTest {
     )
 
     private fun behavior(
-        firstResponseSeconds: Long,
+        firstEngagementSeconds: Long,
         activationSeconds: Long?,
         interventionDepth: Int,
     ) = WakeBehaviorObservation(
         policyVersion = 1,
-        timeToFirstEngagement = Duration.ofSeconds(firstResponseSeconds),
+        timeToFirstEngagement = Duration.ofSeconds(firstEngagementSeconds),
         timeToMeaningfulMovement = activationSeconds?.let { Duration.ofSeconds(it / 2) },
-        timeToActivationCompletion = activationSeconds?.let(Duration::ofSeconds),
+        timeToActivationCompletion = activationSeconds?.let { Duration.ofSeconds(it) },
         maxInterventionDepth = interventionDepth,
     )
 }
