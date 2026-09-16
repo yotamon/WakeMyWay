@@ -77,9 +77,20 @@ class WakeHistorySessionRecorderTest {
         val runtime = WakeRuntime()
         val policy = WakePolicy()
         var snapshot = runtime.initial(WakeSessionId("test"), policy)
-        val input = WakeInput.UserInteracted(WakeInputId("tap"))
-        val transition = runtime.reduce(snapshot, input, policy)
-        recorder.observeRuntimeTransition(snapshot, input, transition, Duration.ofSeconds(3))
+
+        val alarmFired = WakeInput.AlarmFired(WakeInputId("alarm"))
+        val alarmTransition = runtime.reduce(snapshot, alarmFired, policy)
+        recorder.observeRuntimeTransition(snapshot, alarmFired, alarmTransition, Duration.ZERO)
+        snapshot = alarmTransition.snapshot
+
+        val interaction = WakeInput.UserInteracted(WakeInputId("tap"))
+        val interactionTransition = runtime.reduce(snapshot, interaction, policy)
+        recorder.observeRuntimeTransition(
+            snapshot,
+            interaction,
+            interactionTransition,
+            Duration.ofSeconds(3),
+        )
 
         recorder.onTerminal(occurrence, WakeTerminalReason.COMPLETED)
 
