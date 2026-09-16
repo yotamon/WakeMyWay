@@ -1,10 +1,10 @@
 package com.wakemyway.app.product.history
 
 import com.wakemyway.app.alarm.WakeTerminalReason
-import com.wakemyway.core.runtime.WakePolicy
-import com.wakemyway.core.runtime.WakeRuntime
 import com.wakemyway.core.runtime.WakeInput
 import com.wakemyway.core.runtime.WakeInputId
+import com.wakemyway.core.runtime.WakePolicy
+import com.wakemyway.core.runtime.WakeRuntime
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.LocalTimeResolution
 import com.wakemyway.core.schedule.WakeOccurrence
@@ -45,6 +45,7 @@ class WakeHistorySessionRecorderTest {
         val entry = repository.list().single()
         assertEquals(WakeHistoryTerminalReason.STOPPED, entry.terminalReason)
         assertNull(entry.behavior)
+        assertNull(entry.behaviorTimingOrigin)
     }
 
     @Test
@@ -66,7 +67,7 @@ class WakeHistorySessionRecorderTest {
     }
 
     @Test
-    fun `runtime observations are reduced to compact evidence`() {
+    fun `runtime observations are reduced to compact evidence with explicit timing origin`() {
         val repository = repository()
         val occurrence = occurrence("voice")
         val recorder = WakeHistorySessionRecorder(
@@ -94,9 +95,14 @@ class WakeHistorySessionRecorderTest {
 
         recorder.onTerminal(occurrence, WakeTerminalReason.COMPLETED)
 
-        val behavior = requireNotNull(repository.list().single().behavior)
+        val entry = repository.list().single()
+        val behavior = requireNotNull(entry.behavior)
         assertEquals(Duration.ofSeconds(3), behavior.timeToFirstEngagement)
         assertEquals(policy.version, behavior.policyVersion)
+        assertEquals(
+            WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
+            entry.behaviorTimingOrigin,
+        )
     }
 
     private fun repository() = WakeHistoryRepository(
