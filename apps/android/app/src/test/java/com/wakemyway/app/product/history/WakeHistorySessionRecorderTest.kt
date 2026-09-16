@@ -67,6 +67,24 @@ class WakeHistorySessionRecorderTest {
     }
 
     @Test
+    fun `malformed snooze callback does not suppress later valid terminal record`() {
+        val repository = repository()
+        val occurrence = occurrence("retry")
+        val recorder = WakeHistorySessionRecorder(
+            occurrence,
+            repository,
+            Clock.fixed(Instant.parse("2026-09-16T06:01:00Z"), ZoneOffset.UTC),
+        )
+
+        recorder.onTerminal(occurrence, WakeTerminalReason.SNOOZED, replacement = null)
+        assertEquals(emptyList<WakeHistoryEntry>(), repository.list())
+
+        recorder.onTerminal(occurrence, WakeTerminalReason.STOPPED)
+
+        assertEquals(WakeHistoryTerminalReason.STOPPED, repository.list().single().terminalReason)
+    }
+
+    @Test
     fun `runtime observations are reduced to compact evidence with explicit timing origin`() {
         val repository = repository()
         val occurrence = occurrence("voice")
