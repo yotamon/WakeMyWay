@@ -21,6 +21,17 @@ enum class WakeHistoryTerminalReason {
     UNRECOVERABLE,
 }
 
+enum class WakeHistoryBehaviorTimingOrigin {
+    /**
+     * Compatibility marker for behavior written before the timing origin became part of history.
+     * Product metrics must not mix these samples with a defined timing population.
+     */
+    LEGACY_UNSPECIFIED,
+
+    /** Duration zero is the interactive WakeRuntime start immediately before AlarmFired. */
+    INTERACTIVE_RUNTIME_START,
+}
+
 /**
  * Private local record of facts observed during one physical wake occurrence.
  *
@@ -40,6 +51,9 @@ data class WakeHistoryEntry(
     val terminalReason: WakeHistoryTerminalReason,
     val replacementOccurrenceId: WakeOccurrenceId? = null,
     val behavior: WakeBehaviorObservation? = null,
+    val behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
+        WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
+    },
 ) {
     init {
         require(scheduleRevision > 0) { "Wake history schedule revision must be positive" }
@@ -53,6 +67,9 @@ data class WakeHistoryEntry(
             else -> require(replacementOccurrenceId == null) {
                 "Only a Snoozed Wake history entry may carry a replacement occurrence id"
             }
+        }
+        require((behavior == null) == (behaviorTimingOrigin == null)) {
+            "Wake history behavior and its timing origin must be present together"
         }
     }
 }
