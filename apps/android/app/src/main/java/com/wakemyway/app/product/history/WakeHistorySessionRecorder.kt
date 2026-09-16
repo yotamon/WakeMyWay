@@ -11,6 +11,7 @@ import com.wakemyway.core.runtime.WakeTransition
 import com.wakemyway.core.schedule.WakeOccurrence
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 
 /**
  * Best-effort bridge between WakeRuntime observations and durable AlarmKernel terminal facts.
@@ -77,9 +78,9 @@ class WakeHistorySessionRecorder internal constructor(
                 scheduleId = this.occurrence.wakeScheduleId,
                 occurrenceKind = this.occurrence.kind,
                 scheduleRevision = this.occurrence.scheduleRevision,
-                scheduledAt = this.occurrence.scheduledAt,
+                scheduledAt = this.occurrence.scheduledAt.toInstant(),
                 startedAt = startedAt,
-                finishedAt = clock.instant().coerceAtLeast(startedAt),
+                finishedAt = clock.instant().atLeast(startedAt),
                 terminalReason = historyReason,
                 replacementOccurrenceId = replacement?.id,
                 behavior = behaviorTracker.snapshot(),
@@ -89,8 +90,6 @@ class WakeHistorySessionRecorder internal constructor(
         runCatching { repository.record(entry) }
     }
 
-    companion object {
-        private fun java.time.Instant.coerceAtLeast(minimum: java.time.Instant): java.time.Instant =
-            if (isBefore(minimum)) minimum else this
-    }
+    private fun Instant.atLeast(minimum: Instant): Instant =
+        if (isBefore(minimum)) minimum else this
 }
