@@ -1,6 +1,8 @@
 package com.wakemyway.app.alarm
 
 import com.wakemyway.core.schedule.WakeCompletionPolicy
+import com.wakemyway.core.schedule.WakeOccurrence
+import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Clock
@@ -30,16 +32,30 @@ class WakeTerminalActionsRobolectricTest {
 
     private lateinit var kernel: AlarmKernel
     private lateinit var actions: WakeTerminalActions
+    private val observed = mutableListOf<ObservedTerminal>()
 
     @Before
     fun setUp() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        observed.clear()
         kernel = AlarmKernel(
             context = context,
             clock = clock,
             criticalStateFileName = "terminal-actions-${System.nanoTime()}.json",
         )
-        actions = WakeTerminalActions(context, kernel)
+        actions = WakeTerminalActions(
+            context = context,
+            kernel = kernel,
+            observer = object : WakeTerminalObserver {
+                override fun onTerminal(
+                    occurrence: WakeOccurrence,
+                    reason: WakeTerminalReason,
+                    replacement: WakeOccurrence?,
+                ) {
+                    observed += ObservedTerminal(occurrence.id, reason, replacement?.id)
+                }
+            },
+        )
     }
 
     @After
@@ -49,33 +65,80 @@ class WakeTerminalActionsRobolectricTest {
     }
 
     @Test
-    fun `failed snooze acknowledgement leaves current wake active`() {
+    fun `failed snooze acknowledgement leaves current wake active and records nothing`() {
         val primary = activate("snooze-failure")
         ShadowAlarmManager.setCanScheduleExactAlarms(false)
 
         assertFalse(actions.snooze(primary.id))
         assertEquals(primary.id, kernel.activeOccurrence()?.id)
         assertNull(kernel.health().nextOccurrence)
+        assertTrue(observed.isEmpty())
     }
 
     @Test
-    fun `successful stop is durably acknowledged before UI may close`() {
+    fun `successful stop is durably acknowledged before observer is notified`() {
         val primary = activate("stop-success")
 
         assertTrue(actions.stop(primary.id))
         assertNull(kernel.activeOccurrence())
         assertNull(kernel.health().nextOccurrence)
+        assertEquals(
+            listOf(ObservedTerminal(primary.id, WakeTerminalReason.STOPPED, null)),
+            observed,
+        )
     }
 
     @Test
-    fun `stale surface cannot stop newer active occurrence`() {
+    fun `successful snooze reports durable replacement lineage`() {
+        val primary = activate("snooze-success")
+
+        assertTrue(actions.snooze(primary.id))
+        val replacement = requireNotNull(kernel.health().nextOccurrence)
+
+        assertEquals(
+            listOf(
+                ObservedTerminal(
+                    occurrenceId = primary.id,
+                    reason = WakeTerminalReason.SNOOZED,
+                    replacementId = replacement.id,
+                ),
+            ),
+            observed,
+        )
+    }
+
+    @Test
+    fun `stale surface cannot stop newer active occurrence or emit another terminal event`() {
         val primary = activate("stale-surface")
         assertTrue(actions.snooze(primary.id))
         val snooze = requireNotNull(kernel.health().nextOccurrence)
         assertEquals(BeginActiveResult.STARTED, kernel.beginActive(snooze.id))
+        val observationsAfterSnooze = observed.toList()
 
         assertTrue(actions.stop(primary.id))
         assertEquals(snooze.id, kernel.activeOccurrence()?.id)
+        assertEquals(observationsAfterSnooze, observed)
+    }
+
+    @Test
+    fun `observer failure cannot turn a durable Stop into a failed acknowledgement`() {
+        val primary = activate("observer-failure")
+        val throwingActions = WakeTerminalActions(
+            context = context,
+            kernel = kernel,
+            observer = object : WakeTerminalObserver {
+                override fun onTerminal(
+                    occurrence: WakeOccurrence,
+                    reason: WakeTerminalReason,
+                    replacement: WakeOccurrence?,
+                ) {
+                    error("history storage unavailable")
+                }
+            },
+        )
+
+        assertTrue(throwingActions.stop(primary.id))
+        assertNull(kernel.activeOccurrence())
     }
 
     private fun activate(suffix: String) = run {
@@ -96,4 +159,10 @@ class WakeTerminalActionsRobolectricTest {
             oneShotDate = target.toLocalDate(),
         )
     }
+
+    private data class ObservedTerminal(
+        val occurrenceId: WakeOccurrenceId,
+        val reason: WakeTerminalReason,
+        val replacementId: WakeOccurrenceId?,
+    )
 }
