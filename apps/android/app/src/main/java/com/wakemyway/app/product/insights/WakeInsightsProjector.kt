@@ -3,6 +3,7 @@ package com.wakemyway.app.product.insights
 import com.wakemyway.app.product.history.WakeHistoryBehaviorTimingOrigin
 import com.wakemyway.app.product.history.WakeHistoryEntry
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
+import com.wakemyway.core.learning.WakeCalibrationOutcome
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -24,7 +25,9 @@ data class WakeMorningInsight(
     val scheduledAt: Instant,
     val scheduledLocalDateTime: LocalDateTime?,
     val scheduledZoneId: ZoneId?,
+    val finalOccurrenceId: WakeOccurrenceId,
     val finalReason: WakeHistoryTerminalReason,
+    val calibrationOutcome: WakeCalibrationOutcome?,
     val snoozeCount: Int,
     val physicalWakeCount: Int,
 ) {
@@ -49,6 +52,15 @@ data class WakeInsightsSummary(
 ) {
     val totalMorningCount: Int
         get() = mornings.size
+
+    val pendingCalibration: WakeMorningInsight?
+        get() = mornings.firstOrNull {
+            it.calibrationOutcome == null &&
+                it.finalReason in setOf(
+                    WakeHistoryTerminalReason.COMPLETED,
+                    WakeHistoryTerminalReason.STOPPED,
+                )
+        }
 }
 
 /**
@@ -78,13 +90,16 @@ object WakeInsightsProjector {
 
         val mornings = chains.map { chain ->
             val primary = chain.first()
+            val final = chain.last()
             WakeMorningInsight(
                 primaryOccurrenceId = primary.occurrenceId,
                 scheduleId = primary.scheduleId,
                 scheduledAt = primary.scheduledAt,
                 scheduledLocalDateTime = primary.scheduledLocalDateTime,
                 scheduledZoneId = primary.scheduledZoneId,
-                finalReason = chain.last().terminalReason,
+                finalOccurrenceId = final.occurrenceId,
+                finalReason = final.terminalReason,
+                calibrationOutcome = final.calibration?.outcome,
                 snoozeCount = chain.count { it.terminalReason == WakeHistoryTerminalReason.SNOOZED },
                 physicalWakeCount = chain.size,
             )
