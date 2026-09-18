@@ -16,10 +16,9 @@ export function shouldIgnoreDeployment(paths) {
   return paths.length > 0 && paths.every((path) => !isCloudRuntimePath(path));
 }
 
-export function resolveDiffBase(previousSha, environment) {
+export function resolveDiffBase(previousSha) {
   if (previousSha && /^[a-f0-9]{7,40}$/i.test(previousSha)) return previousSha;
-  if (environment === "preview") return "HEAD^";
-  throw new Error("VERCEL_GIT_PREVIOUS_SHA is unavailable or invalid");
+  return "HEAD^";
 }
 
 export function changedFiles(baseRef, head = "HEAD") {
@@ -45,7 +44,7 @@ function run() {
   try {
     const previousSha = process.env.VERCEL_GIT_PREVIOUS_SHA?.trim() || "";
     const head = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "HEAD";
-    const baseRef = resolveDiffBase(previousSha, process.env.VERCEL_ENV);
+    const baseRef = resolveDiffBase(previousSha);
     const paths = changedFiles(baseRef, head);
 
     if (shouldIgnoreDeployment(paths)) {
