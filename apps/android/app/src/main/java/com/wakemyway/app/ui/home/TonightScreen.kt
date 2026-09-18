@@ -87,6 +87,8 @@ fun TonightScreen(
     voiceWakeReadiness: VoiceWakeReadiness? = null,
     onEnableVoiceReplies: () -> Unit = {},
     onRepairWakeSystem: () -> Unit = {},
+    hasMorningCheckIn: Boolean = false,
+    onOpenMorningCheckIn: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val greeting = when (LocalTime.now().hour) {
@@ -131,6 +133,33 @@ fun TonightScreen(
 
             Spacer(Modifier.height(28.dp))
             NextWakeCard(state = state)
+
+            if (hasMorningCheckIn) {
+                WmwCard(
+                    modifier = Modifier
+                        .padding(top = WmwSpacing.Md)
+                        .clickable(onClick = onOpenMorningCheckIn),
+                    onLightSurface = true,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                        Text(
+                            text = "MORNING CHECK-IN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WmwColors.DawnDeep,
+                        )
+                        Text(
+                            text = "Did the last wake actually stick?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.Midnight,
+                        )
+                        Text(
+                            text = "One tap helps WakeMyWay learn the difference between phone-observed activation and a morning that really worked.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WmwColors.LightQuietText,
+                        )
+                    }
+                }
+            }
 
             if (state.hasOccurrence && !state.wakeReady) {
                 WakeSystemAttention(
