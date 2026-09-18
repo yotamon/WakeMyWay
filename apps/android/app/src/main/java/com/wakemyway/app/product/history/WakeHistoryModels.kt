@@ -1,6 +1,7 @@
 package com.wakemyway.app.product.history
 
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -61,6 +62,7 @@ data class WakeHistoryEntry(
     val behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
         WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
     },
+    val calibration: WakeCalibration? = null,
 ) {
     init {
         require(scheduleRevision > 0) { "Wake history schedule revision must be positive" }
