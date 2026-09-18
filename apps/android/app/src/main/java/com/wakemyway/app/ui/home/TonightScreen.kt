@@ -89,9 +89,10 @@ fun TonightScreen(
     onRepairWakeSystem: () -> Unit = {},
     hasMorningCheckIn: Boolean = false,
     onOpenMorningCheckIn: () -> Unit = {},
+    greetingOverride: String? = null,
 ) {
     val context = LocalContext.current
-    val greeting = when (LocalTime.now().hour) {
+    val greeting = greetingOverride ?: when (LocalTime.now().hour) {
         in 5..11 -> "Good morning"
         in 12..17 -> "Good afternoon"
         else -> "Good evening"
