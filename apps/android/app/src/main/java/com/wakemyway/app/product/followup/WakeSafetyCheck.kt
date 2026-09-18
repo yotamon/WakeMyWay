@@ -62,6 +62,15 @@ object WakeSafetyCheckScheduler {
         )
     }
 
+    fun resolve(
+        context: Context,
+        occurrenceId: WakeOccurrenceId,
+    ) {
+        val appContext = context.applicationContext
+        WorkManager.getInstance(appContext).cancelUniqueWork(workName(occurrenceId))
+        WakeSafetyCheckNotifications.cancel(appContext, occurrenceId)
+    }
+
     internal fun workName(occurrenceId: WakeOccurrenceId): String =
         "wake-safety-check:${occurrenceId.value}"
 
@@ -116,7 +125,7 @@ class WakeSafetyCheckActionReceiver : BroadcastReceiver() {
             }
         }
 
-        WakeSafetyCheckNotifications.cancel(context, occurrenceId)
+        WakeSafetyCheckScheduler.resolve(context, occurrenceId)
     }
 
     companion object {
