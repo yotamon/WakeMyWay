@@ -160,6 +160,7 @@ fun AlarmEditorScreen(
     }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember(existing?.id) { mutableStateOf(false) }
+    var showAdvanced by remember(existing?.revision) { mutableStateOf(existing != null) }
 
     fun stopPreview() {
         soundPreviewPlayer.stop()
@@ -362,6 +363,39 @@ fun AlarmEditorScreen(
                 }
             }
 
+            WmwCard(
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+                onLightSurface = true,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                    Text(
+                        text = "WAKE BEHAVIOR",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WmwColors.DawnDeep,
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            if (voiceCheckIn) "Alfred voice" else "Sound only",
+                            if (snoozeEnabled) "$snoozeMinutes min Snooze" else "No Snooze",
+                            when (contractMode) {
+                                TomorrowContractMode.OPTIONAL -> "Morning intention optional"
+                                TomorrowContractMode.ALWAYS_PROMPT -> "Morning intention prompted"
+                                TomorrowContractMode.DISABLED -> null
+                            },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.Midnight,
+                    )
+                    TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                        Text(
+                            text = if (showAdvanced) "Hide customization" else "Customize wake",
+                            color = WmwColors.DawnDeep,
+                        )
+                    }
+                }
+            }
+
+            if (showAdvanced) {
             EditorSection("Voice", Modifier.padding(top = WmwSpacing.Md)) {
                 ToggleSetting(
                     title = "Voice Check-In",
@@ -429,6 +463,7 @@ fun AlarmEditorScreen(
                         minLines = 2,
                     )
                 }
+            }
             }
 
             error?.let {
