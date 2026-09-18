@@ -11,6 +11,7 @@ import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalObserver
 import com.wakemyway.app.product.history.WakeHistorySessionRecorder
+import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.voice.AlarmOnlyWakeSessionController
 import com.wakemyway.app.voice.WakeRuntimeTransitionObserver
 import com.wakemyway.app.voice.WakeSessionController
@@ -59,6 +60,10 @@ class WakeSessionViewModel internal constructor(
         if (!terminal) controller.onSurfaceHidden()
     }
 
+    fun confirmFirstMove() {
+        if (!terminal) controller.confirmOrientation()
+    }
+
     fun requestStop(): Boolean = requestTerminal(requestStopExecution)
 
     fun requestSnooze(): Boolean = requestTerminal(requestSnoozeExecution)
@@ -102,6 +107,7 @@ class WakeSessionViewModel internal constructor(
             val historyRecorder = activeOccurrence?.let { occurrence ->
                 WakeHistorySessionRecorder(appContext, occurrence)
             }
+            val learnedPolicy = WakeLearningRepository(appContext).resolvePolicy()
             val terminalActions = WakeTerminalActions(
                 context = appContext,
                 observer = historyRecorder ?: WakeTerminalObserver.NONE,
@@ -131,6 +137,7 @@ class WakeSessionViewModel internal constructor(
                                     onUiState = onUiState,
                                     onCompleted = onCompleted,
                                     voiceStyle = policy.voiceStyle,
+                                    policy = learnedPolicy,
                                     terminalActions = terminalActions,
                                     runtimeTransitionObserver = runtimeTransitionObserver,
                                 )
