@@ -1,6 +1,8 @@
 package com.wakemyway.app.product.history
 
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
+import com.wakemyway.core.learning.WakeCalibrationOutcome
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -119,7 +121,7 @@ class WakeHistoryRepositoryTest {
     }
 
     @Test
-    fun `legacy entry survives append and schema v3 rewrite`() {
+    fun `legacy entry survives append and current schema rewrite`() {
         val fileName = uniqueFileName()
         File(context.filesDir, fileName).writeText(schemaV2Entry(), Charsets.UTF_8)
         val repository = WakeHistoryRepository(context, fileName)
@@ -143,6 +145,27 @@ class WakeHistoryRepositoryTest {
         assertNull(legacy.scheduledZoneId)
         assertEquals(local, newEntry.scheduledLocalDateTime)
         assertEquals(zone, newEntry.scheduledZoneId)
+    }
+
+    @Test
+    fun `calibration updates an existing occurrence without changing terminal facts`() {
+        val repository = repository()
+        val original = entry(
+            occurrence = "calibrate",
+            finishedAt = "2026-09-16T06:02:00Z",
+            reason = WakeHistoryTerminalReason.COMPLETED,
+        )
+        repository.record(original)
+
+        repository.attachCalibration(
+            original.occurrenceId,
+            WakeCalibration(WakeCalibrationOutcome.RETURNED_TO_BED),
+        )
+
+        val calibrated = repository.list().single()
+        assertEquals(original.terminalReason, calibrated.terminalReason)
+        assertEquals(original.finishedAt, calibrated.finishedAt)
+        assertEquals(WakeCalibrationOutcome.RETURNED_TO_BED, calibrated.calibration?.outcome)
     }
 
     @Test
