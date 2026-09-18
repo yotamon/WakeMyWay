@@ -140,4 +140,9 @@
     <string name="wake_snooze_five">I need five more minutes</string>
     <string name="wake_stop_alarm">Stop alarm</string>
     <string name="wake_finish">Finish</string>
+    <string name="wake_safety_check_channel_description">Optional follow-ups that help WakeMyWay learn whether an early Stop really worked.</string>
+    <string name="wake_safety_check_title">Did the wake stick?</string>
+    <string name="wake_safety_check_body">You stopped WakeMyWay 15 minutes ago. Are you still up? Your answer helps the next wake adapt.</string>
+    <string name="wake_safety_check_still_up">I’m still up</string>
+    <string name="wake_safety_check_back_to_bed">Back to bed</string>
 </resources>

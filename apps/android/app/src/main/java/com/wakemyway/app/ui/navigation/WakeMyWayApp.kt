@@ -26,6 +26,7 @@ import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.product.followup.WakeSafetyCheckScheduler
 import com.wakemyway.app.product.history.WakeHistoryRepository
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsProjector
@@ -143,6 +144,7 @@ fun WakeMyWayApp(
     ) {
         runCatching {
             wakeLearning = learningRepository.submitCalibration(occurrenceId, outcome)
+            WakeSafetyCheckScheduler.resolve(context, occurrenceId)
             wakeHistory = historyRepository.list()
         }
     }

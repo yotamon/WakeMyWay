@@ -233,6 +233,7 @@ The production wake path now closes the first local adaptive loop:
 - Insights exposes real evidence without synthetic sleep or wake scores;
 - sparse one-tap calibration distinguishes phone-observed Activation Completion from Confirmed Wake Success;
 - explicit early Stop remains immediate and is recorded as an incomplete wake rather than silently treated as success;
+- an explicit Stop schedules a non-critical WorkManager safety check for roughly 15 minutes later; it self-suppresses when calibration already exists, offers quick "still up" / "back to bed" calibration actions, and is never alarm authority;
 - deterministic Wake Learning v0 re-derives only bounded policy parameters from comparable local sessions;
 - learned policy state is kept under no-backup credential-protected storage;
 - one resolved learned Wake Policy is selected before the next interactive WakeRuntime session starts and remains immutable for that session;
@@ -245,7 +246,7 @@ Consumer onboarding and alarm setup were also simplified around the adaptive pro
 
 - Provision the actual WakeMyWay account backend when ready, then implement authenticated account/session acquisition and Wake API backup/restore without changing alarm authority.
 - Only after that authenticated path exists, expose truthful Sign In / backup UX.
-- Continue Phase D calibration/Insights hardening with real dogfood data, including whether check-in timing and copy need notification-based follow-up.
+- Continue Phase D calibration/Insights hardening with real dogfood data, especially tuning safety-check timing/copy and the calibration thresholds from observed mornings.
 - M7 follow-up still includes richer founder inspect/reset tooling and any additional journal detail justified by dogfood; production calibration and learned-policy selection are now connected.
 - Founder Realtime production environment/rate-limit work remains separate from local alarm readiness.
 - Physical-device reliability evidence under #9 remains mandatory before broader release.

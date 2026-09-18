@@ -51,6 +51,42 @@ class WakeHistorySessionRecorderTest {
     }
 
     @Test
+    fun `explicit Stop schedules one non-critical follow-up only after durable history`() {
+        val repository = repository()
+        val occurrence = occurrence("safety-check")
+        val scheduled = mutableListOf<WakeOccurrenceId>()
+        val recorder = WakeHistorySessionRecorder(
+            occurrence = occurrence,
+            repository = repository,
+            clock = Clock.fixed(Instant.parse("2026-09-16T06:01:00Z"), ZoneOffset.UTC),
+            onStopped = scheduled::add,
+        )
+
+        recorder.onTerminal(occurrence, WakeTerminalReason.STOPPED)
+        recorder.onTerminal(occurrence, WakeTerminalReason.STOPPED)
+
+        assertEquals(listOf(occurrence.id), scheduled)
+        assertEquals(WakeHistoryTerminalReason.STOPPED, repository.list().single().terminalReason)
+    }
+
+    @Test
+    fun `completed wake does not schedule early-Stop follow-up`() {
+        val repository = repository()
+        val occurrence = occurrence("completed")
+        val scheduled = mutableListOf<WakeOccurrenceId>()
+        val recorder = WakeHistorySessionRecorder(
+            occurrence = occurrence,
+            repository = repository,
+            clock = Clock.fixed(Instant.parse("2026-09-16T06:01:00Z"), ZoneOffset.UTC),
+            onStopped = scheduled::add,
+        )
+
+        recorder.onTerminal(occurrence, WakeTerminalReason.COMPLETED)
+
+        assertEquals(emptyList<WakeOccurrenceId>(), scheduled)
+    }
+
+    @Test
     fun `snooze terminal stores replacement occurrence`() {
         val repository = repository()
         val occurrence = occurrence("primary")
