@@ -26,6 +26,7 @@ import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.core.learning.WakeCalibrationOutcome
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 internal fun WakeHistoryEntry.needsMorningSafetyCheck(): Boolean =
@@ -39,8 +40,21 @@ internal fun WakeHistoryEntry.needsMorningSafetyCheck(): Boolean =
  */
 object WakeSafetyCheckScheduler {
     const val DELAY_MINUTES = 15L
+    private val enqueueExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "WakeSafetyCheck").apply { isDaemon = true }
+    }
 
-    fun schedule(
+    fun scheduleAsync(
+        context: Context,
+        occurrenceId: WakeOccurrenceId,
+    ) {
+        val appContext = context.applicationContext
+        enqueueExecutor.execute {
+            runCatching { schedule(appContext, occurrenceId) }
+        }
+    }
+
+    internal fun schedule(
         context: Context,
         occurrenceId: WakeOccurrenceId,
     ) {
@@ -230,7 +244,7 @@ private object WakeSafetyCheckNotifications {
         action: String,
         requestCodeSalt: Int,
     ): PendingIntent {
-        val requestCode = notificationId(occurrenceId) * 10 + requestCodeSalt
+        val requestCode = notificationId(occurrenceId) xor requestCodeSalt
         val intent = Intent(context, WakeSafetyCheckActionReceiver::class.java)
             .setAction(action)
             .putExtra(WakeSafetyCheckActionReceiver.EXTRA_OCCURRENCE_ID, occurrenceId.value)
