@@ -29,6 +29,7 @@ import com.wakemyway.app.product.ConsumerPreferencesRepository
 import com.wakemyway.app.product.history.WakeHistoryRepository
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsProjector
+import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
@@ -107,6 +108,7 @@ fun WakeMyWayApp(
     val preparationManager = remember { WakePreparationManager(context) }
     val preferencesRepository = remember { ConsumerPreferencesRepository(context) }
     val historyRepository = remember { WakeHistoryRepository(context) }
+    val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
         runCatching {
@@ -120,6 +122,7 @@ fun WakeMyWayApp(
     var alarms by remember { mutableStateOf(alarmController.list()) }
     var preferences by remember { mutableStateOf(initialPreferences) }
     var wakeHistory by remember { mutableStateOf(historyRepository.list()) }
+    var wakeLearning by remember { mutableStateOf(learningRepository.state()) }
     val backStack = rememberNavBackStack(
         if (initialPreferences.onboardingCompleted) HomeRoute else OnboardingRoute,
     )
@@ -131,6 +134,17 @@ fun WakeMyWayApp(
 
     fun refreshWakeHistory() {
         wakeHistory = historyRepository.list()
+        wakeLearning = learningRepository.state()
+    }
+
+    fun calibrateMorning(
+        occurrenceId: com.wakemyway.core.schedule.WakeOccurrenceId,
+        outcome: com.wakemyway.core.learning.WakeCalibrationOutcome,
+    ) {
+        runCatching {
+            wakeLearning = learningRepository.submitCalibration(occurrenceId, outcome)
+            wakeHistory = historyRepository.list()
+        }
     }
 
     fun savePreferences(next: ConsumerPreferences) {
@@ -293,7 +307,9 @@ fun WakeMyWayApp(
                     ) { contentModifier ->
                         InsightsScreen(
                             summary = summary,
+                            learningState = wakeLearning,
                             onPeriodSelected = { period = it },
+                            onCalibrateMorning = ::calibrateMorning,
                             modifier = contentModifier,
                         )
                     }
