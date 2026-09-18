@@ -1,9 +1,9 @@
 # Project status
 
-**Last updated:** 2026-09-16  
+**Last updated:** 2026-09-19  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
-**Current product phase:** Phase C consumer foundation + provider-neutral backup/migration boundary complete; founder physical reliability proof ongoing  
+**Current product phase:** Phase D real history + consumer calibration + bounded next-session learning connected; founder physical reliability proof ongoing  
 **Current product PR:** none after #73; authenticated account backend is not yet provisioned  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
@@ -224,11 +224,28 @@ Automated/emulator evidence is not sufficient for a wake product. Issue #9 remai
 
 Broader release should not be declared complete until the supported-device reliability envelope is measured rather than inferred.
 
+## Phase D: history, calibration and adaptive consumer loop
+
+The production wake path now closes the first local adaptive loop:
+
+- terminal Wake occurrences persist bounded credential-protected history with comparable runtime evidence;
+- Primary → Snooze replacement chains project into one consumer morning;
+- Insights exposes real evidence without synthetic sleep or wake scores;
+- sparse one-tap calibration distinguishes phone-observed Activation Completion from Confirmed Wake Success;
+- explicit early Stop remains immediate and is recorded as an incomplete wake rather than silently treated as success;
+- deterministic Wake Learning v0 re-derives only bounded policy parameters from comparable local sessions;
+- learned policy state is kept under no-backup credential-protected storage;
+- one resolved learned Wake Policy is selected before the next interactive WakeRuntime session starts and remains immutable for that session;
+- corrupt/missing learning state falls back to the stable default and cannot affect Alarm Kernel authority;
+- the Oriented wake state now waits for an explicit First Move confirmation instead of visually presenting non-functional choice tiles.
+
+Consumer onboarding and alarm setup were also simplified around the adaptive promise: advanced wake behavior remains available without making first alarm creation feel like a settings panel. Account-shaped placeholder UI is intentionally absent while account sync remains optional/deferred.
+
 ## Remaining product work
 
 - Provision the actual WakeMyWay account backend when ready, then implement authenticated account/session acquisition and Wake API backup/restore without changing alarm authority.
 - Only after that authenticated path exists, expose truthful Sign In / backup UX.
-- Phase D: shape wake history and Insights around real local session data, not synthetic metrics.
-- M7 live learning/journal persistence, calibration and learned-policy selection remain tracked separately.
+- Continue Phase D calibration/Insights hardening with real dogfood data, including whether check-in timing and copy need notification-based follow-up.
+- M7 follow-up still includes richer founder inspect/reset tooling and any additional journal detail justified by dogfood; production calibration and learned-policy selection are now connected.
 - Founder Realtime production environment/rate-limit work remains separate from local alarm readiness.
 - Physical-device reliability evidence under #9 remains mandatory before broader release.
