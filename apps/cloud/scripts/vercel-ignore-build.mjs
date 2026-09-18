@@ -16,10 +16,14 @@ export function shouldIgnoreDeployment(paths) {
   return paths.length > 0 && paths.every((path) => !isCloudRuntimePath(path));
 }
 
-export function changedFiles(previousSha, head = "HEAD") {
-  if (!previousSha || !/^[a-f0-9]{7,40}$/i.test(previousSha)) {
-    throw new Error("VERCEL_GIT_PREVIOUS_SHA is unavailable or invalid");
-  }
+export function resolveDiffBase(previousSha, environment) {
+  if (previousSha && /^[a-f0-9]{7,40}$/i.test(previousSha)) return previousSha;
+  if (environment === "preview") return "HEAD^";
+  throw new Error("VERCEL_GIT_PREVIOUS_SHA is unavailable or invalid");
+}
+
+export function changedFiles(baseRef, head = "HEAD") {
+  if (!baseRef) throw new Error("Git diff base is unavailable");
 
   const repositoryRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
     encoding: "utf8",
@@ -28,7 +32,7 @@ export function changedFiles(previousSha, head = "HEAD") {
 
   if (!repositoryRoot) throw new Error("Git repository root could not be resolved");
 
-  return execFileSync("git", ["-C", repositoryRoot, "diff", "--name-only", previousSha, head], {
+  return execFileSync("git", ["-C", repositoryRoot, "diff", "--name-only", baseRef, head], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   })
@@ -41,7 +45,8 @@ function run() {
   try {
     const previousSha = process.env.VERCEL_GIT_PREVIOUS_SHA?.trim() || "";
     const head = process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "HEAD";
-    const paths = changedFiles(previousSha, head);
+    const baseRef = resolveDiffBase(previousSha, process.env.VERCEL_ENV);
+    const paths = changedFiles(baseRef, head);
 
     if (shouldIgnoreDeployment(paths)) {
       console.log("Skipping Vercel build: no apps/cloud runtime files changed.");
