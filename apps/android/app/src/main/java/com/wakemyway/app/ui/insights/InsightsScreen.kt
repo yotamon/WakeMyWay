@@ -249,6 +249,130 @@ private fun PeriodSelector(
 }
 
 @Composable
+private fun MorningCheckInCard(
+    morning: WakeMorningInsight,
+    onCalibrate: (WakeCalibrationOutcome) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WmwCard(modifier = modifier, onLightSurface = true) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+            Text(
+                text = "MORNING CHECK-IN",
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnDeep,
+            )
+            Text(
+                text = if (morning.finalReason == WakeHistoryTerminalReason.STOPPED) {
+                    "You stopped the wake early. Did you stay up?"
+                } else {
+                    "Did this wake actually stick?"
+                },
+                style = MaterialTheme.typography.titleLarge,
+                color = WmwColors.Midnight,
+            )
+            Text(
+                text = "This one-tap check helps WakeMyWay distinguish phone-observed activation from a morning that really worked.",
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.LightQuietText,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                CalibrationChoice(
+                    label = "I'm up",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCalibrate(WakeCalibrationOutcome.GOT_UP) },
+                )
+                CalibrationChoice(
+                    label = "Back to bed",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCalibrate(WakeCalibrationOutcome.RETURNED_TO_BED) },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                CalibrationChoice(
+                    label = "Up later",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCalibrate(WakeCalibrationOutcome.GOT_UP_LATER) },
+                )
+                CalibrationChoice(
+                    label = "Skip",
+                    modifier = Modifier.weight(1f),
+                    quiet = true,
+                    onClick = { onCalibrate(WakeCalibrationOutcome.SKIPPED) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalibrationChoice(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    quiet: Boolean = false,
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(100.dp),
+        color = if (quiet) WmwColors.LightSurfaceMuted else WmwColors.Midnight,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = WmwSpacing.Sm, vertical = 11.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (quiet) WmwColors.LightQuietText else WmwColors.WarmLight,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun LearningCard(
+    state: WakeLearningState,
+    modifier: Modifier = Modifier,
+) {
+    WmwCard(modifier = modifier, onLightSurface = true) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
+            Text(
+                text = "WHAT WAKEMYWAY LEARNED",
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnDeep,
+            )
+            Text(
+                text = when {
+                    state.changedOnLatestRefresh -> "Your next wake has a small adjustment."
+                    state.hasLearnedAdjustment -> "Your wake strategy is holding steady."
+                    else -> "Learning how your mornings work."
+                },
+                style = MaterialTheme.typography.titleLarge,
+                color = WmwColors.Midnight,
+            )
+            Text(
+                text = state.lastAdjustment ?: when {
+                    state.evidenceSessionCount < 4 ->
+                        "${state.evidenceSessionCount}/4 comparable wake sessions collected before the first bounded adjustment can be considered."
+                    else ->
+                        "Recent evidence supports the current strategy, so WakeMyWay is not adding friction just to make a metric move."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
+            )
+            Text(
+                text = "Current strategy · v${state.policy.version}",
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.LightQuietText,
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptyInsights(modifier: Modifier = Modifier) {
     WmwCard(modifier = modifier, onLightSurface = true) {
         Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
