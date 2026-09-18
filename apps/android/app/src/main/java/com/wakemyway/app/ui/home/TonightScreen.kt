@@ -52,6 +52,7 @@ import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.voice.ConversationalAlfredState
+import java.time.LocalTime
 
 data class TonightUiState(
     val wakeTime: String,
@@ -88,7 +89,11 @@ fun TonightScreen(
     onRepairWakeSystem: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val settingsDescription = stringResource(R.string.tonight_edit_wake)
+    val greeting = when (LocalTime.now().hour) {
+        in 5..11 -> "Good morning"
+        in 12..17 -> "Good afternoon"
+        else -> "Good evening"
+    }
 
     WmwCircadianSurface(
         stage = WmwCircadianStage.PLANNING,
@@ -103,28 +108,11 @@ fun TonightScreen(
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader(
-                trailing = {
-                    Surface(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(onClick = onOpenWakeSetup)
-                            .semantics {
-                                role = Role.Button
-                                contentDescription = settingsDescription
-                            },
-                        shape = CircleShape,
-                        color = WmwColors.PaperCard.copy(alpha = 0.72f),
-                        shadowElevation = 1.dp,
-                    ) {
-                        SettingsGlyph(Modifier.padding(11.dp))
-                    }
-                },
-            )
+            WmwBrandHeader()
 
             Spacer(Modifier.height(38.dp))
             Text(
-                text = stringResource(R.string.tonight_greeting),
+                text = greeting,
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
             )
