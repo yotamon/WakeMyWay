@@ -46,7 +46,7 @@ class WakeHistorySessionRecorder internal constructor(
         },
         onStopped = { occurrenceId ->
             runCatching {
-                WakeSafetyCheckScheduler.schedule(context.applicationContext, occurrenceId)
+                WakeSafetyCheckScheduler.scheduleAsync(context.applicationContext, occurrenceId)
             }
         },
     )
