@@ -6,11 +6,13 @@ import com.wakemyway.app.product.history.WakeHistoryEntry
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsProjector
+import com.wakemyway.app.product.learning.WakeLearningState
 import com.wakemyway.app.ui.insights.InsightsScreen
 import com.wakemyway.app.ui.navigation.ConsumerTab
 import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.runtime.WakePolicy
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -49,7 +51,9 @@ class InsightsVisualRegressionTest {
                 ) { contentModifier ->
                     InsightsScreen(
                         summary = summary,
+                        learningState = visualLearningState(),
                         onPeriodSelected = {},
+                        onCalibrateMorning = { _, _ -> },
                         modifier = contentModifier,
                     )
                 }
@@ -73,13 +77,23 @@ class InsightsVisualRegressionTest {
                 ) { contentModifier ->
                     InsightsScreen(
                         summary = summary,
+                        learningState = visualLearningState(),
                         onPeriodSelected = {},
+                        onCalibrateMorning = { _, _ -> },
                         modifier = contentModifier,
                     )
                 }
             }
         }
     }
+
+    private fun visualLearningState() = WakeLearningState(
+        policy = WakePolicy(version = 2, maxEscalationLevel = 4),
+        evidenceSessionCount = 4,
+        latestExplanation = "Repeated incomplete activation justified one bounded update.",
+        lastAdjustment = "WakeMyWay can go one step further when you are not moving yet.",
+        changedOnLatestRefresh = true,
+    )
 
     private fun visualHistory(now: Instant): List<WakeHistoryEntry> {
         val zone = ZoneId.of("Europe/Berlin")
