@@ -65,13 +65,13 @@ fun InsightsScreen(
         ) {
             WmwBrandHeader()
             Text(
-                text = "Your mornings, in real data.",
+                text = "WakeMyWay is learning your mornings.",
                 modifier = Modifier.padding(top = 28.dp),
                 style = MaterialTheme.typography.headlineLarge,
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "WakeMyWay counts what happened on this phone. No sleep score, no guessed quality.",
+                text = "See what actually happened, confirm whether the wake stuck, and understand what changes for next time.",
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
