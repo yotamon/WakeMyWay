@@ -103,25 +103,11 @@ fun ProfileScreen(
                     singleLine = true,
                 )
 
-                WmwCard(onLightSurface = true) {
-                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
-                        Text(
-                            text = "LOCAL PROFILE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = WmwColors.DawnDeep,
-                        )
-                        Text(
-                            text = "No account connected",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = WmwColors.Midnight,
-                        )
-                        Text(
-                            text = "Alarms and preferences work fully on this phone. Account sync will remain optional when it is enabled.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.LightQuietText,
-                        )
-                    }
-                }
+                Text(
+                    text = "Your alarms and wake preferences stay usable on this phone without an account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
+                )
             }
 
             ProfileSection("New alarm defaults", Modifier.padding(top = WmwSpacing.Lg)) {
