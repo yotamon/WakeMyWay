@@ -222,6 +222,13 @@ fun WakeMyWayApp(
                     val nextAlarmReady = nextAlarm
                         ?.let { alarmController.health(it.id)?.ready }
                         ?: alarmHealth.ready
+                    val hasMorningCheckIn = remember(wakeHistory) {
+                        WakeInsightsProjector.project(
+                            entries = wakeHistory,
+                            period = WakeInsightsPeriod.LAST_7_DAYS,
+                            now = Instant.now(),
+                        ).pendingCalibration != null
+                    }
                     WmwConsumerScaffold(
                         selectedTab = ConsumerTab.HOME,
                         onTabSelected = ::navigateTop,
@@ -251,6 +258,8 @@ fun WakeMyWayApp(
                             voiceWakeReadiness = voiceWakeReadiness,
                             onEnableVoiceReplies = onEnableVoiceReplies,
                             onRepairWakeSystem = onRepairWakeSystem,
+                            hasMorningCheckIn = hasMorningCheckIn,
+                            onOpenMorningCheckIn = { navigateTop(ConsumerTab.INSIGHTS) },
                         )
                     }
                 }
