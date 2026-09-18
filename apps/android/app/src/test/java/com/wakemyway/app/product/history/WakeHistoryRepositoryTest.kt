@@ -1,6 +1,8 @@
 package com.wakemyway.app.product.history
 
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
+import com.wakemyway.core.learning.WakeCalibrationOutcome
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -8,6 +10,8 @@ import com.wakemyway.core.schedule.WakeScheduleId
 import java.io.File
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,8 +27,10 @@ class WakeHistoryRepositoryTest {
         get() = RuntimeEnvironment.getApplication()
 
     @Test
-    fun `history round trips behavioral evidence and snooze lineage`() {
+    fun `history round trips behavioral evidence snooze lineage and local schedule`() {
         val repository = repository()
+        val localTime = LocalDateTime.of(2026, 9, 16, 8, 0)
+        val zone = ZoneId.of("Europe/Berlin")
         val completed = entry(
             occurrence = "wake-1",
             finishedAt = "2026-09-16T06:02:00Z",
@@ -36,6 +42,8 @@ class WakeHistoryRepositoryTest {
                 maxInterventionDepth = 1,
             ),
             behaviorTimingOrigin = WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
+            scheduledLocalDateTime = localTime,
+            scheduledZoneId = zone,
         )
         val snoozed = entry(
             occurrence = "wake-2",
@@ -50,6 +58,8 @@ class WakeHistoryRepositoryTest {
 
         assertEquals(listOf(snoozed, completed), repository.list())
         assertNull(repository.list().first().behavior)
+        assertEquals(localTime, repository.list()[1].scheduledLocalDateTime)
+        assertEquals(zone, repository.list()[1].scheduledZoneId)
     }
 
     @Test
@@ -91,6 +101,71 @@ class WakeHistoryRepositoryTest {
         )
         assertEquals(Duration.ofSeconds(6), entry.behavior?.timeToFirstEngagement)
         assertEquals(Duration.ofSeconds(28), entry.behavior?.timeToActivationCompletion)
+        assertNull(entry.scheduledLocalDateTime)
+        assertNull(entry.scheduledZoneId)
+    }
+
+    @Test
+    fun `schema v2 remains readable with local schedule unknown`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(schemaV2Entry(), Charsets.UTF_8)
+
+        val entry = WakeHistoryRepository(context, fileName).list().single()
+
+        assertEquals(
+            WakeHistoryBehaviorTimingOrigin.INTERACTIVE_RUNTIME_START,
+            entry.behaviorTimingOrigin,
+        )
+        assertNull(entry.scheduledLocalDateTime)
+        assertNull(entry.scheduledZoneId)
+    }
+
+    @Test
+    fun `legacy entry survives append and current schema rewrite`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(schemaV2Entry(), Charsets.UTF_8)
+        val repository = WakeHistoryRepository(context, fileName)
+        val local = LocalDateTime.of(2026, 9, 17, 7, 30)
+        val zone = ZoneId.of("Europe/Berlin")
+        val fresh = entry(
+            occurrence = "fresh",
+            finishedAt = "2026-09-17T05:32:00Z",
+            scheduledLocalDateTime = local,
+            scheduledZoneId = zone,
+        )
+
+        assertEquals(1, repository.list().size)
+        repository.record(fresh)
+        val reread = WakeHistoryRepository(context, fileName).list()
+
+        assertEquals(2, reread.size)
+        val legacy = reread.single { it.occurrenceId == WakeOccurrenceId("v2") }
+        val newEntry = reread.single { it.occurrenceId == WakeOccurrenceId("fresh") }
+        assertNull(legacy.scheduledLocalDateTime)
+        assertNull(legacy.scheduledZoneId)
+        assertEquals(local, newEntry.scheduledLocalDateTime)
+        assertEquals(zone, newEntry.scheduledZoneId)
+    }
+
+    @Test
+    fun `calibration updates an existing occurrence without changing terminal facts`() {
+        val repository = repository()
+        val original = entry(
+            occurrence = "calibrate",
+            finishedAt = "2026-09-16T06:02:00Z",
+            reason = WakeHistoryTerminalReason.COMPLETED,
+        )
+        repository.record(original)
+
+        repository.attachCalibration(
+            original.occurrenceId,
+            WakeCalibration(WakeCalibrationOutcome.RETURNED_TO_BED),
+        )
+
+        val calibrated = repository.list().single()
+        assertEquals(original.terminalReason, calibrated.terminalReason)
+        assertEquals(original.finishedAt, calibrated.finishedAt)
+        assertEquals(WakeCalibrationOutcome.RETURNED_TO_BED, calibrated.calibration?.outcome)
     }
 
     @Test
@@ -157,6 +232,31 @@ class WakeHistoryRepositoryTest {
         )
     }
 
+    private fun schemaV2Entry(): String = """
+        {
+          "schemaVersion": 2,
+          "entries": [
+            {
+              "sessionId": "wake-v2",
+              "occurrenceId": "v2",
+              "scheduleId": "schedule",
+              "occurrenceKind": "PRIMARY",
+              "scheduleRevision": 2,
+              "scheduledAt": "2026-09-16T06:00:00Z",
+              "startedAt": "2026-09-16T06:00:05Z",
+              "finishedAt": "2026-09-16T06:01:00Z",
+              "terminalReason": "COMPLETED",
+              "behaviorTimingOrigin": "INTERACTIVE_RUNTIME_START",
+              "behavior": {
+                "policyVersion": 1,
+                "firstEngagementMillis": 5000,
+                "maxInterventionDepth": 0
+              }
+            }
+          ]
+        }
+    """.trimIndent()
+
     private fun repository(): WakeHistoryRepository = WakeHistoryRepository(
         context = context,
         fileName = uniqueFileName(),
@@ -171,6 +271,8 @@ class WakeHistoryRepositoryTest {
         behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
             WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
         },
+        scheduledLocalDateTime: LocalDateTime? = null,
+        scheduledZoneId: ZoneId? = null,
     ): WakeHistoryEntry = WakeHistoryEntry(
         sessionId = WakeSessionId("wake-$occurrence"),
         occurrenceId = WakeOccurrenceId(occurrence),
@@ -182,6 +284,8 @@ class WakeHistoryRepositoryTest {
         },
         scheduleRevision = 3,
         scheduledAt = Instant.parse("2026-09-16T06:00:00Z"),
+        scheduledLocalDateTime = scheduledLocalDateTime,
+        scheduledZoneId = scheduledZoneId,
         startedAt = Instant.parse("2026-09-16T06:00:05Z"),
         finishedAt = Instant.parse(finishedAt),
         terminalReason = reason,

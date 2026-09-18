@@ -33,13 +33,11 @@ import com.wakemyway.app.ui.theme.WmwSpacing
 enum class ConsumerTab(val label: String) {
     HOME("Home"),
     ALARMS("Alarms"),
+    INSIGHTS("Insights"),
     PROFILE("Profile"),
 }
 
-/**
- * Consumer shell navigation exposes only destinations backed by real product behavior.
- * Insights joins this bar in Phase D once wake-history data is actually available.
- */
+/** Consumer shell navigation exposes only destinations backed by real product behavior. */
 @Composable
 fun WmwConsumerScaffold(
     selectedTab: ConsumerTab,
@@ -75,7 +73,7 @@ private fun WmwBottomBar(
     ) {
         Row(
             modifier = Modifier.padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             ConsumerTab.entries.forEach { tab ->
                 val selected = tab == selectedTab
@@ -88,16 +86,17 @@ private fun WmwBottomBar(
                         )
                         .clickable(role = Role.Tab) { onTabSelected(tab) }
                         .semantics { this.selected = selected }
-                        .padding(horizontal = WmwSpacing.Sm, vertical = 13.dp),
+                        .padding(horizontal = 6.dp, vertical = 13.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ConsumerNavGlyph(tab = tab, selected = selected)
                     Text(
                         text = tab.label,
-                        modifier = Modifier.padding(start = WmwSpacing.Xs),
+                        modifier = Modifier.padding(start = 6.dp),
                         style = MaterialTheme.typography.labelLarge,
                         color = if (selected) WmwColors.Midnight else WmwColors.QuietText,
+                        maxLines = 1,
                     )
                 }
             }
@@ -134,6 +133,12 @@ private fun ConsumerNavGlyph(
                 drawLine(color, center, Offset(center.x + 2.6.dp.toPx(), center.y + 1.8.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(4.dp.toPx(), 2.5.dp.toPx()), Offset(2.dp.toPx(), 4.5.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
                 drawLine(color, Offset(size.width - 4.dp.toPx(), 2.5.dp.toPx()), Offset(size.width - 2.dp.toPx(), 4.5.dp.toPx()), strokeWidth = stroke.width, cap = StrokeCap.Round)
+            }
+
+            ConsumerTab.INSIGHTS -> {
+                drawLine(color, Offset(4.dp.toPx(), 14.dp.toPx()), Offset(4.dp.toPx(), 10.dp.toPx()), strokeWidth = 2.2.dp.toPx(), cap = StrokeCap.Round)
+                drawLine(color, Offset(9.dp.toPx(), 14.dp.toPx()), Offset(9.dp.toPx(), 6.dp.toPx()), strokeWidth = 2.2.dp.toPx(), cap = StrokeCap.Round)
+                drawLine(color, Offset(14.dp.toPx(), 14.dp.toPx()), Offset(14.dp.toPx(), 3.dp.toPx()), strokeWidth = 2.2.dp.toPx(), cap = StrokeCap.Round)
             }
 
             ConsumerTab.PROFILE -> {

@@ -26,6 +26,10 @@ import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.product.history.WakeHistoryRepository
+import com.wakemyway.app.product.insights.WakeInsightsPeriod
+import com.wakemyway.app.product.insights.WakeInsightsProjector
+import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
@@ -36,6 +40,7 @@ import com.wakemyway.app.ui.developer.WakeAlarmLabScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
+import com.wakemyway.app.ui.insights.InsightsScreen
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.profile.AboutScreen
@@ -48,6 +53,7 @@ import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.alarm.TomorrowContractMode
 import com.wakemyway.core.schedule.WakeOccurrence
+import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.serialization.Serializable
@@ -60,6 +66,9 @@ private data object HomeRoute : NavKey
 
 @Serializable
 private data object AlarmsRoute : NavKey
+
+@Serializable
+private data object InsightsRoute : NavKey
 
 @Serializable
 private data object ProfileRoute : NavKey
@@ -98,6 +107,8 @@ fun WakeMyWayApp(
     val alarmController = remember { AlarmProductController(context) }
     val preparationManager = remember { WakePreparationManager(context) }
     val preferencesRepository = remember { ConsumerPreferencesRepository(context) }
+    val historyRepository = remember { WakeHistoryRepository(context) }
+    val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
         runCatching {
@@ -110,6 +121,8 @@ fun WakeMyWayApp(
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     var alarms by remember { mutableStateOf(alarmController.list()) }
     var preferences by remember { mutableStateOf(initialPreferences) }
+    var wakeHistory by remember { mutableStateOf(historyRepository.list()) }
+    var wakeLearning by remember { mutableStateOf(learningRepository.state()) }
     val backStack = rememberNavBackStack(
         if (initialPreferences.onboardingCompleted) HomeRoute else OnboardingRoute,
     )
@@ -117,6 +130,21 @@ fun WakeMyWayApp(
     fun refreshProductState(reconcile: Boolean = true) {
         alarmHealth = if (reconcile) alarmKernel.reconcile() else alarmKernel.health()
         alarms = alarmController.list()
+    }
+
+    fun refreshWakeHistory() {
+        wakeHistory = historyRepository.list()
+        wakeLearning = learningRepository.state()
+    }
+
+    fun calibrateMorning(
+        occurrenceId: com.wakemyway.core.schedule.WakeOccurrenceId,
+        outcome: com.wakemyway.core.learning.WakeCalibrationOutcome,
+    ) {
+        runCatching {
+            wakeLearning = learningRepository.submitCalibration(occurrenceId, outcome)
+            wakeHistory = historyRepository.list()
+        }
     }
 
     fun savePreferences(next: ConsumerPreferences) {
@@ -130,11 +158,13 @@ fun WakeMyWayApp(
     }
 
     fun navigateTop(tab: ConsumerTab) {
+        if (tab == ConsumerTab.INSIGHTS) refreshWakeHistory()
         backStack.clear()
         backStack.add(
             when (tab) {
                 ConsumerTab.HOME -> HomeRoute
                 ConsumerTab.ALARMS -> AlarmsRoute
+                ConsumerTab.INSIGHTS -> InsightsRoute
                 ConsumerTab.PROFILE -> ProfileRoute
             },
         )
@@ -168,6 +198,7 @@ fun WakeMyWayApp(
 
     LaunchedEffect(wakeSystemRevision) {
         refreshProductState()
+        refreshWakeHistory()
     }
 
     WakeMyWayTheme(appearance = preferences.appearance) {
@@ -191,6 +222,13 @@ fun WakeMyWayApp(
                     val nextAlarmReady = nextAlarm
                         ?.let { alarmController.health(it.id)?.ready }
                         ?: alarmHealth.ready
+                    val hasMorningCheckIn = remember(wakeHistory) {
+                        WakeInsightsProjector.project(
+                            entries = wakeHistory,
+                            period = WakeInsightsPeriod.LAST_7_DAYS,
+                            now = Instant.now(),
+                        ).pendingCalibration != null
+                    }
                     WmwConsumerScaffold(
                         selectedTab = ConsumerTab.HOME,
                         onTabSelected = ::navigateTop,
@@ -220,6 +258,8 @@ fun WakeMyWayApp(
                             voiceWakeReadiness = voiceWakeReadiness,
                             onEnableVoiceReplies = onEnableVoiceReplies,
                             onRepairWakeSystem = onRepairWakeSystem,
+                            hasMorningCheckIn = hasMorningCheckIn,
+                            onOpenMorningCheckIn = { navigateTop(ConsumerTab.INSIGHTS) },
                         )
                     }
                 }
@@ -256,6 +296,29 @@ fun WakeMyWayApp(
                                         }
                                 }
                             },
+                            modifier = contentModifier,
+                        )
+                    }
+                }
+
+                entry<InsightsRoute> {
+                    var period by remember { mutableStateOf(WakeInsightsPeriod.LAST_7_DAYS) }
+                    val summary = remember(wakeHistory, period) {
+                        WakeInsightsProjector.project(
+                            entries = wakeHistory,
+                            period = period,
+                            now = Instant.now(),
+                        )
+                    }
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.INSIGHTS,
+                        onTabSelected = ::navigateTop,
+                    ) { contentModifier ->
+                        InsightsScreen(
+                            summary = summary,
+                            learningState = wakeLearning,
+                            onPeriodSelected = { period = it },
+                            onCalibrateMorning = ::calibrateMorning,
                             modifier = contentModifier,
                         )
                     }

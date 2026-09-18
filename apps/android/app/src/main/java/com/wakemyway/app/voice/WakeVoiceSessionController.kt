@@ -31,6 +31,7 @@ import java.time.Duration
 interface WakeSessionController : AutoCloseable {
     fun onSurfaceVisible()
     fun onSurfaceHidden()
+    fun confirmOrientation() = Unit
     fun closeForTerminalAction()
 }
 
@@ -40,6 +41,7 @@ class WakeVoiceSessionController(
     private val onUiState: (WakeVoiceUiState) -> Unit,
     private val onCompleted: () -> Unit,
     private val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
+    private val policy: WakePolicy = WakePolicy(),
     private val terminalActions: WakeTerminalActions = WakeTerminalActions(context.applicationContext),
     runtimeTransitionObserver: WakeRuntimeTransitionObserver = WakeRuntimeTransitionObserver.NONE,
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
@@ -47,7 +49,6 @@ class WakeVoiceSessionController(
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private val runtime = WakeRuntime()
-    private val policy = WakePolicy()
     private val runtimeObservation = WakeRuntimeObservationBridge(
         runtime = runtime,
         policy = policy,
@@ -118,16 +119,9 @@ class WakeVoiceSessionController(
                         return@post
                     }
 
-                    val completedIntent = realtimeIntent
                     realtimeTurnInFlight = false
                     realtimeIntent = null
                     dispatch(WakeInput.SpeechFinished(nextInputId("realtime-speech-finished")))
-                    if (
-                        completedIntent == SpeechIntent.Orientation &&
-                        snapshot.phase == WakePhase.ORIENTING
-                    ) {
-                        dispatch(WakeInput.OrientationCompleted(nextInputId("realtime-orientation-complete")))
-                    }
                 }
             }
 
@@ -268,6 +262,12 @@ class WakeVoiceSessionController(
         if (started) syncSurfaceBoundResources()
     }
 
+    override fun confirmOrientation() {
+        if (!closed && started && snapshot.phase == WakePhase.ORIENTING) {
+            dispatch(WakeInput.OrientationCompleted(nextInputId("first-move-confirmed")))
+        }
+    }
+
     override fun onSurfaceHidden() {
         surfaceVisible = false
         mainHandler.removeCallbacks(silenceWatchdog)
@@ -391,13 +391,6 @@ class WakeVoiceSessionController(
             WakeDirective.PresentOrientation -> {
                 mode = WakeVoiceMode.ORIENTING
                 publish()
-                if (!snapshot.capabilities.speechAvailable) {
-                    mainHandler.post {
-                        if (!closed && started && snapshot.phase == WakePhase.ORIENTING) {
-                            dispatch(WakeInput.OrientationCompleted(nextInputId("orientation-without-speech")))
-                        }
-                    }
-                }
             }
 
             is WakeDirective.CompleteSession -> {
@@ -467,17 +460,10 @@ class WakeVoiceSessionController(
                 when (result) {
                     LocalSpeechResult.Completed -> {
                         dispatch(WakeInput.SpeechFinished(nextInputId("speech-finished")))
-                        if (intent == SpeechIntent.Orientation && snapshot.phase == WakePhase.ORIENTING) {
-                            dispatch(WakeInput.OrientationCompleted(nextInputId("orientation-complete")))
-                        }
                     }
 
                     is LocalSpeechResult.Failed -> {
-                        if (intent == SpeechIntent.Orientation && snapshot.phase == WakePhase.ORIENTING) {
-                            dispatch(WakeInput.OrientationCompleted(nextInputId("orientation-speech-failed")))
-                        } else {
-                            dispatch(WakeInput.SpeechFailed(nextInputId("speech-failed")))
-                        }
+                        dispatch(WakeInput.SpeechFailed(nextInputId("speech-failed")))
                     }
                 }
             }
@@ -683,6 +669,7 @@ class WakeVoiceSessionController(
             started &&
             surfaceVisible &&
             snapshot.phase != WakePhase.FINISHED &&
+            snapshot.phase != WakePhase.ORIENTING &&
             !speaking &&
             !listening
         ) {

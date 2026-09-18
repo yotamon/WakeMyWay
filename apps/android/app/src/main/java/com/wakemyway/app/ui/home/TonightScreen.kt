@@ -52,6 +52,7 @@ import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.voice.ConversationalAlfredState
+import java.time.LocalTime
 
 data class TonightUiState(
     val wakeTime: String,
@@ -86,9 +87,16 @@ fun TonightScreen(
     voiceWakeReadiness: VoiceWakeReadiness? = null,
     onEnableVoiceReplies: () -> Unit = {},
     onRepairWakeSystem: () -> Unit = {},
+    hasMorningCheckIn: Boolean = false,
+    onOpenMorningCheckIn: () -> Unit = {},
+    greetingOverride: String? = null,
 ) {
     val context = LocalContext.current
-    val settingsDescription = stringResource(R.string.tonight_edit_wake)
+    val greeting = greetingOverride ?: when (LocalTime.now().hour) {
+        in 5..11 -> "Good morning"
+        in 12..17 -> "Good afternoon"
+        else -> "Good evening"
+    }
 
     WmwCircadianSurface(
         stage = WmwCircadianStage.PLANNING,
@@ -103,28 +111,11 @@ fun TonightScreen(
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader(
-                trailing = {
-                    Surface(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clickable(onClick = onOpenWakeSetup)
-                            .semantics {
-                                role = Role.Button
-                                contentDescription = settingsDescription
-                            },
-                        shape = CircleShape,
-                        color = WmwColors.PaperCard.copy(alpha = 0.72f),
-                        shadowElevation = 1.dp,
-                    ) {
-                        SettingsGlyph(Modifier.padding(11.dp))
-                    }
-                },
-            )
+            WmwBrandHeader()
 
             Spacer(Modifier.height(38.dp))
             Text(
-                text = stringResource(R.string.tonight_greeting),
+                text = greeting,
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
             )
@@ -143,6 +134,33 @@ fun TonightScreen(
 
             Spacer(Modifier.height(28.dp))
             NextWakeCard(state = state)
+
+            if (hasMorningCheckIn) {
+                WmwCard(
+                    modifier = Modifier
+                        .padding(top = WmwSpacing.Md)
+                        .clickable(onClick = onOpenMorningCheckIn),
+                    onLightSurface = true,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                        Text(
+                            text = "MORNING CHECK-IN",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = WmwColors.DawnDeep,
+                        )
+                        Text(
+                            text = "Did the last wake actually stick?",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.Midnight,
+                        )
+                        Text(
+                            text = "One tap helps WakeMyWay learn the difference between phone-observed activation and a morning that really worked.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WmwColors.LightQuietText,
+                        )
+                    }
+                }
+            }
 
             if (state.hasOccurrence && !state.wakeReady) {
                 WakeSystemAttention(

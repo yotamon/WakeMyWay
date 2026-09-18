@@ -1,11 +1,14 @@
 package com.wakemyway.app.product.history
 
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 
 enum class WakeHistoryTerminalReason {
     /** WakeRuntime reached its authored completion path and durable Stop succeeded. */
@@ -38,6 +41,9 @@ enum class WakeHistoryBehaviorTimingOrigin {
  * This is normal credential-protected product history, never Direct-Boot or Alarm Kernel authority.
  * Behavioral evidence is nullable because alarm-only wakes and sessions interrupted before runtime
  * observation must remain unknown rather than being mislabeled as failure or success.
+ *
+ * New records also retain their scheduled local date/time and zone. They are nullable only for
+ * entries migrated from older schemas so travelling later cannot silently relabel historic mornings.
  */
 data class WakeHistoryEntry(
     val sessionId: WakeSessionId,
@@ -46,6 +52,8 @@ data class WakeHistoryEntry(
     val occurrenceKind: WakeOccurrenceKind,
     val scheduleRevision: Long,
     val scheduledAt: Instant,
+    val scheduledLocalDateTime: LocalDateTime? = null,
+    val scheduledZoneId: ZoneId? = null,
     val startedAt: Instant,
     val finishedAt: Instant,
     val terminalReason: WakeHistoryTerminalReason,
@@ -54,11 +62,15 @@ data class WakeHistoryEntry(
     val behaviorTimingOrigin: WakeHistoryBehaviorTimingOrigin? = behavior?.let {
         WakeHistoryBehaviorTimingOrigin.LEGACY_UNSPECIFIED
     },
+    val calibration: WakeCalibration? = null,
 ) {
     init {
         require(scheduleRevision > 0) { "Wake history schedule revision must be positive" }
         require(!finishedAt.isBefore(startedAt)) {
             "Wake history cannot finish before it started"
+        }
+        require((scheduledLocalDateTime == null) == (scheduledZoneId == null)) {
+            "Wake history local schedule time and zone must be present together"
         }
         when (terminalReason) {
             WakeHistoryTerminalReason.SNOOZED -> require(replacementOccurrenceId != null) {

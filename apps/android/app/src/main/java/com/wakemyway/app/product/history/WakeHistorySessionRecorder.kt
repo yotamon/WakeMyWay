@@ -3,6 +3,7 @@ package com.wakemyway.app.product.history
 import android.content.Context
 import com.wakemyway.app.alarm.WakeTerminalObserver
 import com.wakemyway.app.alarm.WakeTerminalReason
+import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.core.learning.WakeBehaviorEvidenceTracker
 import com.wakemyway.core.runtime.WakeInput
 import com.wakemyway.core.runtime.WakeSessionId
@@ -23,6 +24,7 @@ class WakeHistorySessionRecorder internal constructor(
     private val occurrence: WakeOccurrence,
     private val repository: WakeHistoryRepository,
     private val clock: Clock = Clock.systemUTC(),
+    private val onHistoryChanged: () -> Unit = {},
 ) : WakeTerminalObserver {
     private val sessionId = WakeSessionId("wake-${occurrence.id.value}")
     private val startedAt = clock.instant()
@@ -35,6 +37,11 @@ class WakeHistorySessionRecorder internal constructor(
     ) : this(
         occurrence = occurrence,
         repository = WakeHistoryRepository(context.applicationContext),
+        onHistoryChanged = {
+            runCatching {
+                WakeLearningRepository(context.applicationContext).refresh()
+            }
+        },
     )
 
     @Synchronized
@@ -79,6 +86,8 @@ class WakeHistorySessionRecorder internal constructor(
                 occurrenceKind = this.occurrence.kind,
                 scheduleRevision = this.occurrence.scheduleRevision,
                 scheduledAt = this.occurrence.scheduledAt.toInstant(),
+                scheduledLocalDateTime = this.occurrence.scheduledLocalDateTime,
+                scheduledZoneId = this.occurrence.scheduledAt.zone,
                 startedAt = startedAt,
                 finishedAt = clock.instant().atLeast(startedAt),
                 terminalReason = historyReason,
@@ -91,7 +100,10 @@ class WakeHistorySessionRecorder internal constructor(
         }.getOrNull() ?: return
 
         val recorded = runCatching { repository.record(entry) }.isSuccess
-        if (recorded) terminalRecorded = true
+        if (recorded) {
+            terminalRecorded = true
+            runCatching(onHistoryChanged)
+        }
     }
 
     private fun Instant.atLeast(minimum: Instant): Instant =

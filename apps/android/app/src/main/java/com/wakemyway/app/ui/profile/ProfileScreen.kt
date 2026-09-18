@@ -103,25 +103,11 @@ fun ProfileScreen(
                     singleLine = true,
                 )
 
-                WmwCard(onLightSurface = true) {
-                    Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
-                        Text(
-                            text = "LOCAL PROFILE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = WmwColors.DawnDeep,
-                        )
-                        Text(
-                            text = "No account connected",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = WmwColors.Midnight,
-                        )
-                        Text(
-                            text = "Alarms and preferences work fully on this phone. Account sync will remain optional when it is enabled.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.LightQuietText,
-                        )
-                    }
-                }
+                Text(
+                    text = "Your alarms and wake preferences stay usable on this phone without an account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
+                )
             }
 
             ProfileSection("New alarm defaults", Modifier.padding(top = WmwSpacing.Lg)) {
@@ -280,8 +266,8 @@ fun PrivacyScreen(
                 body = "Exact scheduling, critical playback, Stop and Snooze are local Android responsibilities. Optional cloud enrichment is not Wake Ready authority.",
             )
             PrivacyFact(
-                title = "Account",
-                body = "No consumer account is connected in this build. Local alarms and preferences do not require one.",
+                title = "No account required",
+                body = "Core alarms, preferences, history and local learning work on this phone without signing in.",
             )
         }
     }
@@ -303,17 +289,17 @@ fun AboutScreen(
             BackHeader("About", onBack)
             Spacer(Modifier.weight(1f))
             com.wakemyway.app.ui.components.WmwBrandHero(
-                tagline = "Brighter mornings. Your way.",
+                tagline = "The alarm that learns how to wake you.",
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = "WakeMyWay wakes up with you, not at you.",
+                text = "WakeMyWay learns the least friction that actually gets you moving.",
                 modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
                 style = MaterialTheme.typography.titleLarge,
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "A local-first, voice-aware wake experience built around reliable alarms, intentional mornings and one achievable first move.",
+                text = "A local-first wake system that combines reliable alarms, conversation, movement evidence, one achievable First Move and bounded learning from real mornings.",
                 modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,

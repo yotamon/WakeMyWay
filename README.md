@@ -63,7 +63,7 @@ The production morning path already connects the alarm kernel, deterministic Wak
 | Alfred local character + offline TTS | ✅ Production-connected |
 | On-device spoken replies | ✅ Production-connected |
 | Tomorrow Contract + prepared wake plan | ✅ Production-connected |
-| Deterministic Wake Learning v0 | ✅ Core merged, live journal/application wiring still open |
+| Deterministic Wake Learning v0 | ✅ Production history, calibration and next-session policy selection connected |
 | Realtime conversational voice | 🧪 Experimental measurement track only |
 | Physical overnight reliability proof | 🔬 Next validation gate |
 
@@ -146,7 +146,7 @@ Reviewed product states are protected with curated Roborazzi visual regression.
 
 ### 🔁 Explainable local learning
 
-Wake Learning v0 is deterministic, bounded, versioned, reversible, and local-first. It is designed to adapt strategy without silently mutating an active wake session or becoming a dependency for alarm delivery.
+Wake Learning v0 is deterministic, bounded, versioned, reversible, and local-first. Real production Wake history now feeds sparse user calibration and a persisted learned policy that is resolved once before the next interactive Wake Session starts. Learning never mutates an active session and never becomes a dependency for alarm delivery.
 
 ## Architecture in one picture
 

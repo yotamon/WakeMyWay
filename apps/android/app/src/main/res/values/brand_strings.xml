@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="wmw_brand_name">WakeMyWay</string>
-    <string name="wmw_brand_tagline">Brighter mornings. Your way.</string>
+    <string name="wmw_brand_tagline">The alarm that learns how to wake you.</string>
     <string name="tonight_brand_home_title">Tomorrow starts here.</string>
-    <string name="tonight_brand_home_subtitle">Set the tone tonight, then wake up calmer, clearer and on your terms.</string>
+    <string name="tonight_brand_home_subtitle">Set tomorrow’s wake. WakeMyWay learns the least friction that actually gets you moving.</string>
     <string name="tonight_next_wake_label">Next wake</string>
     <string name="tonight_review_alfred_connection">Review Alfred connection</string>
     <string name="tonight_connect_alfred">Connect Alfred</string>

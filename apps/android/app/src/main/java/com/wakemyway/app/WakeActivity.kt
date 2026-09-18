@@ -116,6 +116,7 @@ class WakeActivity : ComponentActivity() {
                         null
                     },
                     onStop = { viewModel.requestStop() },
+                    onFirstMoveConfirmed = { viewModel.confirmFirstMove() },
                     voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
                     snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
                     voiceState = voiceState,
@@ -191,6 +192,7 @@ internal fun WakeSurface(
     preparedPlan: PreparedWakePlan?,
     onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    onFirstMoveConfirmed: () -> Unit = {},
     modifier: Modifier = Modifier,
     displayTime: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
     displayDate: String = LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE · d MMM")),
@@ -251,6 +253,7 @@ internal fun WakeSurface(
             displayDate = displayDate,
             onSnooze = onSnooze,
             onStop = onStop,
+            onFirstMoveConfirmed = onFirstMoveConfirmed,
             snoozeMinutes = snoozeMinutes,
             modifier = modifier,
         )
@@ -482,6 +485,7 @@ private fun OrientedWakeSurface(
     displayDate: String,
     onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
+    onFirstMoveConfirmed: () -> Unit,
     snoozeMinutes: Long,
     modifier: Modifier,
 ) {
@@ -528,25 +532,31 @@ private fun OrientedWakeSurface(
             color = WmwColors.Midnight,
         )
 
-        Row(
+        FirstMoveTile(
+            label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+                ?: defaultFirstMove
+                ?: stringResource(R.string.wake_first_move_fallback),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = WmwSpacing.Md),
-            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
-        ) {
-            FirstMoveTile(
-                label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
-                    ?: defaultFirstMove
-                    ?: stringResource(R.string.wake_first_move_fallback),
-                modifier = Modifier.weight(1f),
-            )
-            FirstMoveTile(
-                label = stringResource(R.string.wake_keep_moving),
-                modifier = Modifier.weight(1f),
-            )
-        }
+        )
+        Text(
+            text = stringResource(R.string.wake_first_move_confirmation_detail),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Sm),
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.LightQuietText,
+            textAlign = TextAlign.Center,
+        )
 
         Spacer(Modifier.weight(1f))
+        WmwPrimaryAction(
+            label = stringResource(R.string.wake_first_move_action),
+            onClick = onFirstMoveConfirmed,
+            onLightSurface = true,
+            tone = WmwActionTone.WARM,
+        )
         WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
     }
 }

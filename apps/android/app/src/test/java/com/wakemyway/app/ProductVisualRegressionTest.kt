@@ -77,6 +77,7 @@ class ProductVisualRegressionTest {
                     onOpenWakeSetup = {},
                     onOpenTomorrowPlan = {},
                     onOpenWakeLab = {},
+                    greetingOverride = "Good evening",
                 )
             }
         }
@@ -101,6 +102,7 @@ class ProductVisualRegressionTest {
                     onOpenWakeSetup = {},
                     onOpenTomorrowPlan = {},
                     onOpenWakeLab = {},
+                    greetingOverride = "Good evening",
                 )
             }
         }
@@ -123,6 +125,7 @@ class ProductVisualRegressionTest {
                     onOpenWakeSetup = {},
                     onOpenTomorrowPlan = {},
                     onOpenWakeLab = {},
+                    greetingOverride = "Good evening",
                 )
             }
         }

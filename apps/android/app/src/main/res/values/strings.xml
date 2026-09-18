@@ -133,6 +133,8 @@
     <string name="wake_whats_first">What’s first?</string>
     <string name="wake_first_move_fallback">Get moving</string>
     <string name="wake_keep_moving">Keep moving</string>
+    <string name="wake_first_move_confirmation_detail">Start with this. Confirm when you are moving into your morning.</string>
+    <string name="wake_first_move_action">I’m doing it</string>
     <string name="wake_snooze_short">Snooze 5 min</string>
     <string name="wake_snooze_minutes">Snooze %1$d min</string>
     <string name="wake_snooze_five">I need five more minutes</string>

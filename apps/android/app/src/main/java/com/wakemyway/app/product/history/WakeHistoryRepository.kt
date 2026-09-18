@@ -3,6 +3,8 @@ package com.wakemyway.app.product.history
 import android.content.Context
 import android.util.AtomicFile
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
+import com.wakemyway.core.learning.WakeCalibrationOutcome
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -11,6 +13,8 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -50,6 +54,23 @@ class WakeHistoryRepository(
             .sortedWith(ENTRY_ORDER)
             .take(maxEntries)
         writeDocument(next)
+    }
+
+    @Synchronized
+    fun attachCalibration(
+        occurrenceId: WakeOccurrenceId,
+        calibration: WakeCalibration,
+    ) {
+        val current = readDocument()
+        val index = current.indexOfFirst { it.occurrenceId == occurrenceId }
+        require(index >= 0) { "Cannot calibrate an unknown Wake occurrence" }
+        val existing = current[index]
+        if (existing.calibration == calibration) return
+
+        val next = current.toMutableList().apply {
+            this[index] = existing.copy(calibration = calibration)
+        }
+        writeDocument(next.sortedWith(ENTRY_ORDER).take(maxEntries))
     }
 
     @Synchronized
@@ -117,6 +138,10 @@ class WakeHistoryRepository(
         put(KEY_OCCURRENCE_KIND, entry.occurrenceKind.name)
         put(KEY_SCHEDULE_REVISION, entry.scheduleRevision)
         put(KEY_SCHEDULED_AT, entry.scheduledAt.toString())
+        entry.scheduledLocalDateTime?.let {
+            put(KEY_SCHEDULED_LOCAL_DATE_TIME, it.toString())
+            put(KEY_SCHEDULED_ZONE_ID, requireNotNull(entry.scheduledZoneId).id)
+        }
         put(KEY_STARTED_AT, entry.startedAt.toString())
         put(KEY_FINISHED_AT, entry.finishedAt.toString())
         put(KEY_TERMINAL_REASON, entry.terminalReason.name)
@@ -127,6 +152,9 @@ class WakeHistoryRepository(
                 KEY_BEHAVIOR_TIMING_ORIGIN,
                 requireNotNull(entry.behaviorTimingOrigin).name,
             )
+        }
+        entry.calibration?.let {
+            put(KEY_CALIBRATION_OUTCOME, it.outcome.name)
         }
     }
 
@@ -142,6 +170,16 @@ class WakeHistoryRepository(
                 json.getString(KEY_BEHAVIOR_TIMING_ORIGIN),
             )
         }
+        val scheduledLocalDateTimeValue = json.optString(KEY_SCHEDULED_LOCAL_DATE_TIME)
+            .takeIf(String::isNotBlank)
+        val scheduledZoneIdValue = json.optString(KEY_SCHEDULED_ZONE_ID)
+            .takeIf(String::isNotBlank)
+        require((scheduledLocalDateTimeValue == null) == (scheduledZoneIdValue == null)) {
+            "Wake history local schedule metadata is incomplete"
+        }
+        val scheduledLocalDateTime = scheduledLocalDateTimeValue?.let(LocalDateTime::parse)
+        val scheduledZoneId = scheduledZoneIdValue?.let(ZoneId::of)
+
         return WakeHistoryEntry(
             sessionId = WakeSessionId(json.getString(KEY_SESSION_ID)),
             occurrenceId = WakeOccurrenceId(json.getString(KEY_OCCURRENCE_ID)),
@@ -149,6 +187,8 @@ class WakeHistoryRepository(
             occurrenceKind = WakeOccurrenceKind.valueOf(json.getString(KEY_OCCURRENCE_KIND)),
             scheduleRevision = json.getLong(KEY_SCHEDULE_REVISION),
             scheduledAt = Instant.parse(json.getString(KEY_SCHEDULED_AT)),
+            scheduledLocalDateTime = scheduledLocalDateTime,
+            scheduledZoneId = scheduledZoneId,
             startedAt = Instant.parse(json.getString(KEY_STARTED_AT)),
             finishedAt = Instant.parse(json.getString(KEY_FINISHED_AT)),
             terminalReason = WakeHistoryTerminalReason.valueOf(json.getString(KEY_TERMINAL_REASON)),
@@ -157,6 +197,9 @@ class WakeHistoryRepository(
                 ?.let(::WakeOccurrenceId),
             behavior = behavior,
             behaviorTimingOrigin = behaviorTimingOrigin,
+            calibration = json.optString(KEY_CALIBRATION_OUTCOME)
+                .takeIf(String::isNotBlank)
+                ?.let { WakeCalibration(WakeCalibrationOutcome.valueOf(it)) },
         )
     }
 
@@ -189,8 +232,8 @@ class WakeHistoryRepository(
         const val DEFAULT_FILE_NAME = "wake-history-v1.json"
         const val DEFAULT_MAX_ENTRIES = 512
 
-        private const val SCHEMA_VERSION = 2
-        private val SUPPORTED_SCHEMA_VERSIONS = setOf(1, SCHEMA_VERSION)
+        private const val SCHEMA_VERSION = 4
+        private val SUPPORTED_SCHEMA_VERSIONS = setOf(1, 2, 3, SCHEMA_VERSION)
         private const val KEY_SCHEMA_VERSION = "schemaVersion"
         private const val KEY_ENTRIES = "entries"
         private const val KEY_SESSION_ID = "sessionId"
@@ -199,6 +242,8 @@ class WakeHistoryRepository(
         private const val KEY_OCCURRENCE_KIND = "occurrenceKind"
         private const val KEY_SCHEDULE_REVISION = "scheduleRevision"
         private const val KEY_SCHEDULED_AT = "scheduledAt"
+        private const val KEY_SCHEDULED_LOCAL_DATE_TIME = "scheduledLocalDateTime"
+        private const val KEY_SCHEDULED_ZONE_ID = "scheduledZoneId"
         private const val KEY_STARTED_AT = "startedAt"
         private const val KEY_FINISHED_AT = "finishedAt"
         private const val KEY_TERMINAL_REASON = "terminalReason"
@@ -210,6 +255,7 @@ class WakeHistoryRepository(
         private const val KEY_MEANINGFUL_MOVEMENT_MILLIS = "meaningfulMovementMillis"
         private const val KEY_ACTIVATION_COMPLETION_MILLIS = "activationCompletionMillis"
         private const val KEY_MAX_INTERVENTION_DEPTH = "maxInterventionDepth"
+        private const val KEY_CALIBRATION_OUTCOME = "calibrationOutcome"
 
         private val ENTRY_ORDER = compareByDescending<WakeHistoryEntry> { it.finishedAt }
             .thenByDescending { it.occurrenceId.value }
