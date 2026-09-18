@@ -77,6 +77,19 @@ class WakeSessionViewModelTest {
     }
 
     @Test
+    fun `first move confirmation is delegated without becoming a terminal shortcut`() {
+        val fake = FakeWakeSessionController()
+        val viewModel = WakeSessionViewModel({ _, _ -> fake })
+
+        viewModel.onSurfaceVisible()
+        viewModel.confirmFirstMove()
+
+        assertEquals(1, fake.confirmOrientationCalls)
+        assertFalse(viewModel.completed)
+        assertEquals(0, fake.terminalCloseCalls)
+    }
+
+    @Test
     fun `explicit terminal action closes once and suppresses following onPause`() {
         val fake = FakeWakeSessionController()
         val viewModel = WakeSessionViewModel({ _, _ -> fake })
@@ -162,6 +175,7 @@ class WakeSessionViewModelTest {
         var visibleCalls = 0
         var hiddenCalls = 0
         var terminalCloseCalls = 0
+        var confirmOrientationCalls = 0
         var closeCalls = 0
 
         override fun onSurfaceVisible() {
@@ -170,6 +184,10 @@ class WakeSessionViewModelTest {
 
         override fun onSurfaceHidden() {
             hiddenCalls += 1
+        }
+
+        override fun confirmOrientation() {
+            confirmOrientationCalls += 1
         }
 
         override fun closeForTerminalAction() {
