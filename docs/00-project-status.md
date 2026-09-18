@@ -3,8 +3,9 @@
 **Last updated:** 2026-09-19  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
-**Current product phase:** Phase D real history + consumer calibration + bounded next-session learning connected; founder physical reliability proof ongoing  
-**Current product PR:** none after #73; authenticated account backend is not yet provisioned  
+**Current product phase:** Phase D adaptive loop + post-Stop safety check connected; founder physical reliability proof ongoing  
+**Current product PR:** none; #80 adaptive product loop and #81 post-Stop safety check are merged to `main`  
+**Account backend:** authenticated backup backend code exists; production provisioning and user-facing Sign In remain deferred  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority
