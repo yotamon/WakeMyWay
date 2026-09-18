@@ -26,6 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
+import com.wakemyway.app.product.learning.WakeLearningState
+import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsSummary
 import com.wakemyway.app.product.insights.WakeMorningInsight
@@ -43,7 +46,9 @@ import java.util.Locale
 @Composable
 fun InsightsScreen(
     summary: WakeInsightsSummary,
+    learningState: WakeLearningState,
     onPeriodSelected: (WakeInsightsPeriod) -> Unit,
+    onCalibrateMorning: (WakeOccurrenceId, WakeCalibrationOutcome) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -82,6 +87,21 @@ fun InsightsScreen(
                 EmptyInsights(modifier = Modifier.padding(top = WmwSpacing.Lg))
                 return@Column
             }
+
+            summary.pendingCalibration?.let { morning ->
+                MorningCheckInCard(
+                    morning = morning,
+                    onCalibrate = { outcome ->
+                        onCalibrateMorning(morning.finalOccurrenceId, outcome)
+                    },
+                    modifier = Modifier.padding(top = WmwSpacing.Lg),
+                )
+            }
+
+            LearningCard(
+                state = learningState,
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+            )
 
             WmwCard(
                 modifier = Modifier.padding(top = WmwSpacing.Lg),
