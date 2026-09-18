@@ -64,6 +64,7 @@ The production morning path already connects the alarm kernel, deterministic Wak
 | On-device spoken replies | ✅ Production-connected |
 | Tomorrow Contract + prepared wake plan | ✅ Production-connected |
 | Deterministic Wake Learning v0 | ✅ Production history, calibration and next-session policy selection connected |
+| Post-Stop Morning Safety Check | ✅ Non-critical local 15-minute follow-up with quick calibration actions |
 | Realtime conversational voice | 🧪 Experimental measurement track only |
 | Physical overnight reliability proof | 🔬 Next validation gate |
 
