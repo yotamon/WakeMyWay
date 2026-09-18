@@ -43,28 +43,16 @@ private data class OnboardingPage(
 
 private val pages = listOf(
     OnboardingPage(
-        eyebrow = "WELCOME",
-        title = "Mornings feel better your way.",
-        body = "WakeMyWay turns an alarm into a calmer morning you can actually respond to.",
-        detail = "Set the time, choose the sound, and let the rest of the wake adapt around you.",
-    ),
-    OnboardingPage(
-        eyebrow = "VOICE CHECK-IN",
-        title = "A wake that waits for you.",
-        body = "Alfred can speak, listen for a real reply, and keep the wake moving without handing control to the cloud.",
-        detail = "Voice permission is requested only when you choose a Voice Check-In alarm. Alarm delivery stays local.",
-    ),
-    OnboardingPage(
-        eyebrow = "TOMORROW CONTRACT",
-        title = "Give tomorrow a reason.",
-        body = "Leave one private reason for getting up and one simple First Move for the version of you who just woke up.",
-        detail = "Tomorrow Contract text stays credential-protected on this device and is never required to fire the alarm.",
+        eyebrow = "WAKE UP YOUR WAY",
+        title = "The alarm that learns how to wake you.",
+        body = "WakeMyWay does more than ring. It talks, waits for a real response, asks you to move, and learns which amount of friction actually helps your mornings.",
+        detail = "Start with one wake. Every real morning can make the next strategy a little more personal without making the alarm depend on AI or the internet.",
     ),
     OnboardingPage(
         eyebrow = "LOCAL FIRST",
-        title = "Your alarm does not need the internet.",
-        body = "Wake schedules, critical playback, Stop and Snooze are owned locally by the phone.",
-        detail = "Android permissions are explained in context when a feature actually needs them. An account is optional, not a Wake Ready requirement.",
+        title = "Reliable first. Personal second.",
+        body = "The alarm, critical sound, Stop and Snooze stay on your phone. Voice Check-In and a private reason for tomorrow are optional parts of the wake you choose.",
+        detail = "Permissions are requested only when a feature needs them. You do not need an account to create a wake or use WakeMyWay.",
     ),
 )
 
