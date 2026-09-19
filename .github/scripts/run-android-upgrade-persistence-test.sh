@@ -18,8 +18,9 @@ capture_diagnostics() {
 trap capture_diagnostics EXIT
 
 run_test() {
-  local method="$1"
-  adb shell am instrument -w     -e class "${TEST_CLASS}#${method}"     "$RUNNER"
+  local phase="$1"
+  local method="$2"
+  adb shell am instrument -w     -e wmwUpgradePhase "$phase"     -e class "${TEST_CLASS}#${method}"     "$RUNNER"
 }
 
 adb uninstall "$TEST_ID" >/dev/null 2>&1 || true
@@ -27,7 +28,7 @@ adb uninstall "$APP_ID" >/dev/null 2>&1 || true
 
 adb install "$BASE_APK"
 adb install "$TEST_APK"
-run_test "seedPersistentStateForUpgrade"
+run_test "seed" "seedPersistentStateForUpgrade"
 
 first_install_before="$(
   adb shell dumpsys package "$APP_ID" |
@@ -53,7 +54,7 @@ test "$first_install_before" = "$first_install_after" || {
   exit 1
 }
 
-run_test "verifyPersistentStateAfterUpgrade"
-run_test "cleanupUpgradeContractState"
+run_test "verify" "verifyPersistentStateAfterUpgrade"
+run_test "cleanup" "cleanupUpgradeContractState"
 
 echo "WakeMyWay package replacement preserved durable alarm/product state."
