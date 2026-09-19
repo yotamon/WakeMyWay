@@ -25,7 +25,7 @@ AGP 9 built-in Kotlin is used for Android modules. Do not add `org.jetbrains.kot
 Until the standard Gradle wrapper JAR is committed, use Gradle 9.6.1 directly:
 
 ```bash
-gradle test lint assembleDebug
+gradle :wake-core:test :app:testDirectDebugUnitTest :app:lintDirectDebug :app:assembleDirectDebug
 ```
 
 CI pins Gradle 9.6.1 explicitly. The standard wrapper JAR is tracked as a small M0 follow-up and must be added before M0 closes.
