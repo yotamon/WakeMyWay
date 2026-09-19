@@ -123,9 +123,13 @@ internal fun UpdateStatusCard(
                     onClick = onOpenInstallPermission,
                 )
 
+                is UpdateState.Deferred -> UpdateTextAction(
+                    label = "Check safety again",
+                    onClick = onInstallUpdate,
+                )
+
                 UpdateState.Checking,
                 is UpdateState.Downloading,
-                is UpdateState.Deferred,
                 is UpdateState.Installing,
                 -> Unit
             }
