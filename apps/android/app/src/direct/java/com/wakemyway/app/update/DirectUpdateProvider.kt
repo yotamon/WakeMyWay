@@ -1,5 +1,6 @@
 package com.wakemyway.app.update
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -10,7 +11,6 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.core.content.FileProvider
 import java.io.File
-import java.io.FileInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -28,7 +28,7 @@ internal class DirectUpdateProvider(
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val packageManager = activity.packageManager
-    private val preferences = activity.getSharedPreferences(PREFERENCES, ComponentActivity.MODE_PRIVATE)
+    private val preferences = activity.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -40,6 +40,17 @@ internal class DirectUpdateProvider(
     ) {
         executor.execute {
             runCatching {
+                val pending = loadPending()
+                if (pending != null && pending.release.versionCode > currentVersionCode) {
+                    val file = File(pending.path)
+                    if (file.isFile) {
+                        verifyPackageIdentity(file, pending.release)
+                        return@runCatching UpdateProviderCheck.ReadyToInstall(pending.release)
+                    } else {
+                        clearPending()
+                    }
+                }
+
                 val manifest = readManifest()
                 validateManifest(manifest)
 
@@ -357,7 +368,7 @@ internal class DirectUpdateProvider(
     }
 
     private fun ByteArray.toHex(): String = joinToString(separator = "") { byte ->
-        "%02x".format(byte)
+        "%02x".format(byte.toInt() and 0xff)
     }
 
     private data class PendingDirectUpdate(
