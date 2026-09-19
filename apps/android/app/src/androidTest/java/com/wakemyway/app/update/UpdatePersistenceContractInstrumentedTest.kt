@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.test.platform.app.InstrumentationRegistry
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.CriticalWakeReadResult
 import com.wakemyway.app.alarm.CriticalWakeStore
@@ -46,21 +45,8 @@ import org.junit.runner.RunWith
  * with `adb install -r` (never uninstalling or clearing data), then invokes
  * [verifyPersistentStateAfterUpgrade] against the candidate.
  */
-@Retention(AnnotationRetention.RUNTIME)
-@Target(AnnotationTarget.CLASS)
-annotation class UpgradePersistenceContractOnly
-
 @RunWith(AndroidJUnit4::class)
-@UpgradePersistenceContractOnly
 class UpdatePersistenceContractInstrumentedTest {
-    @Before
-    fun requireExplicitUpgradeContractRun() {
-        assumeTrue(
-            "Upgrade persistence contract runs only from its two-phase CI lane",
-            InstrumentationRegistry.getArguments().getString(UPGRADE_CONTRACT_ARGUMENT) == "true",
-        )
-    }
-
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
 
