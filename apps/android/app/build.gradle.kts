@@ -82,8 +82,8 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.kotlinx.serialization.core)
 
-    directImplementation(libs.kotlinx.serialization.json)
-    playImplementation(libs.play.app.update.ktx)
+    add("directImplementation", libs.kotlinx.serialization.json)
+    add("playImplementation", libs.play.app.update.ktx)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
