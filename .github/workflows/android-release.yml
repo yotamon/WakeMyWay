@@ -13,7 +13,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  signing-config:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    env:
+      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
+      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
+      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
+      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
+      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
+      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          required=(
+            WMW_DIRECT_KEYSTORE_B64
+            WMW_DIRECT_KEY_ALIAS
+            WMW_DIRECT_STORE_PASSWORD
+            WMW_DIRECT_KEY_PASSWORD
+            WMW_PLAY_UPLOAD_KEYSTORE_B64
+            WMW_PLAY_UPLOAD_KEY_ALIAS
+            WMW_PLAY_UPLOAD_STORE_PASSWORD
+            WMW_PLAY_UPLOAD_KEY_PASSWORD
+          )
+          configured=true
+          for name in "${required[@]}"; do
+            if [ -z "${!name:-}" ]; then
+              configured=false
+            fi
+          done
+          echo "configured=$configured" >> "$GITHUB_OUTPUT"
+      - name: Explain local signing mode
+        if: steps.check.outputs.configured != 'true'
+        run: echo "::notice::Release signing secrets are not configured; use the secure local WakeMyWay signing bootstrap for this tag."
+
   release:
+    needs: signing-config
+    if: needs.signing-config.outputs.configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     defaults:
