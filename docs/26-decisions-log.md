@@ -307,3 +307,15 @@ The 2026-09-10 Adaptive Dawn principle remains valid as the night-to-morning pre
 This is a presentation-system decision only. Alarm Kernel ownership, Wake Runtime determinism, Wake Ready truth, Direct Boot privacy, local Stop/Snooze authority and optional cloud enrichment boundaries remain unchanged.
 
 Canonical implementation guidance lives in [`07-design-system.md`](07-design-system.md).
+
+# App update distribution — 2026-09-19
+
+## One update experience, two Android distribution paths
+
+WakeMyWay keeps one consumer update experience while using two provider implementations: verified direct APK updates for founder/trusted-device distribution and Google Play In-App Updates for Play builds.
+
+Direct-only install permissions are isolated to the `direct` product flavor. The `play` flavor uses the official Play update API and does not ship self-install capability.
+
+Update installation/restart is never wake authority and is deferred during an Active Wake Execution or when the next Wake Occurrence is less than 90 minutes away. Existing `MY_PACKAGE_REPLACED` Alarm Kernel reconciliation remains the post-update scheduling recovery mechanism.
+
+Canonical technical detail lives in ADR-023.
