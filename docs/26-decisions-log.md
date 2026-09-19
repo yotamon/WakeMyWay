@@ -319,3 +319,11 @@ Direct-only install permissions are isolated to the `direct` product flavor. The
 Update installation/restart is never wake authority and is deferred during an Active Wake Execution or when the next Wake Occurrence is less than 90 minutes away. Existing `MY_PACKAGE_REPLACED` Alarm Kernel reconciliation remains the post-update scheduling recovery mechanism.
 
 Canonical technical detail lives in ADR-023.
+
+# Package-update persistence contract — 2026-09-19
+
+WakeMyWay treats in-place package replacement as a durable-data compatibility boundary. Saved alarms, consumer preferences, Wake history, Wake Learning and Alarm Kernel Direct Boot state must survive updates under the stable package/signing identity.
+
+AlarmDefinition schema-v1 is now an explicit historical decoder branch rather than an implicit current-only format. Relevant persistence/alarm/update changes are protected by a real API 36 upgrade test that seeds durable state in a baseline APK, installs the candidate with `adb install -r`, and verifies state from the candidate without uninstalling or clearing data.
+
+Canonical technical detail lives in ADR-024.
