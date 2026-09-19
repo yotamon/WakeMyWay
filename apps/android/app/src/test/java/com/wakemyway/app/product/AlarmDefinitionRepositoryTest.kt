@@ -70,6 +70,56 @@ class AlarmDefinitionRepositoryTest {
     }
 
     @Test
+    fun `schema v1 alarm document remains readable across app upgrades`() {
+        context.filesDir.resolve(fileName).writeText(
+            """
+            {
+              "schemaVersion": 1,
+              "alarms": [
+                {
+                  "id": "legacy-workdays",
+                  "label": "Legacy Workdays",
+                  "enabled": true,
+                  "zoneId": "Europe/Berlin",
+                  "schedule": {
+                    "type": "weekly",
+                    "time": "07:15",
+                    "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+                  },
+                  "soundId": "soft-start",
+                  "voiceCheckInEnabled": true,
+                  "characterId": "alfred",
+                  "voiceStyle": "MINIMAL",
+                  "snooze": {
+                    "enabled": true,
+                    "durationSeconds": 600,
+                    "maxCount": 2
+                  },
+                  "tomorrowContractMode": "ALWAYS_PROMPT",
+                  "firstMoveDefault": "Open the curtains",
+                  "revision": 4,
+                  "createdAt": "2026-09-01T08:00:00Z",
+                  "updatedAt": "2026-09-10T09:30:00Z"
+                }
+              ]
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+
+        val restored = AlarmDefinitionRepository(context, fileName)
+            .get(AlarmDefinitionId("legacy-workdays"))
+
+        assertEquals("Legacy Workdays", restored?.label)
+        assertEquals(WakeSoundId.SOFT_START, restored?.soundId)
+        assertEquals(VoiceStyle.MINIMAL, restored?.voiceStyle)
+        assertEquals(Duration.ofMinutes(10), restored?.snoozePolicy?.duration)
+        assertEquals(TomorrowContractMode.ALWAYS_PROMPT, restored?.tomorrowContractMode)
+        assertEquals("Open the curtains", restored?.firstMoveDefault)
+        assertEquals(4L, restored?.revision)
+    }
+
+    @Test
     fun `repository preserves insertion order across multiple alarms`() {
         val first = recurringAlarm(id = "first", revision = 1)
         val second = oneShotAlarm(id = "second", revision = 1)
