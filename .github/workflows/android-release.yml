@@ -126,6 +126,12 @@ jobs:
           from pathlib import Path
 
           repo = os.environ["GITHUB_REPOSITORY"]
+          notes_path = Path("release-notes.md")
+          release_notes = [
+              line[2:].strip()
+              for line in notes_path.read_text(encoding="utf-8").splitlines()
+              if line.startswith("- ") and line[2:].strip()
+          ]
           payload = {
               "schemaVersion": 1,
               "channel": "stable",
@@ -133,7 +139,7 @@ jobs:
               "versionName": os.environ["VERSION_NAME"],
               "priority": int(os.environ.get("UPDATE_PRIORITY", "1")),
               "publishedAt": os.environ["PUBLISHED_AT"],
-              "releaseNotes": [],
+              "releaseNotes": release_notes,
               "apk": {
                   "url": f"https://github.com/{repo}/releases/latest/download/WakeMyWay-direct.apk",
                   "sha256": os.environ["APK_SHA256"],
@@ -152,4 +158,4 @@ jobs:
         run: |
           set -euo pipefail
           source version.properties
-          gh release create "$GITHUB_REF_NAME"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --verify-tag             --latest             --generate-notes             --title "WakeMyWay $VERSION_NAME"
+          gh release create "$GITHUB_REF_NAME"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --verify-tag             --latest             --notes-file release-notes.md             --title "WakeMyWay $VERSION_NAME"
