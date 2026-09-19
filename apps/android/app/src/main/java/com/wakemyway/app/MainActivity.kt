@@ -12,6 +12,7 @@ import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -34,6 +35,9 @@ import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.navigation.WakeMyWayApp
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.update.UpdateCoordinator
+import com.wakemyway.app.update.UpdateProviderFactory
+import com.wakemyway.app.update.UpdateState
 import com.wakemyway.core.alarm.AlarmDefinitionId
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +48,16 @@ class MainActivity : ComponentActivity() {
     private var showNotificationPermissionPrimer by mutableStateOf(false)
     private var voiceWakeReadiness by mutableStateOf(VoiceWakeReadiness.UNAVAILABLE)
     private var wakeSystemRevision by mutableIntStateOf(0)
+    private var updateState by mutableStateOf<UpdateState>(UpdateState.Idle)
+    private lateinit var updateCoordinator: UpdateCoordinator
+
+    private val appUpdateLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        if (::updateCoordinator.isInitialized) {
+            updateCoordinator.handleActivityResult(result.resultCode)
+        }
+    }
 
     private val voicePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -68,6 +82,19 @@ class MainActivity : ComponentActivity() {
         recordCapabilities(WakeTimingTrace(this), health)
         refreshProductReadiness()
 
+        updateCoordinator = UpdateCoordinator(
+            context = this,
+            healthProvider = { alarmKernel.health() },
+            providerFactory = { onEvent ->
+                UpdateProviderFactory.create(
+                    activity = this,
+                    updateLauncher = appUpdateLauncher,
+                    onEvent = onEvent,
+                )
+            },
+            onStateChanged = { updateState = it },
+        )
+
         setContent {
             WakeMyWayTheme {
                 WakeMyWayApp(
@@ -76,6 +103,11 @@ class MainActivity : ComponentActivity() {
                     wakeSystemRevision = wakeSystemRevision,
                     onRepairWakeSystem = ::repairNextWakePrerequisite,
                     onOpenNotificationSettings = ::openAppNotificationSettings,
+                    updateState = updateState,
+                    onCheckForUpdates = updateCoordinator::checkNow,
+                    onBeginUpdate = updateCoordinator::beginUpdate,
+                    onInstallUpdate = updateCoordinator::installUpdate,
+                    onOpenInstallPermission = updateCoordinator::openInstallPermissionSettings,
                 )
 
                 if (showNotificationPermissionPrimer) {
@@ -133,6 +165,20 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshProductReadiness()
         recoverOrResumeActiveWake()
+
+        if (::updateCoordinator.isInitialized) {
+            updateCoordinator.resume()
+            if (alarmKernel.health().activeOccurrence == null) {
+                updateCoordinator.checkIfDue()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        if (::updateCoordinator.isInitialized) {
+            updateCoordinator.close()
+        }
+        super.onDestroy()
     }
 
     private fun refreshProductReadiness() {
