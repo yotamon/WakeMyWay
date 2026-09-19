@@ -1,9 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.roborazzi)
 }
+
+val appVersion = Properties().apply {
+    rootProject.file("version.properties").inputStream().use(::load)
+}
+val wakeMyWayVersionCode = requireNotNull(appVersion.getProperty("VERSION_CODE")).toInt()
+val wakeMyWayVersionName = requireNotNull(appVersion.getProperty("VERSION_NAME"))
 
 android {
     namespace = "com.wakemyway.app"
@@ -13,8 +21,8 @@ android {
         applicationId = "com.wakemyway.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = wakeMyWayVersionCode
+        versionName = wakeMyWayVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -23,8 +31,22 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    flavorDimensions += "distribution"
+
+    productFlavors {
+        create("direct") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"direct\"")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
+        }
+    }
+
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -59,6 +81,9 @@ dependencies {
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.kotlinx.serialization.core)
+
+    add("directImplementation", libs.kotlinx.serialization.json)
+    add("playImplementation", libs.play.app.update.ktx)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)

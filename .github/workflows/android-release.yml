@@ -1,0 +1,161 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/android
+    env:
+      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
+      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
+      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
+      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
+      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
+      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install Android 17 SDK
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Validate release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          source version.properties
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          test "$TAG_VERSION" = "$VERSION_NAME" || {
+            echo "Tag $GITHUB_REF_NAME does not match VERSION_NAME=$VERSION_NAME" >&2
+            exit 1
+          }
+
+          required=(
+            WMW_DIRECT_KEYSTORE_B64
+            WMW_DIRECT_KEY_ALIAS
+            WMW_DIRECT_STORE_PASSWORD
+            WMW_DIRECT_KEY_PASSWORD
+            WMW_PLAY_UPLOAD_KEYSTORE_B64
+            WMW_PLAY_UPLOAD_KEY_ALIAS
+            WMW_PLAY_UPLOAD_STORE_PASSWORD
+            WMW_PLAY_UPLOAD_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            test -n "${!name:-}" || {
+              echo "Missing required release secret: $name" >&2
+              exit 1
+            }
+          done
+
+      - name: Validate release candidate
+        run: |
+          ./gradlew             :wake-core:test             :app:testDirectDebugUnitTest             :app:lintDirectDebug             --stacktrace
+
+      - name: Build unsigned distribution artifacts
+        run: |
+          ./gradlew             :app:assembleDirectRelease             :app:bundlePlayRelease             --stacktrace
+
+      - name: Materialize signing keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wmw-signing"
+          printf '%s' "$WMW_DIRECT_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/wmw-signing/direct.keystore"
+          printf '%s' "$WMW_PLAY_UPLOAD_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/wmw-signing/play-upload.keystore"
+          chmod 600 "$RUNNER_TEMP/wmw-signing/"*.keystore
+
+      - name: Sign and verify artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          DIRECT_UNSIGNED="$(find app/build/outputs/apk/direct/release -type f -name '*.apk' | head -n 1)"
+          PLAY_AAB="$(find app/build/outputs/bundle/playRelease -type f -name '*.aab' | head -n 1)"
+          test -n "$DIRECT_UNSIGNED"
+          test -n "$PLAY_AAB"
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$DIRECT_UNSIGNED" "$RUNNER_TEMP/wakemyway-direct-aligned.apk"
+          "$BUILD_TOOLS/apksigner" sign             --ks "$RUNNER_TEMP/wmw-signing/direct.keystore"             --ks-key-alias "$WMW_DIRECT_KEY_ALIAS"             --ks-pass env:WMW_DIRECT_STORE_PASSWORD             --key-pass env:WMW_DIRECT_KEY_PASSWORD             --out dist/WakeMyWay-direct.apk             "$RUNNER_TEMP/wakemyway-direct-aligned.apk"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs dist/WakeMyWay-direct.apk
+
+          cp "$PLAY_AAB" dist/WakeMyWay-play.aab
+          jarsigner             -keystore "$RUNNER_TEMP/wmw-signing/play-upload.keystore"             -storepass "$WMW_PLAY_UPLOAD_STORE_PASSWORD"             -keypass "$WMW_PLAY_UPLOAD_KEY_PASSWORD"             dist/WakeMyWay-play.aab             "$WMW_PLAY_UPLOAD_KEY_ALIAS"
+          jarsigner -verify -strict dist/WakeMyWay-play.aab
+
+      - name: Generate direct-update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          source version.properties
+          export VERSION_CODE VERSION_NAME UPDATE_PRIORITY
+          export APK_SHA256="$(sha256sum dist/WakeMyWay-direct.apk | awk '{print $1}')"
+          export PUBLISHED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          notes_path = Path("release-notes.md")
+          release_notes = [
+              line[2:].strip()
+              for line in notes_path.read_text(encoding="utf-8").splitlines()
+              if line.startswith("- ") and line[2:].strip()
+          ]
+          payload = {
+              "schemaVersion": 1,
+              "channel": "stable",
+              "versionCode": int(os.environ["VERSION_CODE"]),
+              "versionName": os.environ["VERSION_NAME"],
+              "priority": int(os.environ.get("UPDATE_PRIORITY", "1")),
+              "publishedAt": os.environ["PUBLISHED_AT"],
+              "releaseNotes": release_notes,
+              "apk": {
+                  "url": f"https://github.com/{repo}/releases/latest/download/WakeMyWay-direct.apk",
+                  "sha256": os.environ["APK_SHA256"],
+              },
+          }
+          Path("dist/update.json").write_text(
+              json.dumps(payload, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source version.properties
+          gh release create "$GITHUB_REF_NAME"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --verify-tag             --latest             --notes-file release-notes.md             --title "WakeMyWay $VERSION_NAME"

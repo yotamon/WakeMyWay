@@ -11,4 +11,4 @@ capture_diagnostics() {
 trap capture_diagnostics EXIT
 
 cd "$ANDROID_DIR"
-./gradlew :app:connectedDebugAndroidTest --stacktrace
+./gradlew :app:connectedDirectDebugAndroidTest --stacktrace

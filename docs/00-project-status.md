@@ -4,7 +4,7 @@
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
 **Current product phase:** Phase D adaptive loop + post-Stop safety check connected; founder physical reliability proof ongoing  
-**Current product PR:** none; #80 adaptive product loop and #81 post-Stop safety check are merged to `main`  
+**Current product PR:** #83 safe in-app update architecture; #80 adaptive product loop and #81 post-Stop safety check are merged to `main`  
 **Account backend:** authenticated backup backend code exists; production provisioning and user-facing Sign In remain deferred  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
@@ -242,6 +242,16 @@ The production wake path now closes the first local adaptive loop:
 - the Oriented wake state now waits for an explicit First Move confirmation instead of visually presenting non-functional choice tiles.
 
 Consumer onboarding and alarm setup were also simplified around the adaptive promise: advanced wake behavior remains available without making first alarm creation feel like a settings panel. Account-shaped placeholder UI is intentionally absent while account sync remains optional/deferred.
+
+## Update distribution work in progress
+
+PR #83 introduces the product/update boundary required for both founder direct APK dogfood and future Google Play distribution.
+
+The accepted architecture keeps update checking/downloading outside the Alarm Kernel, isolates direct-install permissions to a `direct` flavor, uses Play flexible in-app updates for the `play` flavor, verifies direct APK checksum/package/signing identity, and blocks install/restart during an Active Wake Execution or within 90 minutes of the next Wake Occurrence.
+
+`apps/android/version.properties` becomes the canonical Android version source. A tag-only release workflow builds and signs the direct APK and Play AAB with distinct signing roles and emits the GitHub Release `update.json` used by direct builds.
+
+Stable production signing material is intentionally not committed and must be provisioned as encrypted repository secrets before the first production direct release. Existing debug-signed founder installations may require one intentional reinstall at that transition.
 
 ## Remaining product work
 

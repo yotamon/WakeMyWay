@@ -38,7 +38,7 @@ jobs:
         run: |
           rm -rf app/src/test/screenshots
           mkdir -p app/src/test/screenshots
-          ./gradlew :app:recordRoborazziDebug --stacktrace
+          ./gradlew :app:recordRoborazziDirectDebug --stacktrace
       - name: Verify approved visual hashes
         run: |
           cd app/src/test/screenshots

@@ -25,7 +25,7 @@ AGP 9 built-in Kotlin is used for Android modules. Do not add `org.jetbrains.kot
 Until the standard Gradle wrapper JAR is committed, use Gradle 9.6.1 directly:
 
 ```bash
-gradle test lint assembleDebug
+gradle :wake-core:test :app:testDirectDebugUnitTest :app:lintDirectDebug :app:assembleDirectDebug
 ```
 
 CI pins Gradle 9.6.1 explicitly. The standard wrapper JAR is tracked as a small M0 follow-up and must be added before M0 closes.
@@ -75,3 +75,48 @@ app/src/test/visual-goldens.sha256
 CI regenerates the PNG renders with Roborazzi and fails if any canonical render differs from that manifest. The generated PNGs and Roborazzi diagnostics are uploaded as workflow artifacts for visual review; they are intentionally not committed to the repository.
 
 Do not update the manifest merely to make CI green. A visual hash change is an explicit design acceptance decision and should be made only after reviewing the rendered screens.
+
+## Distribution variants
+
+WakeMyWay has two Android distribution flavors with the same application id:
+
+- `direct` — trusted APK distribution with verified in-app APK download/install support;
+- `play` — Google Play distribution using Play In-App Updates.
+
+Normal local/CI development uses `directDebug`. Play compilation is also validated in CI so provider drift is caught before release.
+
+The canonical app version is stored in:
+
+```text
+version.properties
+```
+
+A production release tag must match `VERSION_NAME`, for example `v0.2.0`.
+
+### Release signing
+
+The tag-only Android Release workflow expects these encrypted GitHub Actions secrets:
+
+```text
+WMW_DIRECT_KEYSTORE_B64
+WMW_DIRECT_KEY_ALIAS
+WMW_DIRECT_STORE_PASSWORD
+WMW_DIRECT_KEY_PASSWORD
+
+WMW_PLAY_UPLOAD_KEYSTORE_B64
+WMW_PLAY_UPLOAD_KEY_ALIAS
+WMW_PLAY_UPLOAD_STORE_PASSWORD
+WMW_PLAY_UPLOAD_KEY_PASSWORD
+```
+
+The direct key is the stable WakeMyWay app-signing identity. The Play upload key is deliberately separate. Never commit either keystore or any password.
+
+A release publishes:
+
+```text
+WakeMyWay-direct.apk
+WakeMyWay-play.aab
+update.json
+```
+
+The direct app reads the latest `update.json`, verifies the APK SHA-256, package/version and signing identity, then hands the verified package to Android's installer. Installation remains explicit and is wake-safety gated.

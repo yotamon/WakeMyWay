@@ -49,6 +49,7 @@ import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.update.UpdateState
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
@@ -99,6 +100,11 @@ fun WakeMyWayApp(
     wakeSystemRevision: Int = 0,
     onRepairWakeSystem: () -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
+    updateState: UpdateState = UpdateState.Idle,
+    onCheckForUpdates: () -> Unit = {},
+    onBeginUpdate: () -> Unit = {},
+    onInstallUpdate: () -> Unit = {},
+    onOpenInstallPermission: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val alarmSetupRequiredCopy = stringResource(R.string.tonight_readiness_attention)
@@ -360,6 +366,11 @@ fun WakeMyWayApp(
                 entry<AboutRoute> {
                     AboutScreen(
                         versionName = appVersionName,
+                        updateState = updateState,
+                        onCheckForUpdates = onCheckForUpdates,
+                        onBeginUpdate = onBeginUpdate,
+                        onInstallUpdate = onInstallUpdate,
+                        onOpenInstallPermission = onOpenInstallPermission,
                         onBack = { backStack.removeLastOrNull() },
                     )
                 }

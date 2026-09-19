@@ -13,6 +13,7 @@ espresso = "3.7.0"
 navigation3 = "1.1.7"
 graphicsShapes = "1.1.0"
 kotlinxSerialization = "1.9.0"
+playAppUpdate = "2.1.0"
 webrtc = "150.7871.01"
 roborazzi = "1.74.0"
 robolectric = "4.16.1"
@@ -34,6 +35,8 @@ androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runt
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
 androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphicsShapes" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+play-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "playAppUpdate" }
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-test-core-ktx = { module = "androidx.test:core-ktx", version.ref = "androidxTest" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTest" }
