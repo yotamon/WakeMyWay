@@ -43,7 +43,12 @@ import org.junit.runner.RunWith
  * with `adb install -r` (never uninstalling or clearing data), then invokes
  * [verifyPersistentStateAfterUpgrade] against the candidate.
  */
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.CLASS)
+annotation class UpgradePersistenceContractOnly
+
 @RunWith(AndroidJUnit4::class)
+@UpgradePersistenceContractOnly
 class UpdatePersistenceContractInstrumentedTest {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
