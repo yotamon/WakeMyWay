@@ -124,6 +124,7 @@ internal class PlayUpdateProvider(
             AppUpdateOptions.newBuilder(AppUpdateType.FLEXIBLE).build(),
         )
         if (!started) {
+            lastInfo = null
             onEvent(UpdateProviderEvent.Failed("Google Play could not start the update flow.", release))
         }
     }
@@ -160,8 +161,14 @@ internal class PlayUpdateProvider(
         val release = lastRelease ?: return
         when (resultCode) {
             Activity.RESULT_OK -> Unit
-            Activity.RESULT_CANCELED -> onEvent(UpdateProviderEvent.Cancelled(release))
-            else -> onEvent(UpdateProviderEvent.Failed("Google Play update flow failed.", release))
+            Activity.RESULT_CANCELED -> {
+                lastInfo = null
+                onEvent(UpdateProviderEvent.Cancelled(release))
+            }
+            else -> {
+                lastInfo = null
+                onEvent(UpdateProviderEvent.Failed("Google Play update flow failed.", release))
+            }
         }
     }
 
