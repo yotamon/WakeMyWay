@@ -37,6 +37,7 @@ import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
+import com.wakemyway.app.update.UpdateState
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.alarm.WakeSoundId
 
@@ -276,6 +277,11 @@ fun PrivacyScreen(
 @Composable
 fun AboutScreen(
     versionName: String,
+    updateState: UpdateState,
+    onCheckForUpdates: () -> Unit,
+    onBeginUpdate: () -> Unit,
+    onInstallUpdate: () -> Unit,
+    onOpenInstallPermission: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -283,14 +289,14 @@ fun AboutScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
             BackHeader("About", onBack)
-            Spacer(Modifier.weight(1f))
             com.wakemyway.app.ui.components.WmwBrandHero(
                 tagline = "The alarm that learns how to wake you.",
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(top = 36.dp),
             )
             Text(
                 text = "WakeMyWay learns the least friction that actually gets you moving.",
@@ -310,7 +316,22 @@ fun AboutScreen(
                 style = MaterialTheme.typography.labelMedium,
                 color = WmwColors.DawnDeep,
             )
-            Spacer(Modifier.weight(1f))
+
+            UpdateStatusCard(
+                state = updateState,
+                onCheckForUpdates = onCheckForUpdates,
+                onBeginUpdate = onBeginUpdate,
+                onInstallUpdate = onInstallUpdate,
+                onOpenInstallPermission = onOpenInstallPermission,
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+            )
+
+            Text(
+                text = "Updates never become alarm authority. WakeMyWay keeps critical waking local and will not restart for an update during an active wake or within 90 minutes of the next alarm.",
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.LightQuietText,
+            )
         }
     }
 }
