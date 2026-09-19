@@ -111,7 +111,7 @@ class AlarmDefinitionRepository(
     }
 
     private fun encodeDocument(definitions: List<AlarmDefinition>): JSONObject = JSONObject().apply {
-        put(KEY_SCHEMA_VERSION, SCHEMA_VERSION)
+        put(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
         put(
             KEY_ALARMS,
             JSONArray().apply {
@@ -122,9 +122,19 @@ class AlarmDefinitionRepository(
 
     private fun decodeDocument(root: JSONObject): List<AlarmDefinition> {
         val version = root.getInt(KEY_SCHEMA_VERSION)
-        require(version == SCHEMA_VERSION) {
-            "Unsupported alarm definition schema version: $version"
+        return when (version) {
+            1 -> decodeV1Document(root)
+            else -> error("Unsupported alarm definition schema version: $version")
         }
+    }
+
+    /**
+     * Schema-v1 is the first durable consumer-alarm contract.
+     *
+     * Keep this decoder permanently compatible when a future schema is introduced. New schema
+     * writers may add a v2/v3 decoder, but existing alarms must never require a destructive reset.
+     */
+    private fun decodeV1Document(root: JSONObject): List<AlarmDefinition> {
         val alarms = root.getJSONArray(KEY_ALARMS)
         return buildList(alarms.length()) {
             repeat(alarms.length()) { index -> add(decodeAlarm(alarms.getJSONObject(index))) }
@@ -231,7 +241,7 @@ class AlarmDefinitionRepository(
     companion object {
         const val DEFAULT_FILE_NAME = "alarm-definitions-v1.json"
 
-        private const val SCHEMA_VERSION = 1
+        private const val CURRENT_SCHEMA_VERSION = 1
         private const val KEY_SCHEMA_VERSION = "schemaVersion"
         private const val KEY_ALARMS = "alarms"
         private const val KEY_ID = "id"
