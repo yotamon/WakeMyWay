@@ -3,7 +3,14 @@ package com.wakemyway.app.update
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.wakemyway.app.alarm.AlarmHealth
+import com.wakemyway.core.schedule.LocalTimeResolution
+import com.wakemyway.core.schedule.WakeOccurrence
+import com.wakemyway.core.schedule.WakeOccurrenceId
+import com.wakemyway.core.schedule.WakeOccurrenceKind
+import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Instant
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -98,18 +105,37 @@ class UpdateCoordinatorTest {
         versionName = "9.9.9",
     )
 
-    /**
-     * Keep the fixture deliberately minimal. These tests care only about active/next occurrence.
-     * AlarmHealth defaults are used for unrelated platform readiness fields.
-     */
     private fun emptyHealth(
         active: Boolean = false,
         nextWakeAt: Instant? = null,
-    ): AlarmHealth {
-        val base = AlarmHealth.empty()
-        return base.copy(
-            activeOccurrence = if (active) base.testOccurrence(Instant.parse("2026-09-19T08:00:00Z")) else null,
-            nextOccurrence = nextWakeAt?.let(base::testOccurrence),
+    ): AlarmHealth = AlarmHealth(
+        ready = false,
+        exactAlarmAllowed = true,
+        notificationsAllowed = true,
+        notificationChannelHighImportance = true,
+        fullScreenIntentAllowed = true,
+        nextOccurrence = nextWakeAt?.let { occurrence("next", it) },
+        activeOccurrence = if (active) {
+            occurrence("active", Instant.parse("2026-09-19T08:00:00Z"))
+        } else {
+            null
+        },
+        detail = "test",
+    )
+
+    private fun occurrence(
+        id: String,
+        instant: Instant,
+    ): WakeOccurrence {
+        val scheduledAt = ZonedDateTime.ofInstant(instant, ZoneOffset.UTC)
+        return WakeOccurrence(
+            id = WakeOccurrenceId(id),
+            wakeScheduleId = WakeScheduleId("test-schedule"),
+            kind = WakeOccurrenceKind.PRIMARY,
+            scheduledLocalDateTime = scheduledAt.toLocalDateTime(),
+            scheduledAt = scheduledAt,
+            scheduleRevision = 1,
+            localTimeResolution = LocalTimeResolution.EXACT,
         )
     }
 
