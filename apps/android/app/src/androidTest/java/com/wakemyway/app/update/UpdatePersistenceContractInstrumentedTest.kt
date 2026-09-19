@@ -3,6 +3,7 @@ package com.wakemyway.app.update
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.CriticalWakeReadResult
 import com.wakemyway.app.alarm.CriticalWakeStore
@@ -33,6 +34,7 @@ import java.time.ZoneId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -55,6 +57,7 @@ class UpdatePersistenceContractInstrumentedTest {
 
     @Test
     fun seedPersistentStateForUpgrade() {
+        requirePhase(PHASE_SEED)
         cleanup()
 
         AlarmProductController(context).save(expectedAlarm())
@@ -73,6 +76,7 @@ class UpdatePersistenceContractInstrumentedTest {
 
     @Test
     fun verifyPersistentStateAfterUpgrade() {
+        requirePhase(PHASE_VERIFY)
         assertEquals(expectedAlarm(), AlarmDefinitionRepository(context).get(ALARM_ID))
         assertEquals(EXPECTED_PREFERENCES, ConsumerPreferencesRepository(context).get())
 
@@ -94,9 +98,18 @@ class UpdatePersistenceContractInstrumentedTest {
 
     @Test
     fun cleanupUpgradeContractState() {
+        requirePhase(PHASE_CLEANUP)
         cleanup()
         assertTrue(AlarmDefinitionRepository(context).list().isEmpty())
         assertTrue(WakeHistoryRepository(context).list().isEmpty())
+    }
+
+    private fun requirePhase(expected: String) {
+        val actual = InstrumentationRegistry.getArguments().getString(ARG_UPGRADE_PHASE)
+        assumeTrue(
+            "Package-upgrade contract phases run only in the dedicated upgrade workflow",
+            actual == expected,
+        )
     }
 
     private fun cleanup() {
@@ -144,6 +157,11 @@ class UpdatePersistenceContractInstrumentedTest {
     )
 
     private companion object {
+        const val ARG_UPGRADE_PHASE = "wmwUpgradePhase"
+        const val PHASE_SEED = "seed"
+        const val PHASE_VERIFY = "verify"
+        const val PHASE_CLEANUP = "cleanup"
+
         val ALARM_ID = AlarmDefinitionId("upgrade-contract-alarm")
         val CREATED_AT: Instant = Instant.parse("2026-09-01T08:00:00Z")
         val UPDATED_AT: Instant = Instant.parse("2026-09-10T09:30:00Z")
