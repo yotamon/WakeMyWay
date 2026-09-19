@@ -48,13 +48,13 @@ jobs:
       - name: Test wake-core
         run: ./gradlew :wake-core:test --stacktrace
       - name: Test Android app unit logic
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDirectDebugUnitTest --stacktrace
       - name: Android lint
         shell: bash
         run: |
           mkdir -p app/build/reports
           set -o pipefail
-          ./gradlew :app:lintDebug --stacktrace 2>&1 | tee app/build/reports/lint-ci.log
+          ./gradlew :app:lintDirectDebug --stacktrace 2>&1 | tee app/build/reports/lint-ci.log
       - name: Upload lint diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -62,26 +62,26 @@ jobs:
           name: wake-my-way-lint-${{ github.sha }}
           path: |
             apps/android/app/build/reports/lint-ci.log
-            apps/android/app/build/reports/lint-results-debug.txt
+            apps/android/app/build/reports/lint-results-directDebug.txt
             apps/android/app/build/reports/lint-results-debug.html
             apps/android/app/build/reports/lint-results-debug.xml
           if-no-files-found: ignore
           retention-days: 14
       - name: Compile instrumentation tests
-        run: ./gradlew :app:assembleDebugAndroidTest --stacktrace
+        run: ./gradlew :app:assembleDirectDebugAndroidTest --stacktrace
       - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: ./gradlew :app:assembleDirectDebug --stacktrace
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: wake-my-way-debug-${{ github.sha }}
-          path: apps/android/app/build/outputs/apk/debug/app-debug.apk
+          path: apps/android/app/build/outputs/apk/direct/debug/app-direct-debug.apk
           if-no-files-found: error
           retention-days: 14
       - name: Upload instrumentation APK
         uses: actions/upload-artifact@v4
         with:
           name: wake-my-way-androidTest-${{ github.sha }}
-          path: apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          path: apps/android/app/build/outputs/apk/androidTest/direct/debug/app-direct-debug-androidTest.apk
           if-no-files-found: error
           retention-days: 14
