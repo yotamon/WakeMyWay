@@ -103,7 +103,7 @@ class ConsumerPreferencesRepository(
     }
 
     private fun encode(preferences: ConsumerPreferences): JSONObject = JSONObject().apply {
-        put(KEY_SCHEMA_VERSION, SCHEMA_VERSION)
+        put(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
         put(KEY_ONBOARDING_COMPLETED, preferences.onboardingCompleted)
         preferences.displayName?.let { put(KEY_DISPLAY_NAME, it) }
         put(KEY_DEFAULT_SOUND_ID, preferences.defaultSoundId.value)
@@ -116,10 +116,14 @@ class ConsumerPreferencesRepository(
 
     private fun decode(root: JSONObject): ConsumerPreferences {
         val version = root.getInt(KEY_SCHEMA_VERSION)
-        require(version == SCHEMA_VERSION) {
-            "Unsupported consumer preferences schema version: $version"
+        return when (version) {
+            1 -> decodeV1(root)
+            else -> error("Unsupported consumer preferences schema version: $version")
         }
-        return ConsumerPreferences(
+    }
+
+    private fun decodeV1(root: JSONObject): ConsumerPreferences =
+        ConsumerPreferences(
             onboardingCompleted = root.optBoolean(KEY_ONBOARDING_COMPLETED, false),
             displayName = root.optString(KEY_DISPLAY_NAME).takeIf(String::isNotBlank),
             defaultSoundId = WakeSoundId(
@@ -133,14 +137,13 @@ class ConsumerPreferencesRepository(
             defaultFirstMove = root.optString(KEY_DEFAULT_FIRST_MOVE).takeIf(String::isNotBlank),
             appearance = decodeAppearance(root.optString(KEY_APPEARANCE, AppAppearance.DAYLIGHT.name)),
         )
-    }
 
     private fun decodeAppearance(raw: String): AppAppearance =
         AppAppearance.entries.firstOrNull { it.name == raw } ?: AppAppearance.DAYLIGHT
 
     companion object {
         const val DEFAULT_FILE_NAME = "consumer-preferences-v1.json"
-        private const val SCHEMA_VERSION = 1
+        private const val CURRENT_SCHEMA_VERSION = 1
         private const val KEY_SCHEMA_VERSION = "schemaVersion"
         private const val KEY_ONBOARDING_COMPLETED = "onboardingCompleted"
         private const val KEY_DISPLAY_NAME = "displayName"

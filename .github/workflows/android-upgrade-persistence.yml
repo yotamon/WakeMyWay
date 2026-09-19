@@ -1,0 +1,98 @@
+name: Android Upgrade Persistence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/android/app/src/main/java/com/wakemyway/app/alarm/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/product/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/update/**"
+      - "apps/android/app/src/main/AndroidManifest.xml"
+      - "apps/android/app/build.gradle.kts"
+      - "apps/android/version.properties"
+      - "apps/android/wake-core/**"
+      - ".github/scripts/run-android-upgrade-persistence-test.sh"
+      - ".github/workflows/android-upgrade-persistence.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-upgrade-persistence-${{ github.event.pull_request.number || github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  upgrade-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Build candidate app and contract test APK
+        working-directory: apps/android
+        run: |
+          ./gradlew             :app:assembleDirectDebug             :app:assembleDirectDebugAndroidTest             --stacktrace
+          cp app/build/outputs/apk/direct/debug/app-direct-debug.apk "$RUNNER_TEMP/wmw-candidate.apk"
+          cp app/build/outputs/apk/androidTest/direct/debug/app-direct-debug-androidTest.apk "$RUNNER_TEMP/wmw-candidate-test.apk"
+
+      - name: Build baseline app with the same debug signing identity
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+
+          BASE_WORKTREE="$RUNNER_TEMP/wmw-upgrade-base"
+          git worktree add --detach "$BASE_WORKTREE" "$BASE_SHA"
+
+          (
+            cd "$BASE_WORKTREE/apps/android"
+            ./gradlew :app:assembleDirectDebug --stacktrace
+          )
+
+          cp             "$BASE_WORKTREE/apps/android/app/build/outputs/apk/direct/debug/app-direct-debug.apk"             "$RUNNER_TEMP/wmw-baseline.apk"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Replace baseline APK and verify durable state on API 36
+        uses: ReactiveCircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          cores: 2
+          ram-size: 4096M
+          disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: |
+            bash "$GITHUB_WORKSPACE/.github/scripts/run-android-upgrade-persistence-test.sh"               "$RUNNER_TEMP/wmw-baseline.apk"               "$RUNNER_TEMP/wmw-candidate.apk"               "$RUNNER_TEMP/wmw-candidate-test.apk"
+
+      - name: Upload upgrade evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-upgrade-persistence-${{ github.sha }}
+          path: |
+            upgrade-adb-devices.txt
+            upgrade-emulator-logcat.txt
+            upgrade-package-dumpsys.txt
+          if-no-files-found: warn
+          retention-days: 14

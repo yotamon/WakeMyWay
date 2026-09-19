@@ -11,4 +11,6 @@ capture_diagnostics() {
 trap capture_diagnostics EXIT
 
 cd "$ANDROID_DIR"
-./gradlew :app:connectedDirectDebugAndroidTest --stacktrace
+./gradlew :app:connectedDirectDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.notAnnotation=com.wakemyway.app.update.UpgradePersistenceContractOnly \
+  --stacktrace

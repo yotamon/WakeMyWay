@@ -253,6 +253,14 @@ The accepted architecture keeps update checking/downloading outside the Alarm Ke
 
 Stable production signing material is intentionally not committed and must be provisioned as encrypted repository secrets before the first production direct release. Existing debug-signed founder installations may require one intentional reinstall at that transition.
 
+## Package-update persistence
+
+WakeMyWay 0.2.2 introduces an executable in-place-update persistence contract.
+
+The direct/Play package identity remains stable, consumer AlarmDefinitions remain product truth across package replacement, and `MY_PACKAGE_REPLACED` continues to reconcile Alarm Kernel scheduling after update. AlarmDefinition and consumer-preference storage now use explicit historical decoder branches so future schema changes must migrate rather than reset.
+
+A dedicated API 36 CI lane builds the PR base and candidate with the same debug signing identity, seeds alarm/preferences/history/critical state into the baseline, performs `adb install -r`, checks that `firstInstallTime` is unchanged, and verifies the same durable state from the candidate. The lane is path-scoped to persistence/alarm/update-sensitive changes to contain CI cost.
+
 ## Remaining product work
 
 - Provision the actual WakeMyWay account backend when ready, then implement authenticated account/session acquisition and Wake API backup/restore without changing alarm authority.
