@@ -40,12 +40,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.alarm.WakeSoundPreviewPlayer
@@ -287,7 +289,11 @@ fun AlarmEditorScreen(
                     onClick = ::exitEditor,
                     modifier = Modifier.semantics { contentDescription = "Back" },
                 ) {
-                    Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
+                    Text(
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = WmwColors.Midnight,
+                    )
                 }
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
             }
