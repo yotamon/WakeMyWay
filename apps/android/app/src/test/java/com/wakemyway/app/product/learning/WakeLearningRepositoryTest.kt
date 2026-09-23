@@ -12,6 +12,7 @@ import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Duration
+import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -57,6 +58,21 @@ class WakeLearningRepositoryTest {
         assertEquals(4, state.policy.maxEscalationLevel)
         assertNotNull(state.lastAdjustment)
         assertEquals(state.policy, learning.resolvePolicy())
+    }
+
+    @Test
+    fun `unsupported persisted schema fails closed to stable default`() {
+        val fileName = "unsupported-learning-${System.nanoTime()}.json"
+        File(context.noBackupFilesDir, fileName).writeText(
+            """{"schemaVersion":999,"policy":{}}""",
+        )
+        val learning = WakeLearningRepository(
+            context = context,
+            fileName = fileName,
+        )
+
+        assertEquals(1, learning.resolvePolicy().version)
+        assertEquals(1, learning.state().policy.version)
     }
 
     @Test
