@@ -60,6 +60,37 @@ class WakeLearningRepositoryTest {
     }
 
     @Test
+    fun `reset restores default policy without deleting source history`() {
+        val history = WakeHistoryRepository(
+            context = context,
+            fileName = "reset-history-${System.nanoTime()}.json",
+        )
+        repeat(4) { index ->
+            history.record(
+                entry(
+                    id = "reset-stopped-$index",
+                    finishedAt = Instant.parse("2026-09-16T08:0${index + 1}:00Z"),
+                    reason = WakeHistoryTerminalReason.STOPPED,
+                    activation = null,
+                ),
+            )
+        }
+        val learning = WakeLearningRepository(
+            context = context,
+            historyRepository = history,
+            fileName = "reset-state-${System.nanoTime()}.json",
+        )
+
+        assertEquals(2, learning.refresh().policy.version)
+
+        val reset = learning.resetToDefault()
+
+        assertEquals(1, reset.policy.version)
+        assertEquals(4, history.list().size)
+        assertEquals(1, learning.resolvePolicy().version)
+    }
+
+    @Test
     fun `return to bed calibration can strengthen activation after repeated false positives`() {
         val history = WakeHistoryRepository(
             context = context,
