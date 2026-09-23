@@ -20,9 +20,14 @@ class WakeTimingTrace(
     context: Context,
     journalName: String = DEFAULT_JOURNAL_NAME,
 ) {
+    private val appContext = context.applicationContext
     private val prefs = context
         .createDeviceProtectedStorageContext()
         .getSharedPreferences(journalName, Context.MODE_PRIVATE)
+    private val appVersion = runCatching {
+        val info = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+        "${appContext.packageName} ${info.versionName ?: "unknown"} (${info.longVersionCode})"
+    }.getOrDefault("${appContext.packageName} unknown")
 
     /**
      * Records an expected OS wake before its target time. This is what lets the lab diagnose
@@ -126,6 +131,8 @@ class WakeTimingTrace(
             appendLine("Wake My Way Reliability Report")
             appendLine("generated=${Instant.ofEpochMilli(System.currentTimeMillis())}")
             appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}; sdk=${Build.VERSION.SDK_INT}")
+            appendLine("build=${Build.FINGERPRINT}")
+            appendLine("app=$appVersion")
             appendLine("sessions=${sessions.size}")
             appendLine()
 
