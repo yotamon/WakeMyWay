@@ -58,21 +58,56 @@ Play Internal dogfood
 
 These are targets, not claims. Percentiles are not published until enough real cycles exist.
 
-## Founder T+2m cycle
+## Founder physical scenario cycle
 
-1. Install the latest debug APK from CI.
+The debug-only **Wake Alarm Lab** now records the selected physical scenario directly into the expected-wake journal. Use the scenario chooser before arming the one-shot wake; the lab selects a safe lead time and shows the exact manual action required after scheduling.
+
+1. Install the latest debug APK from the current PR/build.
 2. Open **Wake Alarm Lab**.
 3. Confirm `Wake Ready` and inspect Exact Alarm / Notification / Full Screen capability facts.
-4. Tap **Run one-shot T+2m wake**.
-5. Lock the phone and leave the app in background.
-6. Observe whether local alarm audio starts and whether the wake surface appears.
-7. Use **Stop** or **Snooze**.
-8. Reopen Wake Alarm Lab.
-9. Tap **Refresh evidence**.
-10. Inspect the session state, latencies, terminal action, recovery count, and recent event chain.
-11. Use **Share reliability report** to export the human-readable evidence.
+4. Cycle the **Physical reliability scenario** control to the scenario being tested.
+5. Read the displayed scenario instruction before scheduling.
+6. Tap the run button to commit the one-shot production-path wake.
+7. Perform the instructed physical/device action and keep the device in the required locked/background state.
+8. Observe local alarm audio, Wake Surface availability, voice/motion behavior and terminal controls as applicable.
+9. Use **Stop** or **Snooze** only when the scenario calls for it.
+10. Reopen Wake Alarm Lab and tap **Refresh evidence**.
+11. Inspect scenario ID, state, latencies, terminal action, recovery count and recent event chain.
+12. Use **Share reliability report** to export the in-app human-readable evidence.
+
+The scenario ID is persisted before target time, so a missed receiver remains attributable to the physical test that was actually running.
 
 The one-shot schedule must be disabled after final Stop or an irrecoverably missed wake. A Snooze remains part of the same one-shot wake chain.
+
+### Windows / ADB helper
+
+On the founder Windows machine, `tooling/physical-reliability.ps1` provides narrow commands for the destructive/environmental actions that are easy to perform incorrectly:
+
+```powershell
+# verify device and current environment
+.\tooling\physical-reliability.ps1 status
+
+# after scheduling DOZE_IDLE in Wake Alarm Lab
+.\tooling\physical-reliability.ps1 force-idle
+
+# restore normal device-idle/battery simulation state
+.\tooling\physical-reliability.ps1 unidle
+
+# SERVICE_RECREATION or post-STOP resurrection only; this is not Force Stop
+.\tooling\physical-reliability.ps1 kill-process
+
+# REBOOT_UNLOCKED / DIRECT_BOOT
+.\tooling\physical-reliability.ps1 reboot
+
+# collect ADB-side evidence after the scenario
+.\tooling\physical-reliability.ps1 collect
+```
+
+If more than one Android device is connected, pass `-Serial <adb-serial>`.
+
+The helper intentionally does **not** automate permission revocation, full-screen access changes, exact-alarm access changes, Bluetooth pairing or user terminal actions. Those are scenario facts that should remain deliberate and visible to the tester.
+
+The generated ADB bundle is written under `artifacts/physical-reliability/` and is git-ignored. Pair it with the Wake Alarm Lab report for the same scenario when retaining representative evidence.
 
 ## Scenario matrix
 
@@ -88,6 +123,8 @@ The one-shot schedule must be disabled after final Stop or an irrecoverably miss
 | `EXACT_ALARM_UNAVAILABLE` | exact alarm capability unavailable | CAPABILITIES event + Wake not ready | no crash and no false readiness |
 | `FULL_SCREEN_UNAVAILABLE` | full-screen capability unavailable | CAPABILITIES event | audio still works; UI degradation is truthful |
 | `DOZE_IDLE` | device idle/Doze before target | normal wake timeline | exact wake remains timely |
+| `BLUETOOTH_ROUTE` | Bluetooth connected / route changed around wake | receiver/audio + local voice/fallback evidence | alarm remains audible/controllable and route behavior is recorded |
+| `MOTION_CALIBRATION` | controlled pickup/orientation/real movement | wake timeline + observed motion behavior | activation evidence is neither trivially false-positive nor unreasonably insensitive |
 
 ## Instrumentation tests
 
