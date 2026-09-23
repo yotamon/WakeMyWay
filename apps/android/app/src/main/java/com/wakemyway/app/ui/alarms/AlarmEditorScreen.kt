@@ -375,7 +375,7 @@ fun AlarmEditorScreen(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = WmwColors.Danger,
+                        color = WmwColors.DangerText,
                     )
                 }
             }
@@ -488,7 +488,7 @@ fun AlarmEditorScreen(
                     text = it,
                     modifier = Modifier.padding(top = WmwSpacing.Md),
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.Danger,
+                    color = WmwColors.DangerText,
                 )
             }
 
@@ -508,7 +508,7 @@ fun AlarmEditorScreen(
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 ) {
-                    Text("Delete alarm", color = WmwColors.Danger)
+                    Text("Delete alarm", color = WmwColors.DangerText)
                 }
             }
         }
@@ -535,7 +535,7 @@ fun AlarmEditorScreen(
                         }
                     },
                 ) {
-                    Text("Delete", color = WmwColors.Danger)
+                    Text("Delete", color = WmwColors.DangerText)
                 }
             },
             dismissButton = {
