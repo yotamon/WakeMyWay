@@ -306,7 +306,7 @@ fun WakeAlarmLabScreen(
             },
             enabled = blocker == WakeSchedulingBlocker.NONE,
         ) {
-            Text("Run one-shot T+2m wake")
+            Text("Run ${scenario.label}")
         }
 
         OutlinedButton(
