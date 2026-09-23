@@ -6,6 +6,17 @@ What user-observable or engineering outcome does this PR deliver?
 
 What is intentionally included, and what is explicitly not part of this PR?
 
+## 1.0 readiness gate
+
+While the 1.0 paid-launch program is active:
+
+- Readiness gate: `TRUST #9 | FINISH #59 | PROVE #87 | SELL #88 | N/A maintenance`
+- Existing problem/failure this resolves:
+- Why this is not unearned feature expansion:
+- If scope is added, observed 1.0 blocker that requires the exception:
+
+See [`docs/35-paid-launch-readiness.md`](../docs/35-paid-launch-readiness.md). If this PR cannot name the readiness gate it advances, it probably belongs after 1.0.
+
 ## Product contract
 
 For user-facing/product changes, link or summarize the accepted Shape contract. For maintenance/bug/reliability work with already-canonical behavior, write `N/A - existing behavior is unambiguous`.

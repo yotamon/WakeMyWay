@@ -1,14 +1,16 @@
 # Project status
 
-**Last updated:** 2026-09-19  
+**Last updated:** 2026-09-23  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
-**Current product phase:** Phase D adaptive loop + post-Stop safety check connected; founder physical reliability proof ongoing  
-**Current product PR:** #83 safe in-app update architecture; #80 adaptive product loop and #81 post-Stop safety check are merged to `main`  
+**Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
+**Current launch program:** #89; canonical plan: `docs/35-paid-launch-readiness.md`  
+**Readiness gates:** TRUST #9 → FINISH #59 → PROVE #87 → SELL #88  
 **Account backend:** authenticated backup backend code exists; production provisioning and user-facing Sign In remain deferred  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
-**Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority
+**Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
+**1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
 ## Current product shape
 
@@ -261,11 +263,30 @@ The direct/Play package identity remains stable, consumer AlarmDefinitions remai
 
 A dedicated API 36 CI lane builds the PR base and candidate with the same debug signing identity, seeds alarm/preferences/history/critical state into the baseline, performs `adb install -r`, checks that `firstInstallTime` is unchanged, and verifies the same durable state from the candidate. The lane is path-scoped to persistence/alarm/update-sensitive changes to contain CI cost.
 
-## Remaining product work
+## Active 1.0 readiness program
 
-- Provision the actual WakeMyWay account backend when ready, then implement authenticated account/session acquisition and Wake API backup/restore without changing alarm authority.
-- Only after that authenticated path exists, expose truthful Sign In / backup UX.
-- Continue Phase D calibration/Insights hardening with real dogfood data, especially tuning safety-check timing/copy and the calibration thresholds from observed mornings.
-- M7 follow-up still includes richer founder inspect/reset tooling and any additional journal detail justified by dogfood; production calibration and learned-policy selection are now connected.
-- Founder Realtime production environment/rate-limit work remains separate from local alarm readiness.
-- Physical-device reliability evidence under #9 remains mandatory before broader release.
+WakeMyWay now operates under the paid-launch readiness plan in [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) and program issue #89.
+
+The product capability set is considered sufficient to test the thesis. The default until 1.0 is therefore **finish and prove, not expand**.
+
+### TRUST — #9
+
+Complete repeated physical-device reliability evidence across locked screen, Doze, process/service recreation, Direct Boot, time changes, capability loss, audio routes, motion and Stop/Snooze recovery. Public paid release remains blocked while overnight reliability is inferred rather than measured.
+
+### FINISH — #59
+
+Converge the existing consumer experience screen by screen: comprehension, navigation, authored failure/permission states, visual fidelity, accessibility, compact/RTL stress, Active Wake polish, release performance and package-size review. This is hardening, not redesign.
+
+### PROVE — #87
+
+Run a qualified target-user beta with habitual snoozers. Measure reliability, Activation Completion, Confirmed Wake Success and calibration coverage, return-to-bed behavior, snooze/intervention depth, annoyance/agency, D7/D14 retention and real willingness-to-pay evidence.
+
+### SELL — #88
+
+After/alongside sufficient evidence, complete the commercial/release layer: safe billing/entitlement lifecycle, outcome-led Free/Pro packaging, Play listing and testing tracks, public privacy/legal/Data Safety/support, privacy-safe production observability, signed public release/update verification and staged rollout/rollback operations.
+
+### Deferred until evidence earns them
+
+New characters, Health Connect, calendar/weather expansion, iOS/Wear OS, smart-home integrations, broad Realtime expansion, additional dashboard scope, new themes and account/cloud capabilities not required for launch remain deferred by default.
+
+The feature freeze is a scope freeze, not a code freeze. Reliability fixes, regressions, simplification, accessibility, release optimization, compliance and bounded beta-driven tuning continue normally.

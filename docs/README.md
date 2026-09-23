@@ -11,8 +11,9 @@ The repository documentation is the persistent product/engineering memory for Wa
 1. [`../CONTEXT.md`](../CONTEXT.md)
 2. [`../AGENTS.md`](../AGENTS.md)
 3. [`00-project-status.md`](00-project-status.md)
-4. relevant topic document
-5. active milestone in [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md)
+4. [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) while the 1.0 program is active
+5. relevant topic document
+6. historical/build milestone context in [`21-roadmap-implementation-plan.md`](21-roadmap-implementation-plan.md)
 
 ### New product behavior / feature shaping
 
@@ -40,6 +41,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`27-open-questions.md`](27-open-questions.md) | Deliberately unresolved questions |
 | [`30-documentation-workflow.md`](30-documentation-workflow.md) | How documentation stays current |
 | [`34-product-development-workflow.md`](34-product-development-workflow.md) | Canonical Explore → Shape → Build → Harden → Learn workflow and Definition of Ready |
+| [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | **Active 1.0 Trust → Finish → Prove → Sell program, scope freeze, launch gates and Definition of Done** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -52,7 +54,8 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`02-market-and-positioning.md`](02-market-and-positioning.md) | Competition/opportunity/positioning |
 | [`03-product-principles.md`](03-product-principles.md) | Non-negotiable product constraints |
 | [`22-product-metrics-experiments.md`](22-product-metrics-experiments.md) | Activation Completion vs Confirmed Wake Success, friction, experiments |
-| [`24-monetization.md`](24-monetization.md) | Monetization guardrails |
+| [`24-monetization.md`](24-monetization.md) | Outcome-led Free/Pro packaging, pricing hypothesis and monetization guardrails |
+| [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | Paid-launch gates, beta evidence, rollout ladder and 1.0 acceptance |
 
 ## UX and brand
 
