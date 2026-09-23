@@ -44,6 +44,10 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | **Active 1.0 Trust → Finish → Prove → Sell program, scope freeze, launch gates and Definition of Done** |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | **Executable Gate 3 screener, denominators, evidence cadence, change-control and willingness-to-pay interview** |
 | [`37-physical-acceptance.md`](37-physical-acceptance.md) | **Unified physical Gate 1/2 acceptance for reliability, startup, TalkBack and reduced motion** |
+| [`38-play-submission-packet.md`](38-play-submission-packet.md) | **Google Play submission copy, declarations, Data Safety baseline and staged-rollout packet** |
+| [`39-public-privacy-policy.md`](39-public-privacy-policy.md) | **Publication-ready privacy-policy content with explicit release blockers for contact/provider finalization** |
+| [`40-terms-of-use-draft.md`](40-terms-of-use-draft.md) | **Commercial terms draft aligned to the product boundary; entity/jurisdiction fields remain external** |
+| [`41-support-and-incident-response.md`](41-support-and-incident-response.md) | **Support taxonomy, privacy-safe diagnostics, rollout pause/incident rules and first-week operations** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
