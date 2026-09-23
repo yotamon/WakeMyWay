@@ -7,11 +7,13 @@ import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.learning.WakeBehaviorObservation
 import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.runtime.WakePolicy
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.Duration
+import java.io.File
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -57,6 +59,75 @@ class WakeLearningRepositoryTest {
         assertEquals(4, state.policy.maxEscalationLevel)
         assertNotNull(state.lastAdjustment)
         assertEquals(state.policy, learning.resolvePolicy())
+    }
+
+    @Test
+    fun `valid learned policy survives repository recreation`() {
+        val historyFile = "restart-history-${System.nanoTime()}.json"
+        val learningFile = "restart-learning-${System.nanoTime()}.json"
+        val history = WakeHistoryRepository(
+            context = context,
+            fileName = historyFile,
+        )
+        repeat(4) { index ->
+            history.record(
+                entry(
+                    id = "restart-stopped-$index",
+                    finishedAt = Instant.parse("2026-09-16T08:0${index + 1}:00Z"),
+                    reason = WakeHistoryTerminalReason.STOPPED,
+                    activation = null,
+                ),
+            )
+        }
+        val first = WakeLearningRepository(
+            context = context,
+            historyRepository = history,
+            fileName = learningFile,
+        )
+        val learned = first.refresh().policy
+
+        val recreated = WakeLearningRepository(
+            context = context,
+            historyRepository = WakeHistoryRepository(context, fileName = historyFile),
+            fileName = learningFile,
+        )
+
+        assertEquals(learned, recreated.resolvePolicy())
+        assertTrue(recreated.resolvePolicy().version > WakePolicy().version)
+    }
+
+    @Test
+    fun `corrupt persisted learning state fails closed to stable default`() {
+        val learningFile = "corrupt-learning-${System.nanoTime()}.json"
+        File(context.noBackupFilesDir, learningFile).writeText("{ definitely-not-valid-json")
+        val learning = WakeLearningRepository(
+            context = context,
+            historyRepository = WakeHistoryRepository(
+                context,
+                fileName = "corrupt-history-${System.nanoTime()}.json",
+            ),
+            fileName = learningFile,
+        )
+
+        assertEquals(WakePolicy(), learning.resolvePolicy())
+        assertEquals(WakePolicy(), learning.state().policy)
+    }
+
+    @Test
+    fun `unsupported persisted learning schema fails closed to stable default`() {
+        val learningFile = "unsupported-learning-${System.nanoTime()}.json"
+        File(context.noBackupFilesDir, learningFile).writeText("""{"schemaVersion":999}""")
+        val learning = WakeLearningRepository(
+            context = context,
+            historyRepository = WakeHistoryRepository(
+                context,
+                fileName = "unsupported-history-${System.nanoTime()}.json",
+            ),
+            fileName = learningFile,
+        )
+
+        assertEquals(WakePolicy(), learning.resolvePolicy())
+        assertEquals(WakePolicy(), learning.state().policy)
     }
 
     @Test
