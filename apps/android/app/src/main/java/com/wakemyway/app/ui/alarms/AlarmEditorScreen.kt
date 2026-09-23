@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -642,32 +643,70 @@ private fun DayPicker(
     locale: Locale,
     onToggle: (DayOfWeek) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        DayOfWeek.entries.forEach { day ->
-            val selected = day in days
-            Surface(
-                modifier = Modifier
-                    .size(38.dp)
-                    .toggleable(
-                        value = selected,
-                        onValueChange = { onToggle(day) },
-                        role = Role.Checkbox,
-                    ),
-                shape = CircleShape,
-                color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
-                border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+    val largeText = LocalDensity.current.fontScale >= 1.3f
+    if (largeText) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+            DayOfWeek.entries.chunked(4).forEach { rowDays ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    Text(
-                        day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
-                    )
+                    rowDays.forEach { day ->
+                        DayChoice(
+                            day = day,
+                            selected = day in days,
+                            locale = locale,
+                            size = 48.dp,
+                            onToggle = onToggle,
+                        )
+                    }
                 }
             }
+        }
+    } else {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            DayOfWeek.entries.forEach { day ->
+                DayChoice(
+                    day = day,
+                    selected = day in days,
+                    locale = locale,
+                    size = 38.dp,
+                    onToggle = onToggle,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayChoice(
+    day: DayOfWeek,
+    selected: Boolean,
+    locale: Locale,
+    size: androidx.compose.ui.unit.Dp,
+    onToggle: (DayOfWeek) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .size(size)
+            .toggleable(
+                value = selected,
+                onValueChange = { onToggle(day) },
+                role = Role.Checkbox,
+            ),
+        shape = CircleShape,
+        color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
+        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
+            )
         }
     }
 }
