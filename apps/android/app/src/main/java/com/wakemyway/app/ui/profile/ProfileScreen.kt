@@ -321,7 +321,7 @@ fun AboutScreen(
                 text = "Version $versionName",
                 modifier = Modifier.padding(top = WmwSpacing.Lg),
                 style = MaterialTheme.typography.labelMedium,
-                color = WmwColors.DawnDeep,
+                color = WmwColors.DawnText,
             )
 
             UpdateStatusCard(
@@ -516,7 +516,7 @@ private fun ProfileLink(
                 Text(
                     if (LocalLayoutDirection.current == LayoutDirection.Rtl) "‹" else "›",
                     style = MaterialTheme.typography.titleLarge,
-                    color = WmwColors.DawnDeep,
+                    color = WmwColors.DawnText,
                 )
             }
         }
