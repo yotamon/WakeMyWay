@@ -1,5 +1,9 @@
 package com.wakemyway.app
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.alarm.AlarmScheduleHealth
@@ -13,6 +17,8 @@ import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
+import com.wakemyway.app.ui.navigation.ConsumerTab
+import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
@@ -174,6 +180,45 @@ class ProductVisualRegressionTest {
     }
 
     @Test
+    fun alarmsOverviewRtlSmoke() {
+        val ready = visualAlarm(
+            id = "rtl-weekday-ready",
+            label = "Morning focus",
+            time = LocalTime.of(7, 30),
+            days = WEEKDAYS,
+            voiceCheckInEnabled = true,
+        )
+        val disabled = visualAlarm(
+            id = "rtl-weekend-off",
+            label = "Weekend",
+            time = LocalTime.of(8, 30),
+            days = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY),
+            enabled = false,
+            voiceCheckInEnabled = true,
+        )
+
+        captureRoboImage("rtl/alarms_with_navigation_393x852.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.ALARMS,
+                        onTabSelected = {},
+                    ) { contentModifier ->
+                        AlarmsScreen(
+                            alarms = listOf(ready, disabled),
+                            healthFor = { alarm -> visualHealth(alarm, ready = alarm.enabled) },
+                            onAddAlarm = {},
+                            onEditAlarm = {},
+                            onSetEnabled = { _, _ -> },
+                            modifier = contentModifier,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun alarmEditorConfigured() {
         val alarm = visualAlarm(
             id = "visual-editor",
@@ -251,6 +296,38 @@ class ProductVisualRegressionTest {
                     onOpenAppearance = {},
                     onOpenAbout = {},
                 )
+            }
+        }
+    }
+
+    @Test
+    fun profileWithNavigationRtlSmoke() {
+        captureRoboImage("rtl/profile_with_navigation_393x852.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.PROFILE,
+                        onTabSelected = {},
+                    ) { contentModifier ->
+                        ProfileScreen(
+                            preferences = ConsumerPreferences(
+                                onboardingCompleted = true,
+                                displayName = "Yotam",
+                                defaultSoundId = WakeSoundId.SOFT_START,
+                                defaultVoiceCheckInEnabled = true,
+                                defaultVoiceStyle = VoiceStyle.MINIMAL,
+                                defaultSnoozeMinutes = 15,
+                                defaultFirstMove = "Open the curtains",
+                            ),
+                            onPreferencesChanged = {},
+                            onOpenNotifications = {},
+                            onOpenPrivacy = {},
+                            onOpenAppearance = {},
+                            onOpenAbout = {},
+                            modifier = contentModifier,
+                        )
+                    }
+                }
             }
         }
     }
@@ -485,5 +562,12 @@ class ProductVisualRegressionTest {
             DayOfWeek.THURSDAY,
             DayOfWeek.FRIDAY,
         )
+    }
+}
+
+@Composable
+private fun RtlLayout(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        content()
     }
 }

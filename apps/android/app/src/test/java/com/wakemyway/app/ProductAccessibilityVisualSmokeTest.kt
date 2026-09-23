@@ -3,7 +3,9 @@ package com.wakemyway.app
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
@@ -107,6 +109,88 @@ class ProductAccessibilityVisualSmokeTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun onboardingRtlCompactRenders() {
+        captureRoboImage("rtl/onboarding_360x640.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    OnboardingScreen(
+                        onComplete = {},
+                        onSkip = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun alarmEditorRtlCompactRenders() {
+        captureRoboImage("rtl/alarm_editor_360x640.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    AlarmEditorScreen(
+                        existing = null,
+                        onBack = {},
+                        onSave = { AlarmEditorResult(saved = true) },
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun wakeListeningRtlCompactRenders() {
+        captureRoboImage("rtl/wake_listening_360x640.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    WakeSurface(
+                        preparedPlan = null,
+                        onSnooze = {},
+                        onStop = {},
+                        displayTime = "07:30",
+                        displayDate = "Tuesday · 14 Jan",
+                        voiceState = WakeVoiceUiState(
+                            mode = WakeVoiceMode.LISTENING,
+                            spokenLine = "Morning. Tell me you're with me.",
+                            speechAvailable = true,
+                            voiceInputAvailable = true,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun wakeOrientedRtlCompactRenders() {
+        captureRoboImage("rtl/wake_oriented_360x640.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    WakeSurface(
+                        preparedPlan = accessibilityPreparedPlan(),
+                        onSnooze = {},
+                        onStop = {},
+                        displayTime = "07:32",
+                        displayDate = "Tuesday · 14 Jan",
+                        voiceState = WakeVoiceUiState(
+                            mode = WakeVoiceMode.ORIENTING,
+                            spokenLine = "Good morning.",
+                            speechAvailable = true,
+                            voiceInputAvailable = true,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RtlLayout(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        content()
     }
 }
 

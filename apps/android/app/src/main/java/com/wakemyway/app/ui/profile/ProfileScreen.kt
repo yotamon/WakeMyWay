@@ -30,9 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.product.ConsumerPreferences
@@ -511,7 +513,11 @@ private fun ProfileLink(
                 )
             }
             if (onClick != null) {
-                Text("›", style = MaterialTheme.typography.titleLarge, color = WmwColors.DawnDeep)
+                Text(
+                    if (LocalLayoutDirection.current == LayoutDirection.Rtl) "‹" else "›",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = WmwColors.DawnDeep,
+                )
             }
         }
     }
@@ -527,7 +533,11 @@ private fun BackHeader(title: String, onBack: () -> Unit) {
             onClick = onBack,
             modifier = Modifier.semantics { contentDescription = "Back" },
         ) {
-            Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
+            Text(
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = WmwColors.Midnight,
+                    )
         }
         Text(
             title,
