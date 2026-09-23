@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,6 +39,88 @@ import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
 import java.time.ZonedDateTime
 
+private data class PhysicalReliabilityScenario(
+    val id: String,
+    val label: String,
+    val minutesFromNow: Long,
+    val instruction: String,
+)
+
+private val PHYSICAL_RELIABILITY_SCENARIOS = listOf(
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_NORMAL_T_PLUS_2M,
+        label = "Normal locked wake",
+        minutesFromNow = 2,
+        instruction = "Lock the phone and leave WakeMyWay in the background until the alarm fires.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
+        label = "Snooze replacement",
+        minutesFromNow = 2,
+        instruction = "When the wake fires, Snooze it. Confirm the replacement is durable before the current wake ends.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_STOP_RECREATION,
+        label = "Stop resurrection",
+        minutesFromNow = 2,
+        instruction = "Stop the wake, then kill/recreate the app process and confirm the stopped occurrence never returns.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_SERVICE_RECREATION,
+        label = "Active service recreation",
+        minutesFromNow = 2,
+        instruction = "After audio starts, recreate the app process/service without Force Stop. Confirm the active wake recovers.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_RECONCILE_TIME_CHANGE,
+        label = "Clock / timezone change",
+        minutesFromNow = 5,
+        instruction = "After scheduling, change wall clock or timezone, reopen WakeMyWay, then verify reconciliation stays truthful.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_REBOOT_UNLOCKED,
+        label = "Reboot then unlock",
+        minutesFromNow = 5,
+        instruction = "Reboot after scheduling, unlock before target time, and confirm the future wake is restored.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_DIRECT_BOOT,
+        label = "Direct Boot",
+        minutesFromNow = 5,
+        instruction = "Reboot after scheduling and remain locked until the wake. No private credential-protected data may be required.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_EXACT_ALARM_UNAVAILABLE,
+        label = "Exact-alarm capability loss",
+        minutesFromNow = 5,
+        instruction = "Schedule while ready, then remove exact-alarm access before target and verify readiness/recovery behavior is truthful.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_FULL_SCREEN_UNAVAILABLE,
+        label = "Full-screen capability loss",
+        minutesFromNow = 3,
+        instruction = "Schedule while ready, then remove full-screen alarm access. Audio must remain safe and presentation degradation explicit.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_DOZE_IDLE,
+        label = "Doze / idle",
+        minutesFromNow = 5,
+        instruction = "After scheduling, force or naturally enter idle/Doze. Keep the phone locked through the target.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_BLUETOOTH_ROUTE,
+        label = "Bluetooth / audio route",
+        minutesFromNow = 3,
+        instruction = "Connect Bluetooth before target, then exercise the real wake and voice window while observing audible local fallback.",
+    ),
+    PhysicalReliabilityScenario(
+        id = WakeTimingTrace.SCENARIO_MOTION_CALIBRATION,
+        label = "Motion calibration",
+        minutesFromNow = 2,
+        instruction = "Use controlled pickup, rotation and real movement after the wake fires; note false positives or missed activation evidence.",
+    ),
+)
+
 @Composable
 fun WakeAlarmLabScreen(
     onBack: () -> Unit,
@@ -53,6 +136,8 @@ fun WakeAlarmLabScreen(
     var health by remember { mutableStateOf(kernel.health()) }
     var history by remember { mutableStateOf(timingTrace.history(HISTORY_LIMIT)) }
     var message by remember { mutableStateOf<String?>(null) }
+    var scenarioIndex by remember { mutableIntStateOf(0) }
+    val scenario = PHYSICAL_RELIABILITY_SCENARIOS[scenarioIndex]
 
     LaunchedEffect(readinessRevision, voiceWakeReadiness) {
         health = kernel.reconcile()
@@ -103,6 +188,33 @@ fun WakeAlarmLabScreen(
             style = MaterialTheme.typography.headlineSmall,
         )
         HealthFacts(health, voiceWakeReadiness)
+
+        Text(
+            modifier = Modifier.padding(top = 24.dp),
+            text = "Physical reliability scenario",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        OutlinedButton(
+            modifier = Modifier.padding(top = 8.dp),
+            onClick = {
+                scenarioIndex = (scenarioIndex + 1) % PHYSICAL_RELIABILITY_SCENARIOS.size
+                message = null
+            },
+        ) {
+            Text("${scenario.label} · ${scenario.minutesFromNow} min")
+        }
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = scenario.instruction,
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = "Scenario ID: ${scenario.id}",
+            style = MaterialTheme.typography.labelSmall,
+            color = WmwColors.QuietText,
+        )
 
         when (blocker) {
             WakeSchedulingBlocker.ALARM_SYSTEM -> {
@@ -164,19 +276,28 @@ fun WakeAlarmLabScreen(
                     return@Button
                 }
 
-                runCatching { kernel.commitSchedule(founderTestSchedule()) }
+                runCatching {
+                    kernel.commitSchedule(
+                        founderTestSchedule(
+                            scenarioId = scenario.id,
+                            minutesFromNow = scenario.minutesFromNow,
+                        ),
+                    )
+                }
                     .onSuccess { committedHealth ->
                         health = committedHealth
                         committedHealth.nextOccurrence?.let { occurrence ->
                             timingTrace.expected(
                                 occurrence = occurrence,
-                                scenario = WakeTimingTrace.SCENARIO_NORMAL_T_PLUS_2M,
+                                scenario = scenario.id,
                                 expectFullScreen = committedHealth.fullScreenIntentAllowed,
                             )
                         }
                         recordCapabilities(timingTrace, committedHealth)
                         history = timingTrace.history(HISTORY_LIMIT)
-                        message = "One-shot production-path wake scheduled for about 2 minutes from now. Lock the phone."
+                        message =
+                            "Scenario ${scenario.id} scheduled for about ${scenario.minutesFromNow} minutes from now. " +
+                                scenario.instruction
                     }
                     .onFailure {
                         health = kernel.health()
@@ -185,7 +306,7 @@ fun WakeAlarmLabScreen(
             },
             enabled = blocker == WakeSchedulingBlocker.NONE,
         ) {
-            Text("Run one-shot T+2m wake")
+            Text("Run ${scenario.label}")
         }
 
         OutlinedButton(
@@ -337,10 +458,14 @@ private fun TimingFacts(number: Int, timing: TimingSnapshot) {
     }
 }
 
-private fun founderTestSchedule(): WakeSchedule {
-    val target = ZonedDateTime.now().plusMinutes(2).withNano(0)
+private fun founderTestSchedule(
+    scenarioId: String,
+    minutesFromNow: Long,
+): WakeSchedule {
+    val target = ZonedDateTime.now().plusMinutes(minutesFromNow).withNano(0)
+    val scenarioSlug = scenarioId.lowercase().replace('_', '-')
     return WakeSchedule(
-        id = WakeScheduleId("lab-normal-${System.currentTimeMillis()}"),
+        id = WakeScheduleId("lab-$scenarioSlug-${System.currentTimeMillis()}"),
         zoneId = target.zone,
         timesByDay = DayOfWeek.values().associateWith { target.toLocalTime() },
         revision = System.currentTimeMillis().coerceAtLeast(1),

@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -37,6 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
@@ -275,7 +281,10 @@ fun AlarmEditorScreen(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = ::exitEditor) {
+                TextButton(
+                    onClick = ::exitEditor,
+                    modifier = Modifier.semantics { contentDescription = "Back" },
+                ) {
                     Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
                 }
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
@@ -552,7 +561,9 @@ private fun EditorSection(
 @Composable
 private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         color = WmwColors.MorningPaper,
         border = BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -583,7 +594,11 @@ private fun WakeSoundChoice(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelected),
+            .selectable(
+                selected = selected,
+                onClick = onSelected,
+                role = Role.RadioButton,
+            ),
         shape = RoundedCornerShape(18.dp),
         color = if (selected) WmwColors.Midnight else WmwColors.MorningPaper,
         border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -628,26 +643,70 @@ private fun DayPicker(
     locale: Locale,
     onToggle: (DayOfWeek) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        DayOfWeek.entries.forEach { day ->
-            val selected = day in days
-            Surface(
-                modifier = Modifier.size(38.dp).clickable { onToggle(day) },
-                shape = CircleShape,
-                color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
-                border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+    val largeText = LocalDensity.current.fontScale >= 1.3f
+    if (largeText) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+            DayOfWeek.entries.chunked(4).forEach { rowDays ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    Text(
-                        day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
-                    )
+                    rowDays.forEach { day ->
+                        DayChoice(
+                            day = day,
+                            selected = day in days,
+                            locale = locale,
+                            size = 48.dp,
+                            onToggle = onToggle,
+                        )
+                    }
                 }
             }
+        }
+    } else {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            DayOfWeek.entries.forEach { day ->
+                DayChoice(
+                    day = day,
+                    selected = day in days,
+                    locale = locale,
+                    size = 38.dp,
+                    onToggle = onToggle,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayChoice(
+    day: DayOfWeek,
+    selected: Boolean,
+    locale: Locale,
+    size: androidx.compose.ui.unit.Dp,
+    onToggle: (DayOfWeek) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .size(size)
+            .toggleable(
+                value = selected,
+                onValueChange = { onToggle(day) },
+                role = Role.Checkbox,
+            ),
+        shape = CircleShape,
+        color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
+        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
+            )
         }
     }
 }
@@ -671,6 +730,7 @@ private fun ToggleSetting(
         }
         Switch(
             checked = checked,
+            modifier = Modifier.semantics { contentDescription = title },
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = WmwColors.Midnight,
@@ -691,7 +751,13 @@ private fun SettingRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -715,7 +781,13 @@ private fun <T> ChoiceRow(
         options.forEach { option ->
             val active = option == selected
             Surface(
-                modifier = Modifier.weight(1f).clickable { onSelected(option) },
+                modifier = Modifier
+                    .weight(1f)
+                    .selectable(
+                        selected = active,
+                        onClick = { onSelected(option) },
+                        role = Role.RadioButton,
+                    ),
                 shape = CircleShape,
                 color = if (active) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
                 border = if (active) null else BorderStroke(1.dp, WmwColors.DarkHairline),

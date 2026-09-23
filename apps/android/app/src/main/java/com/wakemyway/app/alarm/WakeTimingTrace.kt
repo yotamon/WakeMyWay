@@ -20,9 +20,14 @@ class WakeTimingTrace(
     context: Context,
     journalName: String = DEFAULT_JOURNAL_NAME,
 ) {
+    private val appContext = context.applicationContext
     private val prefs = context
         .createDeviceProtectedStorageContext()
         .getSharedPreferences(journalName, Context.MODE_PRIVATE)
+    private val appVersion = runCatching {
+        val info = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+        "${appContext.packageName} ${info.versionName ?: "unknown"} (${info.longVersionCode})"
+    }.getOrDefault("${appContext.packageName} unknown")
 
     /**
      * Records an expected OS wake before its target time. This is what lets the lab diagnose
@@ -126,6 +131,8 @@ class WakeTimingTrace(
             appendLine("Wake My Way Reliability Report")
             appendLine("generated=${Instant.ofEpochMilli(System.currentTimeMillis())}")
             appendLine("device=${Build.MANUFACTURER} ${Build.MODEL}; sdk=${Build.VERSION.SDK_INT}")
+            appendLine("build=${Build.FINGERPRINT}")
+            appendLine("app=$appVersion")
             appendLine("sessions=${sessions.size}")
             appendLine()
 
@@ -296,6 +303,16 @@ class WakeTimingTrace(
     companion object {
         const val SCENARIO_NORMAL_T_PLUS_2M = "NORMAL_T_PLUS_2M"
         const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
+        const val SCENARIO_STOP_RECREATION = "STOP_RECREATION"
+        const val SCENARIO_SERVICE_RECREATION = "SERVICE_RECREATION"
+        const val SCENARIO_RECONCILE_TIME_CHANGE = "RECONCILE_TIME_CHANGE"
+        const val SCENARIO_REBOOT_UNLOCKED = "REBOOT_UNLOCKED"
+        const val SCENARIO_DIRECT_BOOT = "DIRECT_BOOT"
+        const val SCENARIO_EXACT_ALARM_UNAVAILABLE = "EXACT_ALARM_UNAVAILABLE"
+        const val SCENARIO_FULL_SCREEN_UNAVAILABLE = "FULL_SCREEN_UNAVAILABLE"
+        const val SCENARIO_DOZE_IDLE = "DOZE_IDLE"
+        const val SCENARIO_BLUETOOTH_ROUTE = "BLUETOOTH_ROUTE"
+        const val SCENARIO_MOTION_CALIBRATION = "MOTION_CALIBRATION"
         const val MISSED_RECEIVER_GRACE_MS = 60_000L
         const val DELIVERY_STAGE_GRACE_MS = 5_000L
         const val DEFAULT_JOURNAL_NAME = "wake-reliability-journal"

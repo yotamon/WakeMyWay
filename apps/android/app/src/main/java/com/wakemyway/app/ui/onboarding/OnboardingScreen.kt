@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -108,27 +110,35 @@ fun OnboardingScreen(
                     color = WmwColors.Midnight,
                     textAlign = TextAlign.Center,
                 )
-                Text(
-                    text = page.body,
-                    modifier = Modifier.padding(top = WmwSpacing.Md),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = WmwColors.LightQuietText,
-                    textAlign = TextAlign.Center,
-                )
-
-                WmwCard(
-                    modifier = Modifier.padding(top = 28.dp),
-                    onLightSurface = true,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = page.detail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = WmwColors.Midnight,
+                        text = page.body,
+                        modifier = Modifier.padding(top = WmwSpacing.Md),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = WmwColors.LightQuietText,
                         textAlign = TextAlign.Center,
                     )
+
+                    WmwCard(
+                        modifier = Modifier.padding(top = 28.dp),
+                        onLightSurface = true,
+                    ) {
+                        Text(
+                            text = page.detail,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = WmwColors.Midnight,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Spacer(Modifier.height(WmwSpacing.Md))
                 }
 
-                Spacer(Modifier.weight(1f))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,

@@ -139,7 +139,7 @@ fun TonightScreen(
                 WmwCard(
                     modifier = Modifier
                         .padding(top = WmwSpacing.Md)
-                        .clickable(onClick = onOpenMorningCheckIn),
+                        .clickable(role = Role.Button, onClick = onOpenMorningCheckIn),
                     onLightSurface = true,
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
