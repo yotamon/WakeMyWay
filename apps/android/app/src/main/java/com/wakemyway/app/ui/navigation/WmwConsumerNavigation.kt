@@ -88,14 +88,14 @@ private fun WmwBottomBar(
                         .clickable(role = Role.Tab) { onTabSelected(tab) }
                         .semantics { this.selected = selected }
                         .heightIn(min = 48.dp)
-                        .padding(horizontal = 6.dp, vertical = 13.dp),
+                        .padding(horizontal = 2.dp, vertical = 13.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ConsumerNavGlyph(tab = tab, selected = selected)
                     Text(
                         text = tab.label,
-                        modifier = Modifier.padding(start = 6.dp),
+                        modifier = Modifier.padding(start = 4.dp),
                         style = MaterialTheme.typography.labelLarge,
                         color = if (selected) WmwColors.Midnight else WmwColors.QuietText,
                         maxLines = 1,
