@@ -388,7 +388,7 @@ fun AlarmEditorScreen(
                     Text(
                         text = "WAKE BEHAVIOR",
                         style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
+                        color = WmwColors.DawnText,
                     )
                     Text(
                         text = listOfNotNull(
@@ -406,7 +406,7 @@ fun AlarmEditorScreen(
                     TextButton(onClick = { showAdvanced = !showAdvanced }) {
                         Text(
                             text = if (showAdvanced) "Hide customization" else "Customize wake",
-                            color = WmwColors.DawnDeep,
+                            color = WmwColors.DawnText,
                         )
                     }
                 }
@@ -633,7 +633,7 @@ private fun WakeSoundChoice(
                 Text(
                     text = if (previewing) "Stop" else "Preview",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnDeep,
+                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnText,
                 )
             }
             Text(
