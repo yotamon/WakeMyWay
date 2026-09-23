@@ -2,9 +2,20 @@
 
 ## Status
 
-The first pure-Kotlin Wake Learning v0 core is implemented on `feat/m7-wake-learning-v0` for issue #25.
+Wake Learning v0 is now product-integrated locally.
 
-This slice proves the local adaptive loop without adding cloud, AI, machine learning, Android persistence, or mid-session policy mutation. It intentionally operates on completed Wake Sessions and produces a future `WakePolicy` only.
+The pure-Kotlin learner was originally implemented as an isolated M7 core. The Android product path now also:
+
+- records bounded semantic Wake behavior into credential-protected Wake history;
+- attaches sparse outcome calibration without retaining raw speech/audio;
+- derives and persists one bounded learned policy from comparable completed sessions;
+- resolves that policy exactly once before a future interactive Wake Session starts;
+- keeps the selected policy immutable for that active session;
+- fails closed to the stable default when learned state is missing, corrupt or unsupported;
+- exposes current policy/evidence in Insights and founder/debug inspection tooling;
+- supports a non-destructive learned-policy reset that preserves source Wake history.
+
+Alarm Kernel and WakeRuntime authority boundaries remain unchanged.
 
 ## Responsibility
 
@@ -165,18 +176,18 @@ Pure-Kotlin tests cover:
 
 ## Deliberately deferred
 
-This core does not yet implement:
+The 1.0 product intentionally does not expand Wake Learning into:
 
-- Android Wake Session/timed semantic journal persistence;
-- persistent Wake Outcome/history storage;
-- persisted learned-policy snapshot storage/selection in the application composition root;
-- user-facing calibration collection UI;
-- Wake Lab learned-policy inspection UI;
 - timing/snooze/Tomorrow Contract adaptation;
-- physical dogfood calibration of v0 thresholds and safe ranges.
+- opaque ML/AI optimization;
+- cloud/account-dependent learning;
+- raw semantic input, microphone/audio or high-frequency motion retention;
+- mid-session policy mutation.
 
-Those are the next M7 integration slice. The learner itself remains independent from Room, Android, cloud and account state.
+The earlier plan for a persistent full timed WakeInput journal was superseded by a more privacy-minimized implementation: the product persists only the compact behavioral evidence needed by Insights and deterministic learning.
+
+Physical beta/dogfood evidence still needs to validate the current v0 thresholds and safe ranges before broader tuning is justified.
 
 ## M7 completion boundary
 
-This change proves the deterministic/reversible learning transformation in isolation. M7 is not considered fully product-integrated until real completed sessions can be journaled locally, calibration can be attached occasionally, a validated learned snapshot can be selected for a later Wake Session, and the adaptation can be inspected/reset in dogfood tooling.
+M7 engineering integration is complete when the device-backed persistence/corruption/reset contract is green. Product tuning remains evidence work under the 1.0 TRUST / PROVE gates, not unfinished M7 feature scope.
