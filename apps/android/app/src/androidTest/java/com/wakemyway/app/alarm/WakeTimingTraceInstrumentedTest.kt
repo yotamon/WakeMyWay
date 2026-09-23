@@ -108,6 +108,8 @@ class WakeTimingTraceInstrumentedTest {
 
         val report = trace.reportText()
         assertTrue(report.contains("Wake My Way Reliability Report"))
+        assertTrue(report.contains("build="))
+        assertTrue(report.contains("app=com.wakemyway.app"))
         assertTrue(report.contains("NORMAL_T_PLUS_2M STOPPED"))
         assertTrue(report.contains("SERVICE_RECOVERED"))
         assertTrue(report.contains("instrumented-test"))
