@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-09-23  
+**Last updated:** 2026-09-24  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -207,6 +207,20 @@ Repository quality gates include:
 - dedicated lightweight Docs CI validation.
 
 New canonical visual states must be rendered and reviewed before their hashes are promoted. Product-facing work follows the Explore → Shape → Build → Harden → Learn workflow in `docs/34-product-development-workflow.md` so expensive engineering gates validate an accepted product slice rather than act as the first design feedback loop. #73 is intentionally non-visual, so its accepted result requires the approved visual hash set to remain unchanged.
+
+## 1.0 FINISH hardening evidence
+
+The automated/repository side of Gate 2 is now substantially converged.
+
+- Critical Active Wake, onboarding and alarm editing have compact + large-text smoke evidence.
+- Custom navigation, alarm/editor/Profile/Insights controls have explicit semantics and minimum touch-target hardening.
+- RTL layout has reviewed smoke renders across onboarding, editor, Alarms, Insights, Profile and Active Wake; English fallback text remains content-directed and directional chevrons explicitly follow layout direction.
+- Canonical LTR visual hashes remain protected.
+- Current release artifacts are intentionally measured at **52.70 MiB Direct APK** and **34.53 MiB Play AAB**. The three offline WakeMyWay masters dominate remaining package size, so no speculative audio degradation or shrinking change is accepted without measured benefit.
+- Android OS cloud backup and device transfer explicitly exclude app-managed credential- and device-protected state; WakeMyWay-managed migration remains a separate conservative boundary.
+- The existing `:benchmark` module is now a release-derived Play cold-start Macrobenchmark contract. CI verifies buildability; physical-device timing remains #97 because hosted-emulator timings are not product evidence.
+- Founder/debug Wake Lab and Alfred setup actions remain gated behind `FLAG_DEBUGGABLE`; normal release UI exposes no fake account or developer placeholder.
+- Remaining physical FINISH acceptance is tracked in #97 (startup timing) and #99 (TalkBack + system reduced-motion behavior), coordinated with the broader physical reliability work in #9.
 
 ## Physical proof still required
 
