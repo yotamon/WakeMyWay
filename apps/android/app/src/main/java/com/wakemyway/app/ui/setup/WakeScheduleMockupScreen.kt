@@ -33,9 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.ui.components.WmwActionTone
@@ -152,7 +154,11 @@ fun WakeScheduleMockupScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
-                    Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
+                    Text(
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = WmwColors.Midnight,
+                    )
                 }
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
                 Spacer(Modifier.weight(1f))
@@ -263,7 +269,10 @@ fun WakeScheduleMockupScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = WmwColors.Danger,
                             )
-                            Text("›", color = WmwColors.LightQuietText)
+                            Text(
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "‹" else "›",
+                        color = WmwColors.LightQuietText,
+                    )
                         }
                     }
                 }
