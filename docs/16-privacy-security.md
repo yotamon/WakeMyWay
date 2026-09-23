@@ -40,6 +40,16 @@ Normal Room/preferences/private files use credential-protected storage for:
 - derived behavioral history/profile
 - provider/auth credentials (with Android Keystore as appropriate)
 
+### Android OS backup and device transfer
+
+WakeMyWay does not treat Android Auto Backup or device-to-device transfer as a product migration mechanism.
+
+For 1.0, both Android 12+ `dataExtractionRules` and Android 11-and-lower `fullBackupContent` rules explicitly exclude app-managed root, files, databases, shared preferences and external app data from platform backup/transfer. Private Tomorrow Contract / Prepared Wake content and the Direct-Boot Critical Wake Snapshot additionally remain in `noBackupFilesDir`.
+
+This avoids restoring rich alarm/preferences/history state onto a new installation without the local critical scheduling authority, permissions, capability checks and timezone/device reconciliation that make an enabled alarm trustworthy.
+
+A future WakeMyWay-managed backup/migration flow may move selected state only through an explicit schema and conservative import semantics. Platform restore must not silently become that boundary.
+
 ## Raw microphone audio
 
 Do **not** store raw morning audio by default. Realtime audio may transit a provider when the user enables live conversation, subject to provider/privacy settings, but WMW does not build an archive of recordings.
@@ -108,7 +118,7 @@ Before beta verify:
 - alarm/dismiss/snooze intents cannot be trivially forged/replayed
 - `PendingIntent` mutability is minimal and explicit
 - deep links are validated
-- backups do not unintentionally expose private wake data
+- Android OS backup/D2D rules explicitly exclude app-managed local state
 - logs contain no private speech/context
 - device-protected snapshot integrity/versioning handles corrupt/stale state safely
 
