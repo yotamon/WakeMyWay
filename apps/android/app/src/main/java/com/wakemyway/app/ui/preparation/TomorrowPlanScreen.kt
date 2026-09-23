@@ -44,12 +44,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.preparation.WakePreparationManager
@@ -145,7 +147,11 @@ fun TomorrowPlanScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TextButton(onClick = onBack) {
-                    Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
+                    Text(
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = WmwColors.Midnight,
+                    )
                 }
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
                 Spacer(Modifier.weight(1f))
