@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -201,7 +202,7 @@ private fun MetadataChip(label: String) {
 private fun AddAlarmButton(onClick: () -> Unit) {
     Surface(
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
             .clickable(onClick = onClick)
             .semantics {
                 role = Role.Button
