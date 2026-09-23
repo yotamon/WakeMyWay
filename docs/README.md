@@ -42,6 +42,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`30-documentation-workflow.md`](30-documentation-workflow.md) | How documentation stays current |
 | [`34-product-development-workflow.md`](34-product-development-workflow.md) | Canonical Explore → Shape → Build → Harden → Learn workflow and Definition of Ready |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | **Active 1.0 Trust → Finish → Prove → Sell program, scope freeze, launch gates and Definition of Done** |
+| [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | **Executable Gate 3 screener, denominators, evidence cadence, change-control and willingness-to-pay interview** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -56,6 +57,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`22-product-metrics-experiments.md`](22-product-metrics-experiments.md) | Activation Completion vs Confirmed Wake Success, friction, experiments |
 | [`24-monetization.md`](24-monetization.md) | Outcome-led Free/Pro packaging, pricing hypothesis and monetization guardrails |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | Paid-launch gates, beta evidence, rollout ladder and 1.0 acceptance |
+| [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | Gate 3 beta execution protocol and evidence definitions |
 
 ## UX and brand
 
