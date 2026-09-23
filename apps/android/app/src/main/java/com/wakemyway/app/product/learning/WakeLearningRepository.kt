@@ -113,6 +113,19 @@ class WakeLearningRepository(
         return refresh()
     }
 
+    /**
+     * Resets only the learned-policy snapshot.
+     *
+     * Durable Wake history/calibration remains intact so founder debugging and future derivation can
+     * still explain what happened. The next interactive session therefore receives the stable
+     * default policy until a later explicit refresh derives another bounded policy.
+     */
+    @Synchronized
+    fun resetToDefault(): WakeLearningState {
+        atomicFile.delete()
+        return state()
+    }
+
     private fun validatePersistedPolicy(policy: WakePolicy): WakePolicy {
         val selfSnapshot = WakePolicySnapshot(
             sourcePolicy = policy,
