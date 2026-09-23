@@ -32,3 +32,6 @@ dist/
 # Visual regression renders are regenerated deterministically in CI.
 # The approved contract lives in apps/android/app/src/test/visual-goldens.sha256.
 apps/android/app/src/test/screenshots/*.png
+
+# Local physical-device evidence exports
+artifacts/physical-reliability/
