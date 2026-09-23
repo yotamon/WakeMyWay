@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -232,6 +233,7 @@ private fun PeriodSelector(
             Surface(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .selectable(
                         selected = active,
                         onClick = { onSelected(period) },
@@ -326,7 +328,9 @@ private fun CalibrationChoice(
     quiet: Boolean = false,
 ) {
     Surface(
-        modifier = modifier.clickable(role = Role.Button, onClick = onClick),
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(100.dp),
         color = if (quiet) WmwColors.LightSurfaceMuted else WmwColors.Midnight,
     ) {
