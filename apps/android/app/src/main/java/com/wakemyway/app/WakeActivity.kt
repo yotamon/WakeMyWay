@@ -632,7 +632,7 @@ private fun CompleteWakeSurface(
         Text(
             text = stringResource(R.string.wake_voice_complete).uppercase(),
             style = MaterialTheme.typography.labelMedium,
-            color = WmwColors.DawnDeep,
+            color = WmwColors.DawnText,
         )
         WmwTimeDisplay(
             time = displayTime,
