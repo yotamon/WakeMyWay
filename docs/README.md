@@ -43,6 +43,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`34-product-development-workflow.md`](34-product-development-workflow.md) | Canonical Explore → Shape → Build → Harden → Learn workflow and Definition of Ready |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | **Active 1.0 Trust → Finish → Prove → Sell program, scope freeze, launch gates and Definition of Done** |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | **Executable Gate 3 screener, denominators, evidence cadence, change-control and willingness-to-pay interview** |
+| [`37-physical-acceptance.md`](37-physical-acceptance.md) | **Unified physical Gate 1/2 acceptance for reliability, startup, TalkBack and reduced motion** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -94,6 +95,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`19-observability-analytics.md`](19-observability-analytics.md) | Safe semantic telemetry / lifecycle reliability / calibrated outcome metrics |
 | [`25-open-source-and-licenses.md`](25-open-source-and-licenses.md) | Dependency/model licensing policy |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Testing ladder, Firebase/Play distribution, local M7, Vercel cloud topology |
+| [`37-physical-acceptance.md`](37-physical-acceptance.md) | Physical founder-device acceptance and retained evidence procedure |
 | [`implementation/m2-reliability-harness.md`](implementation/m2-reliability-harness.md) | Current M2 scenario matrix, evidence fields, instrumentation tests and exit gate |
 
 ## Delivery
