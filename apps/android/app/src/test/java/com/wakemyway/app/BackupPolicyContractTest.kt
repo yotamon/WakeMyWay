@@ -95,6 +95,16 @@ class BackupPolicyContractTest {
 
     private companion object {
         const val ROOT_SECTION = "root"
-        val EXCLUDED_DOMAINS = setOf("root", "file", "database", "sharedpref", "external")
+        val EXCLUDED_DOMAINS = setOf(
+            "root",
+            "file",
+            "database",
+            "sharedpref",
+            "external",
+            "device_root",
+            "device_file",
+            "device_database",
+            "device_sharedpref",
+        )
     }
 }
