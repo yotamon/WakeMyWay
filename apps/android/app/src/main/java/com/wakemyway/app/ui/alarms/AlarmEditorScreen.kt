@@ -5,6 +5,7 @@ import android.app.TimePickerDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -647,9 +648,9 @@ private fun DayPicker(
             Surface(
                 modifier = Modifier
                     .size(38.dp)
-                    .selectable(
-                        selected = selected,
-                        onClick = { onToggle(day) },
+                    .toggleable(
+                        value = selected,
+                        onValueChange = { onToggle(day) },
                         role = Role.Checkbox,
                     ),
                 shape = CircleShape,
