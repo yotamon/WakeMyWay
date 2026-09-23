@@ -113,8 +113,10 @@ private fun AlarmCard(
     onClick: () -> Unit,
     onSetEnabled: (Boolean) -> Unit,
 ) {
+    val accessibleLabel = alarm.label.ifBlank { "Wake up" }
+
     WmwCard(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
         onLightSurface = true,
     ) {
         Column {
@@ -137,6 +139,9 @@ private fun AlarmCard(
                 }
                 Switch(
                     checked = alarm.enabled,
+                    modifier = Modifier.semantics {
+                        contentDescription = "Enable $accessibleLabel alarm"
+                    },
                     onCheckedChange = onSetEnabled,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = WmwColors.Midnight,
@@ -243,7 +248,7 @@ private fun EmptyAlarmState(onAddAlarm: () -> Unit) {
             Surface(
                 modifier = Modifier
                     .padding(top = WmwSpacing.Lg)
-                    .clickable(onClick = onAddAlarm),
+                    .clickable(role = Role.Button, onClick = onAddAlarm),
                 shape = CircleShape,
                 color = WmwColors.Sunrise,
             ) {
