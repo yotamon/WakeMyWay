@@ -13,6 +13,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+        }
+    }
+
+    buildTypes {
+        create("benchmark") {
+            isDebuggable = true
+            matchingFallbacks += listOf("release")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -21,4 +35,6 @@ android {
 
 dependencies {
     implementation(libs.androidx.benchmark.macro.junit4)
+    implementation(libs.androidx.test.ext.junit)
+    implementation(libs.androidx.test.runner)
 }
