@@ -70,7 +70,7 @@ class BackupPolicyContractTest {
                     directory.resolve("apps/android/app/src/main/AndroidManifest.xml"),
                 )
             }
-            .firstOrNull(Files::isRegularFile)
+            .firstOrNull { candidate -> Files.isRegularFile(candidate) }
 
         return Files.readString(
             requireNotNull(manifestPath) { "Could not locate app/src/main/AndroidManifest.xml" },
