@@ -21,12 +21,16 @@ def human_bytes(value: int) -> str:
 
 
 def group_name(name: str) -> str:
+    # App Bundles prefix installable module entries with "base/". Strip that module prefix so
+    # APK and AAB reports use the same meaningful categories and can be compared directly.
+    if name.startswith("base/"):
+        return group_name(name.removeprefix("base/"))
     if name.startswith("res/raw/"):
         return "res/raw"
     if name.startswith("lib/"):
         parts = name.split("/")
         return "/".join(parts[:2]) if len(parts) > 1 else "lib"
-    if name.startswith("classes") and name.endswith(".dex"):
+    if (name.startswith("classes") or name.startswith("dex/")) and name.endswith(".dex"):
         return "dex"
     if name.startswith("res/"):
         return "res/other"
@@ -36,8 +40,6 @@ def group_name(name: str) -> str:
         return "META-INF"
     if name == "resources.arsc":
         return "resources.arsc"
-    if name.startswith("base/"):
-        return "aab/base"
     return name.split("/", 1)[0]
 
 
