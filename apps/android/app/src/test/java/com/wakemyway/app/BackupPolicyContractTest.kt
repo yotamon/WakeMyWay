@@ -9,6 +9,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.nio.file.Files
+import java.nio.file.Path
 import org.xmlpull.v1.XmlPullParser
 
 @RunWith(RobolectricTestRunner::class)
@@ -22,14 +24,7 @@ class BackupPolicyContractTest {
             "allowBackup stays enabled only so the explicit XML policy can govern supported transports",
             context.applicationInfo.flags and ApplicationInfo.FLAG_ALLOW_BACKUP != 0,
         )
-        assertEquals(
-            R.xml.backup_rules,
-            applicationInfoHiddenInt(context.applicationInfo, "fullBackupContent"),
-        )
-        assertEquals(
-            R.xml.data_extraction_rules,
-            applicationInfoHiddenInt(context.applicationInfo, "dataExtractionRulesRes"),
-        )
+        assertManifestWiring()
 
         assertLegacyRules(context.resources.getXml(R.xml.backup_rules))
         assertModernRules(context.resources.getXml(R.xml.data_extraction_rules))
@@ -54,12 +49,33 @@ class BackupPolicyContractTest {
         }
     }
 
-    private fun applicationInfoHiddenInt(
-        applicationInfo: ApplicationInfo,
-        fieldName: String,
-    ): Int = ApplicationInfo::class.java
-        .getField(fieldName)
-        .getInt(applicationInfo)
+    private fun assertManifestWiring() {
+        val manifest = readSourceManifest()
+        assertTrue(
+            "Android 12+ extraction rules must stay wired from the application manifest",
+            manifest.contains("""android:dataExtractionRules="@xml/data_extraction_rules""""),
+        )
+        assertTrue(
+            "Android 11-and-lower full-backup rules must stay wired from the application manifest",
+            manifest.contains("""android:fullBackupContent="@xml/backup_rules""""),
+        )
+    }
+
+    private fun readSourceManifest(): String {
+        val start = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        val manifestPath = generateSequence(start) { current -> current.parent }
+            .flatMap { directory ->
+                sequenceOf(
+                    directory.resolve("app/src/main/AndroidManifest.xml"),
+                    directory.resolve("apps/android/app/src/main/AndroidManifest.xml"),
+                )
+            }
+            .firstOrNull(Files::isRegularFile)
+
+        return Files.readString(
+            requireNotNull(manifestPath) { "Could not locate app/src/main/AndroidManifest.xml" },
+        )
+    }
 
     private fun parseRules(parser: XmlResourceParser): RuleSnapshot {
         var root: String? = null
