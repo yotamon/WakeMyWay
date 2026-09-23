@@ -99,7 +99,7 @@ fun AppearanceScreen(
                     Text(
                         text = "WAKE EXPERIENCE",
                         style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
+                        color = WmwColors.DawnText,
                     )
                     Text(
                         text = "Always purpose-designed",
