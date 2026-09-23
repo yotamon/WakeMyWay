@@ -2,6 +2,7 @@ package com.wakemyway.app.ui.insights
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.app.product.learning.WakeLearningState
@@ -228,7 +232,11 @@ private fun PeriodSelector(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onSelected(period) },
+                    .selectable(
+                        selected = active,
+                        onClick = { onSelected(period) },
+                        role = Role.RadioButton,
+                    ),
                 shape = RoundedCornerShape(100.dp),
                 color = if (active) WmwColors.Midnight else WmwColors.PaperCard.copy(alpha = 0.82f),
                 border = if (active) null else androidx.compose.foundation.BorderStroke(
@@ -318,7 +326,7 @@ private fun CalibrationChoice(
     quiet: Boolean = false,
 ) {
     Surface(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier.clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(100.dp),
         color = if (quiet) WmwColors.LightSurfaceMuted else WmwColors.Midnight,
     ) {
@@ -434,8 +442,23 @@ private fun MorningChainChart(
                 WakeHistoryTerminalReason.SNOOZED -> WmwColors.GoldenLight
                 WakeHistoryTerminalReason.UNRECOVERABLE -> WmwColors.Danger
             }
+            val accessibleOutcome = when (morning.finalReason) {
+                WakeHistoryTerminalReason.COMPLETED -> "completed"
+                WakeHistoryTerminalReason.STOPPED -> "stopped"
+                WakeHistoryTerminalReason.SNOOZED -> "snoozed"
+                WakeHistoryTerminalReason.UNRECOVERABLE -> "unrecoverable"
+            }
+            val accessibleDay = morning.scheduledLocalDateTime
+                ?.dayOfWeek
+                ?.getDisplayName(TextStyle.FULL, locale)
+                ?: "Unknown day"
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics {
+                        contentDescription =
+                            "$accessibleDay, ${morning.snoozeCount} snoozes, $accessibleOutcome"
+                    },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Box(
