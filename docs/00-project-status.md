@@ -23,7 +23,7 @@ First-run onboarding / Profile defaults / planning Appearance
               ↓ strict new-Wake preflight
 AlarmDefinitionRepository · credential protected
               ↓ compile critical policy
-Alarm Kernel · schema v2 independent schedule slots
+Alarm Kernel · schema v3 independent schedule slots
               ↓
 AlarmManager.setAlarmClock()
               ↓
@@ -133,14 +133,14 @@ There is still no user-facing Sign In action because no authenticated WakeMyWay 
 WakeMyWay no longer uses one mutable primary schedule as product truth.
 
 - rich product alarm intent lives independently from the critical Android execution snapshot;
-- schema-v2 Direct-Boot state stores independent schedule slots keyed by `WakeScheduleId`;
+- schema-v3 Direct-Boot state stores independent schedule slots keyed by `WakeScheduleId`; schema v2 remains migration-compatible and v3 adds the minimal pre-unlock execution policy required for deterministic sound/voice/snooze behavior;
 - editing or disabling one alarm leaves unrelated alarm slots and Android registrations untouched;
 - modern one-shot alarms carry an exact local date;
 - stale revisions cannot become active after an alarm is edited;
 - only one physical wake execution may own foreground/audio authority at a time;
 - a colliding valid occurrence returns `CONFLICT` and remains durable for deterministic reconciliation rather than starting competing audio;
 - Snoozing one alarm chain preserves unrelated scheduled alarms;
-- schema-v1 critical state remains migration-compatible and is rewritten as schema v2 on the next successful mutation/reconciliation.
+- schema-v1 and schema-v2 critical state remain migration-compatible and are rewritten as schema v3 on the next successful mutation/reconciliation.
 
 ADR 022 and the Alarm Kernel documentation remain the canonical product/execution decisions.
 
@@ -179,7 +179,7 @@ WakeMyWay intentionally separates normal private product state from the minimal 
 
 `WakeRuntime` owns deterministic behavioral activation/orientation decisions and typed evidence. `AlarmKernel` owns durable scheduling and real terminal Stop/Snooze mutations. `AlarmPlaybackService` owns foreground playback, notification actions and playback teardown/recovery.
 
-Founder/debug OpenAI Realtime over WebRTC is optional enrichment. It may render natural speech and report conversational turn boundaries, but it cannot:
+Founder/debug OpenAI Realtime over WebRTC is optional enrichment. Production Founder Realtime is intentionally kept unavailable for the 1.0 launch program; production provisioning/provider expansion must be re-earned by evidence rather than treated as unfinished launch work. It may render natural speech and report conversational turn boundaries, but it cannot:
 
 - schedule or cancel alarms;
 - Stop/Snooze execution;
@@ -202,6 +202,8 @@ Repository quality gates include:
 - deterministic branded-audio asset/checksum verification;
 - curated Roborazzi visual regression;
 - compact-device wake rendering smoke coverage;
+- reviewed RTL smoke coverage across the core consumer and Active Wake journey;
+- API-36 Compose semantics contracts for TalkBack-critical actions/navigation;
 - API-36 device reliability instrumentation;
 - Cloud AI Platform tests;
 - dedicated lightweight Docs CI validation.
@@ -213,6 +215,7 @@ New canonical visual states must be rendered and reviewed before their hashes ar
 The automated/repository side of Gate 2 is now substantially converged.
 
 - Critical Active Wake, onboarding and alarm editing have compact + large-text smoke evidence.
+- TalkBack-critical Compose semantics are regression-protected on API 36 for Stop, Snooze, First Move, bottom navigation, onboarding and alarm controls; spoken/traversal acceptance remains a physical #99 check.
 - Custom navigation, alarm/editor/Profile/Insights controls have explicit semantics and minimum touch-target hardening.
 - RTL layout has reviewed smoke renders across onboarding, editor, Alarms, Insights, Profile and Active Wake; English fallback text remains content-directed and directional chevrons explicitly follow layout direction.
 - Canonical LTR visual hashes remain protected.
