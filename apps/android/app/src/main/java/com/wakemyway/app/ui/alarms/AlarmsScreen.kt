@@ -249,6 +249,7 @@ private fun EmptyAlarmState(onAddAlarm: () -> Unit) {
             Surface(
                 modifier = Modifier
                     .padding(top = WmwSpacing.Lg)
+                    .heightIn(min = 48.dp)
                     .clickable(role = Role.Button, onClick = onAddAlarm),
                 shape = CircleShape,
                 color = WmwColors.Sunrise,
