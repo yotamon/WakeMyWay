@@ -44,7 +44,7 @@ Normal Room/preferences/private files use credential-protected storage for:
 
 WakeMyWay does not treat Android Auto Backup or device-to-device transfer as a product migration mechanism.
 
-For 1.0, both Android 12+ `dataExtractionRules` and Android 11-and-lower `fullBackupContent` rules explicitly exclude app-managed root, files, databases, shared preferences and external app data from platform backup/transfer. Private Tomorrow Contract / Prepared Wake content and the Direct-Boot Critical Wake Snapshot additionally remain in `noBackupFilesDir`.
+For 1.0, both Android 12+ `dataExtractionRules` and Android 11-and-lower `fullBackupContent` rules explicitly exclude credential-protected and device-protected app roots, files, databases, shared preferences, plus external app data from platform backup/transfer. Private Tomorrow Contract / Prepared Wake content and the Direct-Boot Critical Wake Snapshot additionally remain in `noBackupFilesDir`.
 
 This avoids restoring rich alarm/preferences/history state onto a new installation without the local critical scheduling authority, permissions, capability checks and timezone/device reconciliation that make an enabled alarm trustworthy.
 
