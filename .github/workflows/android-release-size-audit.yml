@@ -1,0 +1,68 @@
+name: Android Release Size Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/android-release-size-audit.yml"
+      - "tooling/android_artifact_report.py"
+      - "apps/android/app/build.gradle.kts"
+      - "apps/android/gradle/libs.versions.toml"
+      - "apps/android/app/src/main/res/raw/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-size-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install Android 17 SDK
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Build representative release artifacts
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDirectRelease :app:bundlePlayRelease --stacktrace
+
+      - name: Measure release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/android/app/build/reports/release-size
+          DIRECT_APK="$(find apps/android/app/build/outputs/apk/direct/release -type f -name '*.apk' | head -n 1)"
+          PLAY_AAB="$(find apps/android/app/build/outputs/bundle/playRelease -type f -name '*.aab' | head -n 1)"
+          test -n "$DIRECT_APK"
+          test -n "$PLAY_AAB"
+          python tooling/android_artifact_report.py \
+            "$DIRECT_APK" "$PLAY_AAB" \
+            --json apps/android/app/build/reports/release-size/report.json \
+            --markdown apps/android/app/build/reports/release-size/report.md
+          cat apps/android/app/build/reports/release-size/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release-size evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: wake-my-way-release-size-${{ github.sha }}
+          path: apps/android/app/build/reports/release-size/**
+          if-no-files-found: error
+          retention-days: 14

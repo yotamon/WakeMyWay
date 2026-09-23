@@ -9,6 +9,12 @@ import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
+import com.wakemyway.app.voice.WakeVoiceMode
+import com.wakemyway.app.voice.WakeVoiceUiState
+import com.wakemyway.core.preparation.PreparedWakePlanPreparer
+import com.wakemyway.core.preparation.TomorrowContract
+import com.wakemyway.core.preparation.TomorrowContractId
+import com.wakemyway.core.schedule.WakeOccurrenceId
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -56,6 +62,52 @@ class ProductAccessibilityVisualSmokeTest {
             }
         }
     }
+
+    @Test
+    fun wakeListeningLargeTextCompactRenders() {
+        captureRoboImage("responsive/wake_listening_large_text_360x640.png") {
+            LargeText {
+                WakeMyWayTheme {
+                    WakeSurface(
+                        preparedPlan = null,
+                        onSnooze = {},
+                        onStop = {},
+                        displayTime = "07:30",
+                        displayDate = "Tuesday · 14 Jan",
+                        voiceState = WakeVoiceUiState(
+                            mode = WakeVoiceMode.LISTENING,
+                            spokenLine = "Morning. Tell me you're with me.",
+                            speechAvailable = true,
+                            voiceInputAvailable = true,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun wakeOrientedLargeTextCompactRenders() {
+        captureRoboImage("responsive/wake_oriented_large_text_360x640.png") {
+            LargeText {
+                WakeMyWayTheme {
+                    WakeSurface(
+                        preparedPlan = accessibilityPreparedPlan(),
+                        onSnooze = {},
+                        onStop = {},
+                        displayTime = "07:32",
+                        displayDate = "Tuesday · 14 Jan",
+                        voiceState = WakeVoiceUiState(
+                            mode = WakeVoiceMode.ORIENTING,
+                            spokenLine = "Good morning.",
+                            speechAvailable = true,
+                            voiceInputAvailable = true,
+                        ),
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -70,3 +122,14 @@ private fun LargeText(content: @Composable () -> Unit) {
         content()
     }
 }
+
+private fun accessibilityPreparedPlan() = PreparedWakePlanPreparer.prepare(
+    contract = TomorrowContract(
+        id = TomorrowContractId("accessibility-contract"),
+        wakeOccurrenceId = WakeOccurrenceId("accessibility-wake"),
+        rawText = "Design review at 10:00. Arrive calm and prepared.",
+        firstMove = "Open the curtains and start the shower",
+        createdAtEpochMillis = 1L,
+    ),
+    preparedAtEpochMillis = 2L,
+)
