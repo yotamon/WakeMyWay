@@ -19,6 +19,8 @@ object WmwColors {
     val GoldenLight = Color(0xFFFFD699)
     val Dawn = Color(0xFFA5B4FC)
     val DawnDeep = Color(0xFF7188E8)
+    // Text-specific brand tones keep normal-size copy WCAG-readable on canonical light surfaces.
+    val DawnText = Color(0xFF4F6BE2)
     val Cloud = Color(0xFFF8F7F4)
     val Paper = Color(0xFFFFFCF8)
 
@@ -39,7 +41,7 @@ object WmwColors {
     val QuietText = Color(0xFFC6D0E2)
     val FaintText = Color(0xFF8290AA)
     val LightQuietText = Color(0xFF66728B)
-    val LightFaintText = Color(0xFF9299A8)
+    val LightFaintText = Color(0xFF6D7588)
     val Hairline = Color(0x2EFFFFFF)
     val DarkHairline = Color(0x1F08142F)
     val SunriseHairline = Color(0x42FF9F6D)
@@ -48,6 +50,8 @@ object WmwColors {
     val DawnGlow = Color(0x55A5B4FC)
     val PaperCard = Color(0xFFFFFFFF)
     val Danger = Color(0xFFD95555)
+    val DangerText = Color(0xFFD43E3E)
+    val SuccessText = Color(0xFF358260)
 }
 
 object WmwSpacing {
