@@ -146,7 +146,7 @@ fun TonightScreen(
                         Text(
                             text = "MORNING CHECK-IN",
                             style = MaterialTheme.typography.labelSmall,
-                            color = WmwColors.DawnDeep,
+                            color = WmwColors.DawnText,
                         )
                         Text(
                             text = "Did the last wake actually stick?",
@@ -365,7 +365,7 @@ private fun TomorrowContractPreview(
                         else -> stringResource(R.string.tonight_contract_optional)
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.DawnDeep,
+                    color = WmwColors.DawnText,
                 )
             }
             Text(
