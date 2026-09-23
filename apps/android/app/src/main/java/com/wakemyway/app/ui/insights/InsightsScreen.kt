@@ -116,7 +116,7 @@ fun InsightsScreen(
                     Text(
                         text = "MORNING RHYTHM",
                         style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
+                        color = WmwColors.DawnText,
                     )
                     Row(Modifier.fillMaxWidth()) {
                         SummaryMetric(
@@ -155,7 +155,7 @@ fun InsightsScreen(
                     Text(
                         text = "INTERACTIVE PACE",
                         style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
+                        color = WmwColors.DawnText,
                     )
                     TimingMetric(
                         title = "First engagement",
@@ -269,7 +269,7 @@ private fun MorningCheckInCard(
             Text(
                 text = "MORNING CHECK-IN",
                 style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.DawnDeep,
+                color = WmwColors.DawnText,
             )
             Text(
                 text = if (morning.finalReason == WakeHistoryTerminalReason.STOPPED) {
@@ -354,7 +354,7 @@ private fun LearningCard(
             Text(
                 text = "WHAT WAKEMYWAY LEARNED",
                 style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.DawnDeep,
+                color = WmwColors.DawnText,
             )
             Text(
                 text = when {
@@ -391,7 +391,7 @@ private fun EmptyInsights(modifier: Modifier = Modifier) {
             Text(
                 text = "YOUR HISTORY STARTS HERE",
                 style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.DawnDeep,
+                color = WmwColors.DawnText,
             )
             Text(
                 text = "After your first tracked wake, this page will show the morning exactly as WakeMyWay observed it.",
