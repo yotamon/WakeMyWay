@@ -327,3 +327,41 @@ WakeMyWay treats in-place package replacement as a durable-data compatibility bo
 AlarmDefinition schema-v1 is now an explicit historical decoder branch rather than an implicit current-only format. Relevant persistence/alarm/update changes are protected by a real API 36 upgrade test that seeds durable state in a baseline APK, installs the candidate with `adb install -r`, and verifies state from the candidate without uninstalling or clearing data.
 
 Canonical technical detail lives in ADR-024.
+
+
+# WakeMyWay 1.0 readiness and scope freeze — 2026-09-23
+
+## Finish and prove before expanding
+
+WakeMyWay's existing capability set is sufficient to test the core product thesis. The active product program is therefore no longer feature expansion; it is paid-launch readiness.
+
+Canonical sequence:
+
+~~~text
+TRUST → FINISH → PROVE → SELL
+~~~
+
+- TRUST is physical reliability proof under #9.
+- FINISH is consumer convergence/accessibility/release hardening under #59.
+- PROVE is target-user outcome, retention and willingness-to-pay evidence under #87.
+- SELL is billing/store/legal/support/observability and staged release under #88.
+- Program tracking is #89.
+- The canonical operating plan is [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md).
+
+## 1.0 feature freeze
+
+Until the readiness program is accepted, new product capabilities are deferred by default.
+
+Allowed work includes reliability fixes, defects, simplification, accessibility, visual convergence, release/performance hardening, privacy/security/compliance, privacy-safe measurement, bounded beta-driven tuning and commercial/release infrastructure.
+
+A new capability may enter Build only when observed evidence shows that 1.0 cannot safely deliver, validate or sell the existing core promise without it. The exception must be explicitly shaped rather than silently added during implementation.
+
+The freeze ends after the 1.0 launch program is accepted. Deferred opportunities then return to the normal Explore → Shape → Build → Harden → Learn workflow and are re-evaluated from real launch evidence.
+
+## Outcome-led monetization
+
+Free/Pro packaging should communicate user value rather than implementation details.
+
+Free remains a legitimate reliable WakeMyWay alarm. Pro should represent meaningfully deeper personalization/adaptation and premium experiences that support the same wake outcome.
+
+The existing €4.99/month and ~€39/year values remain discovery hypotheses until real willingness-to-pay evidence exists. Billing or entitlement state can never become alarm authority.
