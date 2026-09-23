@@ -260,14 +260,14 @@ fun WakeScheduleMockupScreen(
                                 .clickable { confirmDelete = true },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("⊘", color = WmwColors.Danger)
+                            Text("⊘", color = WmwColors.DangerText)
                             Text(
                                 stringResource(R.string.setup_turn_off),
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(start = WmwSpacing.Sm),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = WmwColors.Danger,
+                                color = WmwColors.DangerText,
                             )
                             Text(
                         if (LocalLayoutDirection.current == LayoutDirection.Rtl) "‹" else "›",
@@ -285,7 +285,7 @@ fun WakeScheduleMockupScreen(
                         .fillMaxWidth()
                         .padding(WmwSpacing.Md),
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.Danger,
+                    color = WmwColors.DangerText,
                     textAlign = TextAlign.Center,
                 )
             }
