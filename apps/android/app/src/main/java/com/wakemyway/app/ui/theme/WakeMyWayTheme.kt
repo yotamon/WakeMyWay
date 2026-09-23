@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wakemyway.app.product.AppAppearance
@@ -124,6 +125,7 @@ private val BrandSans = FontFamily.SansSerif
 
 private val WakeMyWayTypography = Typography(
     displayLarge = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.Light,
         fontSize = 76.sp,
@@ -131,6 +133,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-2.0).sp,
     ),
     displayMedium = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.Light,
         fontSize = 62.sp,
@@ -138,6 +141,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-1.6).sp,
     ),
     headlineLarge = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 34.sp,
@@ -145,6 +149,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-0.9).sp,
     ),
     headlineMedium = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 28.sp,
@@ -152,6 +157,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-0.6).sp,
     ),
     headlineSmall = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 22.sp,
@@ -159,6 +165,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-0.25).sp,
     ),
     titleLarge = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
@@ -166,36 +173,42 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = (-0.2).sp,
     ),
     titleMedium = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 21.sp,
     ),
     bodyLarge = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.Normal,
         fontSize = 17.sp,
         lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 21.sp,
     ),
     bodySmall = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 18.sp,
     ),
     labelLarge = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
     labelMedium = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 11.sp,
@@ -203,6 +216,7 @@ private val WakeMyWayTypography = Typography(
         letterSpacing = 1.2.sp,
     ),
     labelSmall = TextStyle(
+        textDirection = TextDirection.ContentOrLtr,
         fontFamily = BrandSans,
         fontWeight = FontWeight.SemiBold,
         fontSize = 9.sp,
