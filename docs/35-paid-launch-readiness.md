@@ -2,7 +2,7 @@
 
 **Status:** Active launch program  
 **Program issue:** #89  
-**Last updated:** 2026-09-23  
+**Last updated:** 2026-09-24  
 **Target:** a trustworthy, polished, evidence-backed, supportable paid Android 1.0  
 **Scope rule:** finish and prove the existing product before adding new product capabilities
 
@@ -248,6 +248,26 @@ Return for the next wake
 - Critical local assets never move behind a network dependency.
 
 The v0.2.2 direct APK release asset was roughly 112 MB. Treat this as a baseline to investigate, not an arbitrary failure threshold. Optimize only where sound quality and offline alarm reliability are preserved.
+
+## Current FINISH evidence
+
+Merged hardening now includes:
+
+- large-text/compact accessibility for onboarding, alarm editor and critical Active Wake;
+- explicit semantic roles/labels plus 48dp interaction targets on custom controls;
+- reviewed RTL smoke evidence across the core consumer journey, with content-aware text direction and layout-aware navigation chevrons;
+- reviewed canonical visual regression and compact responsive smoke coverage;
+- measured release artifacts: **52.70 MiB Direct APK** and **34.53 MiB Play AAB**;
+- release-only Play dependency correctness fixed by an actual release build rather than lint suppression;
+- explicit Android cloud-backup/device-transfer exclusions for app-managed credential- and device-protected state;
+- a release-derived Play Macrobenchmark contract for cold startup, with hosted CI limited to buildability rather than noisy timing assertions;
+- consumer-surface audit confirming founder/debug tools are hidden behind `FLAG_DEBUGGABLE` and no account placeholder is exposed in release UI.
+
+Remaining FINISH acceptance is intentionally physical rather than more feature work:
+
+- **#97** — capture/review release startup timing on a consistent physical Android device;
+- **#99** — physical TalkBack traversal and system Remove Animations acceptance;
+- first-time/core-journey founder-free acceptance alongside the physical reliability work owned by #9.
 
 ## Exit
 
@@ -557,19 +577,19 @@ Expand only after staged evidence confirms that product and operations behave as
 | Core product capability | Strong / implemented | Scope remains frozen |
 | Automated reliability | Strong | Remains green |
 | Physical overnight reliability | Open | #9 accepted |
-| Consumer visual/UX convergence | Open | #59 accepted |
-| Accessibility | Final pass needed | Critical flow accepted |
-| Release size/performance | Needs measured review | Intentionally accepted |
+| Consumer visual/UX convergence | Automated convergence strong; physical acceptance open | #59 accepted |
+| Accessibility | Large text/touch targets/RTL automated + reviewed; physical TalkBack/reduced-motion pass open (#99) | Critical flow accepted |
+| Release size/performance | Size measured/accepted; release startup benchmark contract merged; physical timing open (#97) | Intentionally accepted |
 | Target-user evidence | Not yet sufficient | #87 accepted |
 | Retention evidence | Not yet sufficient | D7/D14 known; D30 follows |
 | Willingness to pay | Hypothesis | Real package/price evidence |
 | Billing/entitlement | Not implemented | Full safe lifecycle |
 | Store / Play operations | Not launch-complete | Complete and reviewed |
-| Privacy/legal package | Partial/internal | Public and truthful |
+| Privacy/legal package | Internal architecture strong; Android OS backup/D2D policy explicit; public launch package still open | Public and truthful |
 | Production crash/ANR telemetry | Direction documented | Live and privacy-safe |
 | Semantic product measurement | Domain-defined/local | Sufficient for beta/launch |
 | Support operation | Founder-driven | Public support path |
-| Signed release/update path | Direct architecture exists | Public Play path exercised |
+| Signed release/update path | Direct + Play architecture and update-persistence contract exist | Public Play path exercised |
 | Incident/rollback plan | Partial | Explicit launch runbook |
 
 # Work ordering and WIP
