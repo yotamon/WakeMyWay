@@ -2,6 +2,7 @@ package com.wakemyway.app.ui.profile
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.product.ConsumerPreferences
@@ -365,7 +369,11 @@ private fun ProfileSoundChoice(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelected),
+            .selectable(
+                selected = selected,
+                onClick = onSelected,
+                role = Role.RadioButton,
+            ),
         shape = RoundedCornerShape(18.dp),
         color = if (selected) WmwColors.Midnight else WmwColors.MorningPaper,
         border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -419,6 +427,7 @@ private fun ToggleSetting(
         }
         Switch(
             checked = checked,
+            modifier = Modifier.semantics { contentDescription = title },
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = WmwColors.Midnight,
@@ -444,7 +453,13 @@ private fun <T> ChoiceRow(
         options.forEach { option ->
             val active = option == selected
             Surface(
-                modifier = Modifier.weight(1f).clickable { onSelected(option) },
+                modifier = Modifier
+                    .weight(1f)
+                    .selectable(
+                        selected = active,
+                        onClick = { onSelected(option) },
+                        role = Role.RadioButton,
+                    ),
                 shape = CircleShape,
                 color = if (active) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
                 border = if (active) null else BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -469,7 +484,13 @@ private fun ProfileLink(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            ),
         shape = RoundedCornerShape(18.dp),
         color = WmwColors.MorningPaper,
         border = BorderStroke(1.dp, WmwColors.DarkHairline),
@@ -500,7 +521,10 @@ private fun BackHeader(title: String, onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = onBack) {
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier.semantics { contentDescription = "Back" },
+        ) {
             Text("‹", style = MaterialTheme.typography.headlineMedium, color = WmwColors.Midnight)
         }
         Text(
