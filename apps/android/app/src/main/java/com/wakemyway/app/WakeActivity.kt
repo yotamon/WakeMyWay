@@ -580,11 +580,13 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
     WmwWakeLine(
         state = WmwWakeLineState.SETTLED,
         onLightSurface = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                top = if (compactLargeText) WmwSpacing.Lg else adaptiveWakeSpace(58),
-            ),
+        modifier = if (compactLargeText) {
+            Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Lg)
+        } else {
+            Modifier.padding(top = adaptiveWakeSpace(58))
+        },
         height = if (compactLargeText) 72.dp else adaptiveWakeSpace(100),
         sunrise = true,
     )
