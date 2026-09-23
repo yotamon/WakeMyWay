@@ -35,6 +35,31 @@ class WakeTimingTraceInstrumentedTest {
     }
 
     @Test
+    fun physicalScenarioIdentitySurvivesJournalAndReport() {
+        val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("physical-scenario-test"),
+            zoneId = target.zone,
+            timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
+            revision = System.currentTimeMillis().coerceAtLeast(1),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+        )
+        val occurrence = NextWakeOccurrenceResolver().resolve(schedule, Instant.now())
+
+        trace.expected(
+            occurrence = occurrence,
+            scenario = WakeTimingTrace.SCENARIO_DIRECT_BOOT,
+            expectFullScreen = true,
+        )
+
+        val snapshot = trace.history(limit = 1).single()
+
+        assertEquals(WakeTimingTrace.SCENARIO_DIRECT_BOOT, snapshot.scenario)
+        assertEquals(ReliabilityState.EXPECTED, snapshot.state(nowWallMillis = occurrence.scheduledAt.toInstant().toEpochMilli()))
+        assertTrue(trace.reportText().contains("DIRECT_BOOT EXPECTED"))
+    }
+
+    @Test
     fun journalRetainsReplayableEventOrderAndHumanReadableReport() {
         val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
         val schedule = WakeSchedule(
