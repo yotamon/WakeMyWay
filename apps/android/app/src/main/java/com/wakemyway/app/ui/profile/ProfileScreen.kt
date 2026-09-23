@@ -456,6 +456,7 @@ private fun <T> ChoiceRow(
             Surface(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .selectable(
                         selected = active,
                         onClick = { onSelected(option) },
