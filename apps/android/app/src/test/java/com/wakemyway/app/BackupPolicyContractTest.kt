@@ -22,6 +22,14 @@ class BackupPolicyContractTest {
             "allowBackup stays enabled only so the explicit XML policy can govern supported transports",
             context.applicationInfo.flags and ApplicationInfo.FLAG_ALLOW_BACKUP != 0,
         )
+        assertEquals(
+            R.xml.backup_rules,
+            applicationInfoHiddenInt(context.applicationInfo, "fullBackupContent"),
+        )
+        assertEquals(
+            R.xml.data_extraction_rules,
+            applicationInfoHiddenInt(context.applicationInfo, "dataExtractionRulesRes"),
+        )
 
         assertLegacyRules(context.resources.getXml(R.xml.backup_rules))
         assertModernRules(context.resources.getXml(R.xml.data_extraction_rules))
@@ -45,6 +53,13 @@ class BackupPolicyContractTest {
             assertEquals(EXCLUDED_DOMAINS, snapshot.excludesBySection.getValue("device-transfer"))
         }
     }
+
+    private fun applicationInfoHiddenInt(
+        applicationInfo: ApplicationInfo,
+        fieldName: String,
+    ): Int = ApplicationInfo::class.java
+        .getField(fieldName)
+        .getInt(applicationInfo)
 
     private fun parseRules(parser: XmlResourceParser): RuleSnapshot {
         var root: String? = null
