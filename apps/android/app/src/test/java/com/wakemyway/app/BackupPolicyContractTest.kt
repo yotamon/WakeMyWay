@@ -3,7 +3,6 @@ package com.wakemyway.app
 import android.content.pm.ApplicationInfo
 import android.content.res.XmlResourceParser
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
