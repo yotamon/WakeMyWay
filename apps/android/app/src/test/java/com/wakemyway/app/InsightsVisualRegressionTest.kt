@@ -1,5 +1,9 @@
 package com.wakemyway.app
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.product.history.WakeHistoryBehaviorTimingOrigin
 import com.wakemyway.app.product.history.WakeHistoryEntry
@@ -56,6 +60,35 @@ class InsightsVisualRegressionTest {
                         onCalibrateMorning = { _, _ -> },
                         modifier = contentModifier,
                     )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun insightsPopulatedRtlSmoke() {
+        val now = Instant.parse("2026-09-16T10:00:00Z")
+        val summary = WakeInsightsProjector.project(
+            entries = visualHistory(now),
+            period = WakeInsightsPeriod.LAST_7_DAYS,
+            now = now,
+        )
+
+        captureRoboImage("rtl/insights_populated_393x852.png") {
+            RtlLayout {
+                WakeMyWayTheme {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.INSIGHTS,
+                        onTabSelected = {},
+                    ) { contentModifier ->
+                        InsightsScreen(
+                            summary = summary,
+                            learningState = visualLearningState(),
+                            onPeriodSelected = {},
+                            onCalibrateMorning = { _, _ -> },
+                            modifier = contentModifier,
+                        )
+                    }
                 }
             }
         }
@@ -218,4 +251,11 @@ class InsightsVisualRegressionTest {
         timeToActivationCompletion = activationSeconds?.let { Duration.ofSeconds(it) },
         maxInterventionDepth = interventionDepth,
     )
+}
+
+@Composable
+private fun RtlLayout(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        content()
+    }
 }
