@@ -29,6 +29,8 @@ import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.character.AlfredCharacterLab
 import com.wakemyway.app.preparation.TomorrowContractLab
+import com.wakemyway.app.product.learning.WakeLearningRepository
+import com.wakemyway.app.product.learning.WakeLearningState
 import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.theme.WmwColors
@@ -133,7 +135,9 @@ fun WakeAlarmLabScreen(
     val context = LocalContext.current
     val kernel = remember { AlarmKernel(context) }
     val timingTrace = remember { WakeTimingTrace(context) }
+    val learningRepository = remember { WakeLearningRepository(context) }
     var health by remember { mutableStateOf(kernel.health()) }
+    var learningState by remember { mutableStateOf(learningRepository.state()) }
     var history by remember { mutableStateOf(timingTrace.history(HISTORY_LIMIT)) }
     var message by remember { mutableStateOf<String?>(null) }
     var scenarioIndex by remember { mutableIntStateOf(0) }
@@ -360,6 +364,16 @@ fun WakeAlarmLabScreen(
             )
         }
 
+        WakeLearningLab(
+            state = learningState,
+            onRefresh = { learningState = learningRepository.state() },
+            onReset = {
+                learningState = learningRepository.resetToDefault()
+                message = "Learned strategy reset to the stable default. Wake history was preserved."
+            },
+            modifier = Modifier.padding(top = 32.dp),
+        )
+
         TomorrowContractLab(
             wakeOccurrence = health.nextOccurrence,
             modifier = Modifier.padding(top = 32.dp),
@@ -385,6 +399,59 @@ fun WakeAlarmLabScreen(
                 TimingFacts(index + 1, timing)
             }
         }
+    }
+}
+
+@Composable
+private fun WakeLearningLab(
+    state: WakeLearningState,
+    onRefresh: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Wake Learning",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = "Policy v${state.policy.version} · ${state.evidenceSessionCount} evidence sessions",
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = state.latestExplanation,
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        state.lastAdjustment?.let { adjustment ->
+            Text(
+                modifier = Modifier.padding(top = 4.dp),
+                text = adjustment,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        OutlinedButton(
+            modifier = Modifier.padding(top = 10.dp),
+            onClick = onRefresh,
+        ) {
+            Text("Refresh learned strategy")
+        }
+        OutlinedButton(
+            modifier = Modifier.padding(top = 8.dp),
+            onClick = onReset,
+            enabled = state.hasLearnedAdjustment,
+        ) {
+            Text("Reset learned strategy")
+        }
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = "Reset keeps Wake history and calibration. It removes only the learned-policy snapshot.",
+            style = MaterialTheme.typography.labelSmall,
+            color = WmwColors.QuietText,
+        )
     }
 }
 
