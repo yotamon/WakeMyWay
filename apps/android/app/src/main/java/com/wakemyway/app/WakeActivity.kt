@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -489,76 +492,129 @@ private fun OrientedWakeSurface(
     snoozeMinutes: Long,
     modifier: Modifier,
 ) {
+    val compactLargeText =
+        LocalDensity.current.fontScale >= 1.3f && LocalConfiguration.current.screenHeightDp <= 700
+
     WakeFrame(WmwCircadianStage.ORIENTED, modifier) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = adaptiveWakeSpace(72)),
-            horizontalAlignment = Alignment.Start,
-        ) {
-            Text(
-                text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_oriented_greeting),
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
+        if (compactLargeText) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = WmwSpacing.Md),
+                horizontalAlignment = Alignment.Start,
+            ) {
+                OrientedWakeBody(
+                    preparedPlan = preparedPlan,
+                    defaultFirstMove = defaultFirstMove,
+                    spokenLine = spokenLine,
+                    displayDate = displayDate,
+                    compactLargeText = true,
+                )
+            }
+
+            WmwPrimaryAction(
+                label = stringResource(R.string.wake_first_move_action),
+                onClick = onFirstMoveConfirmed,
+                onLightSurface = true,
+                tone = WmwActionTone.WARM,
             )
-            Text(
-                text = displayDate,
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.labelMedium,
-                color = WmwColors.LightQuietText,
+            WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
+        } else {
+            OrientedWakeBody(
+                preparedPlan = preparedPlan,
+                defaultFirstMove = defaultFirstMove,
+                spokenLine = spokenLine,
+                displayDate = displayDate,
+                compactLargeText = false,
             )
-            Text(
-                text = preparedPlan?.reminderLine ?: stringResource(R.string.wake_oriented_ready),
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-                style = MaterialTheme.typography.bodyLarge,
-                color = WmwColors.Midnight.copy(alpha = 0.78f),
+
+            Spacer(Modifier.weight(1f))
+            WmwPrimaryAction(
+                label = stringResource(R.string.wake_first_move_action),
+                onClick = onFirstMoveConfirmed,
+                onLightSurface = true,
+                tone = WmwActionTone.WARM,
             )
+            WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
         }
+    }
+}
 
-        WmwWakeLine(
-            state = WmwWakeLineState.SETTLED,
-            onLightSurface = true,
-            modifier = Modifier.padding(top = adaptiveWakeSpace(58)),
-            height = adaptiveWakeSpace(100),
-            sunrise = true,
-        )
-
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
+    preparedPlan: PreparedWakePlan?,
+    defaultFirstMove: String?,
+    spokenLine: String?,
+    displayDate: String,
+    compactLargeText: Boolean,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = if (compactLargeText) WmwSpacing.Md else adaptiveWakeSpace(72),
+            ),
+        horizontalAlignment = Alignment.Start,
+    ) {
         Text(
-            text = stringResource(R.string.wake_whats_first),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = WmwSpacing.Xl),
-            style = MaterialTheme.typography.titleLarge,
+            text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_oriented_greeting),
+            style = MaterialTheme.typography.headlineLarge,
             color = WmwColors.Midnight,
         )
-
-        FirstMoveTile(
-            label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
-                ?: defaultFirstMove
-                ?: stringResource(R.string.wake_first_move_fallback),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = WmwSpacing.Md),
+        Text(
+            text = displayDate,
+            modifier = Modifier.padding(top = WmwSpacing.Xs),
+            style = MaterialTheme.typography.labelMedium,
+            color = WmwColors.LightQuietText,
         )
         Text(
-            text = stringResource(R.string.wake_first_move_confirmation_detail),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = WmwSpacing.Sm),
-            style = MaterialTheme.typography.bodySmall,
-            color = WmwColors.LightQuietText,
-            textAlign = TextAlign.Center,
+            text = preparedPlan?.reminderLine ?: stringResource(R.string.wake_oriented_ready),
+            modifier = Modifier.padding(top = WmwSpacing.Lg),
+            style = MaterialTheme.typography.bodyLarge,
+            color = WmwColors.Midnight.copy(alpha = 0.78f),
         )
-
-        Spacer(Modifier.weight(1f))
-        WmwPrimaryAction(
-            label = stringResource(R.string.wake_first_move_action),
-            onClick = onFirstMoveConfirmed,
-            onLightSurface = true,
-            tone = WmwActionTone.WARM,
-        )
-        WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = true)
     }
+
+    WmwWakeLine(
+        state = WmwWakeLineState.SETTLED,
+        onLightSurface = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                top = if (compactLargeText) WmwSpacing.Lg else adaptiveWakeSpace(58),
+            ),
+        height = if (compactLargeText) 72.dp else adaptiveWakeSpace(100),
+        sunrise = true,
+    )
+
+    Text(
+        text = stringResource(R.string.wake_whats_first),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = if (compactLargeText) WmwSpacing.Lg else WmwSpacing.Xl),
+        style = MaterialTheme.typography.titleLarge,
+        color = WmwColors.Midnight,
+    )
+
+    FirstMoveTile(
+        label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
+            ?: defaultFirstMove
+            ?: stringResource(R.string.wake_first_move_fallback),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = WmwSpacing.Md),
+    )
+    Text(
+        text = stringResource(R.string.wake_first_move_confirmation_detail),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = WmwSpacing.Sm),
+        style = MaterialTheme.typography.bodySmall,
+        color = WmwColors.LightQuietText,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
