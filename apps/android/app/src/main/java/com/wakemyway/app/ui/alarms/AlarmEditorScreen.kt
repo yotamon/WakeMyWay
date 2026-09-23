@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -644,8 +645,10 @@ private fun DayPicker(
     locale: Locale,
     onToggle: (DayOfWeek) -> Unit,
 ) {
+    val configuration = LocalConfiguration.current
     val largeText = LocalDensity.current.fontScale >= 1.3f
-    if (largeText) {
+    val compactWidth = configuration.screenWidthDp < 390
+    if (largeText || compactWidth) {
         Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
             DayOfWeek.entries.chunked(4).forEach { rowDays ->
                 Row(
@@ -687,27 +690,32 @@ private fun DayChoice(
     size: androidx.compose.ui.unit.Dp,
     onToggle: (DayOfWeek) -> Unit,
 ) {
-    Surface(
+    Box(
         modifier = Modifier
-            .size(size)
+            .size(48.dp)
             .toggleable(
                 value = selected,
                 onValueChange = { onToggle(day) },
                 role = Role.Checkbox,
             ),
-        shape = CircleShape,
-        color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
-        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        Surface(
+            modifier = Modifier.size(size),
+            shape = CircleShape,
+            color = if (selected) WmwColors.Midnight else WmwColors.LightSurfaceMuted,
+            border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
         ) {
-            Text(
-                day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
-                style = MaterialTheme.typography.labelSmall,
-                color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    day.getDisplayName(TextStyle.NARROW, locale).uppercase(locale),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (selected) WmwColors.WarmLight else WmwColors.LightQuietText,
+                )
+            }
         }
     }
 }
@@ -784,6 +792,7 @@ private fun <T> ChoiceRow(
             Surface(
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 48.dp)
                     .selectable(
                         selected = active,
                         onClick = { onSelected(option) },
