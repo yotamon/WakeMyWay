@@ -192,3 +192,20 @@ Product code should import the deep `src/ai/platform.ts` functions and pass cons
 Structured generation is available through `generateStructuredWithAI(...)` and must use a server-owned schema. Do not accept arbitrary client-provided schemas.
 
 If a future capability needs a provider directly, record the measured reason. Realtime voice in particular remains subject to the M8 transport spike; this foundation does not select Vercel proxying over direct provider or RTC transport.
+
+## Vercel Hobby function budget
+
+WakeMyWay intentionally stays within the current Vercel Hobby deployment limit of 12 Serverless Functions.
+
+The six internal AI URLs:
+
+- `/api/internal/ai/text`
+- `/api/internal/ai/stream`
+- `/api/internal/ai/embed`
+- `/api/internal/ai/speech`
+- `/api/internal/ai/transcribe`
+- `/api/internal/ai/realtime-token`
+
+are served by one dynamic `api/internal/ai/[operation].ts` function. Their request/auth/privacy contracts remain unchanged.
+
+`npm run check:function-budget` counts function files under `api/` and fails above 12. Keep that guard green instead of solving future route growth by upgrading the hosting plan without product evidence.

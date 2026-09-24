@@ -9,7 +9,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run check:function-budget && npm run typecheck && npm run test",
+    "check:function-budget": "node scripts/check-function-budget.mjs"
   },
   "dependencies": {
     "@ai-sdk/gateway": "4.0.76",
