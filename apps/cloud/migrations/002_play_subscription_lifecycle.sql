@@ -44,3 +44,17 @@ comment on table wmw_private.play_subscription_purchases is
     'Minimal server-side Google Play lifecycle ledger. Never alarm authority; never stores raw purchase tokens.';
 comment on column wmw_private.play_subscription_purchases.purchase_token_sha256 is
     'SHA-256 digest of the Google Play purchase token for idempotency. Raw token is transient only.';
+
+create table if not exists wmw_private.play_rtdn_messages (
+    message_id text primary key
+        check (char_length(message_id) between 1 and 256),
+    processed_at timestamptz not null
+);
+
+create index if not exists play_rtdn_messages_processed_idx
+    on wmw_private.play_rtdn_messages(processed_at);
+
+alter table wmw_private.play_rtdn_messages enable row level security;
+
+comment on table wmw_private.play_rtdn_messages is
+    'Bounded RTDN message-id dedupe ledger. Contains no purchase token, order id, or user content.';
