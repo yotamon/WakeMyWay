@@ -73,7 +73,31 @@ switch ($Action) {
     "kill-process" {
         Write-Host "Killing the WakeMyWay process without Force Stop."
         Write-Host "Use this only for SERVICE_RECREATION or post-STOP resurrection evidence."
+        $before = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        if (-not $before) {
+            Write-Host "WakeMyWay has no running process."
+            break
+        }
+
         Invoke-Adb shell am kill $PackageName
+        Start-Sleep -Milliseconds 750
+        $afterAmKill = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        $originalPids = $before -split "\s+" | Where-Object { $_ }
+
+        if ($originalPids | Where-Object { $afterAmKill -split "\s+" -contains $_ }) {
+            Write-Host "Android kept the protected process alive; sending SIGKILL via run-as."
+            foreach ($pidValue in $originalPids) {
+                Invoke-Adb shell run-as $PackageName kill -9 $pidValue
+            }
+            Start-Sleep -Milliseconds 750
+        }
+
+        $after = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        $survivors = $originalPids | Where-Object { $after -split "\s+" -contains $_ }
+        if ($survivors) {
+            throw "Original WakeMyWay process survived: $($survivors -join ', ')"
+        }
+        Write-Host "Original PID(s) $before terminated without Force Stop. Current PID(s): $after"
     }
 
     "reboot" {
