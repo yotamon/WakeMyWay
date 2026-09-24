@@ -77,9 +77,12 @@ export async function handlePlayRtdnRequest(
     }
 
     if (verificationConfig.allowedProductIds.size !== 1) {
-      throw new Error('RTDN requires exactly one configured 1.0 subscription product.');
+      throw new HttpError(503, 'Play RTDN requires exactly one configured subscription product.');
     }
     const productId = [...verificationConfig.allowedProductIds][0];
+    if (!productId) {
+      throw new HttpError(503, 'Play RTDN subscription product is not configured.');
+    }
 
     const result = await verifyPlaySubscription(
       {
