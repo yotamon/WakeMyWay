@@ -4,7 +4,10 @@ import { Kysely, PostgresDialect, type ColumnType } from 'kysely';
 import { Pool } from 'pg';
 
 import { HttpError } from '../http.js';
-import type { PlayEntitlementState } from './play-verification.js';
+import type {
+  PlayEntitlementState,
+  VerifiedPlaySubscription,
+} from './play-verification.js';
 
 const DATABASE_SCHEMA = 'wmw_private';
 
@@ -19,8 +22,14 @@ interface PlaySubscriptionPurchaseTable {
   updated_at: ColumnType<Date, Date, Date>;
 }
 
+interface PlayRtdnMessageTable {
+  message_id: string;
+  processed_at: ColumnType<Date, Date, Date>;
+}
+
 interface CommerceDatabase {
   play_subscription_purchases: PlaySubscriptionPurchaseTable;
+  play_rtdn_messages: PlayRtdnMessageTable;
 }
 
 export interface PlayPurchaseLifecycleRecord {
@@ -35,6 +44,8 @@ export interface PlayPurchaseLifecycleRecord {
 
 export interface PlayPurchaseLifecycleStore {
   put(record: PlayPurchaseLifecycleRecord): Promise<void>;
+  hasProcessedNotification(messageId: string): Promise<boolean>;
+  markNotificationProcessed(messageId: string, processedAt: string): Promise<void>;
 }
 
 export class PostgresPlayPurchaseLifecycleStore implements PlayPurchaseLifecycleStore {
@@ -68,11 +79,63 @@ export class PostgresPlayPurchaseLifecycleStore implements PlayPurchaseLifecycle
       }))
       .execute();
   }
+
+  async hasProcessedNotification(messageId: string): Promise<boolean> {
+    const row = await this.database
+      .withSchema(DATABASE_SCHEMA)
+      .selectFrom('play_rtdn_messages')
+      .select('message_id')
+      .where('message_id', '=', messageId)
+      .executeTakeFirst();
+    return Boolean(row);
+  }
+
+  async markNotificationProcessed(messageId: string, processedAt: string): Promise<void> {
+    const processedDate = new Date(processedAt);
+    const retentionBoundary = new Date(processedDate.getTime() - RTDN_RETENTION_MS);
+
+    await this.database
+      .withSchema(DATABASE_SCHEMA)
+      .deleteFrom('play_rtdn_messages')
+      .where('processed_at', '<', retentionBoundary)
+      .execute();
+
+    await this.database
+      .withSchema(DATABASE_SCHEMA)
+      .insertInto('play_rtdn_messages')
+      .values({
+        message_id: messageId,
+        processed_at: processedDate,
+      })
+      .onConflict(conflict => conflict.column('message_id').doNothing())
+      .execute();
+  }
+}
+
+export async function persistVerifiedPlayPurchase(
+  store: PlayPurchaseLifecycleStore,
+  purchaseToken: string,
+  result: VerifiedPlaySubscription,
+  verifiedAt: string,
+): Promise<void> {
+  await store.put({
+    purchaseTokenHash: purchaseTokenHash(purchaseToken),
+    productId: result.productId,
+    entitlement: result.entitlement,
+    acknowledged: result.acknowledged,
+    ...(result.linkedPurchaseToken
+      ? { linkedPurchaseTokenHash: purchaseTokenHash(result.linkedPurchaseToken) }
+      : {}),
+    ...(result.expiryAt ? { expiryAt: result.expiryAt } : {}),
+    verifiedAt,
+  });
 }
 
 export function purchaseTokenHash(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
 }
+
+const RTDN_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 let cachedConnectionString: string | undefined;
 let cachedDatabase: Kysely<CommerceDatabase> | undefined;
