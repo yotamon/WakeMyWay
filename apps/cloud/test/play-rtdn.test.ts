@@ -304,7 +304,7 @@ describe('Google Play RTDN lifecycle', () => {
       multiProductEnvironment,
     );
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
     expect(store.messages.size).toBe(0);
   });
 });
