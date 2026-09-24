@@ -35,6 +35,20 @@ function Assert-Device {
     }
 }
 
+function Get-PackagePids {
+    $prefix = @()
+    if ($Serial) {
+        $prefix += @("-s", $Serial)
+    }
+
+    $output = & adb @prefix shell pidof $PackageName 2>$null
+    if ($LASTEXITCODE -notin @(0, 1)) {
+        throw "adb pidof failed with exit code $LASTEXITCODE"
+    }
+
+    (($output -join " ").Trim())
+}
+
 function Get-DeviceSummary {
     $manufacturer = (Invoke-Adb shell getprop ro.product.manufacturer | Select-Object -Last 1).Trim()
     $model = (Invoke-Adb shell getprop ro.product.model | Select-Object -Last 1).Trim()
@@ -73,7 +87,7 @@ switch ($Action) {
     "kill-process" {
         Write-Host "Killing the WakeMyWay process without Force Stop."
         Write-Host "Use this only for SERVICE_RECREATION or post-STOP resurrection evidence."
-        $before = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        $before = Get-PackagePids
         if (-not $before) {
             Write-Host "WakeMyWay has no running process."
             break
@@ -81,7 +95,7 @@ switch ($Action) {
 
         Invoke-Adb shell am kill $PackageName
         Start-Sleep -Milliseconds 750
-        $afterAmKill = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        $afterAmKill = Get-PackagePids
         $originalPids = $before -split "\s+" | Where-Object { $_ }
 
         if ($originalPids | Where-Object { $afterAmKill -split "\s+" -contains $_ }) {
@@ -92,7 +106,7 @@ switch ($Action) {
             Start-Sleep -Milliseconds 750
         }
 
-        $after = ((Invoke-Adb shell pidof $PackageName) -join " ").Trim()
+        $after = Get-PackagePids
         $survivors = $originalPids | Where-Object { $after -split "\s+" -contains $_ }
         if ($survivors) {
             throw "Original WakeMyWay process survived: $($survivors -join ', ')"
