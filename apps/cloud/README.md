@@ -6,19 +6,19 @@ It is intentionally separate from `apps/android`. The Android Alarm Kernel, Acti
 
 ## Cloud responsibilities
 
-The service currently has two deliberately separate boundaries:
+The service currently has three deliberately separate boundaries:
 
 ```text
-optional product account API              optional AI enrichment
-          │                                         │
-          ▼                                         ▼
-   Supabase Auth JWT                          AI platform
-          │                                         │
-          ▼                                         ▼
-   Wake API on Vercel                       Vercel AI SDK 7
-          │                                         │
-          ▼                                         ▼
-       Kysely                               Vercel AI Gateway
+optional product account API     optional Play verification     optional AI enrichment
+          │                                  │                             │
+          ▼                                  ▼                             ▼
+   Supabase Auth JWT                 Play purchase token                 AI platform
+          │                                  │                             │
+          ▼                                  ▼                             ▼
+   Wake API on Vercel                Wake API on Vercel                Vercel AI SDK 7
+          │                                  │                             │
+          ▼                                  ▼                             ▼
+       Kysely                    Google Play Developer API             Vercel AI Gateway
           │
           ▼
  Supabase PostgreSQL
@@ -108,6 +108,18 @@ DATABASE_URL=postgresql://<server-only-supabase-connection>
 
 Then apply `migrations/001_consumer_backups.sql` to the WakeMyWay Supabase project before serving account backup traffic.
 
+For Google Play purchase verification, keep the route disabled until the Play app/product and service-account access exist:
+
+```text
+WMW_PLAY_VERIFICATION_ENABLED=false
+WMW_PLAY_PACKAGE_NAME=com.wakemyway.app
+WMW_PLAY_SUBSCRIPTION_PRODUCT_IDS=
+GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL=
+GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY=
+```
+
+Before setting `WMW_PLAY_VERIFICATION_ENABLED=true`, also configure a production edge rate limit for `POST /api/v1/commerce/play-verify` and exercise the endpoint with a Play license tester. Purchase tokens and service-account credentials must never be logged or shipped in Android.
+
 Keep `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` unless deliberately running a synthetic M8 engineering experiment.
 
 ## Vercel deployment
@@ -120,6 +132,7 @@ Runtime configuration depends on enabled capabilities:
 - AI Gateway authentication: Vercel OIDC or `AI_GATEWAY_API_KEY`
 - `WMW_INTERNAL_API_KEY` for internal diagnostics/spikes
 - optional model-policy overrides from `.env.example`
+- Play verification variables only when the paid lifecycle is intentionally enabled
 - `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` in normal environments
 
 Production use of private text/embedding context requires a Vercel plan/environment that supports the configured ZDR policy. If that capability is unavailable, private model calls are expected to fail closed rather than silently weaken privacy.
@@ -133,6 +146,7 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Supabase user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Supabase user JWT | strict bounded schema; consumer intent only |
+| `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | purchase token transient only; normalized entitlement response; no card data |
 | `POST /api/internal/ai/text` | text smoke/integration call | internal | ZDR required |
 | `POST /api/internal/ai/stream` | streamed text smoke/integration call | internal | ZDR required |
 | `POST /api/internal/ai/embed` | embedding smoke/integration call | internal | ZDR required |
