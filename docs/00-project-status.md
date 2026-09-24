@@ -302,6 +302,13 @@ Run a qualified target-user beta with habitual snoozers. Measure reliability, Ac
 
 After/alongside sufficient evidence, complete the commercial/release layer: safe billing/entitlement lifecycle, outcome-led Free/Pro packaging, Play listing and testing tracks, public privacy/legal/Data Safety/support, privacy-safe production observability, signed public release/update verification and staged rollout/rollback operations.
 
+Low-risk Gate 4 preparation is now documented before pricing/package lock:
+
+- `docs/38-play-launch-operations.md` contains the consumer-first Play listing draft, screenshot story, testing-track ladder, support taxonomy, incident severity model, staged rollout/pause/rollback rules and billing authority boundary;
+- `docs/39-privacy-data-safety-launch.md` contains the current shipped-data inventory, Data Safety worksheet, processor inventory, retention/reset questions and public-policy requirements;
+- current Play Billing implementation work must re-check official requirements at implementation/submission time; pricing and paid feature boundaries remain blocked on #87 evidence;
+- a real public support/privacy contact is an explicit external launch prerequisite and must not be faked in repository copy.
+
 ### Deferred until evidence earns them
 
 New characters, Health Connect, calendar/weather expansion, iOS/Wear OS, smart-home integrations, broad Realtime expansion, additional dashboard scope, new themes and account/cloud capabilities not required for launch remain deferred by default.
