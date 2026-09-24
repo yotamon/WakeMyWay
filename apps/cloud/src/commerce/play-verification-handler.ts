@@ -6,7 +6,7 @@ import {
 } from './play-verification.js';
 import {
   PostgresPlayPurchaseLifecycleStore,
-  purchaseTokenHash,
+  persistVerifiedPlayPurchase,
   type PlayPurchaseLifecycleStore,
 } from './play-lifecycle-store.js';
 import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../http.js';
@@ -34,17 +34,12 @@ export async function handlePlayVerificationRequest(
     const result = await verifyPlaySubscription(input, config, suppliedDependencies);
     const verifiedAt = (suppliedDependencies.now ?? (() => new Date()))().toISOString();
     const store = suppliedDependencies.store ?? new PostgresPlayPurchaseLifecycleStore();
-    await store.put({
-      purchaseTokenHash: purchaseTokenHash(input.purchaseToken),
-      productId: result.productId,
-      entitlement: result.entitlement,
-      acknowledged: result.acknowledged,
-      ...(result.linkedPurchaseToken
-        ? { linkedPurchaseTokenHash: purchaseTokenHash(result.linkedPurchaseToken) }
-        : {}),
-      ...(result.expiryAt ? { expiryAt: result.expiryAt } : {}),
+    await persistVerifiedPlayPurchase(
+      store,
+      input.purchaseToken,
+      result,
       verifiedAt,
-    });
+    );
 
     return json(
       {
