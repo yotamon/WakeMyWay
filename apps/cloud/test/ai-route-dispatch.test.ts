@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import aiRoute from '../api/internal/ai/[operation]';
 
 describe('consolidated internal AI route', () => {
