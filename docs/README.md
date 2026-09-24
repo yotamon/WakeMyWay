@@ -44,6 +44,8 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | **Active 1.0 Trust → Finish → Prove → Sell program, scope freeze, launch gates and Definition of Done** |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | **Executable Gate 3 screener, denominators, evidence cadence, change-control and willingness-to-pay interview** |
 | [`37-physical-acceptance.md`](37-physical-acceptance.md) | **Unified physical Gate 1/2 acceptance for reliability, startup, TalkBack and reduced motion** |
+| [`38-play-launch-operations.md`](38-play-launch-operations.md) | **Gate 4 Play listing, support, staged rollout, incident and billing-boundary operations** |
+| [`39-privacy-data-safety-launch.md`](39-privacy-data-safety-launch.md) | **Gate 4 shipped-data inventory, Data Safety worksheet and public-policy launch requirements** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -59,6 +61,8 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`24-monetization.md`](24-monetization.md) | Outcome-led Free/Pro packaging, pricing hypothesis and monetization guardrails |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | Paid-launch gates, beta evidence, rollout ladder and 1.0 acceptance |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | Gate 3 beta execution protocol and evidence definitions |
+| [`38-play-launch-operations.md`](38-play-launch-operations.md) | Consumer-first Play launch, support and release operations |
+| [`39-privacy-data-safety-launch.md`](39-privacy-data-safety-launch.md) | Launch privacy/Data Safety inventory and external prerequisites |
 
 ## UX and brand
 
