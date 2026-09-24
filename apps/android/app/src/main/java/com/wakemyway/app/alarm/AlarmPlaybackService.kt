@@ -55,6 +55,14 @@ class AlarmPlaybackService : Service() {
             ?: return preserveCurrentExecutionOrStop(kernel)
         val occurrenceId = WakeOccurrenceId(rawId)
 
+        if (
+            intent.action == ACTION_START &&
+            flags and Service.START_FLAG_REDELIVERY != 0 &&
+            kernel.activeOccurrence()?.id == occurrenceId
+        ) {
+            trace.serviceRecovered(occurrenceId)
+        }
+
         return when (intent.action) {
             ACTION_START -> ensureActiveWake(kernel, occurrenceId)
 
