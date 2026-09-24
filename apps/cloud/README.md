@@ -108,6 +108,10 @@ DATABASE_URL=postgresql://<server-only-supabase-connection>
 
 Then apply `migrations/001_consumer_backups.sql` to the WakeMyWay Supabase project before serving account backup traffic.
 
+When Play commerce lifecycle storage is enabled, also apply
+`migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
+digests and normalized lifecycle only; raw purchase tokens are transient.
+
 For Google Play purchase verification, keep the route disabled until the Play app/product and service-account access exist:
 
 ```text
@@ -119,6 +123,19 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY=
 ```
 
 Before setting `WMW_PLAY_VERIFICATION_ENABLED=true`, also configure a production edge rate limit for `POST /api/v1/commerce/play-verify` and exercise the endpoint with a Play license tester. Purchase tokens and service-account credentials must never be logged or shipped in Android.
+
+For Real-time Developer Notifications, provision an authenticated Pub/Sub push subscription and set:
+
+```text
+WMW_PLAY_RTDN_ENABLED=false
+WMW_PLAY_RTDN_AUDIENCE=https://<production-host>/api/v1/commerce/play-rtdn
+WMW_PLAY_RTDN_SERVICE_ACCOUNT_EMAIL=<pubsub-push-service-account>
+```
+
+The push JWT must match the exact audience and service-account email. RTDN notifications are
+deduplicated by Pub/Sub message id and then re-verified through Google Play; notification type
+alone is never entitlement authority. Provider failures remain retryable and are not marked
+processed.
 
 Keep `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` unless deliberately running a synthetic M8 engineering experiment.
 
@@ -133,6 +150,7 @@ Runtime configuration depends on enabled capabilities:
 - `WMW_INTERNAL_API_KEY` for internal diagnostics/spikes
 - optional model-policy overrides from `.env.example`
 - Play verification variables only when the paid lifecycle is intentionally enabled
+- `DATABASE_URL` plus RTDN audience/service-account variables when subscription lifecycle storage/RTDN are enabled
 - `WMW_ENABLE_NON_ZDR_AUDIO_SPIKES=false` in normal environments
 
 Production use of private text/embedding context requires a Vercel plan/environment that supports the configured ZDR policy. If that capability is unavailable, private model calls are expected to fail closed rather than silently weaken privacy.
@@ -146,7 +164,8 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Supabase user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Supabase user JWT | strict bounded schema; consumer intent only |
-| `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | purchase token transient only; normalized entitlement response; no card data |
+| `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |
+| `POST /api/v1/commerce/play-rtdn` | refresh subscription lifecycle from Google Play RTDN | authenticated Google Pub/Sub OIDC push; disabled by default | message-id dedupe + Google source-of-truth re-query; raw token transient only |
 | `POST /api/internal/ai/text` | text smoke/integration call | internal | ZDR required |
 | `POST /api/internal/ai/stream` | streamed text smoke/integration call | internal | ZDR required |
 | `POST /api/internal/ai/embed` | embedding smoke/integration call | internal | ZDR required |
