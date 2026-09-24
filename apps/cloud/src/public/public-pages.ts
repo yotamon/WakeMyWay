@@ -137,7 +137,8 @@ export function publicPageResponse(
   }
 }
 
-function htmlDocument(title: string, content: string): string = `<!doctype html>
+function htmlDocument(title: string, content: string): string {
+  return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -160,11 +161,13 @@ function htmlDocument(title: string, content: string): string = `<!doctype html>
   <main>${content}</main>
 </body>
 </html>`;
+}
 
-function escapeHtml(value: string): string =
-  value
+function escapeHtml(value: string): string {
+  return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
