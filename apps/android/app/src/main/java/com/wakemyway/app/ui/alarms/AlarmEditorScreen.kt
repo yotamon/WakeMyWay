@@ -375,7 +375,7 @@ fun AlarmEditorScreen(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = WmwColors.Danger,
+                        color = WmwColors.DangerText,
                     )
                 }
             }
@@ -388,7 +388,7 @@ fun AlarmEditorScreen(
                     Text(
                         text = "WAKE BEHAVIOR",
                         style = MaterialTheme.typography.labelSmall,
-                        color = WmwColors.DawnDeep,
+                        color = WmwColors.DawnText,
                     )
                     Text(
                         text = listOfNotNull(
@@ -406,7 +406,7 @@ fun AlarmEditorScreen(
                     TextButton(onClick = { showAdvanced = !showAdvanced }) {
                         Text(
                             text = if (showAdvanced) "Hide customization" else "Customize wake",
-                            color = WmwColors.DawnDeep,
+                            color = WmwColors.DawnText,
                         )
                     }
                 }
@@ -488,7 +488,7 @@ fun AlarmEditorScreen(
                     text = it,
                     modifier = Modifier.padding(top = WmwSpacing.Md),
                     style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.Danger,
+                    color = WmwColors.DangerText,
                 )
             }
 
@@ -508,7 +508,7 @@ fun AlarmEditorScreen(
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Sm),
                 ) {
-                    Text("Delete alarm", color = WmwColors.Danger)
+                    Text("Delete alarm", color = WmwColors.DangerText)
                 }
             }
         }
@@ -535,7 +535,7 @@ fun AlarmEditorScreen(
                         }
                     },
                 ) {
-                    Text("Delete", color = WmwColors.Danger)
+                    Text("Delete", color = WmwColors.DangerText)
                 }
             },
             dismissButton = {
@@ -633,7 +633,7 @@ private fun WakeSoundChoice(
                 Text(
                     text = if (previewing) "Stop" else "Preview",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnDeep,
+                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnText,
                 )
             }
             Text(

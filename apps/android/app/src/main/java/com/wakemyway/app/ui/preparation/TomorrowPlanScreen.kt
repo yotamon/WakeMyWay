@@ -170,7 +170,7 @@ fun TomorrowPlanScreen(
             Text(
                 text = stringResource(R.string.tomorrow_plan_private_badge).uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.DawnDeep,
+                color = WmwColors.DawnText,
             )
             Text(
                 text = stringResource(R.string.tomorrow_plan_title),

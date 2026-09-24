@@ -58,7 +58,7 @@ internal fun UpdateStatusCard(
                         UpdateUrgency.NORMAL -> ""
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = WmwColors.DawnDeep,
+                    color = WmwColors.DawnText,
                 )
             }
 
@@ -160,7 +160,7 @@ private fun UpdateTextAction(
     onClick: () -> Unit,
 ) {
     TextButton(onClick = onClick) {
-        Text(label, color = WmwColors.DawnDeep)
+        Text(label, color = WmwColors.DawnText)
     }
 }
 

@@ -100,7 +100,7 @@ fun OnboardingScreen(
                 Text(
                     text = page.eyebrow,
                     style = MaterialTheme.typography.labelSmall,
-                    color = WmwColors.DawnDeep,
+                    color = WmwColors.DawnText,
                     textAlign = TextAlign.Center,
                 )
                 Text(
