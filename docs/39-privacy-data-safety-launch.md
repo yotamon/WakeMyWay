@@ -35,7 +35,7 @@ When a capability becomes live later, reopen this inventory before shipping.
 | Founder/debug Realtime | developer/debug enrichment only | not part of public 1.0 consumer path | no public consumer archive | exclude from public claims |
 | Analytics SDK events | no remote product analytics SDK currently live | No | No | Android Vitals/Play platform data is separate |
 | Crash SDK data | no third-party crash SDK currently embedded | No app-level SDK collection | No | Play Console Android Vitals may still report platform diagnostics |
-| Purchase/subscription data | not implemented yet | N/A | N/A | reopen when Billing ships |
+| Purchase/subscription data | Billing/verification foundation exists but live purchase UI is disabled by default | Only when explicitly enabled: product id + purchase token transit Wake API → Google Play | Current verifier is transient; no purchase-token archive in this stage | Reopen final Data Safety before enabling paid UI; durable lifecycle/RTDN work is #119 |
 
 ## Local storage and reset
 
@@ -119,9 +119,13 @@ Current local-first build:
 - no consumer account collection while Sign In is absent;
 - no cloud backup collection while the consumer transport is absent.
 
-If billing is added:
-- purchase/subscription identifiers/tokens may be processed for entitlement verification;
-- financial card details remain handled by Google Play and must never be requested by WakeMyWay support.
+If billing is enabled:
+- Play returns subscription ProductDetails and purchase state to the Play-distributed app;
+- product id + purchase token are sent over HTTPS to the Wake API for Google Play Developer API verification;
+- the current verification path returns only normalized entitlement/acknowledgement state and does not expose provider payload/order data;
+- purchase tokens are treated as sensitive credentials and are not written to normal logs;
+- financial card details remain handled by Google Play and must never be requested by WakeMyWay support;
+- #119 must define durable lifecycle/RTDN retention before public paid rollout.
 
 If production crash/semantic telemetry is added:
 - reopen this worksheet and list the exact diagnostic/event fields, retention and opt-out/legal basis.
@@ -181,7 +185,7 @@ Final legal wording should be reviewed for the jurisdictions actually launched.
 | learned policy | local until reset/delete; can be regenerated from retained compatible evidence |
 | reliability journal | bounded rolling local history |
 | account backup | not active; define before enabling |
-| purchase verification | define with billing backend before enabling |
+| purchase verification | token is transient in the current verifier; durable hashed lifecycle/RTDN state must be defined under #119 before public paid rollout |
 | remote telemetry | not active; define before enabling |
 
 Do not invent a retention duration solely to fill a policy field. Choose one only when the product/storage behavior actually enforces it.
