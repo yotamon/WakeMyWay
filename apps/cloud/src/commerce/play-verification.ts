@@ -24,6 +24,7 @@ const googleTokenSchema = z.object({
 const googleSubscriptionSchema = z.object({
   subscriptionState: z.string().min(1),
   acknowledgementState: z.string().optional(),
+  linkedPurchaseToken: z.string().min(1).optional(),
   lineItems: z.array(
     z.object({
       productId: z.string().min(1),
@@ -47,6 +48,8 @@ export interface VerifiedPlaySubscription {
   productId: string;
   entitlement: PlayEntitlementState;
   acknowledged: boolean;
+  expiryAt?: string;
+  linkedPurchaseToken?: string;
 }
 
 export interface PlayVerificationConfig {
@@ -177,12 +180,72 @@ export async function verifyPlaySubscription(
     throw new HttpError(401, 'Purchase could not be verified.');
   }
 
+  const entitlement = mapSubscriptionState(parsed.data.subscriptionState);
+  const matchingLineItems = parsed.data.lineItems.filter(
+    lineItem => lineItem.productId === input.productId,
+  );
+  const expiryAt = matchingLineItems
+    .map(lineItem => lineItem.expiryTime)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
+
+  let acknowledged =
+    parsed.data.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED';
+
+  if (!acknowledged && grantsPaidAccess(entitlement)) {
+    acknowledged = await acknowledgePlaySubscription(
+      input,
+      config,
+      accessToken,
+      fetchImpl,
+    );
+  }
+
   return {
     productId: input.productId,
-    entitlement: mapSubscriptionState(parsed.data.subscriptionState),
-    acknowledged:
-      parsed.data.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED',
+    entitlement,
+    acknowledged,
+    ...(expiryAt ? { expiryAt } : {}),
+    ...(parsed.data.linkedPurchaseToken
+      ? { linkedPurchaseToken: parsed.data.linkedPurchaseToken }
+      : {}),
   };
+}
+
+async function acknowledgePlaySubscription(
+  input: z.output<typeof verifyRequestSchema>,
+  config: ReturnType<typeof requirePlayVerificationConfig>,
+  accessToken: string,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
+  const url =
+    `${GOOGLE_PUBLISHER_BASE}/applications/${encodeURIComponent(config.packageName)}` +
+    `/purchases/subscriptions/${encodeURIComponent(input.productId)}/tokens/` +
+    `${encodeURIComponent(input.purchaseToken)}:acknowledge`;
+
+  try {
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export function grantsPaidAccess(entitlement: PlayEntitlementState): boolean {
+  return (
+    entitlement === 'ACTIVE' ||
+    entitlement === 'CANCELLED_ENTITLED' ||
+    entitlement === 'GRACE_PERIOD'
+  );
 }
 
 export function mapSubscriptionState(state: string): PlayEntitlementState {
