@@ -203,3 +203,21 @@ Before public paid release:
 - verify any production cloud/telemetry feature against this document.
 
 If any of those changes the actual data flow, update the app copy and this inventory before rollout.
+
+## Public policy/support surfaces in the cloud app
+
+The cloud app provides stable launch URLs:
+
+- `/privacy`
+- `/support`
+
+They are fail-closed behind `WMW_PUBLIC_SUPPORT_EMAIL`. If a real monitored address is not configured, the pages return HTTP 503 rather than publishing incomplete or invented contact information.
+
+The pages:
+- use repository-owned copy derived from this inventory;
+- contain no analytics, cookies, forms or session replay;
+- accept no product/user data;
+- use a restrictive Content Security Policy;
+- give privacy-safe alarm incident guidance.
+
+Before public launch, the real monitored email must be provisioned and tested, then the deployed production URLs must be entered in Play Console.
