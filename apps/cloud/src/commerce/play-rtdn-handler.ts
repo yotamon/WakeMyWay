@@ -15,7 +15,7 @@ import {
   verifyPlaySubscription,
   type PlayVerificationDependencies,
 } from './play-verification.js';
-import { errorResponse, methodNotAllowed, parseJson, requestId } from '../http.js';
+import { HttpError, errorResponse, methodNotAllowed, parseJson, requestId } from '../http.js';
 
 const MAX_PUSH_BYTES = 48 * 1024;
 const PENDING_PURCHASE_CANCELED = 20;
@@ -47,7 +47,7 @@ export async function handlePlayRtdnRequest(
     const push = await parseJson(request, playRtdnPushSchema, MAX_PUSH_BYTES);
     const notification = decodePlayRtdnNotification(push);
     if (notification.packageName !== verificationConfig.packageName) {
-      throw new Error('RTDN package did not match the configured Play application.');
+      throw new HttpError(400, 'RTDN package is not supported.');
     }
 
     const store = suppliedDependencies.store ?? new PostgresPlayPurchaseLifecycleStore();
