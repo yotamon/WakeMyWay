@@ -77,6 +77,11 @@
             android:exported="false" />
 
         <receiver
+            android:name=".alarm.ActiveWakeRecoveryReceiver"
+            android:directBootAware="true"
+            android:exported="false" />
+
+        <receiver
             android:name=".product.followup.WakeSafetyCheckActionReceiver"
             android:exported="false" />
 

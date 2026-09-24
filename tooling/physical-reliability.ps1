@@ -234,7 +234,21 @@ switch ($Action) {
     "kill-process" {
         Write-Host "Killing the WakeMyWay process without Force Stop."
         Write-Host "Use this only for SERVICE_RECREATION or post-STOP resurrection evidence."
+
+        $before = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
         Invoke-Adb shell am kill $PackageName
+        Start-Sleep -Milliseconds 750
+        $after = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
+
+        if ($before -ne "__NONE__" -and $after -eq $before) {
+            Write-Host "Android kept the foreground-alarm process alive; injecting debug SIGKILL instead."
+            Invoke-Adb shell run-as $PackageName kill -9 $before
+            Start-Sleep -Milliseconds 750
+            $after = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
+        }
+
+        Write-Host "Process before: $before"
+        Write-Host "Process after:  $after"
     }
 
     "reboot" {
