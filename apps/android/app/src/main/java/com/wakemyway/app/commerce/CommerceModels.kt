@@ -37,6 +37,11 @@ data class CommerceOffer(
     val billingPeriod: String?,
 )
 
+/**
+ * Consumer commerce projection.
+ *
+ * A Play purchase is not paid access until server verification projects a verified entitlement.
+ */
 data class CommerceSnapshot(
     val availability: CommerceAvailability,
     val offers: List<CommerceOffer> = emptyList(),
