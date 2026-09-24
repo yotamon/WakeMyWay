@@ -6,5 +6,15 @@
       "**": false,
       "main": true
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/privacy",
+      "destination": "/api/public/privacy"
+    },
+    {
+      "source": "/support",
+      "destination": "/api/public/support"
+    }
+  ]
 }
