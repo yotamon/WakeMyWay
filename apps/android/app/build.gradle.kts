@@ -13,6 +13,29 @@ val appVersion = Properties().apply {
 val wakeMyWayVersionCode = requireNotNull(appVersion.getProperty("VERSION_CODE")).toInt()
 val wakeMyWayVersionName = requireNotNull(appVersion.getProperty("VERSION_NAME"))
 
+fun escapedBuildConfigString(
+    gradleProperty: String,
+    environmentVariable: String,
+): String = providers.gradleProperty(gradleProperty)
+    .orElse(providers.environmentVariable(environmentVariable))
+    .getOrElse("")
+    .trim()
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+
+val playSubscriptionProductId = escapedBuildConfigString(
+    gradleProperty = "WMW_PRO_SUBSCRIPTION_PRODUCT_ID",
+    environmentVariable = "WMW_PRO_SUBSCRIPTION_PRODUCT_ID",
+)
+val playVerificationEnabled = providers.gradleProperty("WMW_PLAY_VERIFICATION_ENABLED")
+    .orElse(providers.environmentVariable("WMW_PLAY_VERIFICATION_ENABLED"))
+    .map { it.trim().equals("true", ignoreCase = true) }
+    .getOrElse(false)
+val commerceApiBaseUrl = escapedBuildConfigString(
+    gradleProperty = "WMW_COMMERCE_API_BASE_URL",
+    environmentVariable = "WMW_COMMERCE_API_BASE_URL",
+)
+
 android {
     namespace = "com.wakemyway.app"
     compileSdk = 37
@@ -41,6 +64,21 @@ android {
         create("play") {
             dimension = "distribution"
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"play\"")
+            buildConfigField(
+                "String",
+                "PRO_SUBSCRIPTION_PRODUCT_ID",
+                "\"$playSubscriptionProductId\"",
+            )
+            buildConfigField(
+                "boolean",
+                "PLAY_VERIFICATION_ENABLED",
+                playVerificationEnabled.toString(),
+            )
+            buildConfigField(
+                "String",
+                "COMMERCE_API_BASE_URL",
+                "\"$commerceApiBaseUrl\"",
+            )
         }
     }
 
@@ -93,6 +131,7 @@ dependencies {
 
     add("directImplementation", libs.kotlinx.serialization.json)
     add("playImplementation", libs.play.app.update.ktx)
+    add("playImplementation", libs.play.billing)
     // Activity Result APIs require Fragment 1.3.0+ when a Play-only dependency brings Fragment
     // onto the runtime graph. Keep the modern Fragment contract scoped to the Play flavor.
     add("playImplementation", libs.androidx.fragment)
