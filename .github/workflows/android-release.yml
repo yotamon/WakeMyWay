@@ -26,6 +26,9 @@ jobs:
       WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
       WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
       WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
+      WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
+      WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
+      WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
     steps:
       - id: check
         shell: bash
@@ -68,6 +71,9 @@ jobs:
       WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
       WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
       WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
+      WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
+      WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
+      WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v6
@@ -115,9 +121,23 @@ jobs:
             }
           done
 
+          if [ "${WMW_PLAY_VERIFICATION_ENABLED:-false}" = "true" ]; then
+            test -n "${WMW_PRO_SUBSCRIPTION_PRODUCT_ID:-}" || {
+              echo "Play verification is enabled but WMW_PRO_SUBSCRIPTION_PRODUCT_ID is missing." >&2
+              exit 1
+            }
+            case "${WMW_COMMERCE_API_BASE_URL:-}" in
+              https://*) ;;
+              *)
+                echo "Play verification is enabled but WMW_COMMERCE_API_BASE_URL is not HTTPS." >&2
+                exit 1
+                ;;
+            esac
+          fi
+
       - name: Validate release candidate
         run: |
-          ./gradlew             :wake-core:test             :app:testDirectDebugUnitTest             :app:lintDirectDebug             --stacktrace
+          ./gradlew             :wake-core:test             :app:testDirectDebugUnitTest             :app:testPlayDebugUnitTest             :app:lintDirectDebug             --stacktrace
 
       - name: Build unsigned distribution artifacts
         run: |

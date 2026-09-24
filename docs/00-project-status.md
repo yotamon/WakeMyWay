@@ -308,6 +308,7 @@ Low-risk Gate 4 preparation is now documented before pricing/package lock:
 - `docs/39-privacy-data-safety-launch.md` contains the current shipped-data inventory, Data Safety worksheet, processor inventory, retention/reset questions and public-policy requirements;
 - current Play Billing implementation work must re-check official requirements at implementation/submission time; pricing and paid feature boundaries remain blocked on #87 evidence;
 - a real public support/privacy contact is an explicit external launch prerequisite and must not be faked in repository copy.
+- `docs/40-play-billing-boundary.md` defines the Play-only Billing 9.1.0 client boundary plus the merged server-side Google Play verification seam; purchase launch remains disabled by default and no paywall/price/package is exposed before #87 evidence.
 
 ### Deferred until evidence earns them
 

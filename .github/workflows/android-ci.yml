@@ -48,7 +48,7 @@ jobs:
       - name: Test wake-core
         run: ./gradlew :wake-core:test --stacktrace
       - name: Test Android app unit logic
-        run: ./gradlew :app:testDirectDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDirectDebugUnitTest :app:testPlayDebugUnitTest --stacktrace
       - name: Android lint
         shell: bash
         run: |
