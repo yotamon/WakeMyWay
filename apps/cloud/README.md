@@ -112,6 +112,14 @@ When Play commerce lifecycle storage is enabled, also apply
 `migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
 digests and normalized lifecycle only; raw purchase tokens are transient.
 
+For public legal/support pages, configure a real monitored address:
+
+```text
+WMW_PUBLIC_SUPPORT_EMAIL=help@example.com
+```
+
+Until a syntactically valid address is present, `/privacy` and `/support` return HTTP 503 rather than publishing incomplete launch information. These pages contain no analytics, cookies, login or user-data intake.
+
 For Google Play purchase verification, keep the route disabled until the Play app/product and service-account access exist:
 
 ```text
@@ -162,6 +170,8 @@ Do not make Android alarm readiness depend on this deployment.
 | Endpoint | Purpose | Auth | Privacy posture |
 |---|---|---|---|
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
+| `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
+| `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Supabase user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Supabase user JWT | strict bounded schema; consumer intent only |
 | `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |
