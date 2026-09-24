@@ -1,3 +1,5 @@
+package com.wakemyway.app.alarm
+
 import android.content.Intent
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
