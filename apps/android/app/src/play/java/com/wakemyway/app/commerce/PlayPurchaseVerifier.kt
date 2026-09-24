@@ -5,12 +5,17 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.Executors
 import org.json.JSONObject
 
 internal class PlayPurchaseVerifier private constructor(
     private val endpoint: String,
     override val available: Boolean,
 ) : PurchaseVerifier {
+    private val verificationExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "wmw-play-verifier").apply { isDaemon = true }
+    }
+
     override fun verify(
         request: PurchaseVerificationRequest,
         onResult: (PurchaseVerificationResult) -> Unit,
@@ -20,14 +25,11 @@ internal class PlayPurchaseVerifier private constructor(
             return
         }
 
-        Thread(
-            {
-                onResult(runCatching { verifyBlocking(request) }.getOrElse {
-                    PurchaseVerificationResult.RetryLater
-                })
-            },
-            "wmw-play-verifier",
-        ).start()
+        verificationExecutor.execute {
+            onResult(runCatching { verifyBlocking(request) }.getOrElse {
+                PurchaseVerificationResult.RetryLater
+            })
+        }
     }
 
     private fun verifyBlocking(request: PurchaseVerificationRequest): PurchaseVerificationResult {

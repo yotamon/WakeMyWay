@@ -33,11 +33,10 @@ class AlarmKernel(
      * PendingIntent may therefore still arrive after a crash, but [beginActive] rejects it by exact
      * occurrence identity and schedule revision.
      */
-    @Synchronized
     fun commitSchedule(
         schedule: WakeSchedule,
         policy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT,
-    ): AlarmHealth {
+    ): AlarmHealth = synchronized(CriticalWakeStore.STATE_LOCK) {
         val state = stateOrEmpty()
         check(state.activeOccurrence?.wakeScheduleId != schedule.id) {
             "Cannot replace a wake schedule while its wake execution is active"
@@ -70,121 +69,122 @@ class AlarmKernel(
             plannedState = plannedState.withRegistered(schedule.id, next.id)
             store.write(plannedState)
         }
-        return health()
+        health()
     }
 
     /** Disable only one schedule slot, preserving every unrelated alarm. */
-    @Synchronized
     fun cancelSchedule(scheduleId: WakeScheduleId) {
-        val state = store.read() ?: return
-        val slot = state.slots[scheduleId] ?: return
-        if (!slot.enabled && state.activeOccurrence?.wakeScheduleId != scheduleId) return
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return
+            val slot = state.slots[scheduleId] ?: return
+            if (!slot.enabled && state.activeOccurrence?.wakeScheduleId != scheduleId) return
 
-        val activeOwnedBySlot = state.activeOccurrence?.wakeScheduleId == scheduleId
-        val disabled = slot.copy(
-            nextOccurrence = null,
-            registeredOccurrenceId = null,
-            enabled = false,
-        )
-        store.write(
-            state.copy(
-                slots = state.slots + (scheduleId to disabled),
-                activeOccurrence = if (activeOwnedBySlot) null else state.activeOccurrence,
-                generation = state.generation + 1,
-            ),
-        )
-        slot.registeredOccurrenceId?.let(registrar::cancel)
-        slot.nextOccurrence?.id
-            ?.takeIf { it != slot.registeredOccurrenceId }
-            ?.let(registrar::cancel)
+            val activeOwnedBySlot = state.activeOccurrence?.wakeScheduleId == scheduleId
+            val disabled = slot.copy(
+                nextOccurrence = null,
+                registeredOccurrenceId = null,
+                enabled = false,
+            )
+            store.write(
+                state.copy(
+                    slots = state.slots + (scheduleId to disabled),
+                    activeOccurrence = if (activeOwnedBySlot) null else state.activeOccurrence,
+                    generation = state.generation + 1,
+                ),
+            )
+            slot.registeredOccurrenceId?.let(registrar::cancel)
+            slot.nextOccurrence?.id
+                ?.takeIf { it != slot.registeredOccurrenceId }
+                ?.let(registrar::cancel)
+        }
     }
 
     /**
      * Legacy/global cancellation used when critical Android presentation capability is unsafe.
      * Product UI for the multi-alarm model should call [cancelSchedule] with a concrete id.
      */
-    @Synchronized
     fun cancelSchedule() {
-        val state = store.read() ?: return
-        if (state.slots.isEmpty() && state.activeOccurrence == null) return
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return
+            if (state.slots.isEmpty() && state.activeOccurrence == null) return
 
-        val obsolete = state.slots.values.flatMap { slot ->
-            listOfNotNull(slot.registeredOccurrenceId, slot.nextOccurrence?.id)
-        }.distinct()
-        val disabledSlots = state.slots.mapValues { (_, slot) ->
-            slot.copy(
-                nextOccurrence = null,
-                registeredOccurrenceId = null,
-                enabled = false,
-            )
-        }
-        store.write(
-            state.copy(
-                slots = disabledSlots,
-                activeOccurrence = null,
-                generation = state.generation + 1,
-            ),
-        )
-        obsolete.forEach(registrar::cancel)
-    }
-
-    @Synchronized
-    fun beginActive(occurrenceId: WakeOccurrenceId): BeginActiveResult {
-        val state = store.read() ?: return BeginActiveResult.STALE
-        if (state.activeOccurrence?.id == occurrenceId) return BeginActiveResult.ALREADY_ACTIVE
-
-        val ownerEntry = state.slots.entries.firstOrNull { (_, slot) ->
-            slot.enabled && slot.nextOccurrence?.id == occurrenceId
-        } ?: return BeginActiveResult.STALE
-        val scheduleId = ownerEntry.key
-        val slot = ownerEntry.value
-        val next = requireNotNull(slot.nextOccurrence)
-
-        if (state.activeOccurrence != null) {
-            if (slot.registeredOccurrenceId != null) {
-                store.write(
-                    state.copy(
-                        slots = state.slots + (
-                            scheduleId to slot.copy(registeredOccurrenceId = null)
-                        ),
-                        generation = state.generation + 1,
-                    ),
+            val obsolete = state.slots.values.flatMap { slot ->
+                listOfNotNull(slot.registeredOccurrenceId, slot.nextOccurrence?.id)
+            }.distinct()
+            val disabledSlots = state.slots.mapValues { (_, slot) ->
+                slot.copy(
+                    nextOccurrence = null,
+                    registeredOccurrenceId = null,
+                    enabled = false,
                 )
             }
-            return BeginActiveResult.CONFLICT
+            store.write(
+                state.copy(
+                    slots = disabledSlots,
+                    activeOccurrence = null,
+                    generation = state.generation + 1,
+                ),
+            )
+            obsolete.forEach(registrar::cancel)
+        }
+    }
+
+    fun beginActive(occurrenceId: WakeOccurrenceId): BeginActiveResult =
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return BeginActiveResult.STALE
+            if (state.activeOccurrence?.id == occurrenceId) return BeginActiveResult.ALREADY_ACTIVE
+
+            val ownerEntry = state.slots.entries.firstOrNull { (_, slot) ->
+                slot.enabled && slot.nextOccurrence?.id == occurrenceId
+            } ?: return BeginActiveResult.STALE
+            val scheduleId = ownerEntry.key
+            val slot = ownerEntry.value
+            val next = requireNotNull(slot.nextOccurrence)
+
+            if (state.activeOccurrence != null) {
+                if (slot.registeredOccurrenceId != null) {
+                    store.write(
+                        state.copy(
+                            slots = state.slots + (
+                                scheduleId to slot.copy(registeredOccurrenceId = null)
+                            ),
+                            generation = state.generation + 1,
+                        ),
+                    )
+                }
+                return BeginActiveResult.CONFLICT
+            }
+
+            store.write(
+                state.copy(
+                    slots = state.slots + (
+                        scheduleId to slot.copy(
+                            nextOccurrence = null,
+                            registeredOccurrenceId = null,
+                        )
+                    ),
+                    activeOccurrence = next,
+                    generation = state.generation + 1,
+                ),
+            )
+            BeginActiveResult.STARTED
         }
 
-        store.write(
-            state.copy(
-                slots = state.slots + (
-                    scheduleId to slot.copy(
-                        nextOccurrence = null,
-                        registeredOccurrenceId = null,
-                    )
-                ),
-                activeOccurrence = next,
-                generation = state.generation + 1,
-            ),
-        )
-        return BeginActiveResult.STARTED
-    }
+    fun stopActive(occurrenceId: WakeOccurrenceId): Boolean =
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return false
+            val active = state.activeOccurrence ?: return false
+            if (active.id != occurrenceId) return false
 
-    @Synchronized
-    fun stopActive(occurrenceId: WakeOccurrenceId): Boolean {
-        val state = store.read() ?: return false
-        val active = state.activeOccurrence ?: return false
-        if (active.id != occurrenceId) return false
+            completeOrAdvanceActive(state)
+            runCatching { reconcile() }
+            true
+        }
 
-        completeOrAdvanceActive(state)
-        runCatching { reconcile() }
-        return true
-    }
-
-    @Synchronized
     fun snoozeActive(
         occurrenceId: WakeOccurrenceId,
         duration: Duration,
-    ): WakeOccurrence? {
+    ): WakeOccurrence? = synchronized(CriticalWakeStore.STATE_LOCK) {
         val state = store.read() ?: return null
         val active = state.activeOccurrence ?: return null
         if (active.id != occurrenceId) return null
@@ -198,7 +198,7 @@ class AlarmKernel(
             duration = duration,
         )
 
-        return try {
+        try {
             registrar.register(snooze)
             store.write(
                 state.copy(
@@ -243,11 +243,10 @@ class AlarmKernel(
         return state.slots[active.wakeScheduleId]?.policy
     }
 
-    @Synchronized
     fun reconcile(
         afterBoot: Boolean = false,
         recalculateFuture: Boolean = false,
-    ): AlarmHealth {
+    ): AlarmHealth = synchronized(CriticalWakeStore.STATE_LOCK) {
         val original = store.read() ?: return health()
         var state = original
         val now = Instant.now(clock)
@@ -323,7 +322,7 @@ class AlarmKernel(
                 registeredState.copy(generation = registeredState.generation + 1),
             )
         }
-        return health()
+        health()
     }
 
     fun health(): AlarmHealth {
