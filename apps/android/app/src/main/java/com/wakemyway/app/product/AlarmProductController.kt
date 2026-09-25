@@ -86,7 +86,7 @@ class AlarmProductController(
                     currentSchedules[scheduleId] != expectedSchedule ||
                         kernel.policy(scheduleId) != expectedPolicy ||
                         slotHealth?.enabled != true ||
-                        slotHealth.nextOccurrence == null
+                        slotHealth?.nextOccurrence == null
 
                 if (needsRepair) {
                     kernel.commitSchedule(expectedSchedule, expectedPolicy)
