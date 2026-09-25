@@ -5,11 +5,17 @@ on:
     paths:
       - "apps/android/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
+      - "tooling/android_release_plan.py"
+      - "tooling/test_android_release_plan.py"
   push:
     branches: [main]
     paths:
       - "apps/android/**"
       - ".github/workflows/android-ci.yml"
+      - ".github/workflows/android-release.yml"
+      - "tooling/android_release_plan.py"
+      - "tooling/test_android_release_plan.py"
 
 permissions:
   contents: read
@@ -41,6 +47,8 @@ jobs:
       - name: Install Android 17 SDK
         run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
       - uses: gradle/actions/setup-gradle@v5
+      - name: Test release planning utility
+        run: python ../../tooling/test_android_release_plan.py
       - name: Test branded wake-sound asset tooling
         run: python scripts/test_wake_sound_assets.py
       - name: Verify branded wake-sound asset bundle

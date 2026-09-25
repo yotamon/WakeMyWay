@@ -1,6 +1,7 @@
 name: Android Visual Regression
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - "apps/android/**"

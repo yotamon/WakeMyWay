@@ -441,3 +441,37 @@ The widget's Yes / Not really actions call the same canonical Morning Safety Che
 When an Active Wake Execution exists, tapping the widget re-enters the authoritative Wake surface. Stop and Snooze remain absent from the home widget.
 
 Canonical implementation and validation detail lives in [`41-android-home-widget.md`](41-android-home-widget.md).
+
+# Manual one-click Android releases - 2026-09-25
+
+## PR merge and release are separate operations
+
+Merging a feature/fix PR to `main` never publishes an app version.
+
+Production release happens only through an explicit manual dispatch of **Release WakeMyWay** from current `main`.
+
+## Production version authority
+
+The release workflow derives semantic version and `versionCode` from the latest stable GitHub Release / `update.json`.
+
+`apps/android/version.properties` remains a local/default developer fallback and is overridden for production builds through `WMW_VERSION_CODE` / `WMW_VERSION_NAME`.
+
+This removes release-only version PRs from normal operations.
+
+## Release transaction
+
+The manual workflow owns the full transaction: plan → quality → device reliability → upgrade persistence → release build → production signing → metadata/certificate/SHA verification → draft upload → draft verification → public release → public endpoint verification.
+
+No tag or public GitHub Release is created before the signed candidate passes all pre-publication gates.
+
+## Signing custody
+
+Direct app-signing and Play upload signing identities remain separate and are stored as encrypted GitHub Actions Secrets. Signing material is never committed.
+
+The local DPAPI bundle is retained only as an offline recovery path.
+
+## Dry-run
+
+The workflow exposes an optional `dry_run` mode that executes through production signing and candidate verification but creates no tag or GitHub Release. Normal releases leave it disabled.
+
+Canonical procedure: [`42-android-release-operations.md`](42-android-release-operations.md).
