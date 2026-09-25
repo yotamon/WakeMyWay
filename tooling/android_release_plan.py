@@ -49,7 +49,22 @@ def extract_release_notes(markdown: str, limit: int = 12) -> list[str]:
         if len(notes) >= limit:
             break
 
-    return notes
+    if notes:
+        return notes
+
+    fallback: list[str] = []
+    for raw_line in markdown.splitlines():
+        text = raw_line.strip()
+        if not text or text.startswith("#"):
+            continue
+        text = MARKDOWN_LINK_RE.sub(r"\1", text)
+        text = PR_SUFFIX_RE.sub("", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if text and text not in fallback:
+            fallback.append(text)
+        if len(fallback) >= limit:
+            break
+    return fallback
 
 
 def write_manifest(
