@@ -28,6 +28,16 @@ describe('direct OpenAI realtime spike configuration', () => {
     expect(config.voice).toBe('marin');
   });
 
+  it('trims whitespace around boolean environment flags', () => {
+    const config = parseDirectOpenAiRealtimeConfig({
+      WMW_ENABLE_DIRECT_OPENAI_REALTIME_SPIKE: ' true\r\n',
+      WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: ' false\n',
+    });
+
+    expect(config.enabled).toBe(true);
+    expect(config.founderDogfoodEnabled).toBe(false);
+  });
+
   it('fails closed unless the explicit gate, server key, and safety identifier exist', () => {
     expect(() => requireDirectOpenAiRealtimeSpike(parseDirectOpenAiRealtimeConfig({}))).toThrow(
       HttpError,

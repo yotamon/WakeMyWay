@@ -7,10 +7,10 @@ export const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/cal
 export const DIRECT_OPENAI_CONFIGURATION_ID = 'direct-openai:webrtc-ephemeral-v1';
 export const FOUNDER_WAKE_CONFIGURATION_ID = 'direct-openai:webrtc-founder-wake-v1';
 
-const booleanStringSchema = z
-  .enum(['true', 'false'])
-  .default('false')
-  .transform(value => value === 'true');
+const booleanStringSchema = z.preprocess(
+  value => (typeof value === 'string' ? value.trim() : value),
+  z.enum(['true', 'false']).default('false'),
+).transform(value => value === 'true');
 
 const environmentSchema = z.object({
   OPENAI_API_KEY: z.string().trim().min(1).optional(),
@@ -193,6 +193,10 @@ async function mintRealtimeClientSecret(
   if (!response.ok) {
     // Never include the provider response body here: it can contain operational
     // details that do not belong in our application logs or client surface.
+    console.error('[wmw-openai-realtime]', {
+      operation: 'client-secret',
+      providerStatus: response.status,
+    });
     throw new Error(`Direct OpenAI realtime client-secret request failed with HTTP ${response.status}`);
   }
 
