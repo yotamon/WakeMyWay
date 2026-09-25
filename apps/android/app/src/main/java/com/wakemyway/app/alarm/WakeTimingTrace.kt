@@ -115,6 +115,15 @@ class WakeTimingTrace(
 
     fun snoozed(occurrenceId: WakeOccurrenceId) = terminal(occurrenceId, TerminalAction.SNOOZED)
 
+    fun invalidated(
+        occurrenceId: WakeOccurrenceId,
+        repairTarget: AlarmRepairTarget,
+    ) = terminal(
+        occurrenceId = occurrenceId,
+        action = TerminalAction.INVALIDATED,
+        detail = "repairTarget=${repairTarget.name}",
+    )
+
     fun snapshot(): TimingSnapshot? = history(limit = 1).firstOrNull()
 
     fun history(limit: Int = MAX_SESSIONS): List<TimingSnapshot> = runCatching {
@@ -186,12 +195,13 @@ class WakeTimingTrace(
     private fun terminal(
         occurrenceId: WakeOccurrenceId,
         action: TerminalAction,
+        detail: String? = null,
     ) = safelyMutate { sessions ->
         sessions.findSession(occurrenceId)?.apply {
             put(KEY_TERMINAL_ACTION, action.name)
             put(KEY_TERMINAL_WALL_MS, System.currentTimeMillis())
             put(KEY_TERMINAL_ELAPSED_MS, SystemClock.elapsedRealtime())
-            appendEvent(this, action.name)
+            appendEvent(this, action.name, detail)
         }
     }
 
@@ -298,6 +308,7 @@ class WakeTimingTrace(
     private enum class TerminalAction {
         STOPPED,
         SNOOZED,
+        INVALIDATED,
     }
 
     companion object {
@@ -401,6 +412,7 @@ data class TimingSnapshot(
     ): ReliabilityState = when {
         terminalAction == "STOPPED" -> ReliabilityState.STOPPED
         terminalAction == "SNOOZED" -> ReliabilityState.SNOOZED
+        terminalAction == "INVALIDATED" -> ReliabilityState.INVALIDATED
         receiverWallMillis == null && nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
         receiverWallMillis == null -> ReliabilityState.EXPECTED
         audioWallMillis == null && nowWallMillis > receiverWallMillis + deliveryStageGraceMillis -> ReliabilityState.AUDIO_TIMEOUT
@@ -424,6 +436,7 @@ enum class ReliabilityState {
     ACTIVE,
     STOPPED,
     SNOOZED,
+    INVALIDATED,
 }
 
 private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"

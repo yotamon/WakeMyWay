@@ -54,9 +54,10 @@ These are intentionally unresolved. Do not silently choose durable answers witho
 - exact Direct Boot component/storage implementation and integrity strategy
 - post-Force-Stop readiness copy/recovery behavior (platform limitation itself is decided)
 - whether any current Play policy evidence forces a change from preferred `USE_EXACT_ALARM` before submission
-- how, and whether, to surface the fail-safe end of a wake execution when critical presentation
-  capability (notifications/full-screen) is lost mid-execution; today that path is a deliberate,
-  silent fail-safe visible only in Alarm Kernel health detail
+- whether any user-facing surface is needed for the fail-safe end of a wake execution when critical
+  presentation capability (notifications/full-screen) is lost mid-execution; the invalidation itself
+  is deliberate and is now diagnosable as the INVALIDATED terminal state (with repair-target detail)
+  in the Wake Lab reliability journal
 
 ## Voice
 

@@ -114,4 +114,52 @@ class WakeTimingTraceInstrumentedTest {
         assertTrue(report.contains("SERVICE_RECOVERED"))
         assertTrue(report.contains("instrumented-test"))
     }
+
+    @Test
+    fun presentationLossIsTerminalInvalidationInsteadOfMissedReceiver() {
+        val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("invalidated-presentation-test"),
+            zoneId = target.zone,
+            timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
+            revision = System.currentTimeMillis().coerceAtLeast(1),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+        )
+        val occurrence = NextWakeOccurrenceResolver().resolve(schedule, Instant.now())
+
+        trace.expected(
+            occurrence = occurrence,
+            scenario = WakeTimingTrace.SCENARIO_FULL_SCREEN_UNAVAILABLE,
+            expectFullScreen = true,
+        )
+        trace.capabilities(
+            occurrenceId = occurrence.id,
+            exactAlarmAllowed = true,
+            notificationsAllowed = true,
+            fullScreenIntentAllowed = false,
+        )
+        trace.invalidated(occurrence.id, AlarmRepairTarget.FULL_SCREEN_INTENT)
+
+        val snapshot = trace.history(limit = 1).single()
+        val wellPastReceiverGrace =
+            occurrence.scheduledAt.toInstant().toEpochMilli() + WakeTimingTrace.MISSED_RECEIVER_GRACE_MS + 1
+
+        assertEquals(
+            ReliabilityState.INVALIDATED,
+            snapshot.state(nowWallMillis = wellPastReceiverGrace),
+        )
+        assertEquals("INVALIDATED", snapshot.terminalAction)
+        assertEquals(
+            listOf("EXPECTED", "CAPABILITIES", "INVALIDATED"),
+            snapshot.events.map { it.type },
+        )
+        assertTrue(
+            snapshot.events.last().detail?.contains("repairTarget=FULL_SCREEN_INTENT") == true,
+        )
+
+        val report = trace.reportText()
+        assertTrue(report.contains("FULL_SCREEN_UNAVAILABLE INVALIDATED"))
+        assertTrue(report.contains("terminal=INVALIDATED"))
+        assertTrue(report.contains("repairTarget=FULL_SCREEN_INTENT"))
+    }
 }
