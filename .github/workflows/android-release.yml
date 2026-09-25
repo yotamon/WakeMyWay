@@ -174,10 +174,10 @@ jobs:
           {
             echo "## WakeMyWay release plan"
             echo
-            echo "- Source: `$GITHUB_SHA`"
-            echo "- Previous: `${{ steps.plan.outputs.previous_tag }}`"
-            echo "- Next: `${{ steps.plan.outputs.tag }}`"
-            echo "- versionCode: `${{ steps.plan.outputs.version_code }}`"
+            echo "- Source: $GITHUB_SHA"
+            echo "- Previous: ${{ steps.plan.outputs.previous_tag }}"
+            echo "- Next: ${{ steps.plan.outputs.tag }}"
+            echo "- versionCode: ${{ steps.plan.outputs.version_code }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
@@ -536,10 +536,10 @@ jobs:
           {
             echo "## WakeMyWay $VERSION_NAME published"
             echo
-            echo "- Tag: `$RELEASE_TAG`"
-            echo "- versionCode: `$VERSION_CODE`"
-            echo "- Source: `$GITHUB_SHA`"
-            echo "- Direct APK SHA-256: `$EXPECTED_SHA`"
+            echo "- Tag: $RELEASE_TAG"
+            echo "- versionCode: $VERSION_CODE"
+            echo "- Source: $GITHUB_SHA"
+            echo "- Direct APK SHA-256: $EXPECTED_SHA"
             echo "- Public update endpoint: verified"
           } >> "$GITHUB_STEP_SUMMARY"
 
