@@ -93,7 +93,9 @@ On the founder Windows machine, `tooling/physical-reliability.ps1` provides narr
 # restore normal device-idle/battery simulation state
 .\tooling\physical-reliability.ps1 unidle
 
-# SERVICE_RECREATION or post-STOP resurrection only; this is not Force Stop
+# SERVICE_RECREATION or post-STOP resurrection only; this is not Force Stop.
+# If Android refuses `am kill` because the alarm foreground service is protected, debug builds
+# fall back to a same-UID SIGKILL so the test actually injects process death.
 .\tooling\physical-reliability.ps1 kill-process
 
 # REBOOT_UNLOCKED / DIRECT_BOOT

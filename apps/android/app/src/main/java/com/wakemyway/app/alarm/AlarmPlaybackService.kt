@@ -38,6 +38,14 @@ class AlarmPlaybackService : Service() {
     private val restoreAlarmVolume = Runnable {
         setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
     }
+    private var recoveryOccurrenceId: WakeOccurrenceId? = null
+    private val refreshRecoveryGuard = object : Runnable {
+        override fun run() {
+            val occurrenceId = recoveryOccurrenceId ?: return
+            ActiveWakeRecoveryGuard.arm(this@AlarmPlaybackService, occurrenceId)
+            mainHandler.postDelayed(this, RECOVERY_GUARD_REFRESH_MILLIS)
+        }
+    }
     private val reArmToneFallback = object : Runnable {
         override fun run() {
             val tone = toneFallback ?: return
@@ -85,11 +93,23 @@ class AlarmPlaybackService : Service() {
                 validatePresentation = redeliveredStart,
             )
 
+            ACTION_RECOVER -> {
+                if (kernel.activeOccurrence()?.id != occurrenceId) {
+                    preserveCurrentExecutionOrStop(kernel)
+                } else {
+                    if (!playbackAudiblyActive()) {
+                        trace.serviceRecovered(occurrenceId)
+                    }
+                    ensureActiveWake(kernel, occurrenceId)
+                }
+            }
+
             ACTION_STOP -> {
                 if (!kernel.stopActive(occurrenceId)) {
                     preserveCurrentExecutionOrStop(kernel)
                 } else {
                     trace.stopped(occurrenceId)
+                    stopRecoveryGuard(occurrenceId)
                     stopExecution()
                     START_NOT_STICKY
                 }
@@ -113,6 +133,7 @@ class AlarmPlaybackService : Service() {
                             scenario = WakeTimingTrace.SCENARIO_SNOOZE_REPLACEMENT,
                             expectFullScreen = kernel.health().fullScreenIntentAllowed,
                         )
+                        stopRecoveryGuard(occurrenceId)
                         stopExecution()
                         START_NOT_STICKY
                     }
@@ -143,6 +164,9 @@ class AlarmPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        // Do not cancel the OS-owned recovery alarm here. onDestroy can be reached during an
+        // unexpected service/process teardown, which is exactly when the guard is still needed.
+        mainHandler.removeCallbacks(refreshRecoveryGuard)
         releasePlayback()
         super.onDestroy()
     }
@@ -171,6 +195,7 @@ class AlarmPlaybackService : Service() {
         // the direct-boot critical path before startForeground(). Recovery and redelivery still
         // revalidate because they no longer have that fresh receiver authority.
         if (validatePresentation && kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
+            stopRecoveryGuard(occurrenceId)
             kernel.cancelSchedule()
             stopExecution()
             return START_NOT_STICKY
@@ -202,11 +227,28 @@ class AlarmPlaybackService : Service() {
             WakeTimingTrace(this).foreground(activeId)
         }
         startPlayback(activeId, policy)
+        startPlayback(activeId, policy)
         if (mediaPlayer != null) {
             // The looping player owns CPU retention for the rest of the wake via setWakeMode.
             releaseCpuHold()
         }
+        startRecoveryGuard(activeId)
         return START_REDELIVER_INTENT
+    }
+
+    private fun startRecoveryGuard(occurrenceId: WakeOccurrenceId) {
+        recoveryOccurrenceId = occurrenceId
+        mainHandler.removeCallbacks(refreshRecoveryGuard)
+        ActiveWakeRecoveryGuard.arm(this, occurrenceId)
+        mainHandler.postDelayed(refreshRecoveryGuard, RECOVERY_GUARD_REFRESH_MILLIS)
+    }
+
+    private fun stopRecoveryGuard(occurrenceId: WakeOccurrenceId) {
+        if (recoveryOccurrenceId == occurrenceId) {
+            recoveryOccurrenceId = null
+            mainHandler.removeCallbacks(refreshRecoveryGuard)
+        }
+        ActiveWakeRecoveryGuard.cancel(this, occurrenceId)
     }
 
     private fun playbackAudiblyActive(): Boolean =
@@ -531,11 +573,13 @@ class AlarmPlaybackService : Service() {
     companion object {
         private const val NOTIFICATION_ID = 4100
         private const val ACTION_START = "com.wakemyway.action.START_WAKE"
+        private const val ACTION_RECOVER = "com.wakemyway.action.RECOVER_WAKE"
         private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
+        private const val RECOVERY_GUARD_REFRESH_MILLIS = 4_000L
         private const val TONE_RE_ARM_MILLIS = 4_000L
         private const val CPU_HOLD_TIMEOUT_MILLIS = 20_000L
         private val HAPTIC_TIMINGS = longArrayOf(0L, 900L, 700L)
@@ -548,6 +592,16 @@ class AlarmPlaybackService : Service() {
                 Intent(context, AlarmPlaybackService::class.java)
                     .setAction(ACTION_START)
                     .setData(commandIdentity("start", occurrenceId))
+                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
+            )
+        }
+
+        fun recover(context: Context, occurrenceId: WakeOccurrenceId) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AlarmPlaybackService::class.java)
+                    .setAction(ACTION_RECOVER)
+                    .setData(commandIdentity("recover", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
         }

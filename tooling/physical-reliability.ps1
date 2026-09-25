@@ -274,6 +274,7 @@ switch ($Action) {
             throw "Original WakeMyWay process survived: $($survivors -join ', ')"
         }
         Write-Host "Original PID(s) $before terminated without Force Stop. Current PID(s): $after"
+        Write-Host "If RECOVERY_GUARD evidence is intended, the OS recovery alarm must now re-kick playback."
     }
 
     "reboot" {
