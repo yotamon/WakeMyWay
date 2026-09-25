@@ -3,6 +3,7 @@ package com.wakemyway.app.alarm
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.wakemyway.app.widget.WakeWidgetUpdater
 
 class AlarmReconcileReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -34,6 +35,8 @@ class AlarmReconcileReceiver : BroadcastReceiver() {
             }
             after = kernel.health()
         }
+
+        WakeWidgetUpdater.request(context)
 
         trackedOccurrence?.let { occurrence ->
             WakeTimingTrace(context).reconciled(

@@ -365,3 +365,79 @@ Free/Pro packaging should communicate user value rather than implementation deta
 Free remains a legitimate reliable WakeMyWay alarm. Pro should represent meaningfully deeper personalization/adaptation and premium experiences that support the same wake outcome.
 
 The existing €4.99/month and ~€39/year values remain discovery hypotheses until real willingness-to-pay evidence exists. Billing or entitlement state can never become alarm authority.
+
+# Android home widget Shape contract - 2026-09-25
+
+## One responsive Next Wake surface
+
+WakeMyWay should eventually expose one responsive Android home-screen widget centered on the next wake, its Wake Ready truth and one contextually useful safe action.
+
+The widget is a projection of existing local product state, not a mini application and not a second scheduling/readiness model.
+
+## Alarm authority remains unchanged
+
+All alarm mutations initiated from the widget must delegate to the existing product mutation path and Alarm Kernel. The widget may never directly persist alarm intent and assume Android scheduling succeeded.
+
+A failed mutation or readiness repair must refresh to authoritative truth rather than preserve optimistic UI.
+
+## Active wake controls remain out of the widget
+
+The home widget may expose **Open Wake** while an Active Wake Execution exists.
+
+It must not expose Stop or Snooze. Terminal wake behavior remains owned by the dedicated Wake surface/notification and Alarm Kernel path.
+
+## Widget privacy is minimized
+
+The widget is home-screen only and does not display Tomorrow Contract free text, Prepared Wake Plan text, First Move, transcript content or private history.
+
+It may display non-sensitive derived state such as next wake time/date, Wake Ready, preparation-ready status, pending Morning Check-In and a bounded upcoming-alarm summary.
+
+## Responsive density, stable purpose
+
+Compact, Medium and Expanded sizes progressively reveal more information while preserving the same hierarchy. The preferred default is a medium hero surface; expanded space may add bounded upcoming-alarm controls without becoming a second Alarms screen.
+
+Avoid minute-level countdowns and background polling. Prefer event-driven updates and display copy that remains truthful between refreshes.
+
+## Build remains gated by the 1.0 feature freeze
+
+The Shape contract is complete enough for future Build, but production implementation remains deferred until the paid-launch feature freeze ends or evidence explicitly earns an exception.
+
+Canonical detail lives in [`41-android-home-widget.md`](41-android-home-widget.md).
+
+# Android home widget Build exception and implementation - 2026-09-25
+
+## Explicit feature-freeze exception
+
+After the home-widget Shape contract was completed, the product owner explicitly requested production implementation despite the active 1.0 feature freeze.
+
+This is recorded as a deliberate exception rather than silently redefining the freeze. The widget remains outside alarm authority and does not become a prerequisite for WakeMyWay's core wake promise.
+
+## Runtime sizing
+
+Use stable Jetpack Glance 1.2.0.
+
+Runtime rendering uses `SizeMode.Exact` so the actual launcher-provided bounds are authoritative. The widget then maps those bounds into three deliberate product densities: Compact, Medium and Expanded.
+
+Android 15+ generated previews use `previewSizeMode = SizeMode.Responsive` with representative sizes. A static picker preview remains the fallback for older/platform-limited launchers.
+
+## No inline alarm toggle in the first implementation
+
+The Expanded alarm summary is one large interaction target that opens the existing Alarms surface rather than exposing small per-row controls or toggling enabled state directly.
+
+Reason: safe enablement requires the existing product capability/voice preflight and Alarm Kernel commit semantics. A convenience toggle does not justify duplicating or bypassing that flow.
+
+## Event-driven projection
+
+The widget has no independent scheduling/readiness state and no periodic polling loop.
+
+Alarm, preparation, appearance, history, reconciliation and Active Wake mutation paths request a widget refresh. The renderer rebuilds a privacy-minimized projection from authoritative local owners.
+
+## Morning Check-In reuses the existing mutation
+
+The widget's Yes / Not really actions call the same canonical Morning Safety Check calibration function used by notification follow-up. The launcher surface does not create a second feedback model.
+
+## Active Wake remains protected
+
+When an Active Wake Execution exists, tapping the widget re-enters the authoritative Wake surface. Stop and Snooze remain absent from the home widget.
+
+Canonical implementation and validation detail lives in [`41-android-home-widget.md`](41-android-home-widget.md).

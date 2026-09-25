@@ -23,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.lifecycle.lifecycleScope
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmPlaybackService
@@ -38,7 +40,12 @@ import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.update.UpdateCoordinator
 import com.wakemyway.app.update.UpdateProviderFactory
 import com.wakemyway.app.update.UpdateState
+import com.wakemyway.app.widget.WakeWidgetLaunch
+import com.wakemyway.app.widget.WakeWidgetLaunchRequest
+import com.wakemyway.app.widget.WakeMyWayWidgetReceiver
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.alarm.AlarmDefinitionId
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val alarmKernel by lazy { AlarmKernel(this) }
@@ -49,6 +56,7 @@ class MainActivity : ComponentActivity() {
     private var voiceWakeReadiness by mutableStateOf(VoiceWakeReadiness.UNAVAILABLE)
     private var wakeSystemRevision by mutableIntStateOf(0)
     private var updateState by mutableStateOf<UpdateState>(UpdateState.Idle)
+    private var widgetLaunchRequest by mutableStateOf<WakeWidgetLaunchRequest?>(null)
     private lateinit var updateCoordinator: UpdateCoordinator
 
     private val appUpdateLauncher = registerForActivityResult(
@@ -81,6 +89,8 @@ class MainActivity : ComponentActivity() {
         val health = alarmKernel.reconcile()
         recordCapabilities(WakeTimingTrace(this), health)
         refreshProductReadiness()
+        handleWidgetIntent(intent)
+        publishGeneratedWidgetPreview()
 
         updateCoordinator = UpdateCoordinator(
             context = this,
@@ -108,6 +118,8 @@ class MainActivity : ComponentActivity() {
                     onBeginUpdate = updateCoordinator::beginUpdate,
                     onInstallUpdate = updateCoordinator::installUpdate,
                     onOpenInstallPermission = updateCoordinator::openInstallPermissionSettings,
+                    launchRequest = widgetLaunchRequest,
+                    onLaunchRequestConsumed = { widgetLaunchRequest = null },
                 )
 
                 if (showNotificationPermissionPrimer) {
@@ -174,6 +186,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleWidgetIntent(intent)
+    }
+
     override fun onDestroy() {
         if (::updateCoordinator.isInitialized) {
             updateCoordinator.close()
@@ -213,6 +231,7 @@ class MainActivity : ComponentActivity() {
         }
 
         wakeSystemRevision++
+        WakeWidgetUpdater.request(this)
     }
 
     /**
@@ -374,11 +393,48 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private fun handleWidgetIntent(intent: Intent?) {
+        val request = WakeWidgetLaunch.from(intent) ?: return
+        widgetLaunchRequest = request.copy(repairWake = false)
+
+        window.decorView.post {
+            if (alarmKernel.health().activeOccurrence != null) {
+                recoverOrResumeActiveWake()
+                return@post
+            }
+            if (request.repairWake) {
+                refreshProductReadiness()
+                repairNextWakePrerequisite()
+            }
+        }
+    }
+
+    private fun publishGeneratedWidgetPreview() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) return
+        val preferences = getSharedPreferences(WIDGET_PREVIEW_PREFS, MODE_PRIVATE)
+        if (preferences.getBoolean(WIDGET_PREVIEW_PUBLISHED, false)) return
+
+        lifecycleScope.launch {
+            val result = runCatching {
+                GlanceAppWidgetManager(this@MainActivity)
+                    .setWidgetPreviews(WakeMyWayWidgetReceiver::class)
+            }.getOrNull()
+
+            if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS) {
+                preferences.edit()
+                    .putBoolean(WIDGET_PREVIEW_PUBLISHED, true)
+                    .apply()
+            }
+        }
+    }
+
     private companion object {
         const val VOICE_PERMISSION_PREFS = "voice-permission"
         const val VOICE_PERMISSION_REQUESTED = "record-audio-requested-v1"
         const val NOTIFICATION_PERMISSION_PREFS = "notification-permission"
         const val NOTIFICATION_PERMISSION_REQUESTED = "post-notifications-requested-v1"
+        const val WIDGET_PREVIEW_PREFS = "widget-preview"
+        const val WIDGET_PREVIEW_PUBLISHED = "generated-preview-v1"
     }
 }
 

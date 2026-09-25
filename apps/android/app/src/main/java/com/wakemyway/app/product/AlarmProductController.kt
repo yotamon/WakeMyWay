@@ -4,6 +4,7 @@ import android.content.Context
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.alarm.CriticalWakePolicy
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.alarm.AlarmScheduleCompiler
@@ -31,6 +32,8 @@ class AlarmProductController(
     private val compiler: AlarmScheduleCompiler = AlarmScheduleCompiler(),
     private val clock: Clock = Clock.systemUTC(),
 ) {
+    private val appContext = context.applicationContext
+
     init {
         migrateExistingKernelSchedulesIfNeeded()
     }
@@ -62,6 +65,7 @@ class AlarmProductController(
         repository.upsert(definition)
         return try {
             synchronizeKernel(definition)
+            WakeWidgetUpdater.request(appContext)
             definition
         } catch (error: Throwable) {
             repository.replaceAll(before)
@@ -97,7 +101,9 @@ class AlarmProductController(
         val existing = before.firstOrNull { it.id == id } ?: return false
         kernel.cancelSchedule(WakeScheduleId(id.value))
         return try {
-            repository.delete(id)
+            repository.delete(id).also { deleted ->
+                if (deleted) WakeWidgetUpdater.request(appContext)
+            }
         } catch (error: Throwable) {
             repository.replaceAll(before)
             if (existing.enabled) {

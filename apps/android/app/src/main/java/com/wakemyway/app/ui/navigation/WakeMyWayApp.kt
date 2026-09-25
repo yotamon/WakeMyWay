@@ -51,6 +51,8 @@ import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.update.UpdateState
 import com.wakemyway.app.wakeSchedulingBlocker
+import com.wakemyway.app.widget.WakeWidgetDestination
+import com.wakemyway.app.widget.WakeWidgetLaunchRequest
 import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.alarm.TomorrowContractMode
@@ -105,6 +107,8 @@ fun WakeMyWayApp(
     onBeginUpdate: () -> Unit = {},
     onInstallUpdate: () -> Unit = {},
     onOpenInstallPermission: () -> Unit = {},
+    launchRequest: WakeWidgetLaunchRequest? = null,
+    onLaunchRequestConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val alarmSetupRequiredCopy = stringResource(R.string.tonight_readiness_attention)
@@ -176,6 +180,26 @@ fun WakeMyWayApp(
                 ConsumerTab.PROFILE -> ProfileRoute
             },
         )
+    }
+
+    LaunchedEffect(launchRequest, preferences.onboardingCompleted) {
+        val request = launchRequest ?: return@LaunchedEffect
+        if (!preferences.onboardingCompleted) return@LaunchedEffect
+
+        if (request.destination == WakeWidgetDestination.INSIGHTS) {
+            refreshWakeHistory()
+        }
+        backStack.clear()
+        backStack.add(
+            when (request.destination) {
+                WakeWidgetDestination.HOME -> HomeRoute
+                WakeWidgetDestination.ALARMS -> AlarmsRoute
+                WakeWidgetDestination.ALARM_EDITOR -> AlarmEditorRoute(request.alarmId)
+                WakeWidgetDestination.TOMORROW_PLAN -> TomorrowPlanRoute
+                WakeWidgetDestination.INSIGHTS -> InsightsRoute
+            },
+        )
+        onLaunchRequestConsumed()
     }
 
     fun preflight(definition: AlarmDefinition): AlarmEditorResult? {

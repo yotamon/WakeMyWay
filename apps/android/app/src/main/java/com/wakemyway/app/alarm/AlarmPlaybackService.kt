@@ -24,6 +24,7 @@ import androidx.annotation.RawRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.wakemyway.app.WakeActivity
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.schedule.WakeOccurrenceId
 
 class AlarmPlaybackService : Service() {
@@ -111,6 +112,7 @@ class AlarmPlaybackService : Service() {
                     trace.stopped(occurrenceId)
                     stopRecoveryGuard(occurrenceId)
                     stopExecution()
+                    WakeWidgetUpdater.request(this)
                     START_NOT_STICKY
                 }
             }
@@ -135,6 +137,7 @@ class AlarmPlaybackService : Service() {
                         )
                         stopRecoveryGuard(occurrenceId)
                         stopExecution()
+                        WakeWidgetUpdater.request(this)
                         START_NOT_STICKY
                     }
                 }
@@ -233,6 +236,7 @@ class AlarmPlaybackService : Service() {
             releaseCpuHold()
         }
         startRecoveryGuard(activeId)
+        WakeWidgetUpdater.request(this)
         return START_REDELIVER_INTENT
     }
 

@@ -47,6 +47,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`38-play-launch-operations.md`](38-play-launch-operations.md) | **Gate 4 Play listing, support, staged rollout, incident and billing-boundary operations** |
 | [`39-privacy-data-safety-launch.md`](39-privacy-data-safety-launch.md) | **Gate 4 shipped-data inventory, Data Safety worksheet and public-policy launch requirements** |
 | [`40-play-billing-boundary.md`](40-play-billing-boundary.md) | **Gate 4 fail-closed Play Billing + server verification boundary** |
+| [`41-android-home-widget.md`](41-android-home-widget.md) | **Shaped post-1.0 Android Next Wake home-widget product + engineering contract** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -73,6 +74,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`05-ux-flows.md`](05-ux-flows.md) | Night/morning flows, intentional Stop, calibration, Safety Backup hypothesis |
 | [`06-brand.md`](06-brand.md) | Wake My Way brand platform/voice |
 | [`07-design-system.md`](07-design-system.md) | Visual/motion/haptic/audio/UI direction |
+| [`41-android-home-widget.md`](41-android-home-widget.md) | Responsive Next Wake home-widget UX, privacy, states, actions and validation contract |
 | [`brand/assets/wake-my-way-brand-board.png`](brand/assets/wake-my-way-brand-board.png) | Initial identity exploration |
 
 ## Architecture

@@ -127,6 +127,7 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.graphics.shapes)
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.kotlinx.serialization.core)
 
     add("directImplementation", libs.kotlinx.serialization.json)
