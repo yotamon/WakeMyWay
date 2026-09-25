@@ -235,6 +235,11 @@ jobs:
     with:
       base_ref: ${{ needs.plan.outputs.previous_tag }}
 
+  visual-regression:
+    name: Visual regression gate
+    needs: plan
+    uses: ./.github/workflows/android-visual-regression.yml
+
   build-sign:
     name: Build, sign, and verify candidate
     needs:
@@ -242,6 +247,7 @@ jobs:
       - quality
       - device-reliability
       - upgrade-persistence
+      - visual-regression
     runs-on: ubuntu-latest
     timeout-minutes: 35
     defaults:
