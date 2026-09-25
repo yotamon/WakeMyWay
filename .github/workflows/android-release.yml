@@ -46,7 +46,6 @@ jobs:
       version_code: ${{ steps.plan.outputs.version_code }}
       tag: ${{ steps.plan.outputs.tag }}
     env:
-      GH_TOKEN: ${{ github.token }}
       CUSTOM_RELEASE_NOTES: ${{ inputs.release_notes }}
     steps:
       - uses: actions/checkout@v6
@@ -215,14 +214,6 @@ jobs:
     env:
       WMW_VERSION_CODE: ${{ needs.plan.outputs.version_code }}
       WMW_VERSION_NAME: ${{ needs.plan.outputs.version_name }}
-      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
-      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
-      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
-      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
-      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
-      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
       WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
       WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
       WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
@@ -236,6 +227,15 @@ jobs:
 
       - name: Verify signing configuration exists
         shell: bash
+        env:
+          WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
+          WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
+          WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
+          WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
+          WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
+          WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
+          WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
+          WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           required=(
@@ -284,6 +284,9 @@ jobs:
 
       - name: Materialize signing keys
         shell: bash
+        env:
+          WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
+          WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/wmw-signing"
@@ -293,6 +296,13 @@ jobs:
 
       - name: Sign release artifacts
         shell: bash
+        env:
+          WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
+          WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
+          WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
+          WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
+          WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
+          WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -399,10 +409,13 @@ jobs:
           name: signed-release-candidate-${{ github.run_id }}
           path: dist
 
-      - name: Set up Android verification environment
-        uses: ./.github/actions/setup-android
+      - uses: actions/setup-java@v5
         with:
-          setup-gradle: "false"
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android verification tools
+        run: sdkmanager "platform-tools" "build-tools;37.0.0"
 
       - name: Re-verify candidate before publication
         shell: bash
@@ -425,6 +438,8 @@ jobs:
       - name: Create draft release only after all gates pass
         id: draft
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch origin main --tags --force
@@ -456,6 +471,8 @@ jobs:
 
       - name: Verify uploaded draft assets
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/draft-assets"
@@ -470,6 +487,8 @@ jobs:
       - id: publish
         name: Publish draft as latest
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release edit "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --draft=false             --latest
@@ -514,6 +533,8 @@ jobs:
       - name: Roll back failed publication
         if: ${{ failure() && steps.draft.outputs.created == 'true' }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set +e
           IS_DRAFT="$(gh release view "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --json isDraft             --jq '.isDraft' 2>/dev/null)"
