@@ -4,7 +4,8 @@
     android:layout_height="match_parent"
     android:background="@drawable/wmw_widget_preview_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="11dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,59 +14,75 @@
         android:orientation="horizontal">
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:contentDescription="@string/wmw_brand_name"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:contentDescription="@null"
             android:src="@drawable/wmw_widget_mark" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="5dp"
             android:layout_weight="1"
             android:fontFamily="sans"
             android:text="@string/wmw_brand_name"
             android:textColor="#08142F"
-            android:textSize="12sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/wmw_widget_preview_status_background"
             android:fontFamily="sans"
-            android:paddingHorizontal="9dp"
-            android:paddingVertical="5dp"
-            android:text="@string/widget_preview_status"
+            android:text="EDIT ALARM  ›"
+            android:textColor="#FF9F6D"
+            android:textSize="8sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans"
+        android:text="07:30"
+        android:textColor="#08142F"
+        android:textSize="40sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans"
+            android:text="Sat, 26 Sep  ·  Weekdays"
+            android:textColor="#66728B"
+            android:textSize="9sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans"
+            android:text="✓ WAKE READY"
             android:textColor="#2F7758"
             android:textSize="8sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
+    <ImageView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:fontFamily="sans"
-        android:text="07:30"
-        android:textColor="#08142F"
-        android:textSize="34sp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:fontFamily="sans"
-        android:text="Sat, 26 Sep"
-        android:textColor="#66728B"
-        android:textSize="12sp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:fontFamily="sans"
-        android:text="@string/widget_preview_plan"
-        android:textColor="#08142F"
-        android:textSize="11sp"
-        android:textStyle="bold" />
+        android:layout_height="8dp"
+        android:layout_marginTop="3dp"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/wmw_widget_wake_line" />
 </LinearLayout>
