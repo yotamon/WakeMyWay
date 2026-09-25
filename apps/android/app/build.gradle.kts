@@ -10,8 +10,13 @@ plugins {
 val appVersion = Properties().apply {
     rootProject.file("version.properties").inputStream().use(::load)
 }
-val wakeMyWayVersionCode = requireNotNull(appVersion.getProperty("VERSION_CODE")).toInt()
-val wakeMyWayVersionName = requireNotNull(appVersion.getProperty("VERSION_NAME"))
+val wakeMyWayVersionCode = providers.gradleProperty("WMW_VERSION_CODE")
+    .orElse(providers.environmentVariable("WMW_VERSION_CODE"))
+    .map(String::toInt)
+    .getOrElse(requireNotNull(appVersion.getProperty("VERSION_CODE")).toInt())
+val wakeMyWayVersionName = providers.gradleProperty("WMW_VERSION_NAME")
+    .orElse(providers.environmentVariable("WMW_VERSION_NAME"))
+    .getOrElse(requireNotNull(appVersion.getProperty("VERSION_NAME")))
 
 fun escapedBuildConfigString(
     gradleProperty: String,
