@@ -112,9 +112,7 @@ jobs:
       - name: Generate release notes
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous_tag }}
-          NEXT_TAG: ${{ steps.plan.outputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p release-plan
@@ -130,9 +128,12 @@ jobs:
           )
           PY
           else
-            gh api               --method POST               "repos/$GITHUB_REPOSITORY/releases/generate-notes"               -f tag_name="$NEXT_TAG"               -f target_commitish="$GITHUB_SHA"               -f previous_tag_name="$PREVIOUS_TAG"               --jq '.body' > release-plan/release-notes.md
+            {
+              printf "## What's new\n\n"
+              git log --no-merges --pretty='- %s' "$PREVIOUS_TAG..$GITHUB_SHA"
+            } > release-plan/release-notes.md
           fi
-          test -s release-plan/release-notes.md
+          grep -q '^- ' release-plan/release-notes.md || [ -n "${CUSTOM_RELEASE_NOTES//[[:space:]]/}" ]
 
       - name: Write release plan
         shell: bash
