@@ -12,6 +12,7 @@ param(
         "unidle",
         "kill-process",
         "reboot",
+        "wake-check",
         "collect"
     )]
     [string]$Action = "status",
@@ -278,6 +279,55 @@ switch ($Action) {
     "reboot" {
         Write-Host "Rebooting the device. For DIRECT_BOOT, do not unlock before the scheduled wake."
         Invoke-Adb reboot
+    }
+
+    "wake-check" {
+        Write-Host "Capturing Active Wake execution evidence. Run this WHILE a wake is ringing."
+        Write-Host "Device: $(Get-DeviceSummary)"
+
+        $pids = Get-PackagePids
+        if (-not $pids) {
+            throw "WakeMyWay has no running process. Start an active wake first (Wake Lab scenario or a real alarm)."
+        }
+        Write-Host "WakeMyWay process alive: PID(s) $pids"
+
+        $root = New-EvidenceDirectory
+        "device=$(Get-DeviceSummary)" | Set-Content -Encoding UTF8 (Join-Path $root "device.txt")
+        (& git -C $RepoRoot rev-parse HEAD).Trim() | Set-Content -Encoding UTF8 (Join-Path $root "commit.txt")
+
+        Invoke-Adb shell dumpsys activity services $PackageName |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-services.txt")
+        Invoke-Adb shell dumpsys power |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-power.txt")
+        Invoke-Adb shell dumpsys audio |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-audio.txt")
+        try {
+            Invoke-Adb shell dumpsys vibrator_manager |
+                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
+        } catch {
+            # The vibrator service lives directly under this name on API 29/30.
+            Invoke-Adb shell dumpsys vibrator |
+                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
+        }
+
+        Write-Host ""
+        Write-Host "Wake locks mentioning wakemyway (expect activeWakeStartup in the fire-to-audio window, activeWakeTone while the emergency tone plays):"
+        (Invoke-Adb shell dumpsys power) |
+            Select-String -Pattern "wakemyway" |
+            ForEach-Object { "  $($_.Line.Trim())" }
+        Write-Host ""
+        Write-Host "Audio focus / stream entries mentioning wakemyway (expect USAGE_ALARM ownership):"
+        (Invoke-Adb shell dumpsys audio) |
+            Select-String -Pattern "wakemyway" |
+            ForEach-Object { "  $($_.Line.Trim())" }
+        Write-Host ""
+        Write-Host "Human checks for the hardened fallback layers:"
+        Write-Host "  1. The repeating haptic pattern is felt, including with the alarm stream muted."
+        Write-Host "  2. Notification Stop ends the wake and the vibration stops with it."
+        Write-Host "  3. Snooze schedules the replacement before the current wake ends (see the Lab report)."
+        Write-Host ""
+        Write-Host "Wake-check evidence collected to $root"
+        Write-Host "Also export the in-app Wake Alarm Lab reliability report for the same scenario."
     }
 
     "collect" {
