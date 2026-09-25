@@ -38,11 +38,10 @@ class AlarmPlaybackServiceRobolectricTest {
     @Before
     fun setUp() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
-        kernel = AlarmKernel(
-            context = context,
-            clock = clock,
-            criticalStateFileName = "critical-wake-service-${System.nanoTime()}.json",
-        )
+        // The service constructs its own kernel with the default critical state file, so the test
+        // kernel must share that file to be observable. Robolectric sandboxes the filesystem per
+        // test, so the default name cannot leak state between tests.
+        kernel = AlarmKernel(context = context, clock = clock)
     }
 
     @After
