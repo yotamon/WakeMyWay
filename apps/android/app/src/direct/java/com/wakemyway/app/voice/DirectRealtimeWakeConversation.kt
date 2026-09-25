@@ -36,9 +36,11 @@ class DirectRealtimeWakeConversation(
     private val listener: WakeConversationEnrichment.Listener,
 ) : WakeConversationEnrichment {
     private data class BrokerSecret(val token: String, val callsUrl: String, val voice: String)
+    private class BrokerCredentialRejected : Exception()
 
     private val appContext = context.applicationContext
     private val settings = FounderRealtimeSettings(appContext)
+    private val pairingClient = FounderRealtimePairingClient()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "wmw-founder-realtime").apply { isDaemon = true }
@@ -70,21 +72,11 @@ class DirectRealtimeWakeConversation(
 
     override fun connect() {
         if (closed || ready || !connectingState.compareAndSet(false, true)) return
-        val config = settings.load() ?: run {
-            connectingState.set(false)
-            emitFailure("not-configured")
-            return
-        }
-        if (runCatching { validateBrokerUrl(config.brokerUrl) }.isFailure) {
-            connectingState.set(false)
-            emitFailure("configuration")
-            return
-        }
 
         disconnectResources(resetConnecting = false)
         val current = generation.incrementAndGet()
         networkExecutor.execute {
-            runCatching { requestBrokerSecret(config) }
+            runCatching { requestBrokerSecretWithAutomaticCredential() }
                 .onSuccess { secret ->
                     mainHandler.post {
                         if (isCurrent(current)) startPeerConnection(secret, current)
@@ -345,6 +337,23 @@ class DirectRealtimeWakeConversation(
         }
     }
 
+    private fun requestBrokerSecretWithAutomaticCredential(): BrokerSecret {
+        val firstConfig = loadOrBootstrapConfig()
+        return try {
+            requestBrokerSecret(firstConfig)
+        } catch (_: BrokerCredentialRejected) {
+            settings.clear()
+            requestBrokerSecret(loadOrBootstrapConfig())
+        }
+    }
+
+    private fun loadOrBootstrapConfig(): FounderRealtimeConfig {
+        settings.load()?.let { return it }
+        val paired = pairingClient.bootstrap(settings.installationId())
+        settings.saveInstallationCredential(paired.deviceToken, paired.expiresAtEpochSeconds)
+        return settings.load() ?: error("Automatic Realtime credential was not persisted")
+    }
+
     private fun requestBrokerSecret(config: FounderRealtimeConfig): BrokerSecret {
         val connection = (URL(config.brokerUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -357,7 +366,9 @@ class DirectRealtimeWakeConversation(
             setRequestProperty("Content-Length", "0")
         }
         try {
-            if (connection.responseCode !in 200..299) error("Broker request failed")
+            val status = connection.responseCode
+            if (status == 401 || status == 403) throw BrokerCredentialRejected()
+            if (status !in 200..299) error("Broker request failed")
             val json = JSONObject(readBounded(connection.inputStream, MAX_BROKER_RESPONSE_BYTES))
             check(json.optString("candidate") == "direct-openai")
             check(json.optString("connectionMode") == "webrtc-ephemeral")
