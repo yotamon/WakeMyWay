@@ -208,21 +208,37 @@ fun WmwStatusPill(
 ) {
     val accent = if (positive) WmwColors.Success else WmwColors.Sunrise
     val textColor = if (onLightSurface) WmwColors.Midnight else WmwColors.WarmLight
-    Row(
+    val containerColor = if (onLightSurface) {
+        accent.copy(alpha = 0.10f)
+    } else {
+        WmwColors.WarmLight.copy(alpha = 0.08f)
+    }
+    Surface(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
-        verticalAlignment = Alignment.CenterVertically,
+        shape = CircleShape,
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 0.75.dp,
+            color = accent.copy(alpha = 0.30f),
+        ),
+        tonalElevation = 0.dp,
     ) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .background(accent, CircleShape),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = textColor,
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Sm, vertical = WmwSpacing.Xs),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .background(accent, CircleShape),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor,
+            )
+        }
     }
 }
 

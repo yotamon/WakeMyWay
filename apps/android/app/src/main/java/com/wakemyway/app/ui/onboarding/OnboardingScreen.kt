@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -70,7 +72,12 @@ fun OnboardingScreen(
     val lastPage = pageIndex == pages.lastIndex
 
     WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
-        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+        ) {
             TextButton(
                 onClick = onSkip,
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = WmwSpacing.Md, end = WmwSpacing.Md),
@@ -126,7 +133,7 @@ fun OnboardingScreen(
                     )
 
                     WmwCard(
-                        modifier = Modifier.padding(top = 28.dp),
+                        modifier = Modifier.padding(top = WmwSpacing.Xl),
                         onLightSurface = true,
                     ) {
                         Text(

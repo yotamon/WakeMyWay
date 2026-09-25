@@ -4,8 +4,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +31,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.ui.theme.WmwColors
+import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
 
 enum class ConsumerTab(val label: String) {
@@ -46,8 +49,12 @@ fun WmwConsumerScaffold(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.(Modifier) -> Unit,
 ) {
-    Box(modifier.fillMaxSize()) {
-        content(Modifier.padding(bottom = 88.dp))
+    Box(
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        content(Modifier.padding(bottom = WmwSizes.ConsumerNavigationInset))
         WmwBottomBar(
             selectedTab = selectedTab,
             onTabSelected = onTabSelected,
@@ -65,39 +72,50 @@ private fun WmwBottomBar(
     Surface(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm)
+            .padding(horizontal = WmwSpacing.Md, bottom = WmwSpacing.Sm)
             .fillMaxWidth(),
-        shape = RoundedCornerShape(30.dp),
-        color = WmwColors.Midnight.copy(alpha = 0.97f),
-        shadowElevation = 12.dp,
+        shape = RoundedCornerShape(28.dp),
+        color = WmwColors.PaperCard.copy(alpha = 0.97f),
+        border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
+        shadowElevation = 8.dp,
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = WmwSpacing.Xs, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xxs),
         ) {
             ConsumerTab.entries.forEach { tab ->
                 val selected = tab == selectedTab
-                Row(
+                Column(
                     modifier = Modifier
                         .weight(1f)
-                        .background(
-                            color = if (selected) WmwColors.Sunrise else Color.Transparent,
-                            shape = RoundedCornerShape(24.dp),
-                        )
                         .clickable(role = Role.Tab) { onTabSelected(tab) }
                         .semantics { this.selected = selected }
-                        .heightIn(min = 48.dp)
-                        .padding(horizontal = 2.dp, vertical = 13.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                        .heightIn(min = 58.dp)
+                        .padding(vertical = 5.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
-                    ConsumerNavGlyph(tab = tab, selected = selected)
+                    Box(
+                        modifier = Modifier
+                            .size(width = 38.dp, height = 28.dp)
+                            .background(
+                                color = if (selected) {
+                                    WmwColors.Sunrise.copy(alpha = 0.18f)
+                                } else {
+                                    Color.Transparent
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        ConsumerNavGlyph(tab = tab, selected = selected)
+                    }
                     Text(
                         text = tab.label,
-                        modifier = Modifier.padding(start = 4.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (selected) WmwColors.Midnight else WmwColors.QuietText,
+                        modifier = Modifier.padding(top = 2.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText,
                         maxLines = 1,
                     )
                 }
@@ -111,7 +129,7 @@ private fun ConsumerNavGlyph(
     tab: ConsumerTab,
     selected: Boolean,
 ) {
-    val color = if (selected) WmwColors.Midnight else WmwColors.QuietText
+    val color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText
     Canvas(Modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
         when (tab) {
