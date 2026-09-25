@@ -8,6 +8,7 @@ import { parseDirectOpenAiRealtimeConfig } from './voice-spike/direct-openai.js'
 const FOUNDER_SCOPE = 'founder-realtime-wake';
 const DEVICE_TOKEN_VERSION = 1;
 const DEVICE_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
+const AUTOMATIC_DEVICE_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
 export const FOUNDER_PAIRING_CODE_MIN_LENGTH = 24;
 export const FOUNDER_SIGNING_KEY_MIN_LENGTH = 32;
@@ -98,12 +99,14 @@ export function pairFounderInstallation(
   }
 
   const now = options.nowSeconds ?? Math.floor(Date.now() / 1000);
+  const tokenTtlSeconds =
+    parsed.data.code === undefined ? AUTOMATIC_DEVICE_TOKEN_TTL_SECONDS : DEVICE_TOKEN_TTL_SECONDS;
   const payload: TokenPayload = {
     v: DEVICE_TOKEN_VERSION,
     scope: FOUNDER_SCOPE,
     sub: parsed.data.installationId,
     iat: now,
-    exp: now + DEVICE_TOKEN_TTL_SECONDS,
+    exp: now + tokenTtlSeconds,
   };
 
   return {
