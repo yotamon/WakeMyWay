@@ -47,7 +47,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`38-play-launch-operations.md`](38-play-launch-operations.md) | **Gate 4 Play listing, support, staged rollout, incident and billing-boundary operations** |
 | [`39-privacy-data-safety-launch.md`](39-privacy-data-safety-launch.md) | **Gate 4 shipped-data inventory, Data Safety worksheet and public-policy launch requirements** |
 | [`40-play-billing-boundary.md`](40-play-billing-boundary.md) | **Gate 4 fail-closed Play Billing + server verification boundary** |
-| [`41-android-home-widget.md`](41-android-home-widget.md) | **Shaped post-1.0 Android Next Wake home-widget product + engineering contract** |
+| [`41-android-home-widget.md`](41-android-home-widget.md) | **Android Next Wake home-widget product + engineering contract** |\n| [`42-android-release-operations.md`](42-android-release-operations.md) | **Canonical one-click Android production release procedure and failure semantics** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -63,7 +63,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`24-monetization.md`](24-monetization.md) | Outcome-led Free/Pro packaging, pricing hypothesis and monetization guardrails |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | Paid-launch gates, beta evidence, rollout ladder and 1.0 acceptance |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | Gate 3 beta execution protocol and evidence definitions |
-| [`38-play-launch-operations.md`](38-play-launch-operations.md) | Consumer-first Play launch, support and release operations |
+| [`38-play-launch-operations.md`](38-play-launch-operations.md) | Consumer-first Play launch, support and staged-rollout operations |\n| [`42-android-release-operations.md`](42-android-release-operations.md) | Direct/Play artifact build, signing, GitHub Release and self-update publication procedure |
 | [`39-privacy-data-safety-launch.md`](39-privacy-data-safety-launch.md) | Launch privacy/Data Safety inventory and external prerequisites |
 
 ## UX and brand
