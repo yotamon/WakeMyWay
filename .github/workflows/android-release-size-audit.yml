@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/android-release-size-audit.yml"
+      - ".github/actions/setup-android/**"
       - "tooling/android_artifact_report.py"
       - "apps/android/app/build.gradle.kts"
       - "apps/android/gradle/libs.versions.toml"
@@ -24,21 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Android SDK tools
-        uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-
-      - name: Install Android 17 SDK
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-
-      - uses: gradle/actions/setup-gradle@v5
+      - name: Set up Android build environment
+        uses: ./.github/actions/setup-android
 
       - name: Build representative release artifacts
         working-directory: apps/android
@@ -65,4 +53,4 @@ jobs:
           name: wake-my-way-release-size-${{ github.sha }}
           path: apps/android/app/build/reports/release-size/**
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
