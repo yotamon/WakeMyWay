@@ -18,6 +18,11 @@ on:
         description: Optional release-note override. Leave empty to generate from merged PRs.
         required: false
         type: string
+      dry_run:
+        description: Validate the complete release candidate without creating a tag or GitHub Release.
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -394,6 +399,7 @@ jobs:
 
   publish:
     name: Publish verified release
+    if: ${{ !inputs.dry_run }}
     needs:
       - plan
       - build-sign
@@ -526,4 +532,24 @@ jobs:
             echo "- Source: `$GITHUB_SHA`"
             echo "- Direct APK SHA-256: `$EXPECTED_SHA`"
             echo "- Public update endpoint: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+  dry-run-summary:
+    name: Dry-run complete
+    if: ${{ inputs.dry_run }}
+    needs:
+      - plan
+      - build-sign
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarize validated candidate
+        run: |
+          {
+            echo "## WakeMyWay release dry-run passed"
+            echo
+            echo "- Planned tag: \`${{ needs.plan.outputs.tag }}\`"
+            echo "- versionCode: \`${{ needs.plan.outputs.version_code }}\`"
+            echo "- Source: \`${{ github.sha }}\`"
+            echo "- No tag or GitHub Release was created."
           } >> "$GITHUB_STEP_SUMMARY"
