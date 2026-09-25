@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   visual:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/android
@@ -47,7 +47,7 @@ jobs:
           diff -u ../visual-goldens.sha256 "$RUNNER_TEMP/wake-my-way-actual.sha256"
       - name: Upload visual verification diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wake-my-way-visual-verify-${{ github.sha }}
           path: |
