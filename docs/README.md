@@ -49,6 +49,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`40-play-billing-boundary.md`](40-play-billing-boundary.md) | **Gate 4 fail-closed Play Billing + server verification boundary** |
 | [`41-android-home-widget.md`](41-android-home-widget.md) | **Android Next Wake home-widget product + engineering contract** |
 | [`42-android-release-operations.md`](42-android-release-operations.md) | **Canonical one-click Android production release procedure and failure semantics** |
+| [`43-character-system-product-plan.md`](43-character-system-product-plan.md) | **Shape-stage multi-character product, UX, architecture, compatibility and rollout plan** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |
@@ -89,6 +90,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`11-wake-runtime-state-machine.md`](11-wake-runtime-state-machine.md) | Deep deterministic Wake Runtime |
 | [`12-data-model.md`](12-data-model.md) | Local source-of-truth model / active execution / calibrated outcomes / critical snapshot |
 | [`13-ai-voice-character-system.md`](13-ai-voice-character-system.md) | Speech Intent, character, M8 measured voice spike |
+| [`43-character-system-product-plan.md`](43-character-system-product-plan.md) | Shape-stage plan for expanding Alfred into a small user-selectable character catalog |
 | [`14-wake-strategy-learning.md`](14-wake-strategy-learning.md) | M7 local deterministic Wake Learning v0 / Wake Policy derivation |
 | [`15-context-calendar-weather.md`](15-context-calendar-weather.md) | Optional context constraints |
 | [`20-api-backend.md`](20-api-backend.md) | Deferred backend/API direction; local M7 does not require cloud |
