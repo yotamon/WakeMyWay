@@ -91,9 +91,13 @@ class UpdatePersistenceContractInstrumentedTest {
         assertNotNull("Critical schedule slot must survive package replacement", slot)
         assertEquals(ALARM_ID.value, slot!!.schedule.id.value)
 
-        // Package replacement may deliberately disable critical registration if Android presentation
-        // access is unsafe on the test device. Product truth must still survive and remain repairable.
-        assertEquals(ALARM_ID, AlarmProductController(context).get(ALARM_ID)?.id)
+        // Package replacement may deliberately suspend Android registration if presentation access
+        // is unsafe on the test device. Product truth must still survive, and normal startup
+        // reconciliation must rebuild a missing/disabled critical slot without requiring an edit.
+        val controller = AlarmProductController(context)
+        assertEquals(ALARM_ID, controller.get(ALARM_ID)?.id)
+        val reconciled = controller.reconcile()
+        assertEquals(ALARM_ID.value, reconciled.nextOccurrence?.wakeScheduleId?.value)
     }
 
     @Test

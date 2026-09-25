@@ -29,6 +29,7 @@ class AlarmKernelRobolectricTest {
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val context
         get() = RuntimeEnvironment.getApplication()
+    private val criticalStateFileName = "critical-wake-robolectric-${System.nanoTime()}.json"
 
     private lateinit var kernel: AlarmKernel
 
@@ -38,7 +39,7 @@ class AlarmKernelRobolectricTest {
         kernel = AlarmKernel(
             context = context,
             clock = clock,
-            criticalStateFileName = "critical-wake-robolectric-${System.nanoTime()}.json",
+            criticalStateFileName = criticalStateFileName,
         )
     }
 
@@ -46,6 +47,32 @@ class AlarmKernelRobolectricTest {
     fun tearDown() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
         runCatching { kernel.cancelSchedule() }
+    }
+
+    @Test
+    fun `suspending future registrations preserves durable occurrence and reconcile restores registration`() {
+        val schedule = oneShotSchedule("suspend-registration")
+        val occurrence = requireNotNull(kernel.commitSchedule(schedule).nextOccurrence)
+        val store = CriticalWakeStore(context, criticalStateFileName)
+
+        val registeredBefore = (store.readResult() as CriticalWakeReadResult.State)
+            .value.slots.getValue(schedule.id).registeredOccurrenceId
+        assertEquals(occurrence.id, registeredBefore)
+
+        kernel.suspendFutureRegistrations()
+
+        val suspended = requireNotNull(kernel.health(schedule.id))
+        assertTrue(suspended.enabled)
+        assertEquals(occurrence.id, suspended.nextOccurrence?.id)
+        val registeredWhileSuspended = (store.readResult() as CriticalWakeReadResult.State)
+            .value.slots.getValue(schedule.id).registeredOccurrenceId
+        assertNull(registeredWhileSuspended)
+
+        kernel.reconcile()
+
+        val registeredAfter = (store.readResult() as CriticalWakeReadResult.State)
+            .value.slots.getValue(schedule.id).registeredOccurrenceId
+        assertEquals(occurrence.id, registeredAfter)
     }
 
     @Test

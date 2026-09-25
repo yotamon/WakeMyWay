@@ -19,6 +19,7 @@ import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmRepairTarget
+import com.wakemyway.app.alarm.futureSchedulingRepairTarget
 import com.wakemyway.app.alarm.repairTarget
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
@@ -139,7 +140,18 @@ fun WakeMyWayApp(
     )
 
     fun refreshProductState(reconcile: Boolean = true) {
-        alarmHealth = if (reconcile) alarmKernel.reconcile() else alarmKernel.health()
+        val currentHealth = alarmKernel.health()
+        alarmHealth = if (
+            reconcile &&
+            (
+                currentHealth.nextOccurrence == null ||
+                    currentHealth.futureSchedulingRepairTarget() == AlarmRepairTarget.NONE
+                )
+        ) {
+            alarmController.reconcile()
+        } else {
+            currentHealth
+        }
         alarms = alarmController.list()
     }
 

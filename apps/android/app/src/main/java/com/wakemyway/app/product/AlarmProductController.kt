@@ -48,7 +48,54 @@ class AlarmProductController(
     fun health(id: AlarmDefinitionId): AlarmScheduleHealth? =
         kernel.health(WakeScheduleId(id.value))
 
-    fun reconcile() = kernel.reconcile()
+    /**
+     * Reconciles rich product truth back into the Alarm Kernel before asking the Kernel to repair
+     * Android registrations.
+     *
+     * Package replacement or a temporary capability failure may intentionally remove an OS
+     * registration without deleting the user's AlarmDefinition. Normal app startup must therefore
+     * be able to recover a missing/disabled critical slot without requiring the user to edit and
+     * save the alarm again.
+     */
+    @Synchronized
+    fun reconcile(): com.wakemyway.app.alarm.AlarmHealth {
+        val definitions = repository.list()
+        val activeScheduleId = kernel.activeOccurrence()?.wakeScheduleId
+        val currentSchedules = kernel.currentSchedules().associateBy { it.id }
+        val productScheduleIds = definitions.mapTo(linkedSetOf()) { WakeScheduleId(it.id.value) }
+
+        currentSchedules.keys
+            .asSequence()
+            .filter { scheduleId -> scheduleId !in productScheduleIds && scheduleId != activeScheduleId }
+            .forEach(kernel::cancelSchedule)
+
+        definitions.forEach { definition ->
+            val scheduleId = WakeScheduleId(definition.id.value)
+            if (scheduleId == activeScheduleId) return@forEach
+
+            val slotHealth = kernel.health(scheduleId)
+            if (!definition.enabled) {
+                if (slotHealth?.enabled == true) kernel.cancelSchedule(scheduleId)
+                return@forEach
+            }
+
+            runCatching {
+                val expectedSchedule = compiler.compile(definition)
+                val expectedPolicy = CriticalWakePolicy.from(definition)
+                val needsRepair =
+                    currentSchedules[scheduleId] != expectedSchedule ||
+                        kernel.policy(scheduleId) != expectedPolicy ||
+                        slotHealth?.enabled != true ||
+                        slotHealth?.nextOccurrence == null
+
+                if (needsRepair) {
+                    kernel.commitSchedule(expectedSchedule, expectedPolicy)
+                }
+            }
+        }
+
+        return kernel.reconcile()
+    }
 
     /**
      * Persist one rich alarm and synchronize only its critical schedule slot.

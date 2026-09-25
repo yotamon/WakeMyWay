@@ -21,17 +21,19 @@ class AlarmReconcileReceiver : BroadcastReceiver() {
             recalculateFuture = recalculateFuture,
         )
 
-        // Presentation permissions/special access are global Android capabilities. If they have
-        // disappeared, no enabled WakeMyWay alarm is safe to preserve because any one could later
-        // produce critical audio without reachable Stop/Snooze controls.
+        // Missing Android capability must fail closed at the registration/execution boundary, not
+        // by erasing durable alarm intent. Future occurrences keep their critical plan but lose their
+        // OS registration, so Home can still show the alarm and a later reconciliation can repair it.
+        // An already-active wake remains a stricter case: unsafe presentation terminates execution.
         if (
             (after.enabledScheduleCount > 0 || after.activeOccurrence != null) &&
             after.repairTarget() != AlarmRepairTarget.NONE
         ) {
-            val hadActiveExecution = after.activeOccurrence != null
-            kernel.cancelSchedule()
-            if (hadActiveExecution) {
+            if (after.activeOccurrence != null) {
+                kernel.cancelSchedule()
                 context.stopService(Intent(context, AlarmPlaybackService::class.java))
+            } else {
+                kernel.suspendFutureRegistrations()
             }
             after = kernel.health()
         }
