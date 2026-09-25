@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { HttpError } from '../src/http';
 import {
   createDirectOpenAiRealtimeClientSecret,
+  createFounderWakeRealtimeClientSecret,
   DIRECT_OPENAI_CONFIGURATION_ID,
   OPENAI_REALTIME_CALLS_URL,
   parseDirectOpenAiRealtimeConfig,
@@ -128,5 +129,42 @@ describe('direct OpenAI realtime client-secret broker', () => {
         fetchImpl: async () => Response.json({ expires_at: 2_000_000_000 }),
       }),
     ).rejects.toThrow(/malformed/i);
+  });
+});
+
+
+describe('founder Realtime wake client-secret broker', () => {
+  it('uses a per-installation safety identifier without requiring a global safety id', async () => {
+    let requestedInit: RequestInit | undefined;
+
+    await createFounderWakeRealtimeClientSecret({
+      environment: {
+        OPENAI_API_KEY: 'server-only-openai-key',
+        WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
+      },
+      safetyIdentifier: 'wmw:installation-hash',
+      fetchImpl: async (_input, init) => {
+        requestedInit = init;
+        return Response.json({
+          value: 'ephemeral-founder-secret',
+          expires_at: 2_000_000_000,
+        });
+      },
+    });
+
+    const headers = new Headers(requestedInit?.headers);
+    expect(headers.get('openai-safety-identifier')).toBe('wmw:installation-hash');
+  });
+
+  it('fails closed if neither an installation nor global safety identifier exists', async () => {
+    await expect(
+      createFounderWakeRealtimeClientSecret({
+        environment: {
+          OPENAI_API_KEY: 'server-only-openai-key',
+          WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
+        },
+        fetchImpl: async () => Response.json({ value: 'should-not-be-used' }),
+      }),
+    ).rejects.toThrow(/safety identifier/i);
   });
 });

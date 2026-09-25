@@ -4,6 +4,7 @@ import { HttpError } from '../src/http';
 import {
   FOUNDER_PAIRING_CODE_MIN_LENGTH,
   FOUNDER_SIGNING_KEY_MIN_LENGTH,
+  founderRealtimeSafetyIdentifier,
   founderRealtimeSetupStatus,
   pairFounderInstallation,
   requireFounderRealtimeAuthorization,
@@ -29,15 +30,20 @@ describe('founder Realtime server readiness', () => {
     expect(status.missing).toEqual([
       'OpenAI API key',
       'founder Realtime gate',
-      'OpenAI safety identifier',
-      'internal API key',
       'founder token signing key',
       'founder access code',
     ]);
   });
 
-  it('is available only when the complete founder configuration exists', () => {
-    expect(founderRealtimeSetupStatus(readyEnvironment)).toEqual({ available: true, missing: [] });
+  it('is available with only the consumer pairing prerequisites', () => {
+    const minimalEnvironment: NodeJS.ProcessEnv = {
+      OPENAI_API_KEY: 'server-only-openai-key',
+      WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
+      WMW_FOUNDER_TOKEN_SIGNING_KEY: 's'.repeat(64),
+      WMW_FOUNDER_PAIRING_CODE: 'WakeMyWay-Founder-Connect-2026',
+    };
+
+    expect(founderRealtimeSetupStatus(minimalEnvironment)).toEqual({ available: true, missing: [] });
   });
 
   it('does not treat short founder secrets as configured', () => {
@@ -142,11 +148,15 @@ describe('founder installation pairing', () => {
     const founderRequest = new Request('https://example.test', {
       headers: { authorization: `Bearer ${paired.deviceToken}` },
     });
-    expect(() => requireFounderRealtimeAuthorization(founderRequest, readyEnvironment)).not.toThrow();
+    const founderAuthorization = requireFounderRealtimeAuthorization(founderRequest, readyEnvironment);
+    expect(founderAuthorization.installationId).toBe(installationId);
+    expect(founderRealtimeSafetyIdentifier(founderAuthorization)).toMatch(/^wmw:[a-f0-9]{64}$/);
 
     const adminRequest = new Request('https://example.test', {
       headers: { authorization: `Bearer ${readyEnvironment.WMW_INTERNAL_API_KEY}` },
     });
-    expect(() => requireFounderRealtimeAuthorization(adminRequest, readyEnvironment)).not.toThrow();
+    const adminAuthorization = requireFounderRealtimeAuthorization(adminRequest, readyEnvironment);
+    expect(adminAuthorization.installationId).toBeUndefined();
+    expect(founderRealtimeSafetyIdentifier(adminAuthorization)).toBeUndefined();
   });
 });

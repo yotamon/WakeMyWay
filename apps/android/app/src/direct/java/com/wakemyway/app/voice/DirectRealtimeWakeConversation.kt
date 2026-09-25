@@ -31,7 +31,7 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
 /** Distribution-scoped conversational enrichment. Alarm Kernel and Wake Runtime remain authoritative. */
-class DebugRealtimeWakeConversation(
+class DirectRealtimeWakeConversation(
     context: Context,
     private val listener: WakeConversationEnrichment.Listener,
 ) : WakeConversationEnrichment {

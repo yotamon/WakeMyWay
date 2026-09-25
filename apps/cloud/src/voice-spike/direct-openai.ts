@@ -93,11 +93,14 @@ export function requireDirectOpenAiRealtimeSpike(
 
 export function requireFounderWakeRealtimeDogfood(
   config = parseDirectOpenAiRealtimeConfig(process.env),
-): DirectOpenAiRealtimeConfig & { apiKey: string; safetyIdentifier: string } {
+): DirectOpenAiRealtimeConfig & { apiKey: string } {
   if (!config.founderDogfoodEnabled) {
     throw new HttpError(503, 'Founder Realtime Wake dogfood is disabled.');
   }
-  return requireRealtimeCredentials(config, 'Founder Realtime Wake dogfood');
+  if (!config.apiKey) {
+    throw new HttpError(503, 'Founder Realtime Wake dogfood is not configured.');
+  }
+  return { ...config, apiKey: config.apiKey };
 }
 
 export async function createDirectOpenAiRealtimeClientSecret(options: {
@@ -128,11 +131,19 @@ export async function createDirectOpenAiRealtimeClientSecret(options: {
 export async function createFounderWakeRealtimeClientSecret(options: {
   environment?: NodeJS.ProcessEnv;
   fetchImpl?: FetchLike;
+  safetyIdentifier?: string;
 } = {}): Promise<FounderWakeRealtimeClientSecret> {
   const config = requireFounderWakeRealtimeDogfood(
     parseDirectOpenAiRealtimeConfig(options.environment ?? process.env),
   );
-  const token = await mintRealtimeClientSecret(config, options.fetchImpl ?? fetch);
+  const safetyIdentifier = options.safetyIdentifier ?? config.safetyIdentifier;
+  if (!safetyIdentifier) {
+    throw new HttpError(503, 'OpenAI safety identifier is not available for this Realtime installation.');
+  }
+  const token = await mintRealtimeClientSecret(
+    { ...config, safetyIdentifier },
+    options.fetchImpl ?? fetch,
+  );
 
   return {
     ...token,
