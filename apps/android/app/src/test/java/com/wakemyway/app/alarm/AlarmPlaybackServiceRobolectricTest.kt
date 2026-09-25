@@ -22,8 +22,12 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [32])
 class AlarmPlaybackServiceRobolectricTest {
+    // API 32 (Android 12L): presentation capability checks that Robolectric cannot satisfy
+    // (POST_NOTIFICATIONS grant, canUseFullScreenIntent) are version-short-circuited there,
+    // so the test exercises the real ensureActiveWake playback path. API 32 is also the
+    // highest legacy generation targeted by the SCHEDULE_EXACT_ALARM manifest declaration.
     private val now = Instant.parse("2026-09-12T04:00:00Z")
     private val clock = Clock.fixed(now, ZoneOffset.UTC)
     private val context
