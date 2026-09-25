@@ -38,7 +38,7 @@ env:
 jobs:
   plan:
     name: Plan release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       previous_tag: ${{ steps.plan.outputs.previous_tag }}
       version_name: ${{ steps.plan.outputs.version_name }}
@@ -180,7 +180,7 @@ jobs:
             echo "- versionCode: ${{ steps.plan.outputs.version_code }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-plan-${{ github.run_id }}
           path: release-plan/**
@@ -190,7 +190,7 @@ jobs:
   quality:
     name: Release quality gate
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/android
@@ -248,7 +248,7 @@ jobs:
       - device-reliability
       - upgrade-persistence
       - visual-regression
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     defaults:
       run:
@@ -400,7 +400,7 @@ jobs:
           python ../../tooling/android_artifact_report.py             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             --json dist/release-size.json             --markdown dist/release-size.md
           cat dist/release-size.md >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: signed-release-candidate-${{ github.run_id }}
           path: apps/android/dist/**
@@ -413,7 +413,7 @@ jobs:
     needs:
       - plan
       - build-sign
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       GH_TOKEN: ${{ github.token }}
@@ -567,7 +567,7 @@ jobs:
     needs:
       - plan
       - build-sign
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Summarize validated candidate
         run: |
