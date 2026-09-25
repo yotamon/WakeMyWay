@@ -42,18 +42,25 @@ interface WakeConversationEnrichment : AutoCloseable {
  * Reflection keeps WebRTC/network dependencies entirely out of release source/dependency graphs.
  */
 internal object WakeConversationEnrichmentFactory {
-    private const val DEBUG_IMPLEMENTATION =
-        "com.wakemyway.app.voice.DebugRealtimeWakeConversation"
+    private val implementations = listOf(
+        "com.wakemyway.app.voice.DirectRealtimeWakeConversation",
+        "com.wakemyway.app.voice.DebugRealtimeWakeConversation",
+    )
 
     fun create(
         context: Context,
         listener: WakeConversationEnrichment.Listener,
-    ): WakeConversationEnrichment? = runCatching {
-        val type = Class.forName(DEBUG_IMPLEMENTATION)
-        val constructor = type.getConstructor(
-            Context::class.java,
-            WakeConversationEnrichment.Listener::class.java,
-        )
-        constructor.newInstance(context.applicationContext, listener) as WakeConversationEnrichment
-    }.getOrNull()
+    ): WakeConversationEnrichment? = implementations.firstNotNullOfOrNull { implementation ->
+        runCatching {
+            val type = Class.forName(implementation)
+            val constructor = type.getConstructor(
+                Context::class.java,
+                WakeConversationEnrichment.Listener::class.java,
+            )
+            constructor.newInstance(
+                context.applicationContext,
+                listener,
+            ) as WakeConversationEnrichment
+        }.getOrNull()
+    }
 }

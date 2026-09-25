@@ -136,6 +136,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.core)
 
     add("directImplementation", libs.kotlinx.serialization.json)
+    // Direct distribution dogfood supports optional OpenAI Realtime WebRTC enrichment.
+    // Play remains local-only until broader provider rollout is explicitly earned.
+    add("directImplementation", libs.webrtc.android)
     add("playImplementation", libs.play.app.update.ktx)
     add("playImplementation", libs.play.billing)
     // Activity Result APIs require Fragment 1.3.0+ when a Play-only dependency brings Fragment
