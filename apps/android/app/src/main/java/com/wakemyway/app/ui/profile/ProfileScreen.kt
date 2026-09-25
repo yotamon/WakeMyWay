@@ -45,6 +45,7 @@ import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.app.update.UpdateState
+import com.wakemyway.app.voice.ConversationalAlfredState
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.alarm.WakeSoundId
 
@@ -209,6 +210,17 @@ fun ProfileScreen(
             }
 
             ProfileSection("App", Modifier.padding(top = WmwSpacing.Lg)) {
+                if (ConversationalAlfredState.setupAvailable(context)) {
+                    ProfileLink(
+                        title = "Realtime voice",
+                        detail = if (ConversationalAlfredState.isReady(context)) {
+                            "OpenAI conversation connected, with automatic local fallback"
+                        } else {
+                            "Connect natural OpenAI conversation for Voice Check-In"
+                        },
+                        onClick = { ConversationalAlfredState.openSetup(context) },
+                    )
+                }
                 ProfileLink(
                     title = "Notifications",
                     detail = "Open WakeMyWay's Android notification controls",
