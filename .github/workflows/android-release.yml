@@ -351,9 +351,13 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
 
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs dist/WakeMyWay-direct.apk             | tee dist/direct-signature.txt
-          jarsigner -verify -strict dist/WakeMyWay-play.aab             | tee dist/play-signature.txt
+          jarsigner -verify -verbose -certs dist/WakeMyWay-play.aab             | tee dist/play-signature.txt
+          grep -Fq "jar verified." dist/play-signature.txt || {
+            echo "::error::Play AAB signature verification did not report a verified jar."
+            exit 1
+          }
 
-          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | head -n 1             | tr '[:upper:]' '[:lower:]')"
+          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}'             | tr '[:upper:]' '[:lower:]')"
           test "$CERT_SHA" = "$WMW_DIRECT_CERT_SHA256" || {
             echo "::error::Direct APK certificate does not match WakeMyWay production identity."
             exit 1
@@ -454,7 +458,7 @@ jobs:
           test "$ACTUAL_SHA" = "$EXPECTED_SHA"
 
           BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
-          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | head -n 1             | tr '[:upper:]' '[:lower:]')"
+          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}'             | tr '[:upper:]' '[:lower:]')"
           test "$CERT_SHA" = "$EXPECTED_CERT"
 
       - name: Create draft release only after all gates pass
@@ -518,7 +522,7 @@ jobs:
           for attempt in $(seq 1 12); do
             rm -f "$RUNNER_TEMP/latest-update.json" "$RUNNER_TEMP/public.apk"
             if curl --fail --location --silent --show-error                  "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/update.json"                  -o "$RUNNER_TEMP/latest-update.json"               && [ "$(jq -r '.versionCode' "$RUNNER_TEMP/latest-update.json")" = "$VERSION_CODE" ]               && [ "$(jq -r '.versionName' "$RUNNER_TEMP/latest-update.json")" = "$VERSION_NAME" ]               && [ "$(jq -r '.apk.sha256' "$RUNNER_TEMP/latest-update.json")" = "$EXPECTED_SHA" ]               && [ "$(jq -r '.apk.url' "$RUNNER_TEMP/latest-update.json")" = "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/WakeMyWay-direct.apk" ]               && curl --fail --location --silent --show-error                  "$(jq -r '.apk.url' "$RUNNER_TEMP/latest-update.json")"                  -o "$RUNNER_TEMP/public.apk"               && [ "$(sha256sum "$RUNNER_TEMP/public.apk" | awk '{print $1}')" = "$EXPECTED_SHA" ]; then
-              CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs "$RUNNER_TEMP/public.apk"                 | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'                 | head -n 1                 | tr '[:upper:]' '[:lower:]')"
+              CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs "$RUNNER_TEMP/public.apk"                 | awk -F': ' '/certificate SHA-256 digest:/ {print $NF; exit}'                 | tr '[:upper:]' '[:lower:]')"
               BADGING="$("$BUILD_TOOLS/aapt" dump badging "$RUNNER_TEMP/public.apk")"
               if [ "$CERT_SHA" = "$WMW_DIRECT_CERT_SHA256" ]                 && echo "$BADGING" | grep -Fq "package: name='com.wakemyway.app'"                 && echo "$BADGING" | grep -Fq "versionCode='$VERSION_CODE'"                 && echo "$BADGING" | grep -Fq "versionName='$VERSION_NAME'"                 && ! echo "$BADGING" | grep -q '^application-debuggable'; then
                 VERIFIED=true
