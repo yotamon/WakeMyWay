@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         AlarmPresentationAccess.ensureChannel(this)
-        val health = alarmKernel.reconcile()
+        val health = alarmController.reconcile()
         recordCapabilities(WakeTimingTrace(this), health)
         refreshProductReadiness()
         handleWidgetIntent(intent)
@@ -201,35 +201,21 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshProductReadiness() {
         refreshVoiceWakeReadiness()
-        val health = alarmKernel.reconcile()
-        val activeScheduleId = health.activeOccurrence?.wakeScheduleId?.value
+        val health = alarmController.reconcile()
 
-        // Future scheduling readiness and active execution safety are different. If exact-alarm or
-        // presentation access is missing, disable every future alarm through the product boundary so
-        // rich metadata and Direct Boot state remain consistent. Never disable the currently active
-        // slot here: recoverOrResumeActiveWake handles active presentation safety separately, and
-        // loss of exact-alarm access alone must not silence an already-delivered wake.
+        // A temporary scheduling/presentation problem must never erase product intent. Keep the
+        // AlarmDefinition and next occurrence visible, but remove future Android registrations until
+        // the capability is repaired. Reconciliation will re-register automatically afterwards.
+        // Active Wake safety remains a separate path in recoverOrResumeActiveWake().
         if (
             health.nextOccurrence != null &&
             health.futureSchedulingRepairTarget() != AlarmRepairTarget.NONE
         ) {
-            alarmController.list()
-                .asSequence()
-                .filter { alarm -> alarm.enabled && alarm.id.value != activeScheduleId }
-                .forEach { alarm -> runCatching { alarmController.setEnabled(alarm.id, false) } }
-        } else if (voiceWakeReadiness != VoiceWakeReadiness.READY) {
-            // Voice capability is per alarm. Keep alarm-only wakes intact and never mutate the slot
-            // that currently owns physical wake execution.
-            alarmController.list()
-                .asSequence()
-                .filter { alarm ->
-                    alarm.enabled &&
-                        alarm.voiceCheckInEnabled &&
-                        alarm.id.value != activeScheduleId
-                }
-                .forEach { alarm -> runCatching { alarmController.setEnabled(alarm.id, false) } }
+            alarmKernel.suspendFutureRegistrations()
         }
 
+        // Voice is enrichment for an already-created alarm. Losing microphone/on-device recognition
+        // must not disable the base alarm; the wake path falls back locally instead.
         wakeSystemRevision++
         WakeWidgetUpdater.request(this)
     }
