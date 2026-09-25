@@ -1,4 +1,7 @@
-import { requireFounderRealtimeAuthorization } from '../../../src/founder-realtime-auth.js';
+import {
+  founderRealtimeSafetyIdentifier,
+  requireFounderRealtimeAuthorization,
+} from '../../../src/founder-realtime-auth.js';
 import { errorResponse, json, methodNotAllowed, requestId } from '../../../src/http.js';
 import { createFounderWakeRealtimeClientSecret } from '../../../src/voice-spike/direct-openai.js';
 
@@ -10,8 +13,11 @@ export default {
     try {
       // Existing internal bearer auth remains valid for diagnostics, while the founder app uses a
       // scoped installation credential obtained through the explicit pairing flow.
-      requireFounderRealtimeAuthorization(request);
-      const secret = await createFounderWakeRealtimeClientSecret();
+      const authorization = requireFounderRealtimeAuthorization(request);
+      const safetyIdentifier = founderRealtimeSafetyIdentifier(authorization);
+      const secret = await createFounderWakeRealtimeClientSecret(
+        safetyIdentifier ? { safetyIdentifier } : {},
+      );
       return json(
         {
           ...secret,

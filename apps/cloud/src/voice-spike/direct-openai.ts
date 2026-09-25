@@ -128,11 +128,15 @@ export async function createDirectOpenAiRealtimeClientSecret(options: {
 export async function createFounderWakeRealtimeClientSecret(options: {
   environment?: NodeJS.ProcessEnv;
   fetchImpl?: FetchLike;
+  safetyIdentifier?: string;
 } = {}): Promise<FounderWakeRealtimeClientSecret> {
   const config = requireFounderWakeRealtimeDogfood(
     parseDirectOpenAiRealtimeConfig(options.environment ?? process.env),
   );
-  const token = await mintRealtimeClientSecret(config, options.fetchImpl ?? fetch);
+  const sessionConfig = options.safetyIdentifier
+    ? { ...config, safetyIdentifier: options.safetyIdentifier }
+    : config;
+  const token = await mintRealtimeClientSecret(sessionConfig, options.fetchImpl ?? fetch);
 
   return {
     ...token,

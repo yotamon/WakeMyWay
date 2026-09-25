@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { z } from 'zod';
 
 import { parseAIConfig } from './ai/config.js';
@@ -35,6 +35,10 @@ export interface FounderRealtimeSetupStatus {
 export interface FounderPairingResult {
   deviceToken: string;
   expiresAt: number;
+}
+
+export interface FounderRealtimeAuthorization {
+  installationId?: string;
 }
 
 function pairingCode(environment: NodeJS.ProcessEnv): string | undefined {
@@ -143,14 +147,24 @@ export function verifyFounderDeviceToken(
 export function requireFounderRealtimeAuthorization(
   request: Request,
   environment: NodeJS.ProcessEnv = process.env,
-): void {
+): FounderRealtimeAuthorization {
   const internalKey = parseAIConfig(environment).internalApiKey;
-  if (internalKey && isInternallyAuthorized(request, internalKey)) return;
+  if (internalKey && isInternallyAuthorized(request, internalKey)) return {};
 
   const header = request.headers.get('authorization')?.trim();
   const match = header ? /^Bearer\s+(.+)$/i.exec(header) : null;
   if (!match?.[1]) throw new HttpError(401, 'Unauthorized.');
-  verifyFounderDeviceToken(match[1], { environment });
+  const payload = verifyFounderDeviceToken(match[1], { environment });
+  return { installationId: payload.sub };
+}
+
+export function founderRealtimeSafetyIdentifier(
+  authorization: FounderRealtimeAuthorization,
+): string | undefined {
+  if (!authorization.installationId) return undefined;
+  return `wmw:${createHash('sha256')
+    .update(`founder-realtime:${authorization.installationId}`)
+    .digest('hex')}`;
 }
 
 function signPayload(payload: TokenPayload, signingKey: string): string {

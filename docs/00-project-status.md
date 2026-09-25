@@ -261,6 +261,19 @@ A repository-wide review of the trust-critical paths produced a hardening pass. 
 - Commerce: `POST /api/v1/commerce/play-verify` is fail-closed until an edge rate-limit rule id is declared (`WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID`); RTDN push-JWT verification and the consolidated internal AI route have explicit authorization tests.
 - Validation: cloud `typecheck` + 86 tests pass locally; wake-core 107 unit tests pass locally on JDK 17; Robolectric suites compile locally and run in Android CI (this workstation is Windows ARM64, where Robolectric's native runtime cannot load).
 
+## Direct OpenAI Realtime dogfood (2026-09-25)
+
+The normal Direct-distribution APK now contains the previously debug-only OpenAI Realtime WebRTC
+enrichment path. A paired Direct installation can connect Realtime voice from Profile and then use
+it automatically during ordinary Voice Check-In alarms. Play builds remain local-only.
+
+The path keeps AlarmKernel/WakeRuntime authoritative, uses short-lived server-minted OpenAI client
+credentials, derives a pseudonymous safety identifier per paired installation, applies an eight-turn
+/ three-minute client budget, caps assistant output, keeps stable instructions at the session
+prefix, and falls back immediately to local Alfred on any failure. Raw Realtime audio/transcripts
+remain unpersisted. Physical morning/network/audio-route evidence is still required before broader
+rollout.
+
 ## Physical proof still required
 
 Automated/emulator evidence is not sufficient for a wake product. Issue #9 remains the release gate for repeated physical-device proof, including:

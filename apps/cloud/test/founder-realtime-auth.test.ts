@@ -4,6 +4,7 @@ import { HttpError } from '../src/http';
 import {
   FOUNDER_PAIRING_CODE_MIN_LENGTH,
   FOUNDER_SIGNING_KEY_MIN_LENGTH,
+  founderRealtimeSafetyIdentifier,
   founderRealtimeSetupStatus,
   pairFounderInstallation,
   requireFounderRealtimeAuthorization,
@@ -142,11 +143,15 @@ describe('founder installation pairing', () => {
     const founderRequest = new Request('https://example.test', {
       headers: { authorization: `Bearer ${paired.deviceToken}` },
     });
-    expect(() => requireFounderRealtimeAuthorization(founderRequest, readyEnvironment)).not.toThrow();
+    const founderAuthorization = requireFounderRealtimeAuthorization(founderRequest, readyEnvironment);
+    expect(founderAuthorization.installationId).toBe(installationId);
+    expect(founderRealtimeSafetyIdentifier(founderAuthorization)).toMatch(/^wmw:[a-f0-9]{64}$/);
 
     const adminRequest = new Request('https://example.test', {
       headers: { authorization: `Bearer ${readyEnvironment.WMW_INTERNAL_API_KEY}` },
     });
-    expect(() => requireFounderRealtimeAuthorization(adminRequest, readyEnvironment)).not.toThrow();
+    const adminAuthorization = requireFounderRealtimeAuthorization(adminRequest, readyEnvironment);
+    expect(adminAuthorization.installationId).toBeUndefined();
+    expect(founderRealtimeSafetyIdentifier(adminAuthorization)).toBeUndefined();
   });
 });
