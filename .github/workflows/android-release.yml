@@ -267,7 +267,7 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           name: release-plan-${{ github.run_id }}
-          path: release-plan
+          path: apps/android/release-plan
 
       - uses: actions/setup-java@v5
         with:
@@ -558,8 +558,8 @@ jobs:
           {
             echo "## WakeMyWay release dry-run passed"
             echo
-            echo "- Planned tag: \`${{ needs.plan.outputs.tag }}\`"
-            echo "- versionCode: \`${{ needs.plan.outputs.version_code }}\`"
-            echo "- Source: \`${{ github.sha }}\`"
+            echo "- Planned tag: ${{ needs.plan.outputs.tag }}"
+            echo "- versionCode: ${{ needs.plan.outputs.version_code }}"
+            echo "- Source: ${{ github.sha }}"
             echo "- No tag or GitHub Release was created."
           } >> "$GITHUB_STEP_SUMMARY"
