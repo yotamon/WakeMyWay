@@ -28,6 +28,12 @@ class AndroidReleasePlanTest(unittest.TestCase):
             extract_release_notes(markdown),
         )
 
+    def test_plain_custom_notes_are_preserved(self):
+        self.assertEqual(
+            ["Fixes widget sizing"],
+            extract_release_notes("## What's new\n\nFixes widget sizing\n"),
+        )
+
     def test_manifest_contains_public_latest_url_and_sha(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "update.json"
