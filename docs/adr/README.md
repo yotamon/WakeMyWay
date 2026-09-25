@@ -25,3 +25,8 @@ ADRs preserve durable engineering constraints. Canonical terminology lives in [`
 | [`019`](019-permission-gated-wake-scheduling.md) | Voice Wake schedules are committed only after required alarm and voice permissions are ready, with fire/restart safety rechecks |
 | [`020`](020-conversational-wake-enrichment.md) | Natural Realtime speech is optional non-authoritative Wake enrichment with deterministic local Alfred fallback |
 | [`021`](021-founder-realtime-pairing.md) | Founder Realtime uses fixed WakeMyWay backend routing plus scoped, expiring installation pairing; reusable server/OpenAI keys never enter Android |
+| [`022`](022-multi-alarm-product-model.md) | Multi-alarm product state and critical execution slots are independent per alarm |
+| [`023`](023-app-update-distribution.md) | Direct distribution uses WakeMyWay-controlled signed app updates |
+| [`024`](024-update-persistence-contract.md) | App updates preserve local alarm/product state across signed upgrades |
+| [`025`](025-direct-openai-realtime-dogfood.md) | OpenAI Realtime is promoted into Direct dogfood only, with local authority and bounded fallback |
+| [`026`](026-zero-setup-direct-realtime.md) | Direct Realtime credentials bootstrap and renew automatically with no consumer setup |
