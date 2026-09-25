@@ -100,6 +100,44 @@ class AlarmKernel(
     }
 
     /**
+     * Removes Android registrations for future occurrences without deleting the durable schedule plan.
+     *
+     * Use this when future delivery is temporarily unsafe (for example presentation capability was
+     * lost during package replacement). The product alarm stays enabled and its next occurrence stays
+     * visible, while [reconcile] can register it again as soon as Android capabilities are healthy.
+     * Active Wake Execution is intentionally untouched and must be handled by its own safety path.
+     */
+    fun suspendFutureRegistrations() {
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return
+            val activeScheduleId = state.activeOccurrence?.wakeScheduleId
+            val obsolete = linkedSetOf<WakeOccurrenceId>()
+            var changed = false
+            val slots = state.slots.mapValues { (scheduleId, slot) ->
+                if (
+                    scheduleId == activeScheduleId ||
+                    !slot.enabled ||
+                    slot.registeredOccurrenceId == null
+                ) {
+                    slot
+                } else {
+                    slot.registeredOccurrenceId?.let(obsolete::add)
+                    changed = true
+                    slot.copy(registeredOccurrenceId = null)
+                }
+            }
+            if (!changed) return
+            store.write(
+                state.copy(
+                    slots = slots,
+                    generation = state.generation + 1,
+                ),
+            )
+            obsolete.forEach(registrar::cancel)
+        }
+    }
+
+    /**
      * Legacy/global cancellation used when critical Android presentation capability is unsafe.
      * Product UI for the multi-alarm model should call [cancelSchedule] with a concrete id.
      */
