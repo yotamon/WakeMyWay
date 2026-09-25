@@ -1,23 +1,47 @@
-name: Android Release
+name: Release WakeMyWay
+
+run-name: Release WakeMyWay · ${{ inputs.release_type }} · ${{ github.sha }}
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Semantic version bump
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      release_notes:
+        description: Optional release-note override. Leave empty to generate from merged PRs.
+        required: false
+        type: string
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
-  group: android-release-${{ github.ref }}
+  group: wakemyway-production-release
   cancel-in-progress: false
 
+env:
+  WMW_DIRECT_CERT_SHA256: 3f32d84680fd22aabcf1508aa3c6519ffcf34eb9fb21c0c0b4c886a4dcf049bc
+
 jobs:
-  signing-config:
+  plan:
+    name: Plan release
     runs-on: ubuntu-latest
     outputs:
-      configured: ${{ steps.check.outputs.configured }}
+      previous_tag: ${{ steps.plan.outputs.previous_tag }}
+      version_name: ${{ steps.plan.outputs.version_name }}
+      version_code: ${{ steps.plan.outputs.version_code }}
+      tag: ${{ steps.plan.outputs.tag }}
     env:
+      GH_TOKEN: ${{ github.token }}
+      CUSTOM_RELEASE_NOTES: ${{ inputs.release_notes }}
       WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
       WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
       WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
@@ -26,84 +50,30 @@ jobs:
       WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
       WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
       WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
-      WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
-      WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
-      WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
-    steps:
-      - id: check
-        shell: bash
-        run: |
-          required=(
-            WMW_DIRECT_KEYSTORE_B64
-            WMW_DIRECT_KEY_ALIAS
-            WMW_DIRECT_STORE_PASSWORD
-            WMW_DIRECT_KEY_PASSWORD
-            WMW_PLAY_UPLOAD_KEYSTORE_B64
-            WMW_PLAY_UPLOAD_KEY_ALIAS
-            WMW_PLAY_UPLOAD_STORE_PASSWORD
-            WMW_PLAY_UPLOAD_KEY_PASSWORD
-          )
-          configured=true
-          for name in "${required[@]}"; do
-            if [ -z "${!name:-}" ]; then
-              configured=false
-            fi
-          done
-          echo "configured=$configured" >> "$GITHUB_OUTPUT"
-      - name: Explain local signing mode
-        if: steps.check.outputs.configured != 'true'
-        run: echo "::notice::Release signing secrets are not configured; use the secure local WakeMyWay signing bootstrap for this tag."
-
-  release:
-    needs: signing-config
-    if: needs.signing-config.outputs.configured == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    defaults:
-      run:
-        working-directory: apps/android
-    env:
-      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
-      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
-      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
-      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
-      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
-      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
-      WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
-      WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
-      WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
-
     steps:
       - uses: actions/checkout@v6
-
-      - uses: actions/setup-java@v5
         with:
-          distribution: temurin
-          java-version: "17"
+          fetch-depth: 0
 
-      - uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-
-      - name: Install Android 17 SDK
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-
-      - uses: gradle/actions/setup-gradle@v5
-
-      - name: Validate release identity
+      - name: Require current main
         shell: bash
         run: |
           set -euo pipefail
-          source version.properties
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          test "$TAG_VERSION" = "$VERSION_NAME" || {
-            echo "Tag $GITHUB_REF_NAME does not match VERSION_NAME=$VERSION_NAME" >&2
+          test "$GITHUB_REF_NAME" = "main" || {
+            echo "::error::Production releases must be dispatched from main."
+            exit 1
+          }
+          git fetch origin main --tags --force
+          MAIN_SHA="$(git rev-parse origin/main)"
+          test "$GITHUB_SHA" = "$MAIN_SHA" || {
+            echo "::error::main advanced after this release was dispatched. Run the release again from the current main."
             exit 1
           }
 
+      - name: Verify signing configuration exists
+        shell: bash
+        run: |
+          set -euo pipefail
           required=(
             WMW_DIRECT_KEYSTORE_B64
             WMW_DIRECT_KEY_ALIAS
@@ -116,30 +86,222 @@ jobs:
           )
           for name in "${required[@]}"; do
             test -n "${!name:-}" || {
-              echo "Missing required release secret: $name" >&2
+              echo "::error::Missing required GitHub Actions secret: $name"
               exit 1
             }
           done
 
+      - id: plan
+        name: Calculate version and previous release
+        shell: bash
+        run: |
+          set -euo pipefail
+          LATEST_TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test -n "$LATEST_TAG"
+          git rev-parse "$LATEST_TAG" >/dev/null
+          git merge-base --is-ancestor "$LATEST_TAG" "$GITHUB_SHA" || {
+            echo "::error::$LATEST_TAG is not an ancestor of the selected main commit."
+            exit 1
+          }
+          test "$(git rev-parse "$LATEST_TAG")" != "$GITHUB_SHA" || {
+            echo "::error::There are no commits to release after $LATEST_TAG."
+            exit 1
+          }
+
+          mkdir -p "$RUNNER_TEMP/latest-release"
+          gh release download "$LATEST_TAG"             --repo "$GITHUB_REPOSITORY"             --pattern update.json             --dir "$RUNNER_TEMP/latest-release"
+
+          CURRENT_VERSION="$(jq -r '.versionName' "$RUNNER_TEMP/latest-release/update.json")"
+          CURRENT_CODE="$(jq -r '.versionCode' "$RUNNER_TEMP/latest-release/update.json")"
+          NEXT_VERSION="$(python tooling/android_release_plan.py bump             --current "$CURRENT_VERSION"             --release-type "${{ inputs.release_type }}")"
+          NEXT_CODE="$((CURRENT_CODE + 1))"
+          NEXT_TAG="v$NEXT_VERSION"
+
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $NEXT_TAG already exists."
+            exit 1
+          fi
+          if gh release view "$NEXT_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $NEXT_TAG already exists."
+            exit 1
+          fi
+
+          echo "previous_tag=$LATEST_TAG" >> "$GITHUB_OUTPUT"
+          echo "version_name=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$NEXT_CODE" >> "$GITHUB_OUTPUT"
+          echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        shell: bash
+        env:
+          PREVIOUS_TAG: ${{ steps.plan.outputs.previous_tag }}
+          NEXT_TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-plan
+          if [ -n "${CUSTOM_RELEASE_NOTES//[[:space:]]/}" ]; then
+            python - <<'PY'
+          import os
+          from pathlib import Path
+
+          notes = os.environ["CUSTOM_RELEASE_NOTES"].strip()
+          Path("release-plan/release-notes.md").write_text(
+              "## What's new\n\n" + notes + "\n",
+              encoding="utf-8",
+          )
+          PY
+          else
+            gh api               --method POST               "repos/$GITHUB_REPOSITORY/releases/generate-notes"               -f tag_name="$NEXT_TAG"               -f target_commitish="$GITHUB_SHA"               -f previous_tag_name="$PREVIOUS_TAG"               --jq '.body' > release-plan/release-notes.md
+          fi
+          test -s release-plan/release-notes.md
+
+      - name: Write release plan
+        shell: bash
+        run: |
+          jq -n             --arg sourceSha "$GITHUB_SHA"             --arg previousTag "${{ steps.plan.outputs.previous_tag }}"             --arg tag "${{ steps.plan.outputs.tag }}"             --arg versionName "${{ steps.plan.outputs.version_name }}"             --argjson versionCode "${{ steps.plan.outputs.version_code }}"             '{
+              sourceSha: $sourceSha,
+              previousTag: $previousTag,
+              tag: $tag,
+              versionName: $versionName,
+              versionCode: $versionCode
+            }' > release-plan/release-plan.json
+
+          {
+            echo "## WakeMyWay release plan"
+            echo
+            echo "- Source: `$GITHUB_SHA`"
+            echo "- Previous: `${{ steps.plan.outputs.previous_tag }}`"
+            echo "- Next: `${{ steps.plan.outputs.tag }}`"
+            echo "- versionCode: `${{ steps.plan.outputs.version_code }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: release-plan/**
+          if-no-files-found: error
+          retention-days: 7
+
+  quality:
+    name: Release quality gate
+    needs: plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install Android 17 SDK
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Test release planning
+        run: python ../../tooling/test_android_release_plan.py
+
+      - name: Validate app logic and lint
+        run: |
+          ./gradlew             :wake-core:test             :app:testDirectDebugUnitTest             :app:testPlayDebugUnitTest             :app:lintDirectDebug             --stacktrace
+
+  device-reliability:
+    name: Physical-contract emulator gate
+    needs: plan
+    uses: ./.github/workflows/android-device-tests.yml
+
+  upgrade-persistence:
+    name: Upgrade persistence gate
+    needs: plan
+    uses: ./.github/workflows/android-upgrade-persistence.yml
+    with:
+      base_ref: ${{ needs.plan.outputs.previous_tag }}
+
+  build-sign:
+    name: Build, sign, and verify candidate
+    needs:
+      - plan
+      - quality
+      - device-reliability
+      - upgrade-persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/android
+    env:
+      WMW_VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+      WMW_VERSION_NAME: ${{ needs.plan.outputs.version_name }}
+      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
+      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
+      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
+      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
+      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
+      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
+      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
+      WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
+      WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
+      WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: release-plan
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install Android 17 SDK
+        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Validate Play release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
           if [ "${WMW_PLAY_VERIFICATION_ENABLED:-false}" = "true" ]; then
             test -n "${WMW_PRO_SUBSCRIPTION_PRODUCT_ID:-}" || {
-              echo "Play verification is enabled but WMW_PRO_SUBSCRIPTION_PRODUCT_ID is missing." >&2
+              echo "::error::Play verification is enabled but WMW_PRO_SUBSCRIPTION_PRODUCT_ID is missing."
               exit 1
             }
             case "${WMW_COMMERCE_API_BASE_URL:-}" in
               https://*) ;;
               *)
-                echo "Play verification is enabled but WMW_COMMERCE_API_BASE_URL is not HTTPS." >&2
+                echo "::error::Play verification is enabled but WMW_COMMERCE_API_BASE_URL is not HTTPS."
                 exit 1
                 ;;
             esac
           fi
 
-      - name: Validate release candidate
-        run: |
-          ./gradlew             :wake-core:test             :app:testDirectDebugUnitTest             :app:testPlayDebugUnitTest             :app:lintDirectDebug             --stacktrace
-
-      - name: Build unsigned distribution artifacts
+      - name: Build unsigned release artifacts
         run: |
           ./gradlew             :app:assembleDirectRelease             :app:bundlePlayRelease             --stacktrace
 
@@ -152,7 +314,7 @@ jobs:
           printf '%s' "$WMW_PLAY_UPLOAD_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/wmw-signing/play-upload.keystore"
           chmod 600 "$RUNNER_TEMP/wmw-signing/"*.keystore
 
-      - name: Sign and verify artifacts
+      - name: Sign release artifacts
         shell: bash
         run: |
           set -euo pipefail
@@ -164,58 +326,204 @@ jobs:
           test -n "$PLAY_AAB"
 
           BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
-          "$BUILD_TOOLS/zipalign" -p -f 4 "$DIRECT_UNSIGNED" "$RUNNER_TEMP/wakemyway-direct-aligned.apk"
+          "$BUILD_TOOLS/zipalign" -p -f 4             "$DIRECT_UNSIGNED"             "$RUNNER_TEMP/wakemyway-direct-aligned.apk"
+
           "$BUILD_TOOLS/apksigner" sign             --ks "$RUNNER_TEMP/wmw-signing/direct.keystore"             --ks-key-alias "$WMW_DIRECT_KEY_ALIAS"             --ks-pass env:WMW_DIRECT_STORE_PASSWORD             --key-pass env:WMW_DIRECT_KEY_PASSWORD             --out dist/WakeMyWay-direct.apk             "$RUNNER_TEMP/wakemyway-direct-aligned.apk"
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs dist/WakeMyWay-direct.apk
 
           cp "$PLAY_AAB" dist/WakeMyWay-play.aab
           jarsigner             -keystore "$RUNNER_TEMP/wmw-signing/play-upload.keystore"             -storepass "$WMW_PLAY_UPLOAD_STORE_PASSWORD"             -keypass "$WMW_PLAY_UPLOAD_KEY_PASSWORD"             dist/WakeMyWay-play.aab             "$WMW_PLAY_UPLOAD_KEY_ALIAS"
-          jarsigner -verify -strict dist/WakeMyWay-play.aab
 
-      - name: Generate direct-update manifest
+      - name: Verify signed identity and metadata
         shell: bash
         run: |
           set -euo pipefail
-          source version.properties
-          export VERSION_CODE VERSION_NAME UPDATE_PRIORITY
-          export APK_SHA256="$(sha256sum dist/WakeMyWay-direct.apk | awk '{print $1}')"
-          export PUBLISHED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
 
-          repo = os.environ["GITHUB_REPOSITORY"]
-          notes_path = Path("release-notes.md")
-          release_notes = [
-              line[2:].strip()
-              for line in notes_path.read_text(encoding="utf-8").splitlines()
-              if line.startswith("- ") and line[2:].strip()
-          ]
-          payload = {
-              "schemaVersion": 1,
-              "channel": "stable",
-              "versionCode": int(os.environ["VERSION_CODE"]),
-              "versionName": os.environ["VERSION_NAME"],
-              "priority": int(os.environ.get("UPDATE_PRIORITY", "1")),
-              "publishedAt": os.environ["PUBLISHED_AT"],
-              "releaseNotes": release_notes,
-              "apk": {
-                  "url": f"https://github.com/{repo}/releases/latest/download/WakeMyWay-direct.apk",
-                  "sha256": os.environ["APK_SHA256"],
-              },
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs dist/WakeMyWay-direct.apk             | tee dist/direct-signature.txt
+          jarsigner -verify -strict dist/WakeMyWay-play.aab             | tee dist/play-signature.txt
+
+          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | head -n 1             | tr '[:upper:]' '[:lower:]')"
+          test "$CERT_SHA" = "$WMW_DIRECT_CERT_SHA256" || {
+            echo "::error::Direct APK certificate does not match WakeMyWay production identity."
+            exit 1
           }
-          Path("dist/update.json").write_text(
-              json.dumps(payload, indent=2) + "\n",
-              encoding="utf-8",
-          )
-          PY
 
-      - name: Publish GitHub release
+          BADGING="$("$BUILD_TOOLS/aapt" dump badging dist/WakeMyWay-direct.apk)"
+          echo "$BADGING" | grep -F "package: name='com.wakemyway.app'"
+          echo "$BADGING" | grep -F "versionCode='$WMW_VERSION_CODE'"
+          echo "$BADGING" | grep -F "versionName='$WMW_VERSION_NAME'"
+          if echo "$BADGING" | grep -q '^application-debuggable'; then
+            echo "::error::Release APK is debuggable."
+            exit 1
+          fi
+
+      - name: Generate update manifest and release metadata
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           set -euo pipefail
-          source version.properties
-          gh release create "$GITHUB_REF_NAME"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --verify-tag             --latest             --notes-file release-notes.md             --title "WakeMyWay $VERSION_NAME"
+          APK_SHA256="$(sha256sum dist/WakeMyWay-direct.apk | awk '{print $1}')"
+          PUBLISHED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          python ../../tooling/android_release_plan.py manifest             --version-code "$WMW_VERSION_CODE"             --version-name "$WMW_VERSION_NAME"             --priority 1             --repository "$GITHUB_REPOSITORY"             --apk-sha256 "$APK_SHA256"             --published-at "$PUBLISHED_AT"             --notes-file release-plan/release-notes.md             --output dist/update.json
+
+          cp release-plan/release-notes.md dist/release-notes.md
+          jq -n             --arg sourceSha "$SOURCE_SHA"             --arg tag "$RELEASE_TAG"             --arg versionName "$WMW_VERSION_NAME"             --argjson versionCode "$WMW_VERSION_CODE"             --arg apkSha256 "$APK_SHA256"             --arg directCertSha256 "$WMW_DIRECT_CERT_SHA256"             '{
+              sourceSha: $sourceSha,
+              tag: $tag,
+              versionName: $versionName,
+              versionCode: $versionCode,
+              apkSha256: $apkSha256,
+              directCertSha256: $directCertSha256
+            }' > dist/release-metadata.json
+
+      - name: Measure candidate artifacts
+        shell: bash
+        run: |
+          python ../../tooling/android_artifact_report.py             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             --json dist/release-size.json             --markdown dist/release-size.md
+          cat dist/release-size.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-release-candidate-${{ github.run_id }}
+          path: apps/android/dist/**
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish verified release
+    needs:
+      - plan
+      - build-sign
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+      VERSION_NAME: ${{ needs.plan.outputs.version_name }}
+      VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: signed-release-candidate-${{ github.run_id }}
+          path: dist
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: "false"
+
+      - name: Install verification tools
+        run: sdkmanager "platform-tools" "build-tools;37.0.0"
+
+      - name: Re-verify candidate before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.sourceSha' dist/release-metadata.json)" = "$GITHUB_SHA"
+          test "$(jq -r '.tag' dist/release-metadata.json)" = "$RELEASE_TAG"
+          test "$(jq -r '.versionName' dist/release-metadata.json)" = "$VERSION_NAME"
+          test "$(jq -r '.versionCode' dist/release-metadata.json)" = "$VERSION_CODE"
+
+          EXPECTED_SHA="$(jq -r '.apkSha256' dist/release-metadata.json)"
+          EXPECTED_CERT="$(jq -r '.directCertSha256' dist/release-metadata.json)"
+          ACTUAL_SHA="$(sha256sum dist/WakeMyWay-direct.apk | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
+          CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs dist/WakeMyWay-direct.apk             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | head -n 1             | tr '[:upper:]' '[:lower:]')"
+          test "$CERT_SHA" = "$EXPECTED_CERT"
+
+      - name: Create draft release only after all gates pass
+        id: draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags --force
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA" || {
+            echo "::error::main advanced while the release was validating. Run release again so latest main is intentional."
+            exit 1
+          }
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $RELEASE_TAG already exists."
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists."
+            exit 1
+          fi
+
+          git tag -a "$RELEASE_TAG" "$GITHUB_SHA" -m "WakeMyWay $VERSION_NAME"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+          if ! gh release create "$RELEASE_TAG"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --repo "$GITHUB_REPOSITORY"             --verify-tag             --draft             --title "WakeMyWay $VERSION_NAME"             --notes-file dist/release-notes.md; then
+            git push origin ":refs/tags/$RELEASE_TAG" || true
+            exit 1
+          fi
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify uploaded draft assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/draft-assets"
+          gh release download "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --pattern 'WakeMyWay-direct.apk'             --pattern 'WakeMyWay-play.aab'             --pattern 'update.json'             --dir "$RUNNER_TEMP/draft-assets"
+
+          EXPECTED_SHA="$(jq -r '.apkSha256' dist/release-metadata.json)"
+          ACTUAL_SHA="$(sha256sum "$RUNNER_TEMP/draft-assets/WakeMyWay-direct.apk" | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          test "$(jq -r '.versionCode' "$RUNNER_TEMP/draft-assets/update.json")" = "$VERSION_CODE"
+          test "$(jq -r '.versionName' "$RUNNER_TEMP/draft-assets/update.json")" = "$VERSION_NAME"
+
+      - name: Publish draft as latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --draft=false             --latest
+
+      - name: Verify public latest endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA="$(jq -r '.apkSha256' dist/release-metadata.json)"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
+          VERIFIED=false
+
+          for attempt in $(seq 1 12); do
+            rm -f "$RUNNER_TEMP/latest-update.json" "$RUNNER_TEMP/public.apk"
+            if curl --fail --location --silent --show-error                  "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/update.json"                  -o "$RUNNER_TEMP/latest-update.json"               && [ "$(jq -r '.versionCode' "$RUNNER_TEMP/latest-update.json")" = "$VERSION_CODE" ]               && [ "$(jq -r '.versionName' "$RUNNER_TEMP/latest-update.json")" = "$VERSION_NAME" ]               && [ "$(jq -r '.apk.sha256' "$RUNNER_TEMP/latest-update.json")" = "$EXPECTED_SHA" ]               && curl --fail --location --silent --show-error                  "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/WakeMyWay-direct.apk"                  -o "$RUNNER_TEMP/public.apk"               && [ "$(sha256sum "$RUNNER_TEMP/public.apk" | awk '{print $1}')" = "$EXPECTED_SHA" ]; then
+              CERT_SHA="$("$BUILD_TOOLS/apksigner" verify --print-certs "$RUNNER_TEMP/public.apk"                 | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'                 | head -n 1                 | tr '[:upper:]' '[:lower:]')"
+              BADGING="$("$BUILD_TOOLS/aapt" dump badging "$RUNNER_TEMP/public.apk")"
+              if [ "$CERT_SHA" = "$WMW_DIRECT_CERT_SHA256" ]                 && echo "$BADGING" | grep -Fq "package: name='com.wakemyway.app'"                 && echo "$BADGING" | grep -Fq "versionCode='$VERSION_CODE'"                 && echo "$BADGING" | grep -Fq "versionName='$VERSION_NAME'"                 && ! echo "$BADGING" | grep -q '^application-debuggable'; then
+                VERIFIED=true
+                break
+              fi
+            fi
+            sleep 5
+          done
+
+          test "$VERIFIED" = "true" || {
+            echo "::error::Published release did not pass public endpoint verification."
+            exit 1
+          }
+
+          {
+            echo "## WakeMyWay $VERSION_NAME published"
+            echo
+            echo "- Tag: `$RELEASE_TAG`"
+            echo "- versionCode: `$VERSION_CODE`"
+            echo "- Source: `$GITHUB_SHA`"
+            echo "- Direct APK SHA-256: `$EXPECTED_SHA`"
+            echo "- Public update endpoint: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
