@@ -50,6 +50,13 @@ class WakeLearning(
         currentPolicy: WakePolicy,
         outcomes: List<WakeOutcomeSummary>,
     ): WakeLearningDecision {
+        require(
+            currentPolicy.activationThreshold in rules.minimumActivationThreshold..rules.maximumActivationThreshold &&
+                currentPolicy.maxEscalationLevel in rules.minimumEscalationLevel..rules.maximumEscalationLevel,
+        ) {
+            "Wake Learning can only derive from a policy inside the v0 learning bounds"
+        }
+
         val relevantGroups = outcomes
             .filter { outcome -> outcome.policyVersion == currentPolicy.version }
             .groupBy(WakeOutcomeSummary::sessionId)
@@ -211,6 +218,16 @@ class WakeLearning(
         )
     }
 
+    /**
+     * Fail-closed corruption boundary for persisted learned state.
+     *
+     * A persisted snapshot's source policy is the currently effective learned policy, so its
+     * version may legitimately exceed [defaultPolicy].version; version lineage alone is not the
+     * trust boundary. Acceptance requires the same algorithm version, a frozen compatible
+     * baseline, both policies inside the v0 learning bounds, and at most one bounded declared
+     * change. Anything else — including a snapshot learned on an older baseline — falls back to
+     * the stable default policy.
+     */
     fun resolveLearnedPolicy(
         candidate: WakePolicySnapshot?,
         defaultPolicy: WakePolicy,
@@ -280,6 +297,11 @@ class WakeLearning(
             policy.rememberedInputLimit == defaultPolicy.rememberedInputLimit
 
     private fun hasBoundedDeclaredChange(snapshot: WakePolicySnapshot): Boolean {
+        // `singleOrNull` alone would conflate "no declared change" with malformed multi-change
+        // state, so a snapshot carrying more than one change is rejected explicitly here: this
+        // function must stay a self-contained corruption boundary even if a future persistence
+        // path stops going through the [WakePolicySnapshot] constructor.
+        if (snapshot.changes.size > 1) return false
         val change = snapshot.changes.singleOrNull() ?: return true
         return when (change) {
             is WakePolicyChange.ActivationThreshold -> abs(change.to - change.from) == 1

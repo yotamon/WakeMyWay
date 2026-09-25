@@ -1,6 +1,7 @@
 package com.wakemyway.app
 
 import android.app.KeyguardManager
+import android.content.Intent
 import android.os.Bundle
 import android.os.UserManager
 import android.view.WindowManager
@@ -137,6 +138,25 @@ class WakeActivity : ComponentActivity() {
             } else {
                 finishAndRemoveTask()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTop redelivery: when a newer occurrence's wake-UI intent lands on a surviving
+        // stale surface, silently ignoring it would leave the user looking at (and "stopping")
+        // the wrong wake. Finish and relaunch so a fresh surface binds the new occurrence.
+        val incomingId = intent.getStringExtra(AlarmPlaybackService.EXTRA_OCCURRENCE_ID)
+            ?.let { value -> runCatching { WakeOccurrenceId(value) }.getOrNull() }
+        if (incomingId != null && incomingId != occurrenceId) {
+            finishAndRemoveTask()
+            startActivity(
+                Intent(intent).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                ),
+            )
         }
     }
 

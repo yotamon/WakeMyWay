@@ -11,6 +11,17 @@ class WakeRuntime {
         capabilities = capabilities,
     )
 
+    /**
+     * Applies one external input to the deterministic wake session state machine.
+     *
+     * The returned [WakeTransition.inputApplied] means "this input was consumed and remembered on
+     * the session's processed-input timeline", not "session state mutated": inputs that the
+     * STOPPING/SNOOZE transactional gates or a stale ORIENTING callback deliberately defer are
+     * still remembered (for duplicate suppression) and reported with `inputApplied = true`.
+     * Evidence consumers (`WakeOutcomeDeriver`, `WakeBehaviorEvidenceTracker` in the learning
+     * package) use the flag as engagement evidence of a real user action, not as a state-change
+     * assertion.
+     */
     fun reduce(
         current: WakeSessionSnapshot,
         input: WakeInput,
@@ -415,6 +426,9 @@ class WakeRuntime {
         inputId: WakeInputId,
         policy: WakePolicy,
     ): WakeSessionSnapshot {
+        // Duplicate suppression is deliberately bounded: only the last rememberedInputLimit
+        // processed ids are kept, so a replayed id older than that window may be applied again.
+        // The limit is a policy value and the runtime stays O(1) in retained state.
         val remembered = (snapshot.processedInputIds + inputId)
             .takeLast(policy.rememberedInputLimit)
         return snapshot.copy(processedInputIds = remembered)
