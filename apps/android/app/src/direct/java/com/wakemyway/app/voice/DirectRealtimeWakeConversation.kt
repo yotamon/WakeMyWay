@@ -5,6 +5,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.runtime.SpeechIntent
 import java.io.ByteArrayOutputStream
@@ -78,9 +79,11 @@ class DirectRealtimeWakeConversation(
 
         disconnectResources(resetConnecting = false)
         val current = generation.incrementAndGet()
+        Log.i(LOG_TAG, "connect generation=$current")
         networkExecutor.execute {
             runCatching { requestBrokerSecretWithAutomaticCredential() }
                 .onSuccess { secret ->
+                    Log.i(LOG_TAG, "broker-ready generation=$current")
                     mainHandler.post {
                         if (isCurrent(current)) startPeerConnection(secret, current)
                     }
@@ -132,6 +135,7 @@ class DirectRealtimeWakeConversation(
     private fun startPeerConnection(secret: BrokerSecret, current: Long) {
         if (!isCurrent(current)) return
         try {
+            Log.i(LOG_TAG, "webrtc-start generation=$current")
             initializeWebRtcOnce(appContext)
             configureWakeAudioRoute()
             val factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
@@ -202,6 +206,7 @@ class DirectRealtimeWakeConversation(
 
         override fun onStateChange() {
             if (!isCurrent(current) || channel.state() != DataChannel.State.OPEN) return
+            Log.i(LOG_TAG, "data-channel-open generation=$current")
             if (!sendSessionConfiguration(channel, secret.voice)) {
                 emitFailure("session-config", current)
                 return
@@ -263,16 +268,24 @@ class DirectRealtimeWakeConversation(
             "response.done" -> {
                 val status = event.optJSONObject("response")?.optString("status")
                 if (status == "failed" || status == "incomplete") {
+                    Log.w(LOG_TAG, "response-done status=${status.take(32)} generation=$current")
                     emitFailure("response", current)
                 }
             }
 
-            "error" -> emitFailure("provider", current)
+            "error" -> {
+                val providerError = event.optJSONObject("error")
+                val type = providerError?.optString("type").orEmpty().take(48)
+                val code = providerError?.optString("code").orEmpty().take(48)
+                Log.w(LOG_TAG, "provider-error type=$type code=$code generation=$current")
+                emitFailure("provider", current)
+            }
         }
     }
 
     private fun markSessionReady(current: Long) {
         if (!isCurrent(current) || readyState.getAndSet(true)) return
+        Log.i(LOG_TAG, "session-ready generation=$current")
         connectingState.set(false)
         mainHandler.removeCallbacks(sessionConfigurationTimeout)
         mainHandler.removeCallbacks(sessionBudgetTimeout)
@@ -423,7 +436,12 @@ class DirectRealtimeWakeConversation(
             connection.outputStream.use {
                 it.write(offerSdp.toByteArray(StandardCharsets.UTF_8))
             }
-            if (connection.responseCode !in 200..299) error("Realtime SDP exchange failed")
+            val status = connection.responseCode
+            if (status !in 200..299) {
+                Log.w(LOG_TAG, "sdp-exchange-rejected status=$status")
+                error("Realtime SDP exchange failed")
+            }
+            Log.i(LOG_TAG, "sdp-exchange-accepted")
             return readBounded(connection.inputStream, MAX_SDP_BYTES).also {
                 check(it.isNotBlank())
             }
@@ -511,6 +529,7 @@ class DirectRealtimeWakeConversation(
     private fun emitFailure(stage: String, expectedGeneration: Long = generation.get()) {
         mainHandler.post {
             if (!isCurrent(expectedGeneration)) return@post
+            Log.w(LOG_TAG, "failure stage=${stage.take(48)} generation=$expectedGeneration")
             generation.incrementAndGet()
             disconnectResources()
             if (!closed) listener.onConversationFailure(stage.take(48))
@@ -568,6 +587,7 @@ class DirectRealtimeWakeConversation(
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
         const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-founder-wake-v1"
         const val EXPECTED_PRIVACY_CLASSIFICATION = "founder-consented-default-api-retention"
+        const val LOG_TAG = "WmwRealtime"
         val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
 
         @Volatile
