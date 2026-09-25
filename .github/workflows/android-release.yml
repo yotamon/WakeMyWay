@@ -70,6 +70,8 @@ jobs:
       - id: plan
         name: Calculate version and previous release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           LATEST_TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
@@ -110,6 +112,7 @@ jobs:
       - name: Generate release notes
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           PREVIOUS_TAG: ${{ steps.plan.outputs.previous_tag }}
           NEXT_TAG: ${{ steps.plan.outputs.tag }}
         run: |
@@ -395,7 +398,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ needs.plan.outputs.tag }}
       VERSION_NAME: ${{ needs.plan.outputs.version_name }}
       VERSION_CODE: ${{ needs.plan.outputs.version_code }}
