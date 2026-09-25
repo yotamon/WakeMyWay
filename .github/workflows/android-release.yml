@@ -548,8 +548,13 @@ jobs:
         shell: bash
         run: |
           set +e
-          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
-          git push origin ":refs/tags/$RELEASE_TAG"
+          IS_DRAFT="$(gh release view "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --json isDraft             --jq '.isDraft' 2>/dev/null)"
+          if [ "$IS_DRAFT" = "true" ]; then
+            gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+            git push origin ":refs/tags/$RELEASE_TAG"
+          else
+            echo "::warning::Release is no longer a draft; automatic cleanup was intentionally skipped."
+          fi
 
 
   dry-run-summary:
