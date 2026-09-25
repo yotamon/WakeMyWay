@@ -222,7 +222,7 @@ Requirements:
 
 For Play/local-only builds, preview uses the local voice path.
 
-For Direct/Reatime-capable builds, the first implementation may still use local preview for simplicity. A later slice may add a true Realtime preview only if the mismatch between preview and morning voice proves materially confusing.
+For Direct/Realtime-capable builds, the first implementation may still use local preview for simplicity. A later slice may add a true Realtime preview only if the mismatch between preview and morning voice proves materially confusing.
 
 ### Active Wake
 
