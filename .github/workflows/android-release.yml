@@ -480,6 +480,9 @@ jobs:
             exit 1
           fi
 
+          # Annotated tags require a committer identity even in ephemeral CI runners.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$RELEASE_TAG" "$GITHUB_SHA" -m "WakeMyWay $VERSION_NAME"
           git push origin "refs/tags/$RELEASE_TAG"
 
