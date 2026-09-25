@@ -298,15 +298,15 @@ The production wake path now closes the first local adaptive loop:
 
 Consumer onboarding and alarm setup were also simplified around the adaptive promise: advanced wake behavior remains available without making first alarm creation feel like a settings panel. Account-shaped placeholder UI is intentionally absent while account sync remains optional/deferred.
 
-## Update distribution work in progress
+## Update distribution
 
-PR #83 introduces the product/update boundary required for both founder direct APK dogfood and future Google Play distribution.
+The product/update boundary introduced by PR #83 remains intact: update checking/downloading stays outside the Alarm Kernel, direct-install permission exists only in the `direct` flavor, Play flexible in-app updates remain isolated to the `play` flavor, downloaded Direct APKs are verified for checksum/package/signing identity, and install/restart remains blocked during an Active Wake Execution or within 90 minutes of the next Wake Occurrence.
 
-The accepted architecture keeps update checking/downloading outside the Alarm Kernel, isolates direct-install permissions to a `direct` flavor, uses Play flexible in-app updates for the `play` flavor, verifies direct APK checksum/package/signing identity, and blocks install/restart during an Active Wake Execution or within 90 minutes of the next Wake Occurrence.
+Production releases now use the manual **Release WakeMyWay** GitHub Actions workflow. Merging to `main` never publishes a version. When an operator explicitly dispatches the workflow from current `main`, it calculates the next semantic version and monotonically increasing `versionCode` from the latest stable release, generates release notes, runs release/device/upgrade gates, builds and signs Direct APK + Play AAB, verifies the production identity, creates `update.json`, stages a draft release, verifies uploaded assets, then publishes and verifies the public latest endpoint.
 
-`apps/android/version.properties` becomes the canonical Android version source. A tag-only release workflow builds and signs the direct APK and Play AAB with distinct signing roles and emits the GitHub Release `update.json` used by direct builds.
+`apps/android/version.properties` is now only a local/default developer fallback. Production version authority is the latest stable GitHub Release plus its `update.json`; release builds receive `WMW_VERSION_CODE` and `WMW_VERSION_NAME` overrides.
 
-Stable production signing material is intentionally not committed and must be provisioned as encrypted repository secrets before the first production direct release. Existing debug-signed founder installations may require one intentional reinstall at that transition.
+Stable signing material remains outside the repository and is provisioned as encrypted GitHub Actions Secrets. The local DPAPI signing bundle remains an offline recovery path rather than the normal release path. Canonical operations live in [`42-android-release-operations.md`](42-android-release-operations.md).
 
 ## Package-update persistence
 
