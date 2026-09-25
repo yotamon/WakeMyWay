@@ -150,7 +150,9 @@ describe('founder installation pairing', () => {
     });
     const founderAuthorization = requireFounderRealtimeAuthorization(founderRequest, readyEnvironment);
     expect(founderAuthorization.installationId).toBe(installationId);
-    expect(founderRealtimeSafetyIdentifier(founderAuthorization)).toMatch(/^wmw:[a-f0-9]{64}$/);
+    const safetyIdentifier = founderRealtimeSafetyIdentifier(founderAuthorization);
+    expect(safetyIdentifier).toMatch(/^wmw_[a-f0-9]{60}$/);
+    expect(safetyIdentifier).toHaveLength(64);
 
     const adminRequest = new Request('https://example.test', {
       headers: { authorization: `Bearer ${readyEnvironment.WMW_INTERNAL_API_KEY}` },

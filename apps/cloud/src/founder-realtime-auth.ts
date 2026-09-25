@@ -159,9 +159,10 @@ export function founderRealtimeSafetyIdentifier(
   authorization: FounderRealtimeAuthorization,
 ): string | undefined {
   if (!authorization.installationId) return undefined;
-  return `wmw:${createHash('sha256')
+  const digest = createHash('sha256')
     .update(`founder-realtime:${authorization.installationId}`)
-    .digest('hex')}`;
+    .digest('hex');
+  return `wmw_${digest.slice(0, 60)}`;
 }
 
 function signPayload(payload: TokenPayload, signingKey: string): string {
