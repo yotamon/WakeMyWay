@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
@@ -60,7 +60,7 @@ jobs:
           cat apps/android/app/build/reports/release-size/report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release-size evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wake-my-way-release-size-${{ github.sha }}
           path: apps/android/app/build/reports/release-size/**
