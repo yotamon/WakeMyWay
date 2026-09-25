@@ -52,11 +52,6 @@ class AlarmPlaybackService : Service() {
         // wake, and the voice-window volume lease is owned by beginVoiceWindow/endVoiceWindow.
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        AlarmPresentationAccess.ensureChannel(this)
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val kernel = AlarmKernel(this)
         val trace = WakeTimingTrace(this)
@@ -77,8 +72,18 @@ class AlarmPlaybackService : Service() {
             ?: return preserveCurrentExecutionOrStop(kernel)
         val occurrenceId = WakeOccurrenceId(rawId)
 
+        val redeliveredStart =
+            intent.action == ACTION_START && flags and Service.START_FLAG_REDELIVERY != 0
+        if (redeliveredStart && kernel.activeOccurrence()?.id == occurrenceId) {
+            trace.serviceRecovered(occurrenceId)
+        }
+
         return when (intent.action) {
-            ACTION_START -> ensureActiveWake(kernel, occurrenceId)
+            ACTION_START -> ensureActiveWake(
+                kernel = kernel,
+                occurrenceId = occurrenceId,
+                validatePresentation = redeliveredStart,
+            )
 
             ACTION_STOP -> {
                 if (!kernel.stopActive(occurrenceId)) {
@@ -155,15 +160,17 @@ class AlarmPlaybackService : Service() {
     private fun ensureActiveWake(
         kernel: AlarmKernel,
         occurrenceId: WakeOccurrenceId,
+        validatePresentation: Boolean = true,
     ): Int {
         // The broadcast wake lock dies with AlarmReceiver; hold the CPU across kernel reads and
         // MediaPlayer prepare so the device cannot re-suspend in the fire-to-audio window.
         holdCpuUntilAudioStarts()
 
-        // Defense in depth for service recreation / redelivered START intents. If notification,
-        // channel, exact-alarm or full-screen access is no longer healthy, never start or resurrect
-        // critical audio that may be impossible for the user to control.
-        if (kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
+        // AlarmReceiver has already performed the presentation-safety preflight immediately before
+        // a fresh ACTION_START. Repeating NotificationManager / special-access calls here can block
+        // the direct-boot critical path before startForeground(). Recovery and redelivery still
+        // revalidate because they no longer have that fresh receiver authority.
+        if (validatePresentation && kernel.health().repairTarget() != AlarmRepairTarget.NONE) {
             kernel.cancelSchedule()
             stopExecution()
             return START_NOT_STICKY

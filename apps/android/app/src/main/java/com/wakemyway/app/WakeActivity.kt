@@ -89,6 +89,10 @@ class WakeActivity : ComponentActivity() {
                 return
             }
         occurrenceId = wakeOccurrenceId
+        if (!isOccurrenceStillActive(wakeOccurrenceId)) {
+            finishAndRemoveTask()
+            return
+        }
         wakePolicy = AlarmKernel(applicationContext).activePolicy(wakeOccurrenceId)
             ?: CriticalWakePolicy.DEFAULT
         refreshPrivateWakeContextIfUnlocked()
@@ -129,7 +133,11 @@ class WakeActivity : ComponentActivity() {
         }
 
         window.decorView.post {
-            WakeTimingTrace(this).uiVisible(wakeOccurrenceId)
+            if (isOccurrenceStillActive(wakeOccurrenceId)) {
+                WakeTimingTrace(this).uiVisible(wakeOccurrenceId)
+            } else {
+                finishAndRemoveTask()
+            }
         }
     }
 
@@ -154,6 +162,11 @@ class WakeActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        val id = occurrenceId
+        if (id == null || !isOccurrenceStillActive(id)) {
+            finishAndRemoveTask()
+            return
+        }
         refreshPrivateWakeContextIfUnlocked()
         sessionViewModel?.onSurfaceVisible()
     }
@@ -171,6 +184,9 @@ class WakeActivity : ComponentActivity() {
             refreshPrivateWakeContextIfUnlocked()
         }
     }
+
+    private fun isOccurrenceStillActive(id: WakeOccurrenceId): Boolean =
+        AlarmKernel(applicationContext).activeOccurrence()?.id == id
 
     private fun refreshPrivateWakeContextIfUnlocked() {
         val id = occurrenceId ?: return
