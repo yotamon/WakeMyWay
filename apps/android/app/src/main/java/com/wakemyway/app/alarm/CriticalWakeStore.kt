@@ -25,24 +25,24 @@ class CriticalWakeStore(
      * Missing state and unreadable/corrupt state remain distinct for diagnostics while mutation paths
      * continue to fail closed through [read].
      */
-    @Synchronized
-    fun readResult(): CriticalWakeReadResult = try {
-        val state = atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
-            CriticalAlarmState.decodeOrMigrate(reader.readText())
+    fun readResult(): CriticalWakeReadResult = synchronized(STATE_LOCK) {
+        try {
+            val state = atomicFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
+                CriticalAlarmState.decodeOrMigrate(reader.readText())
+            }
+            CriticalWakeReadResult.State(state)
+        } catch (_: FileNotFoundException) {
+            CriticalWakeReadResult.Missing
+        } catch (error: IllegalArgumentException) {
+            CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
+        } catch (error: IllegalStateException) {
+            CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
+        } catch (error: org.json.JSONException) {
+            CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake JSON")
         }
-        CriticalWakeReadResult.State(state)
-    } catch (_: FileNotFoundException) {
-        CriticalWakeReadResult.Missing
-    } catch (error: IllegalArgumentException) {
-        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
-    } catch (error: IllegalStateException) {
-        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake state")
-    } catch (error: org.json.JSONException) {
-        CriticalWakeReadResult.Corrupt(error.message ?: "invalid critical wake JSON")
     }
 
     /** Fail-closed compatibility accessor for Alarm Kernel non-creating read paths. */
-    @Synchronized
     fun read(): CriticalAlarmState? = when (val result = readResult()) {
         is CriticalWakeReadResult.State -> result.value
         CriticalWakeReadResult.Missing,
@@ -50,25 +50,34 @@ class CriticalWakeStore(
         -> null
     }
 
-    @Synchronized
     fun write(state: CriticalAlarmState) {
-        val stream = atomicFile.startWrite()
-        try {
-            stream.write(state.encode().toByteArray(Charsets.UTF_8))
-            stream.flush()
-            atomicFile.finishWrite(stream)
-        } catch (error: Throwable) {
-            atomicFile.failWrite(stream)
-            throw error
+        synchronized(STATE_LOCK) {
+            val stream = atomicFile.startWrite()
+            try {
+                stream.write(state.encode().toByteArray(Charsets.UTF_8))
+                stream.flush()
+                atomicFile.finishWrite(stream)
+            } catch (error: Throwable) {
+                atomicFile.failWrite(stream)
+                throw error
+            }
         }
     }
 
-    @Synchronized
     fun clear() {
-        atomicFile.delete()
+        synchronized(STATE_LOCK) {
+            atomicFile.delete()
+        }
     }
 
     companion object {
         const val DEFAULT_FILE_NAME = "critical-wake-snapshot.json"
+
+        /**
+         * Process-wide mutation lock for critical wake state. Kernels and stores are deliberately
+         * cheap per-call-site instances, so per-instance monitors would not guard cross-component
+         * read-modify-write sequences; every mutating path synchronizes on this single lock.
+         */
+        internal val STATE_LOCK = Any()
     }
 }

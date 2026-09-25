@@ -1,6 +1,7 @@
 package com.wakemyway.app
 
 import android.app.KeyguardManager
+import android.content.Intent
 import android.os.Bundle
 import android.os.UserManager
 import android.view.WindowManager
@@ -88,6 +89,10 @@ class WakeActivity : ComponentActivity() {
                 return
             }
         occurrenceId = wakeOccurrenceId
+        if (!isOccurrenceStillActive(wakeOccurrenceId)) {
+            finishAndRemoveTask()
+            return
+        }
         wakePolicy = AlarmKernel(applicationContext).activePolicy(wakeOccurrenceId)
             ?: CriticalWakePolicy.DEFAULT
         refreshPrivateWakeContextIfUnlocked()
@@ -128,12 +133,40 @@ class WakeActivity : ComponentActivity() {
         }
 
         window.decorView.post {
-            WakeTimingTrace(this).uiVisible(wakeOccurrenceId)
+            if (isOccurrenceStillActive(wakeOccurrenceId)) {
+                WakeTimingTrace(this).uiVisible(wakeOccurrenceId)
+            } else {
+                finishAndRemoveTask()
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTop redelivery: when a newer occurrence's wake-UI intent lands on a surviving
+        // stale surface, silently ignoring it would leave the user looking at (and "stopping")
+        // the wrong wake. Finish and relaunch so a fresh surface binds the new occurrence.
+        val incomingId = intent.getStringExtra(AlarmPlaybackService.EXTRA_OCCURRENCE_ID)
+            ?.let { value -> runCatching { WakeOccurrenceId(value) }.getOrNull() }
+        if (incomingId != null && incomingId != occurrenceId) {
+            finishAndRemoveTask()
+            startActivity(
+                Intent(intent).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                ),
+            )
         }
     }
 
     override fun onResume() {
         super.onResume()
+        val id = occurrenceId
+        if (id == null || !isOccurrenceStillActive(id)) {
+            finishAndRemoveTask()
+            return
+        }
         refreshPrivateWakeContextIfUnlocked()
         sessionViewModel?.onSurfaceVisible()
     }
@@ -151,6 +184,9 @@ class WakeActivity : ComponentActivity() {
             refreshPrivateWakeContextIfUnlocked()
         }
     }
+
+    private fun isOccurrenceStillActive(id: WakeOccurrenceId): Boolean =
+        AlarmKernel(applicationContext).activeOccurrence()?.id == id
 
     private fun refreshPrivateWakeContextIfUnlocked() {
         val id = occurrenceId ?: return

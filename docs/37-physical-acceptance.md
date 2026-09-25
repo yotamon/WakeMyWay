@@ -120,6 +120,23 @@ Physical acceptance must cover:
 
 Do not use Force Stop as a proxy for ordinary process recreation.
 
+### Mid-wake fallback evidence
+
+While a wake is active — during the Bluetooth/audio-route, Doze and degraded-device scenarios — capture the execution-layer evidence:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tooling/physical-reliability.ps1 -Action wake-check
+```
+
+The check records the live service state, held wake locks (`activeWakeStartup` during the fire-to-audio window, `activeWakeTone` while the emergency tone path plays), alarm audio-focus ownership and vibrator activity into the evidence bundle.
+
+Acceptance for the hardened fallback layers requires observing, on at least one supported device:
+
+- the repeating haptic pattern is felt while the wake is active, including with the alarm stream muted;
+- the looping playback holds CPU across a locked screen (`wake-check` wake-lock lines);
+- notification Stop ends the wake and the vibration stops with it;
+- Snooze still schedules its durable replacement before the current wake ends.
+
 ## 6. Evidence collection
 
 After each meaningful run:

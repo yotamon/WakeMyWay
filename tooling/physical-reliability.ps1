@@ -12,6 +12,7 @@ param(
         "unidle",
         "kill-process",
         "reboot",
+        "wake-check",
         "collect"
     )]
     [string]$Action = "status",
@@ -72,6 +73,20 @@ function Assert-Device {
     if ($state -ne "device") {
         throw "No authorized Android device is ready. Current adb state: $state"
     }
+}
+
+function Get-PackagePids {
+    $prefix = @()
+    if ($Serial) {
+        $prefix += @("-s", $Serial)
+    }
+
+    $output = & adb @prefix shell pidof $PackageName 2>$null
+    if ($LASTEXITCODE -notin @(0, 1)) {
+        throw "adb pidof failed with exit code $LASTEXITCODE"
+    }
+
+    (($output -join " ").Trim())
 }
 
 function Get-DeviceSummary {
@@ -234,26 +249,86 @@ switch ($Action) {
     "kill-process" {
         Write-Host "Killing the WakeMyWay process without Force Stop."
         Write-Host "Use this only for SERVICE_RECREATION or post-STOP resurrection evidence."
-
-        $before = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
-        Invoke-Adb shell am kill $PackageName
-        Start-Sleep -Milliseconds 750
-        $after = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
-
-        if ($before -ne "__NONE__" -and $after -eq $before) {
-            Write-Host "Android kept the foreground-alarm process alive; injecting debug SIGKILL instead."
-            Invoke-Adb shell run-as $PackageName kill -9 $before
-            Start-Sleep -Milliseconds 750
-            $after = (Invoke-Adb shell sh -c "pidof $PackageName || echo __NONE__" | Select-Object -Last 1).Trim()
+        $before = Get-PackagePids
+        if (-not $before) {
+            Write-Host "WakeMyWay has no running process."
+            break
         }
 
-        Write-Host "Process before: $before"
-        Write-Host "Process after:  $after"
+        Invoke-Adb shell am kill $PackageName
+        Start-Sleep -Milliseconds 750
+        $afterAmKill = Get-PackagePids
+        $originalPids = $before -split "\s+" | Where-Object { $_ }
+
+        if ($originalPids | Where-Object { $afterAmKill -split "\s+" -contains $_ }) {
+            Write-Host "Android kept the protected process alive; sending SIGKILL via run-as."
+            foreach ($pidValue in $originalPids) {
+                Invoke-Adb shell run-as $PackageName kill -9 $pidValue
+            }
+            Start-Sleep -Milliseconds 750
+        }
+
+        $after = Get-PackagePids
+        $survivors = $originalPids | Where-Object { $after -split "\s+" -contains $_ }
+        if ($survivors) {
+            throw "Original WakeMyWay process survived: $($survivors -join ', ')"
+        }
+        Write-Host "Original PID(s) $before terminated without Force Stop. Current PID(s): $after"
+        Write-Host "If RECOVERY_GUARD evidence is intended, the OS recovery alarm must now re-kick playback."
     }
 
     "reboot" {
         Write-Host "Rebooting the device. For DIRECT_BOOT, do not unlock before the scheduled wake."
         Invoke-Adb reboot
+    }
+
+    "wake-check" {
+        Write-Host "Capturing Active Wake execution evidence. Run this WHILE a wake is ringing."
+        Write-Host "Device: $(Get-DeviceSummary)"
+
+        $pids = Get-PackagePids
+        if (-not $pids) {
+            throw "WakeMyWay has no running process. Start an active wake first (Wake Lab scenario or a real alarm)."
+        }
+        Write-Host "WakeMyWay process alive: PID(s) $pids"
+
+        $root = New-EvidenceDirectory
+        "device=$(Get-DeviceSummary)" | Set-Content -Encoding UTF8 (Join-Path $root "device.txt")
+        (& git -C $RepoRoot rev-parse HEAD).Trim() | Set-Content -Encoding UTF8 (Join-Path $root "commit.txt")
+
+        Invoke-Adb shell dumpsys activity services $PackageName |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-services.txt")
+        Invoke-Adb shell dumpsys power |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-power.txt")
+        Invoke-Adb shell dumpsys audio |
+            Out-File -Encoding UTF8 (Join-Path $root "wake-check-audio.txt")
+        try {
+            Invoke-Adb shell dumpsys vibrator_manager |
+                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
+        } catch {
+            # The vibrator service lives directly under this name on API 29/30.
+            Invoke-Adb shell dumpsys vibrator |
+                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
+        }
+
+        Write-Host ""
+        Write-Host "Wake locks mentioning wakemyway (expect activeWakeStartup in the fire-to-audio window, activeWakeTone while the emergency tone plays):"
+        (Invoke-Adb shell dumpsys power) |
+            Select-String -Pattern "wakemyway" |
+            ForEach-Object { "  $($_.Line.Trim())" }
+        Write-Host ""
+        Write-Host "Audio focus / stream entries mentioning wakemyway (expect USAGE_ALARM ownership):"
+        (Invoke-Adb shell dumpsys audio) |
+            Select-String -Pattern "wakemyway" |
+            ForEach-Object { "  $($_.Line.Trim())" }
+        Write-Host ""
+        Write-Host "Human checks for the hardened fallback layers:"
+        Write-Host "  1. The repeating haptic pattern is felt, including with the alarm stream muted."
+        Write-Host "  2. Notification Stop ends the wake and the vibration stops with it."
+        Write-Host "  3. Snooze schedules the replacement before the current wake ends (see the Lab report)."
+        Write-Host ""
+        Write-Host "Wake-check evidence collected to $root"
+        Write-Host "Also export the in-app Wake Alarm Lab reliability report for the same scenario."
     }
 
     "collect" {

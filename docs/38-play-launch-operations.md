@@ -249,6 +249,12 @@ Explain:
 
 ### Subscription
 
+Server-side verification enablement (before `WMW_PLAY_VERIFICATION_ENABLED=true`):
+- service-account androidpublisher access and allowed product ids configured;
+- a production edge rate limit exists for `POST /api/v1/commerce/play-verify` and its rule id is declared via `WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID` — the route refuses to enable without it;
+- RTDN Pub/Sub push uses authenticated OIDC with the exact audience/service account;
+- license-tester exercise of purchase/verify/RTDN completed.
+
 Once billing is live:
 - purchase;
 - pending purchase;

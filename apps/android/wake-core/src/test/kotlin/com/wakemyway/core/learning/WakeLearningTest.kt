@@ -250,6 +250,177 @@ class WakeLearningTest {
         assertFalse(reset.policy == learned)
     }
 
+    @Test
+    fun `missing persisted state fails closed to the stable default`() {
+        val resolution = learner.resolveLearnedPolicy(null, policy)
+
+        assertFalse(resolution.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.MISSING, resolution.reason)
+        assertEquals(policy, resolution.policy)
+    }
+
+    @Test
+    fun `unchanged snapshot derived from thin evidence is accepted without a declared change`() {
+        val thin = learner.derive(policy, emptyList())
+
+        assertEquals(WakeLearningReasonCode.INSUFFICIENT_EVIDENCE, thin.explanation.code)
+        assertFalse(thin.changed)
+
+        val accepted = learner.resolveLearnedPolicy(thin.snapshot, policy)
+
+        assertTrue(accepted.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.ACCEPTED, accepted.reason)
+        assertEquals(policy, accepted.policy)
+    }
+
+    @Test
+    fun `out-of-bounds persisted policies fail closed to the stable default`() {
+        val thresholdResolution = learner.resolveLearnedPolicy(
+            selfSnapshot(policy.copy(activationThreshold = 9)),
+            policy,
+        )
+        val escalationResolution = learner.resolveLearnedPolicy(
+            selfSnapshot(policy.copy(maxEscalationLevel = 5)),
+            policy,
+        )
+
+        assertFalse(thresholdResolution.usedLearnedPolicy)
+        assertFalse(escalationResolution.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.INVALID_LEARNING_BOUNDS, thresholdResolution.reason)
+        assertEquals(LearnedPolicyFallbackReason.INVALID_LEARNING_BOUNDS, escalationResolution.reason)
+        assertEquals(policy, thresholdResolution.policy)
+        assertEquals(policy, escalationResolution.policy)
+    }
+
+    @Test
+    fun `persisted state learned on an older baseline is rejected`() {
+        val newerDefault = policy.copy(version = policy.version + 1)
+
+        val rejected = learner.resolveLearnedPolicy(selfSnapshot(policy), newerDefault)
+
+        assertFalse(rejected.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.INVALID_LEARNING_BOUNDS, rejected.reason)
+        assertEquals(newerDefault, rejected.policy)
+    }
+
+    @Test
+    fun `a learned policy versioned ahead of the default stays acceptable within bounds`() {
+        // Persisted learned policies are validated as self-snapshots whose source version has
+        // already advanced past the shipped default. Version lineage is deliberately not the trust
+        // boundary: algorithm version, the frozen baseline and the learning bounds are. This test
+        // pins that contract so it cannot be "hardened" into rejecting every learned policy.
+        val learned = policy.copy(version = 5, activationThreshold = policy.activationThreshold + 1)
+
+        val accepted = learner.resolveLearnedPolicy(selfSnapshot(learned), policy)
+
+        assertTrue(accepted.usedLearnedPolicy)
+        assertEquals(learned, accepted.policy)
+    }
+
+    @Test
+    fun `false positive pattern at the maximum activation threshold stays at the safe bound`() {
+        val maxed = policy.copy(activationThreshold = 8)
+        val outcomes = listOf(
+            outcome(1, calibration = WakeCalibrationOutcome.RETURNED_TO_BED),
+            outcome(2, calibration = WakeCalibrationOutcome.RETURNED_TO_BED),
+            outcome(3, calibration = WakeCalibrationOutcome.RETURNED_TO_BED),
+            outcome(4, calibration = WakeCalibrationOutcome.GOT_UP),
+        )
+
+        val decision = learner.derive(maxed, outcomes)
+
+        assertFalse(decision.changed)
+        assertEquals(WakeLearningReasonCode.PARAMETER_AT_SAFE_BOUND, decision.explanation.code)
+        assertEquals(maxed, decision.snapshot.policy)
+    }
+
+    @Test
+    fun `repeated incomplete activation at the maximum escalation level stays at the safe bound`() {
+        val maxed = policy.copy(maxEscalationLevel = 4)
+        val outcomes = listOf(
+            outcome(1, activationCompleted = false),
+            outcome(2, activationCompleted = false),
+            outcome(3, activationCompleted = false),
+            outcome(4),
+        )
+
+        val decision = learner.derive(maxed, outcomes)
+
+        assertFalse(decision.changed)
+        assertEquals(WakeLearningReasonCode.PARAMETER_AT_SAFE_BOUND, decision.explanation.code)
+        assertEquals(maxed, decision.snapshot.policy)
+    }
+
+    @Test
+    fun `excess friction at the minimum escalation level stays at the safe bound`() {
+        val minimal = policy.copy(maxEscalationLevel = 1)
+        val highFriction = WakeFrictionFeedback(
+            annoyance = WakeAnnoyance.HIGH,
+            agency = WakeAgency.ACCEPTABLE,
+        )
+        val outcomes = listOf(
+            outcome(1, calibration = WakeCalibrationOutcome.GOT_UP, friction = highFriction),
+            outcome(2, calibration = WakeCalibrationOutcome.GOT_UP, friction = highFriction),
+            outcome(3, calibration = WakeCalibrationOutcome.GOT_UP, friction = highFriction),
+            outcome(4, calibration = WakeCalibrationOutcome.GOT_UP),
+        )
+
+        val decision = learner.derive(minimal, outcomes)
+
+        assertFalse(decision.changed)
+        assertEquals(WakeLearningReasonCode.PARAMETER_AT_SAFE_BOUND, decision.explanation.code)
+        assertEquals(minimal, decision.snapshot.policy)
+    }
+
+    @Test
+    fun `friction guardrail also blocks tightening on false positive activations`() {
+        val highFriction = WakeFrictionFeedback(
+            annoyance = WakeAnnoyance.HIGH,
+            agency = WakeAgency.ACCEPTABLE,
+        )
+        val outcomes = listOf(
+            outcome(1, calibration = WakeCalibrationOutcome.RETURNED_TO_BED, friction = highFriction),
+            outcome(2, calibration = WakeCalibrationOutcome.RETURNED_TO_BED, friction = highFriction),
+            outcome(3, calibration = WakeCalibrationOutcome.RETURNED_TO_BED),
+            outcome(4, calibration = WakeCalibrationOutcome.RETURNED_TO_BED),
+        )
+
+        val decision = learner.derive(policy, outcomes)
+
+        assertFalse(decision.changed)
+        assertEquals(WakeLearningReasonCode.FRICTION_GUARDRAIL, decision.explanation.code)
+        assertEquals(policy, decision.snapshot.policy)
+    }
+
+    @Test
+    fun `outcomes from other policy versions are ignored as evidence`() {
+        val foreign = (1..5).map { index ->
+            outcome(index, policyVersion = policy.version + 1)
+        }
+
+        val decision = learner.derive(policy, foreign)
+
+        assertFalse(decision.changed)
+        assertEquals(WakeLearningReasonCode.INSUFFICIENT_EVIDENCE, decision.explanation.code)
+        assertEquals(0, decision.explanation.relevantSessionCount)
+    }
+
+    @Test
+    fun `deriving from a policy outside the learning bounds fails fast`() {
+        val outOfBounds = policy.copy(activationThreshold = 9)
+
+        assertFailsWith<IllegalArgumentException> {
+            learner.derive(outOfBounds, (1..4).map { index -> outcome(index) })
+        }
+    }
+
+    private fun selfSnapshot(snapshotPolicy: WakePolicy): WakePolicySnapshot = WakePolicySnapshot(
+        sourcePolicy = snapshotPolicy,
+        policy = snapshotPolicy,
+        sourceSessionIds = emptyList(),
+        changes = emptyList(),
+    )
+
     private fun outcome(
         index: Int,
         activationCompleted: Boolean = true,

@@ -22,6 +22,12 @@ class MotionEvidenceExtractor(
     private var pendingTiltChangeNanos: Long? = null
     private var pendingTiltDeltaDegrees: Double = 0.0
 
+    /**
+     * Feeds one linear-acceleration sample.
+     *
+     * Acceleration and tilt timestamps must come from the same monotonic nanosecond base
+     * (`SensorEvent.timestamp`): cross-stream pairing and the movement window assume comparability.
+     */
     fun onAcceleration(
         timestampNanos: Long,
         linearAccelerationMagnitude: Double,

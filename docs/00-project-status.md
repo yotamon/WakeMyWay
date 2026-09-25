@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-09-24  
+**Last updated:** 2026-09-25  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -224,6 +224,19 @@ The automated/repository side of Gate 2 is now substantially converged.
 - The existing `:benchmark` module is now a release-derived Play cold-start Macrobenchmark contract. CI verifies buildability; physical-device timing remains #97 because hosted-emulator timings are not product evidence.
 - Founder/debug Wake Lab and Alfred setup actions remain gated behind `FLAG_DEBUGGABLE`; normal release UI exposes no fake account or developer placeholder.
 - Remaining physical FINISH acceptance is tracked in #97 (startup timing) and #99 (TalkBack + system reduced-motion behavior), coordinated with the broader physical reliability work in #9.
+
+## Deep review hardening (2026-09-25)
+
+A repository-wide review of the trust-critical paths produced a hardening pass. No product scope changed.
+
+- Android 12/12L (API 31/32) exact-alarm repair: `SCHEDULE_EXACT_ALARM` is now declared with `maxSdkVersion="32"` alongside `USE_EXACT_ALARM`. Without it, no exact alarm could ever be registered, enabled, or repaired on those OS versions.
+- The last-resort `ToneGenerator` fallback in `AlarmPlaybackService` is guarded and re-armed on a repeating timer. On total audio failure the wake stays foreground, haptic and controllable instead of crash-looping through `START_REDELIVER_INTENT`.
+- Active wake execution now owns a redundant repeating haptic layer, requests alarm-stream audio focus (inert listener: playback never yields), holds a timeout-guarded CPU wake lock across the receiver-to-audio window, and uses `setWakeMode` for looping playback. Failed `MediaPlayer` construction can no longer leak decoders.
+- `WakeActivity` handles `onNewIntent` and relaunches for a different occurrence, so a newer wake's UI intent can no longer land silently on a stale surface.
+- `AlarmKernel` and `CriticalWakeStore` mutation paths synchronize on one process-wide lock; per-instance monitors never guarded cross-component read-modify-write.
+- Wake Learning v0: the fail-closed validator explicitly rejects multi-change snapshots, `derive()` fails fast on out-of-bounds current policies, persisted-version semantics (source version may exceed the default version; lineage is not the trust boundary) are documented and pinned by tests, and previously untested fallback branches (`MISSING`, out-of-bounds persisted state, stale baseline, all three safe-bound stops, the friction guardrail on false-positive activations, foreign-policyVersion evidence) are covered.
+- Commerce: `POST /api/v1/commerce/play-verify` is fail-closed until an edge rate-limit rule id is declared (`WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID`); RTDN push-JWT verification and the consolidated internal AI route have explicit authorization tests.
+- Validation: cloud `typecheck` + 86 tests pass locally; wake-core 107 unit tests pass locally on JDK 17; Robolectric suites compile locally and run in Android CI (this workstation is Windows ARM64, where Robolectric's native runtime cannot load).
 
 ## Physical proof still required
 

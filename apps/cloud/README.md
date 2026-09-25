@@ -130,7 +130,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL=
 GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY=
 ```
 
-Before setting `WMW_PLAY_VERIFICATION_ENABLED=true`, also configure a production edge rate limit for `POST /api/v1/commerce/play-verify` and exercise the endpoint with a Play license tester. Purchase tokens and service-account credentials must never be logged or shipped in Android.
+Before setting `WMW_PLAY_VERIFICATION_ENABLED=true`, also configure a production edge rate limit for `POST /api/v1/commerce/play-verify` and declare its rule id via `WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID`: the route is fail-closed and refuses to enable without it, because it performs an unauthenticated token exchange and unbounded traffic would exhaust the Google androidpublisher quota. Then exercise the endpoint with a Play license tester. Purchase tokens and service-account credentials must never be logged or shipped in Android.
 
 For Real-time Developer Notifications, provision an authenticated Pub/Sub push subscription and set:
 
