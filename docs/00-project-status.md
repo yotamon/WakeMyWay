@@ -343,6 +343,8 @@ The direct/Play package identity remains stable, consumer AlarmDefinitions remai
 
 A dedicated API 36 CI lane builds the PR base and candidate with the same debug signing identity, seeds alarm/preferences/history/critical state into the baseline, performs `adb install -r`, checks that `firstInstallTime` is unchanged, and verifies the same durable state from the candidate. The lane is path-scoped to persistence/alarm/update-sensitive changes to contain CI cost.
 
+Startup/update reconciliation now also heals product-to-kernel drift instead of requiring an alarm edit. An enabled persisted `AlarmDefinition` can rebuild a missing or disabled critical schedule slot, while temporary Android scheduling/presentation capability loss suspends only future OS registrations and preserves the durable next occurrence for Home/Alarms visibility. Voice capability loss no longer disables an otherwise valid base alarm; voice remains an enrichment/fallback concern rather than alarm authority.
+
 ## Active 1.0 readiness program
 
 WakeMyWay now operates under the paid-launch readiness plan in [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) and program issue #89.
