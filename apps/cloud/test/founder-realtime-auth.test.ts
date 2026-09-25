@@ -31,7 +31,6 @@ describe('founder Realtime server readiness', () => {
       'OpenAI API key',
       'founder Realtime gate',
       'founder token signing key',
-      'founder access code',
     ]);
   });
 
@@ -40,20 +39,12 @@ describe('founder Realtime server readiness', () => {
       OPENAI_API_KEY: 'server-only-openai-key',
       WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
       WMW_FOUNDER_TOKEN_SIGNING_KEY: 's'.repeat(64),
-      WMW_FOUNDER_PAIRING_CODE: 'WakeMyWay-Founder-Connect-2026',
     };
 
     expect(founderRealtimeSetupStatus(minimalEnvironment)).toEqual({ available: true, missing: [] });
   });
 
-  it('does not treat short founder secrets as configured', () => {
-    expect(
-      founderRealtimeSetupStatus({
-        ...readyEnvironment,
-        WMW_FOUNDER_PAIRING_CODE: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1),
-      }),
-    ).toEqual({ available: false, missing: ['founder access code'] });
-
+  it('does not treat a short founder signing key as configured', () => {
     expect(
       founderRealtimeSetupStatus({
         ...readyEnvironment,
@@ -64,6 +55,20 @@ describe('founder Realtime server readiness', () => {
 });
 
 describe('founder installation pairing', () => {
+  it('bootstraps a Direct installation without user-entered access code', () => {
+    const paired = pairFounderInstallation(
+      { installationId },
+      { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
+    );
+
+    const verified = verifyFounderDeviceToken(paired.deviceToken, {
+      environment: readyEnvironment,
+      nowSeconds: 1_800_000_001,
+    });
+    expect(verified.sub).toBe(installationId);
+    expect(verified.scope).toBe('founder-realtime-wake');
+  });
+
   it('exchanges the access code for a scoped expiring installation credential', () => {
     const paired = pairFounderInstallation(
       { code: readyEnvironment.WMW_FOUNDER_PAIRING_CODE, installationId },

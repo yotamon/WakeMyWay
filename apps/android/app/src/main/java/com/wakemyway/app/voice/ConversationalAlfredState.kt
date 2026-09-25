@@ -32,6 +32,18 @@ object ConversationalAlfredState {
             .apply()
     }
 
+    /**
+     * Pre-warms distribution-scoped Realtime credentials without linking Direct-only code into Play.
+     * Failure is intentionally silent because local waking must remain independent of cloud access.
+     */
+    fun prewarmIfSupported(context: Context) {
+        runCatching {
+            val type = Class.forName("com.wakemyway.app.voice.DirectRealtimeProvisioner")
+            type.getMethod("provision", Context::class.java)
+                .invoke(null, context.applicationContext)
+        }
+    }
+
     fun setupAvailable(context: Context): Boolean = resolveSetupActivity(context) != null
 
     fun openSetup(context: Context): Boolean {

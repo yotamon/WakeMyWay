@@ -7,7 +7,7 @@ import {
 import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../../../src/http.js';
 
 const bodySchema = z.object({
-  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),
+  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128).optional(),
   installationId: z.string().uuid(),
 });
 

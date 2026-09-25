@@ -44,7 +44,7 @@ AlarmManager.setAlarmClock()
           ├─ local Alfred
           ├─ on-device voice replies
           ├─ motion evidence
-          └─ optional founder/debug Realtime enrichment
+          └─ optional Direct Realtime enrichment
 
 Optional account backup/migration
         │
@@ -263,16 +263,21 @@ A repository-wide review of the trust-critical paths produced a hardening pass. 
 
 ## Direct OpenAI Realtime dogfood (2026-09-25)
 
-The normal Direct-distribution APK now contains the previously debug-only OpenAI Realtime WebRTC
-enrichment path. A paired Direct installation can connect Realtime voice from Profile and then use
-it automatically during ordinary Voice Check-In alarms. Play builds remain local-only.
+The normal Direct-distribution APK contains the OpenAI Realtime WebRTC enrichment path. Realtime is
+now **zero-setup** for Direct users: the app creates a random installation identity, pre-warms a
+scoped server credential in the background, stores it through Android Keystore, and renews or
+re-bootstraps automatically when needed. There is no consumer access-code, API-key, Vercel, account,
+or manual pairing step. The old private-code flow remains only as dormant founder diagnostics.
 
 The path keeps AlarmKernel/WakeRuntime authoritative, uses short-lived server-minted OpenAI client
-credentials, derives a pseudonymous safety identifier per paired installation, applies an eight-turn
-/ three-minute client budget, caps assistant output, keeps stable instructions at the session
-prefix, and falls back immediately to local Alfred on any failure. Raw Realtime audio/transcripts
-remain unpersisted. Physical morning/network/audio-route evidence is still required before broader
-rollout.
+credentials, derives a pseudonymous safety identifier per installation, applies an eight-turn /
+three-minute client budget, caps assistant output, keeps stable instructions at the session prefix,
+and falls back immediately to local Alfred on any failure. Raw Realtime audio/transcripts remain
+unpersisted. Play builds remain local-only.
+
+Automatic bootstrap is still a private Direct dogfood boundary, not a public anti-abuse mechanism.
+Broader rollout must add server-verifiable entitlement/attestation before Realtime is enabled for
+general Play distribution. Physical morning/network/audio-route evidence is still required.
 
 ## Physical proof still required
 

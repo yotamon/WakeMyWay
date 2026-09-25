@@ -279,7 +279,7 @@ fun PrivacyScreen(
             )
             PrivacyFact(
                 title = "Voice replies",
-                body = "Local Voice Check-In does not persist raw microphone audio or raw transcripts. When Realtime voice is explicitly connected in a Direct build, live microphone audio and Alfred's generated audio use OpenAI for that active conversation; WakeMyWay still does not persist the audio or transcript. The alarm remains controllable without voice or network.",
+                body = "Local Voice Check-In does not persist raw microphone audio or raw transcripts. In Direct builds with Realtime voice, WakeMyWay automatically obtains a short-lived credential and uses OpenAI for live microphone audio and Alfred's generated audio only during the active conversation. WakeMyWay does not persist the audio or transcript. The alarm remains controllable without voice or network.",
             )
             PrivacyFact(
                 title = "Alarm delivery",

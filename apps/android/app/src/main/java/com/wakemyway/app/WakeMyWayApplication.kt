@@ -3,6 +3,7 @@ package com.wakemyway.app
 import android.app.Application
 import androidx.work.Configuration
 import com.wakemyway.app.alarm.AlarmPresentationAccess
+import com.wakemyway.app.voice.ConversationalAlfredState
 
 /**
  * Keeps WorkManager off cold app/process startup so deferrable M6 preparation cannot add work ahead
@@ -16,6 +17,7 @@ class WakeMyWayApplication : Application(), Configuration.Provider {
         // user changes to an existing channel, so AlarmKernel can then detect if priority was
         // lowered or the channel was disabled and route the user to repair it before bedtime.
         AlarmPresentationAccess.ensureChannel(this)
+        ConversationalAlfredState.prewarmIfSupported(this)
     }
 
     override val workManagerConfiguration: Configuration

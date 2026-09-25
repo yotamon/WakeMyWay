@@ -8,12 +8,13 @@ import { parseDirectOpenAiRealtimeConfig } from './voice-spike/direct-openai.js'
 const FOUNDER_SCOPE = 'founder-realtime-wake';
 const DEVICE_TOKEN_VERSION = 1;
 const DEVICE_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
+const AUTOMATIC_DEVICE_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const MAX_FUTURE_SKEW_SECONDS = 5 * 60;
 export const FOUNDER_PAIRING_CODE_MIN_LENGTH = 24;
 export const FOUNDER_SIGNING_KEY_MIN_LENGTH = 32;
 
 const pairingInputSchema = z.object({
-  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128),
+  code: z.string().trim().min(FOUNDER_PAIRING_CODE_MIN_LENGTH).max(128).optional(),
   installationId: z.string().uuid(),
 });
 
@@ -60,7 +61,6 @@ export function founderRealtimeSetupStatus(
   if (!realtime.configured) missing.push('OpenAI API key');
   if (!realtime.founderDogfoodEnabled) missing.push('founder Realtime gate');
   if (!founderSigningKey(environment)) missing.push('founder token signing key');
-  if (!pairingCode(environment)) missing.push('founder access code');
 
   return { available: missing.length === 0, missing };
 }
@@ -88,18 +88,25 @@ export function pairFounderInstallation(
   const parsed = pairingInputSchema.safeParse(input);
   if (!parsed.success) throw new HttpError(400, 'Pairing request is invalid.');
 
-  const expectedCode = requirePairingCode(environment);
-  if (!secureEqual(parsed.data.code, expectedCode)) {
-    throw new HttpError(401, 'Founder access code was not accepted.');
+  // Legacy/manual founder pairing may still provide the private code, but Direct consumer builds
+  // bootstrap anonymously by installation ID so Realtime requires no user setup. The dogfood gate
+  // remains the rollout boundary; public Play distribution stays local-only.
+  if (parsed.data.code !== undefined) {
+    const expectedCode = requirePairingCode(environment);
+    if (!secureEqual(parsed.data.code, expectedCode)) {
+      throw new HttpError(401, 'Founder access code was not accepted.');
+    }
   }
 
   const now = options.nowSeconds ?? Math.floor(Date.now() / 1000);
+  const tokenTtlSeconds =
+    parsed.data.code === undefined ? AUTOMATIC_DEVICE_TOKEN_TTL_SECONDS : DEVICE_TOKEN_TTL_SECONDS;
   const payload: TokenPayload = {
     v: DEVICE_TOKEN_VERSION,
     scope: FOUNDER_SCOPE,
     sub: parsed.data.installationId,
     iat: now,
-    exp: now + DEVICE_TOKEN_TTL_SECONDS,
+    exp: now + tokenTtlSeconds,
   };
 
   return {
