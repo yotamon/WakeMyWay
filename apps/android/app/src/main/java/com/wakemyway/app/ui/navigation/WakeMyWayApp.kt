@@ -139,7 +139,7 @@ fun WakeMyWayApp(
     )
 
     fun refreshProductState(reconcile: Boolean = true) {
-        alarmHealth = if (reconcile) alarmKernel.reconcile() else alarmKernel.health()
+        alarmHealth = if (reconcile) alarmController.reconcile() else alarmKernel.health()
         alarms = alarmController.list()
     }
 
