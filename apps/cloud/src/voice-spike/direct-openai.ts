@@ -197,6 +197,12 @@ async function mintRealtimeClientSecret(
       operation: 'client-secret',
       providerStatus: response.status,
     });
+    if (response.status === 401 || response.status === 403) {
+      throw new HttpError(503, 'OpenAI Realtime credentials were rejected.');
+    }
+    if (response.status === 429) {
+      throw new HttpError(503, 'OpenAI Realtime quota is unavailable.');
+    }
     throw new Error(`Direct OpenAI realtime client-secret request failed with HTTP ${response.status}`);
   }
 
