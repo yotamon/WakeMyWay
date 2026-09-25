@@ -193,6 +193,10 @@ async function mintRealtimeClientSecret(
   if (!response.ok) {
     // Never include the provider response body here: it can contain operational
     // details that do not belong in our application logs or client surface.
+    console.error('[wmw-openai-realtime]', {
+      operation: 'client-secret',
+      providerStatus: response.status,
+    });
     throw new Error(`Direct OpenAI realtime client-secret request failed with HTTP ${response.status}`);
   }
 
