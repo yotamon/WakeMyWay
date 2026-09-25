@@ -8,9 +8,11 @@ import {
   type PlayPurchaseLifecycleStore,
 } from '../src/commerce/play-lifecycle-store';
 import { handlePlayRtdnRequest } from '../src/commerce/play-rtdn-handler';
+import { HttpError } from '../src/http';
 import {
   decodePlayRtdnNotification,
   requirePlayRtdnConfig,
+  verifyPlayRtdnAuthorization,
 } from '../src/commerce/play-rtdn';
 
 const environment: NodeJS.ProcessEnv = {
@@ -19,6 +21,7 @@ const environment: NodeJS.ProcessEnv = {
   WMW_PLAY_SUBSCRIPTION_PRODUCT_IDS: 'wakemyway_pro',
   GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: 'play-verifier@example.iam.gserviceaccount.com',
   GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY: 'not-used-by-injected-token',
+  WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID: 'edge-rate-limit-rule-1',
   WMW_PLAY_RTDN_ENABLED: 'true',
   WMW_PLAY_RTDN_AUDIENCE: 'https://wakemyway.example/api/v1/commerce/play-rtdn',
   WMW_PLAY_RTDN_SERVICE_ACCOUNT_EMAIL: 'play-rtdn@example.iam.gserviceaccount.com',
@@ -62,6 +65,73 @@ function pushRequest(
 }
 
 const allowAuthorization = async () => undefined;
+
+const rejectAuthorization: typeof allowAuthorization = async () => {
+  throw new HttpError(401, 'Unauthorized.');
+};
+
+describe('Google Play RTDN authorization', () => {
+  it('cryptographically verifies the Pub/Sub push JWT before any body parsing', async () => {
+    const rtdnConfig = requirePlayRtdnConfig(environment);
+    const url = environment.WMW_PLAY_RTDN_AUDIENCE!;
+
+    // Malformed credentials must fail before any JWKS network fetch is needed.
+    await expect(
+      verifyPlayRtdnAuthorization(new Request(url, { method: 'POST' }), rtdnConfig),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(
+      verifyPlayRtdnAuthorization(
+        new Request(url, { method: 'POST', headers: { authorization: 'Token not-a-jwt' } }),
+        rtdnConfig,
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(
+      verifyPlayRtdnAuthorization(
+        new Request(url, { method: 'POST', headers: { authorization: 'Bearer not-a-jwt' } }),
+        rtdnConfig,
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('handler verifies authorization by default and never touches state on rejection', async () => {
+    const store = new MemoryPlayLifecycleStore();
+
+    const response = await handlePlayRtdnRequest(
+      pushRequest({
+        version: '1.0',
+        packageName: 'com.wakemyway.app',
+        eventTimeMillis: '1790280000000',
+        testNotification: { version: '1.0' },
+      }, 'unauthorized-1'),
+      { store },
+      environment,
+    );
+
+    // 'Bearer test-token' is not a valid Google-signed push JWT.
+    expect(response.status).toBe(401);
+    expect(store.messages.size).toBe(0);
+    expect(store.purchases).toEqual([]);
+  });
+
+  it('handler propagates an authorization rejection from the injected verifier', async () => {
+    const store = new MemoryPlayLifecycleStore();
+
+    const response = await handlePlayRtdnRequest(
+      pushRequest({
+        version: '1.0',
+        packageName: 'com.wakemyway.app',
+        eventTimeMillis: '1790280000000',
+        testNotification: { version: '1.0' },
+      }, 'unauthorized-2'),
+      { store, verifyAuthorization: rejectAuthorization },
+      environment,
+    );
+
+    expect(response.status).toBe(401);
+    expect(store.messages.size).toBe(0);
+    expect(store.purchases).toEqual([]);
+  });
+});
 
 describe('Google Play RTDN lifecycle', () => {
   it('is disabled and fail-closed by default', () => {

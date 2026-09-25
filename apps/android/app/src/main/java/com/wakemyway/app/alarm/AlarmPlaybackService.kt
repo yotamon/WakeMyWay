@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.ToneGenerator
@@ -15,6 +16,10 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.annotation.RawRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -25,9 +30,26 @@ class AlarmPlaybackService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var toneFallback: ToneGenerator? = null
     private var activePlaybackSpec: WakeSoundPlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hapticsStarted = false
+    private var startupCpuLock: PowerManager.WakeLock? = null
+    private var emergencyToneCpuLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val restoreAlarmVolume = Runnable {
         setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
+    }
+    private val reArmToneFallback = object : Runnable {
+        override fun run() {
+            val tone = toneFallback ?: return
+            // The emergency tone is a finite one-shot; without re-arming, the last-resort audio
+            // layer would degrade to silence while the wake is still active.
+            runCatching { tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD) }
+            mainHandler.postDelayed(this, TONE_RE_ARM_MILLIS)
+        }
+    }
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { _ ->
+        // Deliberately inert. Critical wake audio never ducks or yields: only Stop/Snooze end the
+        // wake, and the voice-window volume lease is owned by beginVoiceWindow/endVoiceWindow.
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -140,6 +162,10 @@ class AlarmPlaybackService : Service() {
         occurrenceId: WakeOccurrenceId,
         validatePresentation: Boolean = true,
     ): Int {
+        // The broadcast wake lock dies with AlarmReceiver; hold the CPU across kernel reads and
+        // MediaPlayer prepare so the device cannot re-suspend in the fire-to-audio window.
+        holdCpuUntilAudioStarts()
+
         // AlarmReceiver has already performed the presentation-safety preflight immediately before
         // a fresh ACTION_START. Repeating NotificationManager / special-access calls here can block
         // the direct-boot critical path before startForeground(). Recovery and redelivery still
@@ -170,20 +196,34 @@ class AlarmPlaybackService : Service() {
 
         val activeId = kernel.activeOccurrence()?.id ?: occurrenceId
         val policy = kernel.activePolicy(activeId) ?: CriticalWakePolicy.DEFAULT
-        val playbackAlreadyActive = mediaPlayer?.isPlaying == true || toneFallback != null
+        val playbackAlreadyActive = playbackAudiblyActive()
         startForeground(NOTIFICATION_ID, alarmNotification(activeId, policy))
         if (!playbackAlreadyActive) {
             WakeTimingTrace(this).foreground(activeId)
         }
         startPlayback(activeId, policy)
+        if (mediaPlayer != null) {
+            // The looping player owns CPU retention for the rest of the wake via setWakeMode.
+            releaseCpuHold()
+        }
         return START_REDELIVER_INTENT
     }
+
+    private fun playbackAudiblyActive(): Boolean =
+        runCatching { mediaPlayer?.isPlaying == true }.getOrDefault(false) || toneFallback != null
 
     private fun startPlayback(
         occurrenceId: WakeOccurrenceId,
         policy: CriticalWakePolicy,
     ) {
-        if (mediaPlayer?.isPlaying == true || toneFallback != null) return
+        if (playbackAudiblyActive()) return
+
+        // A player that exists but can no longer report playback must be released before its
+        // replacement is built, or a degraded redelivery would leak media decoders.
+        releaseIdleMediaPlayer()
+
+        requestCriticalAudioFocus()
+        startCriticalHaptics()
 
         val resolved = WakeSoundCatalog.resolve(this, policy.soundId)
         activePlaybackSpec = resolved.playback
@@ -200,9 +240,6 @@ class AlarmPlaybackService : Service() {
             return
         }
 
-        mediaPlayer?.release()
-        mediaPlayer = null
-
         // A branded resource can still fail to decode even when it is present in the APK. Retry the
         // known emergency WAV before using the platform tone so corrupt media can never become
         // silence and never weaken Stop/Snooze controllability.
@@ -218,36 +255,148 @@ class AlarmPlaybackService : Service() {
                 WakeTimingTrace(this).audioStarted(occurrenceId)
                 return
             }
-            mediaPlayer?.release()
-            mediaPlayer = null
         }
 
         // Last-resort platform tone stays at full alarm volume. It deliberately does not duck for
-        // speech because degraded critical playback must remain maximally reliable.
+        // speech because degraded critical playback must remain maximally reliable. Its constructor
+        // can itself fail on a degraded audio HAL, so it is guarded: on total audio failure the
+        // wake stays visible, haptic and controllable through the foreground notification instead
+        // of crashing the service into a silent restart loop.
         activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
-        toneFallback = ToneGenerator(AudioManager.STREAM_ALARM, 100).also { tone ->
-            tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD)
+        val tone = runCatching { ToneGenerator(AudioManager.STREAM_ALARM, 100) }.getOrNull()
+        if (tone != null) {
+            toneFallback = tone
+            runCatching { tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD) }
+            mainHandler.removeCallbacks(reArmToneFallback)
+            mainHandler.postDelayed(reArmToneFallback, TONE_RE_ARM_MILLIS)
+            holdCpuForToneFallback()
+            WakeTimingTrace(this).audioStarted(occurrenceId)
         }
-        WakeTimingTrace(this).audioStarted(occurrenceId)
     }
 
     private fun createLoopingPlayer(
         @RawRes rawResourceId: Int,
         volume: Float,
-    ): MediaPlayer = resources.openRawResourceFd(rawResourceId).use { descriptor ->
-        MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build(),
-            )
-            setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
-            isLooping = true
-            prepare()
-            setVolume(volume, volume)
-            start()
+    ): MediaPlayer {
+        val player = MediaPlayer()
+        try {
+            player.setAudioAttributes(alarmAudioAttributes())
+            resources.openRawResourceFd(rawResourceId).use { descriptor ->
+                player.setDataSource(descriptor.fileDescriptor, descriptor.startOffset, descriptor.length)
+            }
+            player.isLooping = true
+            // Keeps the CPU up through prepare and looping playback when the screen stays off.
+            player.setWakeMode(applicationContext, PowerManager.PARTIAL_WAKE_LOCK)
+            player.prepare()
+            player.setVolume(volume, volume)
+            player.start()
+            return player
+        } catch (error: Throwable) {
+            // A player that failed mid-construction must never leak below its replacement.
+            runCatching { player.release() }
+            throw error
         }
+    }
+
+    private fun alarmAudioAttributes(): AudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ALARM)
+        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        .build()
+
+    private fun releaseIdleMediaPlayer() {
+        mediaPlayer?.runCatching { release() }
+        mediaPlayer = null
+    }
+
+    private fun requestCriticalAudioFocus() {
+        if (audioFocusRequest != null) return
+        audioFocusRequest = runCatching {
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+                .setOnAudioFocusChangeListener(audioFocusListener)
+                .build()
+            // The granted/failed result never gates critical playback: an alarm must remain
+            // audible across media sessions and calls, and only Stop/Snooze end the wake.
+            getSystemService(AudioManager::class.java).requestAudioFocus(request)
+            request
+        }.getOrNull()
+    }
+
+    private fun abandonCriticalAudioFocus() {
+        val request = audioFocusRequest ?: return
+        audioFocusRequest = null
+        runCatching {
+            getSystemService(AudioManager::class.java).abandonAudioFocusRequest(request)
+        }
+    }
+
+    private fun startCriticalHaptics() {
+        if (hapticsStarted) return
+        val vibrator = systemVibrator() ?: return
+        hapticsStarted = runCatching {
+            // Redundant physical layer that survives a fully silent audio stack: vibration, like
+            // audio, is owned exclusively by the active wake execution.
+            vibrator.vibrate(
+                VibrationEffect.createWaveform(HAPTIC_TIMINGS, HAPTIC_AMPLITUDES, 0),
+            )
+        }.isSuccess
+    }
+
+    private fun stopCriticalHaptics() {
+        hapticsStarted = false
+        systemVibrator()?.let { vibrator -> runCatching { vibrator.cancel() } }
+    }
+
+    private fun systemVibrator(): Vibrator? = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Vibrator::class.java)
+        }
+    }.getOrNull()
+
+    private fun holdCpuUntilAudioStarts() {
+        if (startupCpuLock != null) return
+        startupCpuLock = runCatching {
+            getSystemService(PowerManager::class.java).newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "wakemyway:activeWakeStartup",
+            ).apply {
+                setReferenceCounted(false)
+                acquire(CPU_HOLD_TIMEOUT_MILLIS)
+            }
+        }.getOrNull()
+    }
+
+    private fun holdCpuForToneFallback() {
+        if (emergencyToneCpuLock != null) return
+        emergencyToneCpuLock = runCatching {
+            getSystemService(PowerManager::class.java).newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "wakemyway:activeWakeTone",
+            ).apply {
+                setReferenceCounted(false)
+                // The tone path has no system-managed player wake lock to lean on, and its
+                // handler-driven re-arming needs the CPU. Released in releasePlayback.
+                acquire()
+            }
+        }.getOrNull()
+    }
+
+    private fun releaseCpuHold() {
+        startupCpuLock?.let { lock -> runCatching { if (lock.isHeld) lock.release() } }
+        startupCpuLock = null
+    }
+
+    private fun releaseToneCpuHold() {
+        emergencyToneCpuLock?.let { lock -> runCatching { if (lock.isHeld) lock.release() } }
+        emergencyToneCpuLock = null
     }
 
     /**
@@ -278,12 +427,17 @@ class AlarmPlaybackService : Service() {
 
     private fun releasePlayback() {
         mainHandler.removeCallbacks(restoreAlarmVolume)
-        mediaPlayer?.runCatching { stop() }
-        mediaPlayer?.release()
-        mediaPlayer = null
-        toneFallback?.stopTone()
-        toneFallback?.release()
+        mainHandler.removeCallbacks(reArmToneFallback)
+        releaseIdleMediaPlayer()
+        toneFallback?.let { tone ->
+            runCatching { tone.stopTone() }
+            runCatching { tone.release() }
+        }
         toneFallback = null
+        abandonCriticalAudioFocus()
+        stopCriticalHaptics()
+        releaseCpuHold()
+        releaseToneCpuHold()
         activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
     }
 
@@ -382,6 +536,10 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
+        private const val TONE_RE_ARM_MILLIS = 4_000L
+        private const val CPU_HOLD_TIMEOUT_MILLIS = 20_000L
+        private val HAPTIC_TIMINGS = longArrayOf(0L, 900L, 700L)
+        private val HAPTIC_AMPLITUDES = intArrayOf(0, 255, 0)
         const val EXTRA_OCCURRENCE_ID = "occurrence_id"
 
         fun start(context: Context, occurrenceId: WakeOccurrenceId) {

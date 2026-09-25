@@ -19,6 +19,7 @@ const environment: NodeJS.ProcessEnv = {
   WMW_PLAY_SUBSCRIPTION_PRODUCT_IDS: 'wakemyway_pro',
   GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: 'play-verifier@example.iam.gserviceaccount.com',
   GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY: 'not-used-by-injected-token',
+  WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID: 'edge-rate-limit-rule-1',
 };
 
 class MemoryPlayLifecycleStore implements PlayPurchaseLifecycleStore {
@@ -320,6 +321,66 @@ describe('Google Play subscription verification', () => {
     expect(await response.json()).toMatchObject({
       error: 'Play purchase verification is not enabled.',
     });
+  });
+
+  it('stays unavailable until a production edge rate limit is declared', async () => {
+    expect(() =>
+      requirePlayVerificationConfig({
+        ...environment,
+        WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID: '   ',
+      }),
+    ).toThrowError(
+      'Play purchase verification requires a configured edge rate limit before enablement.',
+    );
+
+    const request = new Request('https://example.test/api/v1/commerce/play-verify', {
+      method: 'POST',
+      body: JSON.stringify({
+        productId: 'wakemyway_pro',
+        purchaseToken: 'secret-purchase-token-123456',
+      }),
+    });
+    const response = await handlePlayVerificationRequest(
+      request,
+      {},
+      { ...environment, WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID: undefined },
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: 'Play purchase verification requires a configured edge rate limit before enablement.',
+    });
+  });
+
+  it('maps an unknown Google purchase to 401 and persists no lifecycle state', async () => {
+    const store = new MemoryPlayLifecycleStore();
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('purchase not found', { status: 404 }),
+    );
+    const request = new Request('https://example.test/api/v1/commerce/play-verify', {
+      method: 'POST',
+      body: JSON.stringify({
+        productId: 'wakemyway_pro',
+        purchaseToken: 'tampered-or-replayed-token-123',
+      }),
+    });
+
+    const response = await handlePlayVerificationRequest(
+      request,
+      {
+        fetch: fetchMock,
+        accessToken: async () => 'google-access-token',
+        store,
+      },
+      environment,
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      error: 'Purchase could not be verified.',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(store.purchases).toEqual([]);
   });
 
   it('rejects non-POST methods without touching provider state', async () => {

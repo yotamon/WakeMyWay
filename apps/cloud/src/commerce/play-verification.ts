@@ -58,6 +58,7 @@ export interface PlayVerificationConfig {
   allowedProductIds: Set<string>;
   serviceAccountEmail?: string;
   serviceAccountPrivateKey?: string;
+  rateLimitRuleId?: string;
 }
 
 export interface PlayVerificationDependencies {
@@ -88,6 +89,7 @@ export function parsePlayVerificationConfig(
       .map(value => value.trim())
       .filter(Boolean),
   );
+  const rateLimitRuleId = nonBlank(environment.WMW_PLAY_VERIFY_RATE_LIMIT_RULE_ID);
 
   return {
     enabled,
@@ -95,6 +97,7 @@ export function parsePlayVerificationConfig(
     ...(packageName ? { packageName } : {}),
     ...(serviceAccountEmail ? { serviceAccountEmail } : {}),
     ...(serviceAccountPrivateKey ? { serviceAccountPrivateKey } : {}),
+    ...(rateLimitRuleId ? { rateLimitRuleId } : {}),
   };
 }
 
@@ -105,6 +108,7 @@ export function requirePlayVerificationConfig(
   packageName: string;
   serviceAccountEmail: string;
   serviceAccountPrivateKey: string;
+  rateLimitRuleId: string;
 } {
   const config = parsePlayVerificationConfig(environment);
   if (!config.enabled) {
@@ -121,6 +125,15 @@ export function requirePlayVerificationConfig(
   if (!/^[A-Za-z0-9._]+(?:\.[A-Za-z0-9._]+)*$/.test(config.packageName)) {
     throw new HttpError(503, 'Play purchase verification is not configured correctly.');
   }
+  if (!config.rateLimitRuleId) {
+    // The endpoint intentionally performs a public token exchange; without a production edge
+    // rate limit, unauthenticated traffic can exhaust the Google androidpublisher quota. The
+    // route refuses to enable until the operator declares that the edge rule exists.
+    throw new HttpError(
+      503,
+      'Play purchase verification requires a configured edge rate limit before enablement.',
+    );
+  }
 
   return {
     ...config,
@@ -128,6 +141,7 @@ export function requirePlayVerificationConfig(
     packageName: config.packageName,
     serviceAccountEmail: config.serviceAccountEmail,
     serviceAccountPrivateKey: config.serviceAccountPrivateKey,
+    rateLimitRuleId: config.rateLimitRuleId,
   };
 }
 
