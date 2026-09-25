@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   instrumentation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload device-test evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wake-my-way-device-test-evidence-${{ github.sha }}
           path: |
