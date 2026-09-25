@@ -59,9 +59,12 @@ class DirectRealtimeWakeConversation(
     private var previousSpeakerphone: Boolean? = null
     private var inputEnabled = false
     private var responseAudible = false
-    private var speechStartedAtMs: Long? = null
+    private val turnCommitGate = RealtimeTurnCommitGate(MIN_USER_TURN_MS)
     private var assistantTurnCount = 0
 
+    private val sessionConfigurationTimeout = Runnable {
+        if (!closed && connectingState.get() && !readyState.get()) emitFailure("session-config-timeout")
+    }
     private val sessionBudgetTimeout = Runnable {
         if (!closed && readyState.get()) emitFailure("session-budget")
     }
@@ -114,6 +117,7 @@ class DirectRealtimeWakeConversation(
 
     override fun setInputEnabled(enabled: Boolean) {
         inputEnabled = enabled
+        if (!enabled) turnCommitGate.reset()
         audioTrack?.setEnabled(enabled)
     }
 
@@ -202,13 +206,8 @@ class DirectRealtimeWakeConversation(
                 emitFailure("session-config", current)
                 return
             }
-            readyState.set(true)
-            connectingState.set(false)
-            mainHandler.removeCallbacks(sessionBudgetTimeout)
-            mainHandler.postDelayed(sessionBudgetTimeout, MAX_SESSION_DURATION_MS)
-            mainHandler.post {
-                if (isCurrent(current)) listener.onConversationReady()
-            }
+            mainHandler.removeCallbacks(sessionConfigurationTimeout)
+            mainHandler.postDelayed(sessionConfigurationTimeout, SESSION_CONFIGURATION_TIMEOUT_MS)
         }
 
         override fun onMessage(buffer: DataChannel.Buffer?) {
@@ -226,9 +225,13 @@ class DirectRealtimeWakeConversation(
 
     private fun handleServerEvent(event: JSONObject, current: Long) {
         when (event.optString("type").takeIf(EVENT_TYPE_PATTERN::matches) ?: return) {
+            "session.updated" -> markSessionReady(current)
+
             "input_audio_buffer.speech_started" -> {
                 if (!inputEnabled) return
-                speechStartedAtMs = event.optLong("audio_start_ms").takeIf { it >= 0L }
+                turnCommitGate.onSpeechStarted(
+                    event.optLong("audio_start_ms", -1L).takeIf { it >= 0L },
+                )
                 mainHandler.post {
                     if (isCurrent(current)) listener.onUserSpeechStarted()
                 }
@@ -236,14 +239,15 @@ class DirectRealtimeWakeConversation(
 
             "input_audio_buffer.speech_stopped" -> {
                 if (!inputEnabled) return
-                val start = speechStartedAtMs
-                val end = event.optLong("audio_end_ms").takeIf { it >= 0L }
-                speechStartedAtMs = null
-                val duration = if (start != null && end != null) end - start else MIN_USER_TURN_MS
-                if (duration >= MIN_USER_TURN_MS) {
-                    mainHandler.post {
-                        if (isCurrent(current)) listener.onUserTurnObserved()
-                    }
+                turnCommitGate.onSpeechStopped(
+                    event.optLong("audio_end_ms", -1L).takeIf { it >= 0L },
+                )
+            }
+
+            "input_audio_buffer.committed" -> {
+                if (!inputEnabled || !turnCommitGate.onCommitted()) return
+                mainHandler.post {
+                    if (isCurrent(current)) listener.onUserTurnObserved()
                 }
             }
 
@@ -267,6 +271,17 @@ class DirectRealtimeWakeConversation(
         }
     }
 
+    private fun markSessionReady(current: Long) {
+        if (!isCurrent(current) || readyState.getAndSet(true)) return
+        connectingState.set(false)
+        mainHandler.removeCallbacks(sessionConfigurationTimeout)
+        mainHandler.removeCallbacks(sessionBudgetTimeout)
+        mainHandler.postDelayed(sessionBudgetTimeout, MAX_SESSION_DURATION_MS)
+        mainHandler.post {
+            if (isCurrent(current)) listener.onConversationReady()
+        }
+    }
+
     private fun finishAssistantAudio(current: Long, interrupted: Boolean) {
         if (!responseAudible) return
         responseAudible = false
@@ -277,10 +292,8 @@ class DirectRealtimeWakeConversation(
 
     private fun sendSessionConfiguration(channel: DataChannel, voice: String): Boolean {
         val turnDetection = JSONObject()
-            .put("type", "server_vad")
-            .put("threshold", 0.58)
-            .put("prefix_padding_ms", 250)
-            .put("silence_duration_ms", 650)
+            .put("type", "semantic_vad")
+            .put("eagerness", "high")
             .put("create_response", false)
             .put("interrupt_response", true)
         val session = JSONObject()
@@ -298,7 +311,12 @@ class DirectRealtimeWakeConversation(
             .put(
                 "audio",
                 JSONObject()
-                    .put("input", JSONObject().put("turn_detection", turnDetection))
+                    .put(
+                        "input",
+                        JSONObject()
+                            .put("noise_reduction", JSONObject().put("type", "far_field"))
+                            .put("turn_detection", turnDetection),
+                    )
                     .put("output", JSONObject().put("voice", voice).put("speed", 1.04)),
             )
         return sendEvent(
@@ -440,11 +458,12 @@ class DirectRealtimeWakeConversation(
     private fun disconnectResources(resetConnecting: Boolean = true) {
         readyState.set(false)
         if (resetConnecting) connectingState.set(false)
+        mainHandler.removeCallbacks(sessionConfigurationTimeout)
         mainHandler.removeCallbacks(sessionBudgetTimeout)
         inputEnabled = false
         responseAudible = false
         assistantTurnCount = 0
-        speechStartedAtMs = null
+        turnCommitGate.reset()
         runCatching { dataChannel?.unregisterObserver() }
         runCatching { dataChannel?.close() }
         runCatching { dataChannel?.dispose() }
@@ -544,6 +563,7 @@ class DirectRealtimeWakeConversation(
         const val MIN_USER_TURN_MS = 320L
         const val MAX_ASSISTANT_TURNS = 8
         const val MAX_OUTPUT_TOKENS = 120
+        const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
         const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-founder-wake-v1"
