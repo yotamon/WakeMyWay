@@ -474,6 +474,7 @@ jobs:
           git push origin "refs/tags/$RELEASE_TAG"
 
           if ! gh release create "$RELEASE_TAG"             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             dist/update.json             --repo "$GITHUB_REPOSITORY"             --verify-tag             --draft             --title "WakeMyWay $VERSION_NAME"             --notes-file dist/release-notes.md; then
+            gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes || true
             git push origin ":refs/tags/$RELEASE_TAG" || true
             exit 1
           fi
