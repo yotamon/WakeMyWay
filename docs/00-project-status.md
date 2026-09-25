@@ -279,6 +279,15 @@ Automatic bootstrap is still a private Direct dogfood boundary, not a public ant
 Broader rollout must add server-verifiable entitlement/attestation before Realtime is enabled for
 general Play distribution. Physical morning/network/audio-route evidence is still required.
 
+Realtime turn handling is hardened against two concrete race/quality failures found during Direct
+dogfood. A session is not exposed as ready until OpenAI acknowledges the applied `session.update`;
+failure to receive that acknowledgement within a bounded timeout falls back locally. User speech is
+not promoted to a typed WakeRuntime voice observation at VAD `speech_stopped`; it must first satisfy
+the short-turn floor and reach `input_audio_buffer.committed`, so the latest utterance is in the
+conversation before a new assistant response can be requested. Direct Realtime also uses semantic
+VAD with eager turn detection plus far-field input noise reduction for the bedside use case. The
+deterministic WakeRuntime, local Alfred fallback and Alarm Kernel authority remain unchanged.
+
 ## Physical proof still required
 
 Automated/emulator evidence is not sufficient for a wake product. Issue #9 remains the release gate for repeated physical-device proof, including:
