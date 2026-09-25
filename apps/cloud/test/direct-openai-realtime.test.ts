@@ -109,7 +109,7 @@ describe('direct OpenAI realtime client-secret broker', () => {
     expect(JSON.stringify(result)).not.toContain('server-only-openai-key');
   });
 
-  it('does not surface provider error bodies', async () => {
+  it('maps provider auth failures to safe service-unavailable errors without exposing bodies', async () => {
     await expect(
       createDirectOpenAiRealtimeClientSecret({
         environment: enabledEnvironment,
@@ -119,7 +119,10 @@ describe('direct OpenAI realtime client-secret broker', () => {
             headers: { 'content-type': 'application/json' },
           }),
       }),
-    ).rejects.toThrow('HTTP 401');
+    ).rejects.toMatchObject({
+      status: 503,
+      message: 'OpenAI Realtime credentials were rejected.',
+    });
 
     try {
       await createDirectOpenAiRealtimeClientSecret({
@@ -130,6 +133,18 @@ describe('direct OpenAI realtime client-secret broker', () => {
     } catch (error) {
       expect(String(error)).not.toContain('sensitive-provider-detail');
     }
+  });
+
+  it('maps provider quota failures to a safe service-unavailable error', async () => {
+    await expect(
+      createDirectOpenAiRealtimeClientSecret({
+        environment: enabledEnvironment,
+        fetchImpl: async () => new Response('quota detail', { status: 429 }),
+      }),
+    ).rejects.toMatchObject({
+      status: 503,
+      message: 'OpenAI Realtime quota is unavailable.',
+    });
   });
 
   it('rejects malformed client-secret responses', async () => {
