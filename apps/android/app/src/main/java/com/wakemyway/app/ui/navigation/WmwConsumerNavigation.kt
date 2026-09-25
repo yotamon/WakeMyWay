@@ -72,7 +72,8 @@ private fun WmwBottomBar(
     Surface(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(horizontal = WmwSpacing.Md, bottom = WmwSpacing.Sm)
+            .padding(horizontal = WmwSpacing.Md)
+            .padding(bottom = WmwSpacing.Sm)
             .fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = WmwColors.PaperCard.copy(alpha = 0.97f),
