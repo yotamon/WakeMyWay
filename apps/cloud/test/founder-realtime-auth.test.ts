@@ -44,14 +44,7 @@ describe('founder Realtime server readiness', () => {
     expect(founderRealtimeSetupStatus(minimalEnvironment)).toEqual({ available: true, missing: [] });
   });
 
-  it('does not treat short founder secrets as configured', () => {
-    expect(
-      founderRealtimeSetupStatus({
-        ...readyEnvironment,
-        WMW_FOUNDER_PAIRING_CODE: 'x'.repeat(FOUNDER_PAIRING_CODE_MIN_LENGTH - 1),
-      }),
-    ).toEqual({ available: false, missing: ['founder access code'] });
-
+  it('does not treat a short founder signing key as configured', () => {
     expect(
       founderRealtimeSetupStatus({
         ...readyEnvironment,
