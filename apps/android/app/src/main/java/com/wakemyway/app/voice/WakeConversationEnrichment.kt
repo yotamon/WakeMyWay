@@ -38,8 +38,9 @@ interface WakeConversationEnrichment : AutoCloseable {
 }
 
 /**
- * Release-safe factory. Debug/founder builds may provide the implementation by class name.
- * Reflection keeps WebRTC/network dependencies entirely out of release source/dependency graphs.
+ * Release-safe factory for distribution-scoped conversational adapters.
+ * Direct and debug variants may provide Realtime implementations by class name; Play provides none,
+ * so the shared wake path keeps an optional boundary without linking provider code into Play.
  */
 internal object WakeConversationEnrichmentFactory {
     private val implementations = listOf(

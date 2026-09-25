@@ -231,7 +231,7 @@ class RealtimeVoiceSetupActivity : ComponentActivity() {
             configured && !status.available -> {
                 statusPill.text = "SERVER SETUP"
                 statusTitle.text = "Alfred is paired, but cloud setup is incomplete"
-                statusBody.text = missingCopy(status.missing)
+                statusBody.text = serviceUnavailableCopy()
                 primaryButton.text = "Check again"
             }
             !configured && status.available -> {
@@ -242,7 +242,7 @@ class RealtimeVoiceSetupActivity : ComponentActivity() {
             }
             else -> renderUnavailable(
                 "Conversational Alfred needs server setup",
-                missingCopy(status.missing),
+                serviceUnavailableCopy(),
             )
         }
     }
@@ -383,12 +383,8 @@ class RealtimeVoiceSetupActivity : ComponentActivity() {
         disconnectButton.isEnabled = false
     }
 
-    private fun missingCopy(missing: List<String>): String =
-        if (missing.isEmpty()) {
-            "The WakeMyWay Realtime service is not ready yet."
-        } else {
-            "Server setup still needs: ${missing.joinToString(", ")}. Your local alarm remains unaffected."
-        }
+    private fun serviceUnavailableCopy(): String =
+        "The WakeMyWay Realtime service is not fully configured yet. Your local alarm remains unaffected."
 
     private fun matchWidth(topMargin: Int = 0): LinearLayout.LayoutParams =
         LinearLayout.LayoutParams(
