@@ -492,11 +492,13 @@ jobs:
           test "$(jq -r '.versionCode' "$RUNNER_TEMP/draft-assets/update.json")" = "$VERSION_CODE"
           test "$(jq -r '.versionName' "$RUNNER_TEMP/draft-assets/update.json")" = "$VERSION_NAME"
 
-      - name: Publish draft as latest
+      - id: publish
+        name: Publish draft as latest
         shell: bash
         run: |
           set -euo pipefail
           gh release edit "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --draft=false             --latest
+          echo "published=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify public latest endpoint
         shell: bash
@@ -533,6 +535,14 @@ jobs:
             echo "- Direct APK SHA-256: `$EXPECTED_SHA`"
             echo "- Public update endpoint: verified"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up unpublished draft after failure
+        if: ${{ failure() && steps.draft.outputs.created == 'true' && steps.publish.outputs.published != 'true' }}
+        shell: bash
+        run: |
+          set +e
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+          git push origin ":refs/tags/$RELEASE_TAG"
 
 
   dry-run-summary:
