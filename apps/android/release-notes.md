@@ -1,6 +1,6 @@
 ## What’s new
 
-- Adds the new responsive WakeMyWay home widget with Next Wake, Wake Ready status, Tomorrow preparation, and Morning Check-In shortcuts.
-- Strengthens wake recovery around process death, Direct Boot, capability loss, and active-wake restoration.
-- Improves accessibility, RTL behavior, contrast, and visual reliability across the core wake journey.
-- Expands release hardening and diagnostics so wake failures are easier to detect, reproduce, and recover from safely.
+- Redesigns the WakeMyWay home widget around a cleaner, time-first visual hierarchy with less empty space and less dashboard-style chrome.
+- Makes the next alarm the primary interaction: tapping the widget now opens that alarm directly for editing.
+- Refines Medium and Expanded layouts, Wake Ready presentation, schedule details, and the widget picker preview.
+- Adds regression coverage for widget sizing and exact alarm-edit routing.
