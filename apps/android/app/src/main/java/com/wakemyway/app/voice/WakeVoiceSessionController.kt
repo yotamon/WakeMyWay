@@ -83,10 +83,12 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed) return@post
                     conversationLive = true
+                    realtimeStartupPending = false
+                    mainHandler.removeCallbacks(startFallback)
                     when {
                         startRequested && !started -> beginRuntime(speechAvailable = true)
                         started -> {
-                            syncSpeechCapability()
+                            syncVoiceCapabilities()
                             syncSurfaceBoundResources()
                         }
                         else -> publish()
@@ -168,8 +170,12 @@ class WakeVoiceSessionController(
                     speaking = false
                     listening = false
 
+                    realtimeStartupPending = false
+                    mainHandler.removeCallbacks(startFallback)
                     if (started) {
-                        syncSpeechCapability()
+                        syncVoiceCapabilities()
+                    } else if (startRequested) {
+                        beginOrAwaitLocalRuntime()
                     } else {
                         publish()
                     }
@@ -204,11 +210,13 @@ class WakeVoiceSessionController(
     private var currentLine: String? = null
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
+    private var realtimeStartupPending = false
     private var realtimeTurnInFlight = false
     private var realtimeIntent: SpeechIntent? = null
 
     private val startFallback = Runnable {
         if (!started && startRequested && !closed) {
+            realtimeStartupPending = false
             beginRuntime(speaker.state() is LocalSpeechState.Ready)
         }
     }
@@ -246,17 +254,22 @@ class WakeVoiceSessionController(
     override fun onSurfaceVisible() {
         if (closed) return
         surfaceVisible = true
-        conversation?.connect()
+
         if (!startRequested) {
             startRequested = true
             publish()
-            when (speaker.state()) {
-                is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
-                is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = false)
-                LocalSpeechState.Initializing -> mainHandler.postDelayed(startFallback, TTS_START_BUDGET_MILLIS)
+            if (conversation != null) {
+                realtimeStartupPending = true
+                conversation.connect()
+                mainHandler.postDelayed(startFallback, REALTIME_START_BUDGET_MILLIS)
+            } else {
+                beginOrAwaitLocalRuntime()
             }
-        } else if (started) {
-            dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
+        } else {
+            conversation?.connect()
+            if (started) {
+                dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
+            }
         }
 
         if (started) syncSurfaceBoundResources()
@@ -314,7 +327,8 @@ class WakeVoiceSessionController(
             policy = policy,
             capabilities = WakeCapabilities(
                 speechAvailable = speechAvailable || conversationLive,
-                voiceInputAvailable = voiceListener.availability() is LocalVoiceAvailability.Ready,
+                voiceInputAvailable =
+                    voiceListener.availability() is LocalVoiceAvailability.Ready || conversationLive,
                 motionAvailable = true,
             ),
         )
@@ -325,6 +339,10 @@ class WakeVoiceSessionController(
     private fun onSpeechStateChanged(state: LocalSpeechState) {
         if (closed || !startRequested) return
         if (!started) {
+            if (realtimeStartupPending) {
+                publish()
+                return
+            }
             when (state) {
                 is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
                 is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = conversationLive)
@@ -333,17 +351,32 @@ class WakeVoiceSessionController(
             return
         }
 
-        syncSpeechCapability()
+        syncVoiceCapabilities()
     }
 
-    private fun syncSpeechCapability() {
+    private fun beginOrAwaitLocalRuntime() {
+        when (speaker.state()) {
+            is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
+            is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = false)
+            LocalSpeechState.Initializing ->
+                mainHandler.postDelayed(startFallback, TTS_START_BUDGET_MILLIS)
+        }
+    }
+
+    private fun syncVoiceCapabilities() {
         if (!started || closed) return
-        val available = speaker.state() is LocalSpeechState.Ready || conversationLive
-        if (snapshot.capabilities.speechAvailable != available) {
+        val speechAvailable = speaker.state() is LocalSpeechState.Ready || conversationLive
+        val voiceInputAvailable =
+            voiceListener.availability() is LocalVoiceAvailability.Ready || conversationLive
+        val capabilities = snapshot.capabilities.copy(
+            speechAvailable = speechAvailable,
+            voiceInputAvailable = voiceInputAvailable,
+        )
+        if (snapshot.capabilities != capabilities) {
             dispatch(
                 WakeInput.CapabilitiesChanged(
-                    id = nextInputId("speech-capability"),
-                    capabilities = snapshot.capabilities.copy(speechAvailable = available),
+                    id = nextInputId("voice-capabilities"),
+                    capabilities = capabilities,
                 ),
             )
         } else {
@@ -684,6 +717,7 @@ class WakeVoiceSessionController(
         val SILENCE_INTERVAL: Duration = Duration.ofSeconds(12)
         val REALTIME_LISTEN_INTERVAL: Duration = Duration.ofSeconds(10)
         const val TTS_START_BUDGET_MILLIS = 1_200L
+        const val REALTIME_START_BUDGET_MILLIS = 2_500L
     }
 }
 

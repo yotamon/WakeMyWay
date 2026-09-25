@@ -288,6 +288,14 @@ conversation before a new assistant response can be requested. Direct Realtime a
 VAD with eager turn detection plus far-field input noise reduction for the bedside use case. The
 deterministic WakeRuntime, local Alfred fallback and Alarm Kernel authority remain unchanged.
 
+Direct startup now gives an available Realtime enrichment a bounded 2.5-second first-turn window
+before falling back to local TTS, while critical alarm audio continues independently. This prevents
+an already-ready local TTS engine from always winning the initial conversational turn. Realtime
+readiness also counts as voice-input capability even when Android's local recognizer is unavailable.
+The Direct adapter emits only non-sensitive lifecycle/failure-stage diagnostics (credential ready,
+SDP accepted/rejected, data-channel open, session ready, provider error type/code) so physical
+dogfood failures can be classified without logging prompts, audio, transcripts, or credentials.
+
 ## Physical proof still required
 
 Automated/emulator evidence is not sufficient for a wake product. Issue #9 remains the release gate for repeated physical-device proof, including:
