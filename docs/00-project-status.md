@@ -54,6 +54,29 @@ Optional account backup/migration
 
 The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration use the selected local planning atmosphere, while Active Wake intentionally follows the fixed authored midnight-to-daylight progression. The same sunrise-wave geometry is used by the launcher identity, system launch treatment, Wake Line and first-run experience.
 
+## Android home widget
+
+PR #130 adds the first production Android home-screen surface: one responsive **Next Wake** Glance widget with Compact, Medium and Expanded densities.
+
+The widget is deliberately a projection rather than a new product authority:
+
+- next-wake ordering and Wake Ready truth come from existing local alarm/product owners;
+- the expanded alarm summary opens the existing Alarms surface rather than bypassing scheduling/voice preflight with inline toggles or tiny row-level controls;
+- Tomorrow Contract free text, Prepared Wake Plan text, First Move, alarm labels and transcripts/history content are not rendered on the launcher;
+- Active Wake exposes re-entry into the authoritative Wake surface, never Stop/Snooze;
+- Morning Check-In actions reuse the existing calibration mutation;
+- alarm, preparation, appearance, history, reconciliation and Active Wake changes request bounded event-driven refreshes; there is no periodic polling loop;
+- the selected planning Appearance is reflected visually without changing wake behavior;
+- Android 15+ generated previews are published opportunistically with a static picker fallback.
+
+The implementation uses stable Jetpack Glance 1.2.0, runtime `SizeMode.Exact` with three internal product breakpoints, and dedicated widget-safe sunrise/Wake Line assets.
+
+This capability entered Build as an explicit 2026-09-25 product-owner exception to the active 1.0 feature freeze after its Shape contract was completed. The exception does not alter Alarm Kernel, Active Wake Execution, Direct Boot or cloud-independence boundaries.
+
+Validation performed during Build: widget action-policy tests pass; Direct debug Kotlin and unit-test sources compile; Direct debug APK assembly passes; Direct debug lint passes. The local Windows ARM64 workstation still cannot execute the repository's Robolectric/Roborazzi native runtime, so Linux CI remains authoritative for those suites. A physical `adb install -r` was intentionally not forced after Android reported a signing mismatch with the installed WakeMyWay build, preserving existing app/alarm data.
+
+Canonical product/engineering detail: [`41-android-home-widget.md`](41-android-home-widget.md).
+
 ## Phase B: alarms, sounds and voice configuration
 
 Phase B is complete. Issue #56 is closed.

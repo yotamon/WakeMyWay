@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_name">WakeMyWay · Next Wake</string>
+    <string name="widget_description">Your next wake, Wake Ready status, and the one thing that matters now.</string>
+    <string name="widget_preview_status">WAKE READY</string>
+    <string name="widget_preview_plan">Tomorrow plan ready</string>
+</resources>

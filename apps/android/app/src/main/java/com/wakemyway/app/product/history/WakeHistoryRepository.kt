@@ -2,6 +2,7 @@ package com.wakemyway.app.product.history
 
 import android.content.Context
 import android.util.AtomicFile
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.learning.WakeBehaviorObservation
 import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.learning.WakeCalibrationOutcome
@@ -30,6 +31,7 @@ class WakeHistoryRepository(
     fileName: String = DEFAULT_FILE_NAME,
     private val maxEntries: Int = DEFAULT_MAX_ENTRIES,
 ) {
+    private val appContext = context.applicationContext
     private val atomicFile = AtomicFile(File(context.filesDir, fileName))
 
     init {
@@ -54,6 +56,7 @@ class WakeHistoryRepository(
             .sortedWith(ENTRY_ORDER)
             .take(maxEntries)
         writeDocument(next)
+        WakeWidgetUpdater.request(appContext)
     }
 
     @Synchronized
@@ -71,11 +74,13 @@ class WakeHistoryRepository(
             this[index] = existing.copy(calibration = calibration)
         }
         writeDocument(next.sortedWith(ENTRY_ORDER).take(maxEntries))
+        WakeWidgetUpdater.request(appContext)
     }
 
     @Synchronized
     fun clear() {
         writeDocument(emptyList())
+        WakeWidgetUpdater.request(appContext)
     }
 
     private fun readDocument(): List<WakeHistoryEntry> {

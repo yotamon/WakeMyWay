@@ -32,6 +32,25 @@ import java.util.concurrent.TimeUnit
 internal fun WakeHistoryEntry.needsMorningSafetyCheck(): Boolean =
     terminalReason == WakeHistoryTerminalReason.STOPPED && calibration == null
 
+internal fun submitMorningSafetyCheck(
+    context: Context,
+    occurrenceId: WakeOccurrenceId,
+    outcome: WakeCalibrationOutcome,
+) {
+    val appContext = context.applicationContext
+    val entry = WakeHistoryRepository(appContext)
+        .list()
+        .firstOrNull { it.occurrenceId == occurrenceId }
+
+    if (entry?.needsMorningSafetyCheck() == true) {
+        runCatching {
+            WakeLearningRepository(appContext).submitCalibration(occurrenceId, outcome)
+        }
+    }
+
+    WakeSafetyCheckScheduler.resolve(appContext, occurrenceId)
+}
+
 /**
  * Non-critical follow-up after an explicit early Stop.
  *
@@ -129,17 +148,7 @@ class WakeSafetyCheckActionReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        val entry = WakeHistoryRepository(context.applicationContext)
-            .list()
-            .firstOrNull { it.occurrenceId == occurrenceId }
-        if (entry?.needsMorningSafetyCheck() == true) {
-            runCatching {
-                WakeLearningRepository(context.applicationContext)
-                    .submitCalibration(occurrenceId, outcome)
-            }
-        }
-
-        WakeSafetyCheckScheduler.resolve(context, occurrenceId)
+        submitMorningSafetyCheck(context, occurrenceId, outcome)
     }
 
     companion object {

@@ -1,6 +1,7 @@
 package com.wakemyway.app.preparation
 
 import android.content.Context
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.preparation.PreparedPlanValidation
 import com.wakemyway.core.preparation.PreparedWakePlan
 import com.wakemyway.core.preparation.PreparedWakePlanPreparer
@@ -56,6 +57,7 @@ class WakePreparationManager(
 
         // Deferrable redundancy only. Failure to enqueue never invalidates the already committed plan.
         runCatching { PrepareWakePlanScheduler.enqueue(appContext) }
+        WakeWidgetUpdater.request(appContext)
         return snapshot
     }
 
@@ -140,6 +142,7 @@ class WakePreparationManager(
         synchronized(PREPARATION_COMMIT_LOCK) {
             store.clearAll()
         }
+        WakeWidgetUpdater.request(appContext)
     }
 
     companion object {

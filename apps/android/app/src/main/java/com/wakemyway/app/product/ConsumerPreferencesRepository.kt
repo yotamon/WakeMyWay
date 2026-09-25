@@ -2,6 +2,7 @@ package com.wakemyway.app.product
 
 import android.content.Context
 import android.util.AtomicFile
+import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.alarm.WakeSoundId
 import java.io.File
@@ -60,6 +61,7 @@ class ConsumerPreferencesRepository(
     context: Context,
     fileName: String = DEFAULT_FILE_NAME,
 ) {
+    private val appContext = context.applicationContext
     private val atomicFile = AtomicFile(File(context.filesDir, fileName))
 
     @Synchronized
@@ -69,12 +71,14 @@ class ConsumerPreferencesRepository(
     fun update(transform: (ConsumerPreferences) -> ConsumerPreferences): ConsumerPreferences {
         val next = transform(read())
         write(next)
+        WakeWidgetUpdater.request(appContext)
         return next
     }
 
     @Synchronized
     fun replace(preferences: ConsumerPreferences): ConsumerPreferences {
         write(preferences)
+        WakeWidgetUpdater.request(appContext)
         return preferences
     }
 
