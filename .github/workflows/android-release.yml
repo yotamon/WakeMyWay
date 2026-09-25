@@ -25,7 +25,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 concurrency:
@@ -39,6 +39,7 @@ jobs:
   plan:
     name: Plan release
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       previous_tag: ${{ steps.plan.outputs.previous_tag }}
       version_name: ${{ steps.plan.outputs.version_name }}
@@ -47,14 +48,6 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       CUSTOM_RELEASE_NOTES: ${{ inputs.release_notes }}
-      WMW_DIRECT_KEYSTORE_B64: ${{ secrets.WMW_DIRECT_KEYSTORE_B64 }}
-      WMW_DIRECT_KEY_ALIAS: ${{ secrets.WMW_DIRECT_KEY_ALIAS }}
-      WMW_DIRECT_STORE_PASSWORD: ${{ secrets.WMW_DIRECT_STORE_PASSWORD }}
-      WMW_DIRECT_KEY_PASSWORD: ${{ secrets.WMW_DIRECT_KEY_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEYSTORE_B64: ${{ secrets.WMW_PLAY_UPLOAD_KEYSTORE_B64 }}
-      WMW_PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.WMW_PLAY_UPLOAD_KEY_ALIAS }}
-      WMW_PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_STORE_PASSWORD }}
-      WMW_PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.WMW_PLAY_UPLOAD_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -74,27 +67,6 @@ jobs:
             echo "::error::main advanced after this release was dispatched. Run the release again from the current main."
             exit 1
           }
-
-      - name: Verify signing configuration exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          required=(
-            WMW_DIRECT_KEYSTORE_B64
-            WMW_DIRECT_KEY_ALIAS
-            WMW_DIRECT_STORE_PASSWORD
-            WMW_DIRECT_KEY_PASSWORD
-            WMW_PLAY_UPLOAD_KEYSTORE_B64
-            WMW_PLAY_UPLOAD_KEY_ALIAS
-            WMW_PLAY_UPLOAD_STORE_PASSWORD
-            WMW_PLAY_UPLOAD_KEY_PASSWORD
-          )
-          for name in "${required[@]}"; do
-            test -n "${!name:-}" || {
-              echo "::error::Missing required GitHub Actions secret: $name"
-              exit 1
-            }
-          done
 
       - id: plan
         name: Calculate version and previous release
@@ -191,30 +163,17 @@ jobs:
     name: Release quality gate
     needs: plan
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/android
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: actions/setup-python@v6
+      - name: Set up Android build environment
+        uses: ./.github/actions/setup-android
         with:
           python-version: "3.13"
-
-      - uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-
-      - name: Install Android 17 SDK
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-
-      - uses: gradle/actions/setup-gradle@v5
 
       - name: Test release planning
         run: python ../../tooling/test_android_release_plan.py
@@ -275,24 +234,31 @@ jobs:
           name: release-plan-${{ github.run_id }}
           path: apps/android/release-plan
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
+      - name: Verify signing configuration exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            WMW_DIRECT_KEYSTORE_B64
+            WMW_DIRECT_KEY_ALIAS
+            WMW_DIRECT_STORE_PASSWORD
+            WMW_DIRECT_KEY_PASSWORD
+            WMW_PLAY_UPLOAD_KEYSTORE_B64
+            WMW_PLAY_UPLOAD_KEY_ALIAS
+            WMW_PLAY_UPLOAD_STORE_PASSWORD
+            WMW_PLAY_UPLOAD_KEY_PASSWORD
+          )
+          for name in "${required[@]}"; do
+            test -n "${!name:-}" || {
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            }
+          done
 
-      - uses: actions/setup-python@v6
+      - name: Set up Android build environment
+        uses: ./.github/actions/setup-android
         with:
           python-version: "3.13"
-
-      - uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-
-      - name: Install Android 17 SDK
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-
-      - uses: gradle/actions/setup-gradle@v5
 
       - name: Validate Play release configuration
         shell: bash
@@ -413,6 +379,9 @@ jobs:
     needs:
       - plan
       - build-sign
+    permissions:
+      contents: write
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -430,18 +399,10 @@ jobs:
           name: signed-release-candidate-${{ github.run_id }}
           path: dist
 
-      - uses: actions/setup-java@v5
+      - name: Set up Android verification environment
+        uses: ./.github/actions/setup-android
         with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-
-      - name: Install verification tools
-        run: sdkmanager "platform-tools" "build-tools;37.0.0"
+          setup-gradle: "false"
 
       - name: Re-verify candidate before publication
         shell: bash
@@ -550,17 +511,23 @@ jobs:
             echo "- Public update endpoint: verified"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Clean up unpublished draft after failure
-        if: ${{ failure() && steps.draft.outputs.created == 'true' && steps.publish.outputs.published != 'true' }}
+      - name: Roll back failed publication
+        if: ${{ failure() && steps.draft.outputs.created == 'true' }}
         shell: bash
         run: |
           set +e
           IS_DRAFT="$(gh release view "$RELEASE_TAG"             --repo "$GITHUB_REPOSITORY"             --json isDraft             --jq '.isDraft' 2>/dev/null)"
+
           if [ "$IS_DRAFT" = "true" ]; then
+            echo "::warning::Removing failed draft release and tag."
+            gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+            git push origin ":refs/tags/$RELEASE_TAG"
+          elif [ "${{ steps.publish.outputs.published }}" = "true" ]; then
+            echo "::warning::Public verification failed; rolling back the published release so the previous verified release becomes latest again."
             gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
             git push origin ":refs/tags/$RELEASE_TAG"
           else
-            echo "::warning::Release is no longer a draft; automatic cleanup was intentionally skipped."
+            echo "::warning::Release state could not be confirmed; no destructive cleanup was attempted."
           fi
 
 
@@ -571,6 +538,7 @@ jobs:
       - plan
       - build-sign
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Summarize validated candidate
         run: |

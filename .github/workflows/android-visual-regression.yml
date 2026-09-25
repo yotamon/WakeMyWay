@@ -4,7 +4,24 @@ on:
   workflow_call:
   pull_request:
     paths:
-      - "apps/android/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/MainActivity.kt"
+      - "apps/android/app/src/main/java/com/wakemyway/app/WakeActivity.kt"
+      - "apps/android/app/src/main/java/com/wakemyway/app/character/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/product/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/ui/**"
+      - "apps/android/app/src/main/java/com/wakemyway/app/widget/**"
+      - "apps/android/app/src/main/res/drawable/**"
+      - "apps/android/app/src/main/res/drawable-nodpi/**"
+      - "apps/android/app/src/main/res/layout/**"
+      - "apps/android/app/src/main/res/mipmap-anydpi-v26/**"
+      - "apps/android/app/src/main/res/mipmap-anydpi-v33/**"
+      - "apps/android/app/src/main/res/values/**"
+      - "apps/android/app/src/main/res/values-v31/**"
+      - "apps/android/app/src/main/res/xml/**"
+      - "apps/android/app/src/test/**"
+      - "apps/android/app/build.gradle.kts"
+      - "apps/android/gradle/libs.versions.toml"
+      - ".github/actions/setup-android/**"
       - ".github/workflows/android-visual-regression.yml"
   workflow_dispatch:
 
@@ -18,23 +35,14 @@ concurrency:
 jobs:
   visual:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: apps/android
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Set up Android SDK tools
-        uses: android-actions/setup-android@v4
-        with:
-          packages: ""
-          log-accepted-android-sdk-licenses: "false"
-      - name: Install Android 17 SDK
-        run: sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
-      - uses: gradle/actions/setup-gradle@v5
+      - name: Set up Android build environment
+        uses: ./.github/actions/setup-android
       - name: Render canonical product states
         run: |
           rm -rf app/src/test/screenshots
@@ -46,7 +54,7 @@ jobs:
           sha256sum *.png > "$RUNNER_TEMP/wake-my-way-actual.sha256"
           diff -u ../visual-goldens.sha256 "$RUNNER_TEMP/wake-my-way-actual.sha256"
       - name: Upload visual verification diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: wake-my-way-visual-verify-${{ github.sha }}
@@ -56,4 +64,4 @@ jobs:
             apps/android/app/build/reports/roborazzi/**
             apps/android/app/build/test-results/**
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
