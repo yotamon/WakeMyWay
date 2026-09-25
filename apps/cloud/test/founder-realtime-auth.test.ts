@@ -30,15 +30,20 @@ describe('founder Realtime server readiness', () => {
     expect(status.missing).toEqual([
       'OpenAI API key',
       'founder Realtime gate',
-      'OpenAI safety identifier',
-      'internal API key',
       'founder token signing key',
       'founder access code',
     ]);
   });
 
-  it('is available only when the complete founder configuration exists', () => {
-    expect(founderRealtimeSetupStatus(readyEnvironment)).toEqual({ available: true, missing: [] });
+  it('is available with only the consumer pairing prerequisites', () => {
+    const minimalEnvironment: NodeJS.ProcessEnv = {
+      OPENAI_API_KEY: 'server-only-openai-key',
+      WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
+      WMW_FOUNDER_TOKEN_SIGNING_KEY: 's'.repeat(64),
+      WMW_FOUNDER_PAIRING_CODE: 'WakeMyWay-Founder-Connect-2026',
+    };
+
+    expect(founderRealtimeSetupStatus(minimalEnvironment)).toEqual({ available: true, missing: [] });
   });
 
   it('does not treat short founder secrets as configured', () => {

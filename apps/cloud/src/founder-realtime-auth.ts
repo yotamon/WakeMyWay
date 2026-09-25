@@ -55,13 +55,10 @@ export function founderRealtimeSetupStatus(
   environment: NodeJS.ProcessEnv = process.env,
 ): FounderRealtimeSetupStatus {
   const realtime = parseDirectOpenAiRealtimeConfig(environment);
-  const ai = parseAIConfig(environment);
   const missing: string[] = [];
 
   if (!realtime.configured) missing.push('OpenAI API key');
   if (!realtime.founderDogfoodEnabled) missing.push('founder Realtime gate');
-  if (!realtime.safetyIdentifier) missing.push('OpenAI safety identifier');
-  if (!ai.internalApiKey) missing.push('internal API key');
   if (!founderSigningKey(environment)) missing.push('founder token signing key');
   if (!pairingCode(environment)) missing.push('founder access code');
 
