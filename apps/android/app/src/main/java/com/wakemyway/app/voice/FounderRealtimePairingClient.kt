@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Small no-secret client used only by the founder setup surface. */
+/** Small no-secret client for automatic Direct installation bootstrap and legacy diagnostics. */
 class FounderRealtimePairingClient {
     data class ServerStatus(
         val available: Boolean,
@@ -59,21 +59,29 @@ class FounderRealtimePairingClient {
         }
     }
 
+    fun bootstrap(installationId: String): PairingResult =
+        requestPairing(JSONObject().put("installationId", installationId), automatic = true)
+
     fun pair(accessCode: String, installationId: String): PairingResult {
         val normalizedCode = accessCode.trim()
         if (normalizedCode.length < MIN_ACCESS_CODE_LENGTH) {
             throw PairingException(PairingException.Kind.ACCESS_CODE_REJECTED, "Founder access code is too short")
         }
 
+        return requestPairing(
+            JSONObject()
+                .put("code", normalizedCode)
+                .put("installationId", installationId),
+            automatic = false,
+        )
+    }
+
+    private fun requestPairing(payload: JSONObject, automatic: Boolean): PairingResult {
         val connection = open(FounderRealtimeSettings.PAIR_URL, "POST").apply {
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
         }
-        val body = JSONObject()
-            .put("code", normalizedCode)
-            .put("installationId", installationId)
-            .toString()
-            .toByteArray(StandardCharsets.UTF_8)
+        val body = payload.toString().toByteArray(StandardCharsets.UTF_8)
         try {
             connection.outputStream.use { it.write(body) }
             return when (val status = connection.responseCode) {
@@ -90,8 +98,12 @@ class FounderRealtimePairingClient {
                     PairingResult(token, expiresAt)
                 }
                 401, 403 -> throw PairingException(
-                    PairingException.Kind.ACCESS_CODE_REJECTED,
-                    "That founder access code was not accepted",
+                    if (automatic) PairingException.Kind.SERVER_NOT_READY else PairingException.Kind.ACCESS_CODE_REJECTED,
+                    if (automatic) {
+                        "Automatic Realtime access is not available"
+                    } else {
+                        "That founder access code was not accepted"
+                    },
                 )
                 503 -> throw PairingException(
                     PairingException.Kind.SERVER_NOT_READY,
