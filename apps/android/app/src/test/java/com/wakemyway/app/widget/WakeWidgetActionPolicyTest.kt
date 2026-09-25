@@ -103,6 +103,72 @@ class WakeWidgetActionPolicyTest {
     }
 
     @Test
+    fun `widget body opens the exact next alarm editor`() {
+        assertEquals(
+            WakeWidgetBodyTarget(
+                destination = WakeWidgetDestination.ALARM_EDITOR,
+                alarmId = "alarm-123",
+            ),
+            selectWakeWidgetBodyTarget(
+                activeWake = false,
+                nextAlarmId = "alarm-123",
+                readiness = WakeWidgetReadiness.READY,
+            ),
+        )
+    }
+
+    @Test
+    fun `widget body still edits an alarm when morning check in is the contextual action`() {
+        assertEquals(
+            WakeWidgetBodyTarget(
+                destination = WakeWidgetDestination.ALARM_EDITOR,
+                alarmId = "alarm-123",
+            ),
+            selectWakeWidgetBodyTarget(
+                activeWake = false,
+                nextAlarmId = "alarm-123",
+                readiness = WakeWidgetReadiness.READY,
+            ),
+        )
+    }
+
+    @Test
+    fun `widget body creates an alarm when none exists`() {
+        assertEquals(
+            WakeWidgetBodyTarget(WakeWidgetDestination.ALARM_EDITOR),
+            selectWakeWidgetBodyTarget(
+                activeWake = false,
+                nextAlarmId = null,
+                readiness = WakeWidgetReadiness.NONE,
+            ),
+        )
+    }
+
+    @Test
+    fun `widget body reenters active wake instead of editing`() {
+        assertEquals(
+            WakeWidgetBodyTarget(WakeWidgetDestination.HOME),
+            selectWakeWidgetBodyTarget(
+                activeWake = true,
+                nextAlarmId = "alarm-123",
+                readiness = WakeWidgetReadiness.READY,
+            ),
+        )
+    }
+
+    @Test
+    fun `unavailable widget body opens the app rather than creating phantom alarm`() {
+        assertEquals(
+            WakeWidgetBodyTarget(WakeWidgetDestination.HOME),
+            selectWakeWidgetBodyTarget(
+                activeWake = false,
+                nextAlarmId = null,
+                readiness = WakeWidgetReadiness.UNAVAILABLE,
+            ),
+        )
+    }
+
+    @Test
     fun `narrow 2x2 style bounds stay compact`() {
         assertEquals(
             WakeWidgetLayout.COMPACT,

@@ -86,6 +86,26 @@ internal fun selectWakeWidgetLayout(
     else -> WakeWidgetLayout.MEDIUM
 }
 
+internal data class WakeWidgetBodyTarget(
+    val destination: WakeWidgetDestination,
+    val alarmId: String? = null,
+)
+
+internal fun selectWakeWidgetBodyTarget(
+    activeWake: Boolean,
+    nextAlarmId: String?,
+    readiness: WakeWidgetReadiness,
+): WakeWidgetBodyTarget = when {
+    activeWake -> WakeWidgetBodyTarget(WakeWidgetDestination.HOME)
+    nextAlarmId != null -> WakeWidgetBodyTarget(
+        destination = WakeWidgetDestination.ALARM_EDITOR,
+        alarmId = nextAlarmId,
+    )
+    readiness == WakeWidgetReadiness.NONE ->
+        WakeWidgetBodyTarget(WakeWidgetDestination.ALARM_EDITOR)
+    else -> WakeWidgetBodyTarget(WakeWidgetDestination.HOME)
+}
+
 private data class WidgetPalette(
     val background: Color,
     val card: Color,
@@ -106,23 +126,16 @@ private fun WakeWidgetContent(snapshot: WakeWidgetSnapshot) {
         heightDp = size.height.value,
     )
     val palette = snapshot.appearance.palette()
-    val bodyIntent = when (snapshot.primaryAction) {
-        WakeWidgetPrimaryAction.CREATE_ALARM ->
-            WakeWidgetLaunch.intent(context, WakeWidgetDestination.ALARM_EDITOR)
-        WakeWidgetPrimaryAction.FIX_WAKE ->
-            WakeWidgetLaunch.intent(
-                context = context,
-                destination = WakeWidgetDestination.HOME,
-                repairWake = true,
-            )
-        WakeWidgetPrimaryAction.PREPARE_TOMORROW ->
-            WakeWidgetLaunch.intent(context, WakeWidgetDestination.TOMORROW_PLAN)
-        WakeWidgetPrimaryAction.MORNING_CHECK_IN ->
-            WakeWidgetLaunch.intent(context, WakeWidgetDestination.INSIGHTS)
-        WakeWidgetPrimaryAction.OPEN_HOME,
-        WakeWidgetPrimaryAction.OPEN_WAKE,
-        -> WakeWidgetLaunch.intent(context, WakeWidgetDestination.HOME)
-    }
+    val bodyTarget = selectWakeWidgetBodyTarget(
+        activeWake = snapshot.activeWake,
+        nextAlarmId = snapshot.nextAlarmId,
+        readiness = snapshot.readiness,
+    )
+    val bodyIntent = WakeWidgetLaunch.intent(
+        context = context,
+        destination = bodyTarget.destination,
+        alarmId = bodyTarget.alarmId,
+    )
 
     Box(
         modifier = GlanceModifier
@@ -147,16 +160,15 @@ private fun CompactWidget(
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(10.dp),
-        verticalAlignment = Alignment.Vertical.CenterVertically,
+            .padding(11.dp),
     ) {
         BrandRow(palette = palette, compact = true)
-        Spacer(GlanceModifier.height(3.dp))
+        Spacer(GlanceModifier.defaultWeight())
         Text(
             text = snapshot.time,
             style = TextStyle(
                 color = ColorProvider(palette.text),
-                fontSize = if (snapshot.time.length > 5) 22.sp else 28.sp,
+                fontSize = if (snapshot.time.length > 5) 23.sp else 32.sp,
                 fontWeight = FontWeight.Medium,
             ),
             maxLines = 1,
@@ -165,12 +177,14 @@ private fun CompactWidget(
             text = snapshot.dateLabel,
             style = TextStyle(
                 color = ColorProvider(palette.quietText),
-                fontSize = 10.sp,
+                fontSize = 9.sp,
             ),
             maxLines = 1,
         )
-        Spacer(GlanceModifier.height(3.dp))
+        Spacer(GlanceModifier.height(2.dp))
         StatusText(snapshot, palette, compact = true)
+        Spacer(GlanceModifier.defaultWeight())
+        WakeLine()
     }
 }
 
@@ -182,7 +196,7 @@ private fun MediumWidget(
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(12.dp),
+            .padding(horizontal = 13.dp, vertical = 10.dp),
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
@@ -190,33 +204,50 @@ private fun MediumWidget(
         ) {
             BrandRow(palette = palette, compact = true)
             Spacer(GlanceModifier.defaultWeight())
-            StatusPill(snapshot, palette)
+            Text(
+                text = snapshot.bodyActionLabel().uppercase(),
+                style = TextStyle(
+                    color = ColorProvider(palette.accent),
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                maxLines = 1,
+            )
         }
-        Spacer(GlanceModifier.height(4.dp))
+        Spacer(GlanceModifier.defaultWeight())
+        Text(
+            text = snapshot.time,
+            style = TextStyle(
+                color = ColorProvider(palette.text),
+                fontSize = if (snapshot.time.length > 5) 30.sp else 40.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            maxLines = 1,
+        )
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
-            Column(modifier = GlanceModifier.defaultWeight()) {
+            Text(
+                text = snapshot.dateLabel,
+                style = TextStyle(
+                    color = ColorProvider(palette.quietText),
+                    fontSize = 9.sp,
+                ),
+                maxLines = 1,
+            )
+            snapshot.nextAlarmSchedule?.let { schedule ->
                 Text(
-                    text = snapshot.time,
-                    style = TextStyle(
-                        color = ColorProvider(palette.text),
-                        fontSize = if (snapshot.time.length > 5) 24.sp else 30.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    maxLines = 1,
-                )
-                Text(
-                    text = snapshot.dateLabel,
+                    text = "  ·  $schedule",
                     style = TextStyle(
                         color = ColorProvider(palette.quietText),
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                     ),
                     maxLines = 1,
                 )
             }
-            MediumActionSummary(snapshot, palette)
+            Spacer(GlanceModifier.defaultWeight())
+            StatusText(snapshot, palette, compact = true)
         }
         Spacer(GlanceModifier.defaultWeight())
         WakeLine()
@@ -231,7 +262,7 @@ private fun ExpandedWidget(
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .padding(14.dp),
+            .padding(15.dp),
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth(),
@@ -239,15 +270,23 @@ private fun ExpandedWidget(
         ) {
             BrandRow(palette = palette, compact = false)
             Spacer(GlanceModifier.defaultWeight())
-            StatusPill(snapshot, palette)
+            Text(
+                text = snapshot.bodyActionLabel().uppercase(),
+                style = TextStyle(
+                    color = ColorProvider(palette.accent),
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                maxLines = 1,
+            )
         }
 
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(8.dp))
         Text(
             text = if (snapshot.activeWake) "WAKE IN PROGRESS" else "NEXT WAKE",
             style = TextStyle(
                 color = ColorProvider(palette.quietText),
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
             ),
             maxLines = 1,
@@ -256,21 +295,28 @@ private fun ExpandedWidget(
             text = snapshot.time,
             style = TextStyle(
                 color = ColorProvider(palette.text),
-                fontSize = if (snapshot.time.length > 5) 28.sp else 34.sp,
+                fontSize = if (snapshot.time.length > 5) 32.sp else 42.sp,
                 fontWeight = FontWeight.Medium,
             ),
             maxLines = 1,
         )
-        Text(
-            text = snapshot.dateLabel,
-            style = TextStyle(
-                color = ColorProvider(palette.quietText),
-                fontSize = 10.sp,
-            ),
-            maxLines = 1,
-        )
+        Row(
+            modifier = GlanceModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Vertical.CenterVertically,
+        ) {
+            Text(
+                text = snapshot.dateLabel,
+                style = TextStyle(
+                    color = ColorProvider(palette.quietText),
+                    fontSize = 10.sp,
+                ),
+                maxLines = 1,
+            )
+            Spacer(GlanceModifier.defaultWeight())
+            StatusText(snapshot, palette, compact = false)
+        }
 
-        Spacer(GlanceModifier.height(6.dp))
+        Spacer(GlanceModifier.height(10.dp))
         if (
             snapshot.primaryAction == WakeWidgetPrimaryAction.MORNING_CHECK_IN &&
             snapshot.pendingMorningCheckInOccurrenceId != null
@@ -280,9 +326,7 @@ private fun ExpandedWidget(
                 palette = palette,
             )
         } else {
-            PlanAndVoiceRow(snapshot, palette)
-            Spacer(GlanceModifier.height(5.dp))
-            UpcomingAlarms(snapshot, palette)
+            ExpandedDetails(snapshot, palette)
         }
 
         Spacer(GlanceModifier.defaultWeight())
@@ -333,123 +377,55 @@ private fun StatusText(
 }
 
 @Composable
-private fun StatusPill(
+private fun ExpandedDetails(
     snapshot: WakeWidgetSnapshot,
     palette: WidgetPalette,
 ) {
-    val (text, color) = snapshot.statusLabel(palette)
-    Box(
-        modifier = GlanceModifier
-            .background(color.copy(alpha = 0.12f))
-            .cornerRadius(18.dp)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text.uppercase(),
-            style = TextStyle(
-                color = ColorProvider(color),
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-            ),
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun MediumActionSummary(
-    snapshot: WakeWidgetSnapshot,
-    palette: WidgetPalette,
-) {
-    Column(
-        modifier = GlanceModifier
-            .background(palette.card)
-            .cornerRadius(14.dp)
-            .padding(horizontal = 9.dp, vertical = 7.dp),
-    ) {
-        Text(
-            text = snapshot.secondaryActionLabel(),
-            style = TextStyle(
-                color = ColorProvider(
-                    if (snapshot.primaryAction == WakeWidgetPrimaryAction.FIX_WAKE) {
-                        palette.attention
-                    } else {
-                        palette.text
-                    },
-                ),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-            maxLines = 1,
-        )
-        Spacer(GlanceModifier.height(2.dp))
-        Text(
-            text = "OPEN  ›",
-            style = TextStyle(
-                color = ColorProvider(palette.accent),
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-            ),
-            maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun PlanAndVoiceRow(
-    snapshot: WakeWidgetSnapshot,
-    palette: WidgetPalette,
-) {
-    Row(modifier = GlanceModifier.fillMaxWidth()) {
-        TinyStateCard(
-            title = "TOMORROW PLAN",
+    Column(modifier = GlanceModifier.fillMaxWidth()) {
+        DetailRow(
+            label = "Tomorrow plan",
             value = when (snapshot.planState) {
                 WakeWidgetPlanState.READY -> "Ready ✓"
                 WakeWidgetPlanState.AVAILABLE -> "Not prepared"
                 WakeWidgetPlanState.NONE -> "Optional"
             },
             palette = palette,
-            modifier = GlanceModifier.defaultWeight(),
         )
-        Spacer(GlanceModifier.size(8.dp))
-        TinyStateCard(
-            title = "ALARM",
-            value = when (snapshot.readiness) {
-                WakeWidgetReadiness.READY -> "Wake Ready ✓"
-                WakeWidgetReadiness.NEEDS_ATTENTION -> "Needs attention"
-                WakeWidgetReadiness.NONE -> "No wake"
-                WakeWidgetReadiness.UNAVAILABLE -> "Refresh"
+        SoftDivider(palette)
+        DetailRow(
+            label = "Alarm",
+            value = snapshot.nextAlarmSchedule ?: when (snapshot.readiness) {
+                WakeWidgetReadiness.NONE -> "No wake set"
+                WakeWidgetReadiness.UNAVAILABLE -> "Open app to refresh"
+                else -> "Next wake"
             },
             palette = palette,
-            modifier = GlanceModifier.defaultWeight(),
         )
     }
 }
 
 @Composable
-private fun TinyStateCard(
-    title: String,
+private fun DetailRow(
+    label: String,
     value: String,
     palette: WidgetPalette,
-    modifier: GlanceModifier,
 ) {
-    Column(
-        modifier = modifier
-            .background(palette.card)
-            .cornerRadius(14.dp)
-            .padding(7.dp),
+    Row(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .padding(vertical = 7.dp),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         Text(
-            text = title,
+            text = label,
+            modifier = GlanceModifier.defaultWeight(),
             style = TextStyle(
                 color = ColorProvider(palette.quietText),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
             ),
             maxLines = 1,
         )
-        Spacer(GlanceModifier.height(3.dp))
         Text(
             text = value,
             style = TextStyle(
@@ -463,104 +439,13 @@ private fun TinyStateCard(
 }
 
 @Composable
-private fun UpcomingAlarms(
-    snapshot: WakeWidgetSnapshot,
-    palette: WidgetPalette,
-) {
-    val context = LocalContext.current
-    if (snapshot.upcomingAlarms.isEmpty()) return
-
-    Column(
+private fun SoftDivider(palette: WidgetPalette) {
+    Box(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(palette.card)
-            .cornerRadius(14.dp)
-            .clickable(
-                actionStartActivity(
-                    WakeWidgetLaunch.intent(
-                        context = context,
-                        destination = WakeWidgetDestination.ALARMS,
-                    ),
-                ),
-            )
-            .padding(horizontal = 9.dp, vertical = 7.dp),
-    ) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Vertical.CenterVertically,
-        ) {
-            Text(
-                text = "ALARMS",
-                modifier = GlanceModifier.defaultWeight(),
-                style = TextStyle(
-                    color = ColorProvider(palette.quietText),
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                maxLines = 1,
-            )
-            Text(
-                text = "OPEN  ›",
-                style = TextStyle(
-                    color = ColorProvider(palette.accent),
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                maxLines = 1,
-            )
-        }
-        Spacer(GlanceModifier.height(2.dp))
-
-        snapshot.upcomingAlarms.forEach { alarm ->
-            Row(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.Vertical.CenterVertically,
-            ) {
-                Text(
-                    text = alarm.time,
-                    style = TextStyle(
-                        color = ColorProvider(
-                            if (alarm.enabled) palette.text else palette.quietText,
-                        ),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    maxLines = 1,
-                )
-                Spacer(GlanceModifier.size(7.dp))
-                Text(
-                    text = alarm.schedule,
-                    modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(
-                        color = ColorProvider(palette.quietText),
-                        fontSize = 8.sp,
-                    ),
-                    maxLines = 1,
-                )
-                Text(
-                    text = when {
-                        !alarm.enabled -> "○"
-                        alarm.ready -> "●"
-                        else -> "!"
-                    },
-                    style = TextStyle(
-                        color = ColorProvider(
-                            when {
-                                !alarm.enabled -> palette.quietText
-                                alarm.ready -> palette.positive
-                                else -> palette.attention
-                            },
-                        ),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+            .height(1.dp)
+            .background(palette.accentSoft),
+    ) {}
 }
 
 @Composable
@@ -659,17 +544,11 @@ private fun WakeLine() {
     )
 }
 
-private fun WakeWidgetSnapshot.secondaryActionLabel(): String = when (primaryAction) {
-    WakeWidgetPrimaryAction.OPEN_WAKE -> "Open active wake"
-    WakeWidgetPrimaryAction.CREATE_ALARM -> "Create your first alarm"
-    WakeWidgetPrimaryAction.FIX_WAKE -> "Wake needs attention"
-    WakeWidgetPrimaryAction.PREPARE_TOMORROW -> "Prepare tomorrow"
-    WakeWidgetPrimaryAction.MORNING_CHECK_IN -> "Morning check-in"
-    WakeWidgetPrimaryAction.OPEN_HOME -> when (planState) {
-        WakeWidgetPlanState.READY -> "Tomorrow plan ready  ✓"
-        WakeWidgetPlanState.AVAILABLE -> "Prepare tomorrow"
-        WakeWidgetPlanState.NONE -> "Open WakeMyWay"
-    }
+private fun WakeWidgetSnapshot.bodyActionLabel(): String = when {
+    activeWake -> "Open wake  ›"
+    nextAlarmId != null -> "Edit alarm  ›"
+    readiness == WakeWidgetReadiness.NONE -> "Add alarm  ›"
+    else -> "Open app  ›"
 }
 
 private fun WakeWidgetSnapshot.statusLabel(palette: WidgetPalette): Pair<String, Color> = when {

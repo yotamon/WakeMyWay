@@ -53,6 +53,8 @@ data class WakeWidgetAlarmSummary(
 data class WakeWidgetSnapshot(
     val time: String,
     val dateLabel: String,
+    val nextAlarmId: String?,
+    val nextAlarmSchedule: String?,
     val readiness: WakeWidgetReadiness,
     val planState: WakeWidgetPlanState,
     val primaryAction: WakeWidgetPrimaryAction,
@@ -65,6 +67,8 @@ data class WakeWidgetSnapshot(
         fun unavailable(appearance: AppAppearance = AppAppearance.DAYLIGHT) = WakeWidgetSnapshot(
             time = "--:--",
             dateLabel = "Open WakeMyWay to refresh",
+            nextAlarmId = null,
+            nextAlarmSchedule = null,
             readiness = WakeWidgetReadiness.UNAVAILABLE,
             planState = WakeWidgetPlanState.NONE,
             primaryAction = WakeWidgetPrimaryAction.OPEN_HOME,
@@ -77,6 +81,8 @@ data class WakeWidgetSnapshot(
         fun preview() = WakeWidgetSnapshot(
             time = "07:30",
             dateLabel = "Sat, 26 Sep",
+            nextAlarmId = "preview-weekdays",
+            nextAlarmSchedule = "Weekdays",
             readiness = WakeWidgetReadiness.READY,
             planState = WakeWidgetPlanState.READY,
             primaryAction = WakeWidgetPrimaryAction.OPEN_HOME,
@@ -187,6 +193,8 @@ class WakeWidgetSnapshotProjector(
             time = (active ?: next)?.scheduledAt?.format(timeFormatter) ?: "--:--",
             dateLabel = (active ?: next)?.scheduledAt?.format(dateFormatter)
                 ?: "No wake scheduled",
+            nextAlarmId = nextAlarm?.id?.value,
+            nextAlarmSchedule = nextAlarm?.schedule?.widgetScheduleLabel(locale),
             readiness = when {
                 active != null -> WakeWidgetReadiness.READY
                 next == null -> WakeWidgetReadiness.NONE
