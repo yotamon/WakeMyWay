@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,8 @@ fun AppearanceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
@@ -52,7 +56,7 @@ fun AppearanceScreen(
             ) {
                 TextButton(onClick = onBack) {
                     Text(
-                        "‹",
+                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
                         style = MaterialTheme.typography.headlineMedium,
                         color = WmwColors.Midnight,
                     )
@@ -67,7 +71,7 @@ fun AppearanceScreen(
 
             Text(
                 text = "Choose your planning atmosphere.",
-                modifier = Modifier.padding(top = 28.dp),
+                modifier = Modifier.padding(top = WmwSpacing.Xl),
                 style = MaterialTheme.typography.headlineLarge,
                 color = WmwColors.Midnight,
             )
@@ -79,7 +83,7 @@ fun AppearanceScreen(
             )
 
             Column(
-                modifier = Modifier.padding(top = 28.dp),
+                modifier = Modifier.padding(top = WmwSpacing.Xl),
                 verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
             ) {
                 AppAppearance.entries.forEach { option ->

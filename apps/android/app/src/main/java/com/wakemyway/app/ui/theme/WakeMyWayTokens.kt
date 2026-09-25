@@ -73,6 +73,7 @@ object WmwSizes {
     val SleepyTouchTarget = 56.dp
     val PrimaryActionHeight = 58.dp
     val CompactActionHeight = 52.dp
+    val ConsumerNavigationInset = 88.dp
     val HomeWaveHeight = 64.dp
     val WakeWaveHeight = 108.dp
     val MicOrb = 132.dp

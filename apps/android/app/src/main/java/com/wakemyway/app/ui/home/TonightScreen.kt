@@ -39,8 +39,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.R
 import com.wakemyway.app.ui.components.WmwActionTone
-import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
+import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
@@ -111,29 +111,17 @@ fun TonightScreen(
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader()
-
-            Spacer(Modifier.height(38.dp))
-            Text(
-                text = greeting,
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.LightQuietText,
-            )
-            Text(
-                text = stringResource(R.string.tonight_brand_home_title),
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
-            )
-            Text(
-                text = stringResource(R.string.tonight_brand_home_subtitle),
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.LightQuietText,
+            WmwPageHeader(
+                title = stringResource(R.string.tonight_brand_home_title),
+                subtitle = stringResource(R.string.tonight_brand_home_subtitle),
+                intro = greeting,
             )
 
-            Spacer(Modifier.height(28.dp))
-            NextWakeCard(state = state)
+            Spacer(Modifier.height(WmwSpacing.Xl))
+            NextWakeCard(
+                state = state,
+                onClick = onOpenWakeSetup,
+            )
 
             if (hasMorningCheckIn) {
                 WmwCard(
@@ -265,8 +253,12 @@ fun TonightScreen(
 }
 
 @Composable
-private fun NextWakeCard(state: TonightUiState) {
+private fun NextWakeCard(
+    state: TonightUiState,
+    onClick: () -> Unit,
+) {
     WmwCard(
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
         contentPadding = PaddingValues(0.dp),
     ) {
         Box(Modifier.fillMaxWidth()) {
@@ -401,30 +393,26 @@ private fun AlfredSignature(
     quote: String,
     modifier: Modifier = Modifier,
 ) {
-    WmwCard(
-        modifier = modifier,
-        onLightSurface = true,
-        contentPadding = PaddingValues(WmwSpacing.Md),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = WmwSpacing.Sm, vertical = WmwSpacing.Md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
-        ) {
-            AlfredMark(Modifier.size(38.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.wake_character_name),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = WmwColors.Midnight,
-                )
-                Text(
-                    text = quote,
-                    modifier = Modifier.padding(top = 2.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WmwColors.LightQuietText,
-                )
-            }
+        AlfredMark(Modifier.size(38.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.wake_character_name),
+                style = MaterialTheme.typography.titleMedium,
+                color = WmwColors.Midnight,
+            )
+            Text(
+                text = quote,
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.LightQuietText,
+            )
         }
     }
 }

@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -33,8 +35,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.AlarmScheduleHealth
-import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
+import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwStatusPill
@@ -66,27 +68,19 @@ fun AlarmsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader(
+            WmwPageHeader(
+                title = "Your alarms",
+                subtitle = "Each wake keeps its own rhythm, voice and morning plan.",
                 trailing = { AddAlarmButton(onClick = onAddAlarm) },
             )
-            Spacer(Modifier.height(36.dp))
-            Text(
-                text = "Your alarms",
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
-            )
-            Text(
-                text = "Each wake keeps its own rhythm, voice and morning plan.",
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.LightQuietText,
-            )
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(WmwSpacing.Xl))
             if (alarms.isEmpty()) {
                 EmptyAlarmState(onAddAlarm = onAddAlarm)
             } else {

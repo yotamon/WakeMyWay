@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,8 +40,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.product.ConsumerPreferences
-import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
+import com.wakemyway.app.ui.components.WmwPageHeader
+import com.wakemyway.app.ui.components.WmwSectionLabel
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.theme.WmwColors
@@ -74,29 +77,22 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Lg, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader()
-            Text(
-                text = preferences.displayName
+            WmwPageHeader(
+                title = preferences.displayName
                     ?.takeIf { it.isNotBlank() }
                     ?.trim()
                     ?.let { "Good to see you, $it." }
                     ?: "Make mornings yours.",
-                modifier = Modifier.padding(top = 28.dp),
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
-            )
-            Text(
-                text = "Defaults shape new alarms. Existing alarms stay exactly as you configured them.",
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.LightQuietText,
+                subtitle = "Defaults shape new alarms. Existing alarms stay exactly as you configured them.",
             )
 
-            ProfileSection("You", Modifier.padding(top = 28.dp)) {
+            ProfileSection("You", Modifier.padding(top = WmwSpacing.Xl)) {
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { value ->
@@ -255,6 +251,8 @@ fun PrivacyScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
@@ -262,7 +260,7 @@ fun PrivacyScreen(
             BackHeader("Privacy", onBack)
             Text(
                 text = "Private by wake design.",
-                modifier = Modifier.padding(top = 28.dp),
+                modifier = Modifier.padding(top = WmwSpacing.Xl),
                 style = MaterialTheme.typography.headlineLarge,
                 color = WmwColors.Midnight,
             )
@@ -308,6 +306,8 @@ fun AboutScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
@@ -315,11 +315,11 @@ fun AboutScreen(
             BackHeader("About", onBack)
             com.wakemyway.app.ui.components.WmwBrandHero(
                 tagline = "The alarm that learns how to wake you.",
-                modifier = Modifier.fillMaxWidth().padding(top = 36.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xxl),
             )
             Text(
                 text = "WakeMyWay learns the least friction that actually gets you moving.",
-                modifier = Modifier.fillMaxWidth().padding(top = 28.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xl),
                 style = MaterialTheme.typography.titleLarge,
                 color = WmwColors.Midnight,
             )
@@ -362,11 +362,7 @@ private fun ProfileSection(
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-        Text(
-            text = title.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = WmwColors.LightQuietText,
-        )
+        WmwSectionLabel(text = title)
         WmwCard(onLightSurface = true) {
             Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
                 content()
@@ -546,10 +542,10 @@ private fun BackHeader(title: String, onBack: () -> Unit) {
             modifier = Modifier.semantics { contentDescription = "Back" },
         ) {
             Text(
-                        if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = WmwColors.Midnight,
-                    )
+                if (LocalLayoutDirection.current == LayoutDirection.Rtl) "›" else "‹",
+                style = MaterialTheme.typography.headlineMedium,
+                color = WmwColors.Midnight,
+            )
         }
         Text(
             title,

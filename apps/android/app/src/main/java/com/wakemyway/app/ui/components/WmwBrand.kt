@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
@@ -144,6 +145,52 @@ fun WmwBrandHeader(
         Spacer(Modifier.weight(1f))
         trailing?.invoke()
     }
+}
+
+@Composable
+fun WmwPageHeader(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    intro: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        WmwBrandHeader(trailing = trailing)
+        Spacer(Modifier.height(WmwSpacing.Xxl))
+        intro?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
+            )
+        }
+        Text(
+            text = title,
+            modifier = Modifier.padding(top = if (intro.isNullOrBlank()) 0.dp else 2.dp),
+            style = MaterialTheme.typography.headlineLarge,
+            color = WmwColors.Midnight,
+        )
+        Text(
+            text = subtitle,
+            modifier = Modifier.padding(top = WmwSpacing.Xs),
+            style = MaterialTheme.typography.bodyMedium,
+            color = WmwColors.LightQuietText,
+        )
+    }
+}
+
+@Composable
+fun WmwSectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text.uppercase(),
+        modifier = modifier,
+        style = MaterialTheme.typography.labelSmall,
+        color = WmwColors.DawnText,
+    )
 }
 
 @Composable

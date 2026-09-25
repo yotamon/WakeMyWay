@@ -166,7 +166,7 @@ fun TomorrowPlanScreen(
                 }
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(WmwSpacing.Xl))
             Text(
                 text = stringResource(R.string.tomorrow_plan_private_badge).uppercase(),
                 style = MaterialTheme.typography.labelSmall,

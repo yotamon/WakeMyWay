@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,8 +39,8 @@ import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsSummary
 import com.wakemyway.app.product.insights.WakeMorningInsight
-import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwCard
+import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.theme.WmwColors
@@ -64,22 +66,15 @@ fun InsightsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Lg, bottom = WmwSpacing.Xl),
         ) {
-            WmwBrandHeader()
-            Text(
-                text = "WakeMyWay is learning your mornings.",
-                modifier = Modifier.padding(top = 28.dp),
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
-            )
-            Text(
-                text = "See what actually happened, confirm whether the wake stuck, and understand what changes for next time.",
-                modifier = Modifier.padding(top = WmwSpacing.Xs),
-                style = MaterialTheme.typography.bodyMedium,
-                color = WmwColors.LightQuietText,
+            WmwPageHeader(
+                title = "WakeMyWay is learning your mornings.",
+                subtitle = "See what actually happened, confirm whether the wake stuck, and understand what changes for next time.",
             )
 
             PeriodSelector(

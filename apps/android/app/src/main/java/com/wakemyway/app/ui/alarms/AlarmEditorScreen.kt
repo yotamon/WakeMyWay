@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -57,6 +59,7 @@ import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
+import com.wakemyway.app.ui.components.WmwSectionLabel
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.alarm.AlarmDefinition
@@ -170,7 +173,7 @@ fun AlarmEditorScreen(
     }
     var error by remember(existing?.revision) { mutableStateOf<String?>(null) }
     var showDeleteConfirmation by remember(existing?.id) { mutableStateOf(false) }
-    var showAdvanced by remember(existing?.revision) { mutableStateOf(existing != null) }
+    var showAdvanced by remember(existing?.revision) { mutableStateOf(false) }
 
     fun stopPreview() {
         soundPreviewPlayer.stop()
@@ -277,6 +280,8 @@ fun AlarmEditorScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
@@ -298,7 +303,7 @@ fun AlarmEditorScreen(
                 WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(WmwSpacing.Xl))
             Text(
                 text = if (existing == null) "Create alarm" else "Edit alarm",
                 style = MaterialTheme.typography.headlineLarge,
@@ -311,7 +316,7 @@ fun AlarmEditorScreen(
                 color = WmwColors.LightQuietText,
             )
 
-            EditorSection("Basic", Modifier.padding(top = 28.dp)) {
+            EditorSection("Basic", Modifier.padding(top = WmwSpacing.Xl)) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it.take(AlarmDefinition.MAX_LABEL_CHARACTERS) },
@@ -554,11 +559,9 @@ private fun EditorSection(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(modifier = modifier) {
-        Text(
-            text = title.uppercase(),
+        WmwSectionLabel(
+            text = title,
             modifier = Modifier.padding(start = 2.dp, bottom = WmwSpacing.Sm),
-            style = MaterialTheme.typography.labelSmall,
-            color = WmwColors.LightQuietText,
         )
         WmwCard(onLightSurface = true) {
             Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md), content = content)
