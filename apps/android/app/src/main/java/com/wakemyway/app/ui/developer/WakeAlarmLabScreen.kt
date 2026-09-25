@@ -93,15 +93,15 @@ private val PHYSICAL_RELIABILITY_SCENARIOS = listOf(
     ),
     PhysicalReliabilityScenario(
         id = WakeTimingTrace.SCENARIO_EXACT_ALARM_UNAVAILABLE,
-        label = "Exact-alarm capability loss",
+        label = "Exact-alarm capability loss (revocable builds)",
         minutesFromNow = 5,
-        instruction = "Schedule while ready, then remove exact-alarm access before target and verify readiness/recovery behavior is truthful.",
+        instruction = "Only applicable to builds using revocable SCHEDULE_EXACT_ALARM access. USE_EXACT_ALARM builds should verify the automatic grant instead.",
     ),
     PhysicalReliabilityScenario(
         id = WakeTimingTrace.SCENARIO_FULL_SCREEN_UNAVAILABLE,
         label = "Full-screen capability loss",
         minutesFromNow = 3,
-        instruction = "Schedule while ready, then remove full-screen alarm access. Audio must remain safe and presentation degradation explicit.",
+        instruction = "Schedule while ready, then remove full-screen alarm access. The unsafe future wake must invalidate before critical audio and record the capability loss.",
     ),
     PhysicalReliabilityScenario(
         id = WakeTimingTrace.SCENARIO_DOZE_IDLE,

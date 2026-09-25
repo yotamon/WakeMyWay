@@ -105,7 +105,7 @@ On the founder Windows machine, `tooling/physical-reliability.ps1` provides narr
 
 If more than one Android device is connected, pass `-Serial <adb-serial>`.
 
-The helper intentionally does **not** automate permission revocation, full-screen access changes, exact-alarm access changes, Bluetooth pairing or user terminal actions. Those are scenario facts that should remain deliberate and visible to the tester.
+The helper intentionally does **not** automate permission revocation, full-screen access changes, exact-alarm access changes, Bluetooth pairing or user terminal actions. Those are scenario facts that should remain deliberate and visible to the tester. The production manifest currently uses `USE_EXACT_ALARM`; on that permission model Android grants exact-alarm access automatically and there is no user-revocation path, so `EXACT_ALARM_UNAVAILABLE` is N/A unless a test/build variant intentionally uses revocable `SCHEDULE_EXACT_ALARM`.
 
 The generated ADB bundle is written under `artifacts/physical-reliability/` and is git-ignored. Pair it with the Wake Alarm Lab report for the same scenario when retaining representative evidence.
 
@@ -120,8 +120,8 @@ The generated ADB bundle is written under `artifacts/physical-reliability/` and 
 | `RECONCILE_TIME_CHANGE` | wall-clock/timezone change before wake | RECONCILED event | future occurrence is repaired and Wake Ready is truthful |
 | `REBOOT_UNLOCKED` | reboot, then unlock before target | reconciliation + eventual receiver/audio | future wake preserved |
 | `DIRECT_BOOT` | reboot and remain locked until wake | locked-boot reconciliation + eventual local wake | no credential-protected/private dependency |
-| `EXACT_ALARM_UNAVAILABLE` | exact alarm capability unavailable | CAPABILITIES event + Wake not ready | no crash and no false readiness |
-| `FULL_SCREEN_UNAVAILABLE` | full-screen capability unavailable | CAPABILITIES event | audio still works; UI degradation is truthful |
+| `EXACT_ALARM_UNAVAILABLE` | exact alarm capability unavailable on a build using revocable `SCHEDULE_EXACT_ALARM` | CAPABILITIES event + Wake not ready | no crash and no false readiness; mark N/A for `USE_EXACT_ALARM` builds where user revocation is not available |
+| `FULL_SCREEN_UNAVAILABLE` | full-screen capability removed after a safe future wake was scheduled | CAPABILITIES with `fullScreen=false` + INVALIDATED terminal event | unsafe future wake is cleared before foreground/audio and the repair target is diagnosable |
 | `DOZE_IDLE` | device idle/Doze before target | normal wake timeline | exact wake remains timely |
 | `BLUETOOTH_ROUTE` | Bluetooth connected / route changed around wake | receiver/audio + local voice/fallback evidence | alarm remains audible/controllable and route behavior is recorded |
 | `MOTION_CALIBRATION` | controlled pickup/orientation/real movement | wake timeline + observed motion behavior | activation evidence is neither trivially false-positive nor unreasonably insensitive |

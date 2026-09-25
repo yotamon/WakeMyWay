@@ -17,8 +17,17 @@ class AlarmReceiver : BroadcastReceiver() {
         // already-delivered wake may become active. Presentation access is global, so losing it
         // invalidates every enabled schedule rather than risking uncontrollable critical audio.
         val preflight = kernel.health()
-        if (preflight.activeWakeRepairTarget() != AlarmRepairTarget.NONE) {
+        val repairTarget = preflight.activeWakeRepairTarget()
+        if (repairTarget != AlarmRepairTarget.NONE) {
+            val trace = WakeTimingTrace(context)
+            trace.capabilities(
+                occurrenceId = occurrenceId,
+                exactAlarmAllowed = preflight.exactAlarmAllowed,
+                notificationsAllowed = preflight.notificationsAllowed,
+                fullScreenIntentAllowed = preflight.fullScreenIntentAllowed,
+            )
             kernel.cancelSchedule()
+            trace.invalidated(occurrenceId, repairTarget)
             return
         }
 
