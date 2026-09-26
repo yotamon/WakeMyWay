@@ -56,8 +56,14 @@ fun AccountScreen(
     val context = LocalContext.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var showEmailForm by remember(manager.googleSignInConfigured) {
-        mutableStateOf(!manager.googleSignInConfigured)
+    val hasSignInMethod = manager.googleSignInConfigured || manager.emailPasswordSignInConfigured
+    var showEmailForm by remember(
+        manager.googleSignInConfigured,
+        manager.emailPasswordSignInConfigured,
+    ) {
+        mutableStateOf(
+            manager.emailPasswordSignInConfigured && !manager.googleSignInConfigured,
+        )
     }
 
     LaunchedEffect(manager) {
@@ -85,13 +91,20 @@ fun AccountScreen(
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "Use Google for the quickest sign-in, or use email and password instead. Your alarms remain local and keep working without an account.",
+                text = when {
+                    manager.googleSignInConfigured && manager.emailPasswordSignInConfigured ->
+                        "Use Google for the quickest sign-in, or use email and password instead. Your alarms remain local and keep working without an account."
+                    manager.googleSignInConfigured ->
+                        "Sign in securely with Google. Your alarms remain local and keep working without an account."
+                    else ->
+                        "Your alarms remain local and keep working without an account."
+                },
                 modifier = Modifier.padding(top = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodyLarge,
                 color = WmwColors.LightQuietText,
             )
 
-            if (!state.configured) {
+            if (!state.configured || !hasSignInMethod) {
                 WmwSectionLabel(
                     text = "Account setup",
                     modifier = Modifier.padding(top = WmwSpacing.Xl),
@@ -102,7 +115,11 @@ fun AccountScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
                         Text(
-                            text = "Account sign-in is not connected in this build yet.",
+                            text = if (!state.configured) {
+                                "Account sign-in is not connected in this build yet."
+                            } else {
+                                "No production sign-in method is enabled in this build."
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             color = WmwColors.Midnight,
                         )
@@ -188,40 +205,37 @@ fun AccountScreen(
                     onLightSurface = true,
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                        Text(
-                            text = "Continue with Google",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = WmwColors.Midnight,
-                        )
-                        Text(
-                            text = "Recommended. If your account uses Google, you do not need a separate WakeMyWay password.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WmwColors.LightQuietText,
-                        )
-                        Button(
-                            onClick = { scope.launch { manager.signInWithGoogle(context) } },
-                            enabled = !state.loading && manager.googleSignInConfigured,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Continue with Google")
-                        }
-                        if (!manager.googleSignInConfigured) {
+                        if (manager.googleSignInConfigured) {
                             Text(
-                                text = "Google sign-in is not enabled in this build yet. You can still use email and password below.",
+                                text = "Continue with Google",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = WmwColors.Midnight,
+                            )
+                            Text(
+                                text = "Secure sign-in through Google and Neon Auth. No separate WakeMyWay password is needed.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = WmwColors.LightQuietText,
                             )
+                            Button(
+                                onClick = { scope.launch { manager.signInWithGoogle(context) } },
+                                enabled = !state.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Continue with Google")
+                            }
                         }
 
-                        TextButton(
-                            onClick = { showEmailForm = !showEmailForm },
-                            enabled = !state.loading,
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                        ) {
-                            Text(if (showEmailForm) "Hide email sign-in" else "Use email instead")
+                        if (manager.emailPasswordSignInConfigured && manager.googleSignInConfigured) {
+                            TextButton(
+                                onClick = { showEmailForm = !showEmailForm },
+                                enabled = !state.loading,
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                            ) {
+                                Text(if (showEmailForm) "Hide email sign-in" else "Use email instead")
+                            }
                         }
 
-                        if (showEmailForm) {
+                        if (manager.emailPasswordSignInConfigured && showEmailForm) {
                             Text(
                                 text = "Email & password",
                                 style = MaterialTheme.typography.titleSmall,
