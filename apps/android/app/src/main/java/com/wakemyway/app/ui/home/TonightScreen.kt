@@ -84,6 +84,7 @@ fun TonightScreen(
     onOpenWakeLab: () -> Unit,
     modifier: Modifier = Modifier,
     showDeveloperTools: Boolean = false,
+    showWakeLab: Boolean = showDeveloperTools,
     voiceWakeReadiness: VoiceWakeReadiness? = null,
     onEnableVoiceReplies: () -> Unit = {},
     onRepairWakeSystem: () -> Unit = {},
@@ -242,6 +243,9 @@ fun TonightScreen(
                     },
                     onLightSurface = true,
                 )
+            }
+
+            if (showWakeLab) {
                 WmwSecondaryAction(
                     label = stringResource(R.string.tonight_open_lab),
                     onClick = onOpenWakeLab,
