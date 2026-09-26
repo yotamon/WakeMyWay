@@ -1,114 +1,125 @@
 # WakeMyWay account production activation
 
-This runbook activates the account/auth layer implemented by ADR 027. It deliberately keeps identity,
-authorization, backup and future commerce outside Alarm Kernel and Active Wake authority.
+This runbook activates the account/auth layer implemented by ADR 027. Identity, authorization,
+backup and future commerce remain outside Alarm Kernel and Active Wake authority.
 
-## 1. Provision one dedicated Supabase project
+## 1. Managed backend
 
-Use a WakeMyWay-owned Supabase project. Do not reuse an unrelated product database.
+WakeMyWay uses the dedicated Neon project:
 
-Required production values:
+- project: `WakeMyWay`
+- project id: `young-silence-67653683`
+- production branch: `main`
+- branch id: `br-jolly-math-b143muwu`
+- region: Frankfurt / `aws-eu-central-1`
+- database: `neondb`
+- PostgreSQL: 17
+- identity: Neon Managed Better Auth
 
-- project URL
-- publishable key for Android
-- pooled/server PostgreSQL connection for the Wake API
+Never place a PostgreSQL connection string, Neon management credential, Google client secret or
+other server credential in Android.
 
-Never place a Supabase secret/service-role key or `DATABASE_URL` in Android.
+## 2. Database migrations
 
-## 2. Apply database migrations
-
-Apply, in repository order:
+Apply the account migrations to the production branch:
 
 1. `001_consumer_backups.sql`
-2. `002_play_subscription_lifecycle.sql` when Play commerce lifecycle storage is enabled
-3. `003_account_roles.sql`
+2. `003_account_roles.sql`
 
-`wmw_private.account_roles` intentionally has no client RLS policies. The Wake API connects
-server-side and missing rows always mean ordinary `user`.
+Apply `002_play_subscription_lifecycle.sql` later when the Play commerce lifecycle is activated.
 
-## 3. Configure Supabase Auth
+Both account tables reference `neon_auth."user"(id)`. `wmw_private.account_roles` has no client
+write path; missing role rows mean ordinary `user`.
 
-Enable email/password authentication.
+## 3. Neon Managed Better Auth
 
-For Google:
+Managed Better Auth is enabled on `main`.
 
-1. create/configure the Google OAuth client for WakeMyWay;
-2. enable Google in Supabase Auth with that client id/secret;
-3. allow the Supabase provider callback URL in Google;
-4. allow `wakemyway://auth` as the mobile redirect URL in Supabase.
+Development configuration may use Neon's shared Google and shared email providers, but production
+must complete the Neon Auth production checklist:
 
-Android uses PKCE. The Google client secret remains in Supabase/Google configuration and is never
-shipped in the APK.
+1. configure a WakeMyWay-owned Google OAuth application;
+2. configure that Google client id/secret in Neon Auth;
+3. configure the native Android OAuth client for package `com.wakemyway.app` and the production
+   signing certificate;
+4. configure a production email provider;
+5. enable an explicit email verification policy;
+6. keep only required trusted domains/redirects and disable localhost for production.
 
-## 4. Configure the Wake API deployment
+Android uses Credential Manager to obtain a Google ID token and sends that token plus a nonce to
+Neon's `/sign-in/social` endpoint. No Google client secret is shipped in the APK.
 
-Server-side Vercel environment:
+## 4. Wake API deployment
 
-```text
-SUPABASE_URL=https://<project-ref>.supabase.co
-DATABASE_URL=<server-only pooled PostgreSQL connection>
-```
+Vercel needs two server-side account values:
 
-Redeploy the Wake API after those values are present.
+- `NEON_AUTH_BASE_URL`: the public Managed Better Auth base URL.
+- `DATABASE_URL`: the server-only Neon PostgreSQL connection.
 
-Verify:
+The database connection is a server secret and must never be copied to Android, documentation,
+release metadata or logs.
+
+The Wake API verifies Neon JWTs against the public JWKS endpoint under the Managed Better Auth URL.
+It requires EdDSA signature, the Neon Auth origin as issuer/audience, `role=authenticated`, a valid
+expiry and a UUID subject.
+
+Verify with a real signed-in user:
 
 ```text
 GET /api/v1/account/me
-Authorization: Bearer <real Supabase user access token>
+Authorization: Bearer <short-lived Neon user JWT>
 ```
 
-An authenticated account with no explicit role row must return `role: "user"`.
+An authenticated user without an explicit Wake role row must return `role: "user"`.
 
-## 5. Configure Android builds
+## 5. Android/release configuration
 
-Build-time values:
+Build-time GitHub Actions Variables:
 
 ```text
-WMW_SUPABASE_URL=https://<project-ref>.supabase.co
-WMW_SUPABASE_PUBLISHABLE_KEY=<publishable key>
-WMW_ACCOUNT_API_BASE_URL=https://<WakeMyWay production API origin>
+WMW_NEON_AUTH_URL=<public Managed Better Auth base URL>
+WMW_GOOGLE_WEB_CLIENT_ID=<WakeMyWay Google Web OAuth client id>
+WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
 
-For official GitHub releases, configure those exact names as repository/environment **Actions
-Variables**. The release workflow passes them into Gradle and fails closed when account configuration
-is only partially supplied or either URL is not HTTPS. The Supabase publishable key is intentionally
-public client configuration, not a service-role secret.
+The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
+API URLs must be HTTPS. The Google Web client id is public application configuration; the Google
+client secret remains server/provider-side.
 
-The Account entry is intentionally hidden when Supabase URL/key are absent, so development/release
-builds never expose a fake login surface.
+The Account entry stays hidden when Neon Auth is not configured. If Neon is configured before the
+Google client id is available in a development build, email auth may work while the Google action is
+truthfully disabled.
 
-## 6. Create the founder/admin account safely
+## 6. Founder/admin grant
 
-First sign in normally in WakeMyWay with the intended founder account. Then obtain its immutable
-Supabase auth user UUID.
-
-Grant the role by UUID only:
+First sign in normally with the intended founder account. Obtain its immutable
+`neon_auth.user.id` UUID, then grant WakeMyWay admin by UUID only:
 
 ```sql
 insert into wmw_private.account_roles (account_id, role)
-values ('<auth-user-uuid>', 'admin')
+values ('<neon-user-uuid>', 'admin')
 on conflict (account_id)
 do update set
     role = excluded.role,
     updated_at = now();
 ```
 
-Do not grant admin by email, Google profile, `user_metadata`, `app_metadata` writable from client
-flows, or a hard-coded Android flag.
+Never grant Wake admin from email, a Google profile, `neon_auth.user.role`, a client flag or
+purchase state.
 
-Verify by reopening Account or refreshing it. The app should show the Admin badge only after
-`GET /api/v1/account/me` returns a server-verified admin role.
+The Android Admin badge is valid only after `GET /api/v1/account/me` returns the server-owned
+`admin` role.
 
 ## 7. Acceptance checklist
 
 - email/password account creation works;
-- email/password sign-in survives app restart;
-- Google sign-in returns through `wakemyway://auth`;
-- sign-out removes the active session;
+- email/password session survives app restart;
+- the opaque session token is encrypted with Android Keystore;
+- Google Credential Manager sign-in creates/loads the same Neon account boundary;
+- sign-out invalidates the provider session and clears local session material;
 - ordinary accounts return `user`;
 - founder account returns `admin`;
-- losing network/auth never changes, cancels or blocks an already-local alarm;
+- account/network failure never changes, cancels or blocks an already-local alarm;
 - no server/database/provider secret is present in the APK;
-- backup endpoints accept the same user token;
-- future payment entitlement attaches to the same immutable account id, not email.
+- backup endpoints accept the same Neon identity;
+- future payment entitlement attaches to the immutable Neon user UUID, not email.
