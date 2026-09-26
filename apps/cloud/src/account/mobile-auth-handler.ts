@@ -20,6 +20,7 @@ import {
 } from './mobile-auth-store.js';
 
 const HANDOFF_TTL_MS = 5 * 60 * 1000;
+const PKCE_COOKIE_NAME = '__Secure-wmw-mobile-pkce';
 const PKCE_CHALLENGE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const PKCE_VERIFIER_PATTERN = /^[A-Za-z0-9._~-]{43,128}$/;
 const CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -52,7 +53,6 @@ export async function handleMobileGoogleStart(request: Request): Promise<Respons
     }
 
     const callbackUrl = new URL('/api/v1/account/auth/mobile/callback', config.publicBaseUrl);
-    callbackUrl.searchParams.set('code_challenge', challenge);
 
     const proxyRequest = new Request(
       new URL('/api/v1/account/auth/sign-in/social', config.publicBaseUrl),
@@ -97,6 +97,7 @@ export async function handleMobileGoogleStart(request: Request): Promise<Respons
       'x-request-id': id,
     });
     for (const cookie of getSetCookies(authResponse.headers)) headers.append('set-cookie', cookie);
+    headers.append('set-cookie', pkceCookie(challenge));
     return new Response(null, { status: 302, headers });
   } catch (error) {
     return errorResponse(error, id, 'mobile-google-auth-start');
@@ -112,7 +113,7 @@ export async function handleMobileGoogleCallback(
   try {
     const config = configuredMobileAuth();
     const url = new URL(request.url);
-    const challenge = url.searchParams.get('code_challenge') ?? '';
+    const challenge = readCookie(request, PKCE_COOKIE_NAME) ?? '';
     if (!PKCE_CHALLENGE_PATTERN.test(challenge)) {
       return mobileAuthRedirect('invalid_challenge');
     }
@@ -151,6 +152,7 @@ export async function handleMobileGoogleCallback(
       'cache-control': 'no-store',
     });
     for (const cookie of result.cookies) headers.append('set-cookie', cookie);
+    headers.append('set-cookie', clearPkceCookie());
     return new Response(null, { status: 302, headers });
   } catch (error) {
     console.error('[wmw-cloud]', {
@@ -210,6 +212,39 @@ function configuredMobileAuth(): MobileAuthConfig {
   publicBaseUrl.hash = '';
 
   return { neonAuthBaseUrl, publicBaseUrl, cookieSecret };
+}
+
+function pkceCookie(challenge: string): string {
+  return [
+    `${PKCE_COOKIE_NAME}=${challenge}`,
+    'Path=/api/v1/account/auth/mobile',
+    'HttpOnly',
+    'Secure',
+    'SameSite=Lax',
+    'Max-Age=600',
+  ].join('; ');
+}
+
+function clearPkceCookie(): string {
+  return [
+    `${PKCE_COOKIE_NAME}=`,
+    'Path=/api/v1/account/auth/mobile',
+    'HttpOnly',
+    'Secure',
+    'SameSite=Lax',
+    'Max-Age=0',
+  ].join('; ');
+}
+
+function readCookie(request: Request, name: string): string | null {
+  const header = request.headers.get('cookie');
+  if (!header) return null;
+  for (const part of header.split(';')) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(`${name}=`)) continue;
+    return trimmed.slice(name.length + 1);
+  }
+  return null;
 }
 
 function extractSessionToken(cookieHeaders: string[]): string | null {
