@@ -41,7 +41,7 @@ current Node.js LTS
 TypeScript
 Fastify
 Vercel
-Supabase-managed PostgreSQL
+Neon-managed PostgreSQL
 Kysely
 Pino
 OpenAPI 3.1
@@ -49,9 +49,9 @@ OpenAPI 3.1
 
 Reconfirm exact versions and current provider connection guidance when the first service is implemented.
 
-## Supabase data platform
+## Neon data platform
 
-Supabase is the preferred managed cloud data platform once persistence is justified. See ADR-013.
+Neon is the managed cloud data and identity platform. See ADR-013.
 
 Responsibility split:
 
@@ -65,20 +65,20 @@ Wake API on Vercel
 Kysely / application logic
     │
     ▼
-Supabase PostgreSQL
+Neon PostgreSQL
 ```
 
-Use Supabase for:
+Use Neon for:
 
 - managed PostgreSQL
-- Auth later when account identity is genuinely needed
+- Managed Better Auth for optional account identity/session acquisition
 - Storage only when a concrete object-storage feature exists
 
-Do **not** make Android domain behavior depend directly on Supabase database tables or RLS policy as the primary business-logic layer. Database schema remains a backend implementation detail.
+Do **not** make Android domain behavior depend directly on Neon database tables or RLS policy as the primary business-logic layer. Database schema remains a backend implementation detail.
 
-A future Android → Supabase Auth interaction may be used to acquire identity/session credentials, after which domain API calls still go to the Wake API.
+Android may use Neon Managed Better Auth directly for identity/session acquisition; application/domain API calls still go to the Wake API.
 
-The serverless database connection/pool mode must be selected according to current Supabase guidance when cloud code is first deployed; do not freeze connection details before then.
+The serverless database connection/pool mode must be selected according to current Neon guidance when cloud code is first deployed; do not freeze connection details before then.
 
 Cloud environments should separate development/test data from production dogfood/release data.
 
@@ -194,6 +194,6 @@ When cloud code is introduced:
 - recheck current Function duration, WebSocket beta status, pricing and limits at implementation time
 - never hold current Wake Occurrence authority, active wake execution, or irreplaceable wake state only inside a Function process
 - design realtime WebSocket clients for reconnect if the Vercel route wins the M8 spike
-- keep Supabase data responsibilities independent from the Vercel compute host; do not let either provider own product/domain semantics
+- keep Neon data responsibilities independent from the Vercel compute host; do not let either provider own product/domain semantics
 
 Vendor capability references are recorded in `32-testing-and-deployment-topology.md`.

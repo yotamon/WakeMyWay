@@ -2,11 +2,11 @@
 
 **Last updated:** 2026-09-26  
 **Product:** WakeMyWay (WMW)  
-**Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
+**Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
 **Current launch program:** #89; canonical plan: `docs/35-paid-launch-readiness.md`  
 **Readiness gates:** TRUST #9 → FINISH #59 → PROVE #87 → SELL #88  
-**Account backend:** email/password + Google sign-in, session handling and server-owned roles are implemented behind configuration; production Supabase/Google provisioning remains pending  
+**Account backend:** email/password + Google sign-in, session handling and server-owned roles are implemented behind configuration; production Neon database/auth provisioning is active; WakeMyWay-owned Google OAuth remains pending  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
@@ -154,7 +154,7 @@ merge into existing device    → existing-device preferences win
 
 Immediately before import, the Android adapter rechecks both rich product state and any Alarm Kernel slot for the same id. A stale cloud plan therefore cannot replace or cancel a locally committed wake. Remote imports always require a later explicit local enable action before they can become Android schedule authority.
 
-The Account surface now implements email/password sign-up/sign-in, Google OAuth, persisted Supabase sessions, sign-out and a PKCE app callback. It is configuration-gated until a dedicated WakeMyWay Supabase project and Google OAuth credentials are provisioned. `GET /api/v1/account/me` verifies the Supabase JWT and resolves a server-owned `user` / `admin` role from `wmw_private.account_roles`; email and client metadata never grant privilege. ADR-027 is the canonical auth/authorization decision. Backup and future payment/domain operations continue through the Wake API, with Supabase PostgreSQL behind it.
+The Account surface now implements email/password sign-up/sign-in, Google OAuth, encrypted Neon Auth sessions, sign-out and native Google Credential Manager integration. It is configuration-gated until Neon Auth is configured; native Google remains gated until WakeMyWay Google OAuth credentials are provisioned. `GET /api/v1/account/me` verifies the Neon JWT and resolves a server-owned `user` / `admin` role from `wmw_private.account_roles`; email and client metadata never grant privilege. ADR-027 is the canonical auth/authorization decision. Backup and future payment/domain operations continue through the Wake API, with Neon PostgreSQL behind it.
 
 ## Multi-alarm execution foundation
 

@@ -71,7 +71,7 @@ These are intentionally unresolved. Do not silently choose durable answers witho
 
 - first concrete cloud capability that actually justifies creating `services/api`
 - anonymous installation credential design
-- exact Supabase Auth adoption point and account-claim/merge flow
+- account claim/merge behavior across email and Google identities in Neon Auth
 - development/preview database isolation strategy once cloud work begins
 - which learning/profile computations, if any, ever leave device after local M7 proves value
 - generated OpenAPI client vs thin handwritten Retrofit after actual endpoint surface exists

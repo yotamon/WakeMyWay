@@ -1,26 +1,21 @@
 package com.wakemyway.app.product.account
 
 import android.content.Context
-import android.content.Intent
+import android.util.Base64
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.wakemyway.app.BuildConfig
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.Auth
-import io.github.jan.supabase.auth.ExternalAuthAction
-import io.github.jan.supabase.auth.FlowType
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.handleDeeplinks
-import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.auth.status.SessionStatus
-import io.github.jan.supabase.auth.user.UserSession
-import io.github.jan.supabase.createSupabaseClient
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -47,70 +42,47 @@ data class WakeAccountState(
 /**
  * Optional account boundary.
  *
- * Supabase Auth owns identity/session acquisition only. WakeMyWay domain state remains local-first,
- * and server-owned authorization is resolved through the Wake API rather than trusted client
- * metadata. A missing or unavailable account backend must never affect alarm scheduling or wake.
+ * Neon Managed Better Auth owns identity/session acquisition only. WakeMyWay domain state remains
+ * local-first, and server-owned authorization is resolved through the Wake API rather than trusted
+ * provider metadata. A missing or unavailable account backend must never affect alarm scheduling,
+ * active wake execution, Stop or Snooze.
  */
 class WakeAccountManager private constructor(
     context: Context,
 ) {
-    private val supabaseUrl = BuildConfig.SUPABASE_URL.trim()
-    private val supabaseKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY.trim()
+    private val neonAuthUrl = BuildConfig.NEON_AUTH_URL.trim().trimEnd('/')
+    private val googleWebClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
     private val accountApiBaseUrl = BuildConfig.ACCOUNT_API_BASE_URL.trim().trimEnd('/')
+    private val authClient = neonAuthUrl.takeIf { it.isNotBlank() }?.let {
+        NeonAuthClient(context.applicationContext, it)
+    }
 
-    private val client: SupabaseClient? =
-        if (supabaseUrl.isNotBlank() && supabaseKey.isNotBlank()) {
-            createSupabaseClient(
-                supabaseUrl = supabaseUrl,
-                supabaseKey = supabaseKey,
-            ) {
-                install(Auth) {
-                    flowType = FlowType.PKCE
-                    scheme = AUTH_SCHEME
-                    host = AUTH_HOST
-                    defaultExternalAuthAction = ExternalAuthAction.CustomTabs()
-                }
-            }
-        } else {
-            null
-        }
+    val googleSignInConfigured: Boolean
+        get() = authClient != null && googleWebClientId.isNotBlank()
 
     private val _state = MutableStateFlow(
-        WakeAccountState(configured = client != null),
+        WakeAccountState(configured = authClient != null),
     )
     val state: StateFlow<WakeAccountState> = _state.asStateFlow()
 
-    init {
-        // Supabase Auth uses Android application context internally for browser/deep-link flows.
-        context.applicationContext
-    }
-
     suspend fun refresh() {
-        val auth = client?.auth ?: run {
-            _state.value = WakeAccountState(configured = false)
-            return
-        }
-
+        val auth = requireAuth() ?: return
         _state.value = _state.value.copy(loading = true, error = null)
-        runCatching {
-            val status = auth.sessionStatus.first { it !is SessionStatus.Initializing }
-            when (status) {
-                is SessionStatus.Authenticated -> loadAccount(status.session)
-                is SessionStatus.NotAuthenticated -> WakeAccountState(configured = true)
-                is SessionStatus.RefreshFailure -> WakeAccountState(
-                    configured = true,
-                    error = "Your session expired. Please sign in again.",
-                )
-                SessionStatus.Initializing -> error("Auth remained in initialization.")
+
+        runCatching { auth.currentSession() }
+            .onSuccess { session ->
+                _state.value = if (session == null) {
+                    WakeAccountState(configured = true)
+                } else {
+                    loadAccount(session)
+                }
             }
-        }.onSuccess {
-            _state.value = it
-        }.onFailure { error ->
-            _state.value = WakeAccountState(
-                configured = true,
-                error = friendlyMessage(error),
-            )
-        }
+            .onFailure { error ->
+                _state.value = WakeAccountState(
+                    configured = true,
+                    error = friendlyMessage(error),
+                )
+            }
     }
 
     suspend fun signIn(email: String, password: String) {
@@ -118,10 +90,7 @@ class WakeAccountManager private constructor(
         if (!validateCredentials(email, password)) return
 
         runAction {
-            auth.signInWith(Email) {
-                this.email = email.trim()
-                this.password = password
-            }
+            auth.signIn(email.trim(), password)
             loadCurrentAccount(auth)
         }
     }
@@ -131,37 +100,54 @@ class WakeAccountManager private constructor(
         if (!validateCredentials(email, password)) return
 
         runAction {
-            auth.signUpWith(Email) {
-                this.email = email.trim()
-                this.password = password
-            }
-            val session = auth.currentSessionOrNull()
-            if (session != null) {
-                loadAccount(session)
-            } else {
-                WakeAccountState(
+            auth.signUp(
+                email = email.trim(),
+                password = password,
+                name = email.substringBefore('@').ifBlank { "WakeMyWay user" },
+            )
+            auth.currentSession()?.let { loadAccount(it) }
+                ?: WakeAccountState(
                     configured = true,
-                    notice = "Check ${email.trim()} to confirm your account, then return to WakeMyWay.",
+                    notice = "Account created. Verify your email if requested, then sign in.",
                 )
-            }
         }
     }
 
-    suspend fun signInWithGoogle() {
+    suspend fun signInWithGoogle(activityContext: Context) {
         val auth = requireAuth() ?: return
-        _state.value = _state.value.copy(loading = true, error = null, notice = null)
-        runCatching {
-            auth.signInWith(Google)
-        }.onSuccess {
-            _state.value = WakeAccountState(
-                configured = true,
-                notice = "Finish signing in with Google to continue.",
+        if (googleWebClientId.isBlank()) {
+            _state.value = _state.value.copy(
+                error = "Google sign-in is not configured in this build yet.",
             )
-        }.onFailure { error ->
-            _state.value = WakeAccountState(
-                configured = true,
-                error = friendlyMessage(error),
+            return
+        }
+
+        runAction {
+            val nonce = secureNonce()
+            val option = GetSignInWithGoogleOption.Builder(googleWebClientId)
+                .setNonce(nonce)
+                .build()
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(option)
+                .build()
+            val result = CredentialManager.create(activityContext).getCredential(
+                context = activityContext,
+                request = request,
             )
+            val credential = result.credential
+            if (
+                credential !is CustomCredential ||
+                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            ) {
+                error("Google did not return a supported identity credential.")
+            }
+
+            val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
+            auth.signInWithGoogle(
+                idToken = googleCredential.idToken,
+                nonce = nonce,
+            )
+            loadCurrentAccount(auth)
         }
     }
 
@@ -171,49 +157,6 @@ class WakeAccountManager private constructor(
             auth.signOut()
             WakeAccountState(configured = true)
         }
-    }
-
-    fun handleAuthCallback(
-        intent: Intent,
-        onFinished: (Boolean) -> Unit,
-    ) {
-        val supabase = client ?: run {
-            onFinished(false)
-            return
-        }
-
-        if (intent.data?.getQueryParameter("code").isNullOrBlank()) {
-            _state.value = WakeAccountState(
-                configured = true,
-                error = "The sign-in callback was incomplete. Please try again.",
-            )
-            onFinished(false)
-            return
-        }
-
-        supabase.handleDeeplinks(
-            intent = intent,
-            onSessionSuccess = {
-                _state.value = WakeAccountState(
-                    configured = true,
-                    account = WakeAccount(
-                        id = it.user?.id.orEmpty(),
-                        email = it.user?.email,
-                        role = WakeAccountRole.USER,
-                        roleVerified = false,
-                    ),
-                    notice = "Signed in. Refreshing account permissions…",
-                )
-                onFinished(true)
-            },
-            onError = { error ->
-                _state.value = WakeAccountState(
-                    configured = true,
-                    error = friendlyMessage(error),
-                )
-                onFinished(false)
-            },
-        )
     }
 
     private suspend fun runAction(action: suspend () -> WakeAccountState) {
@@ -228,8 +171,8 @@ class WakeAccountManager private constructor(
             }
     }
 
-    private suspend fun loadCurrentAccount(auth: Auth): WakeAccountState {
-        val session = auth.currentSessionOrNull()
+    private suspend fun loadCurrentAccount(auth: NeonAuthClient): WakeAccountState {
+        val session = auth.currentSession()
             ?: return WakeAccountState(
                 configured = true,
                 error = "Sign-in completed without a usable session. Please try again.",
@@ -237,14 +180,13 @@ class WakeAccountManager private constructor(
         return loadAccount(session)
     }
 
-    private suspend fun loadAccount(session: UserSession): WakeAccountState {
-        val localUser = session.user
+    private suspend fun loadAccount(session: NeonAuthSession): WakeAccountState {
         if (accountApiBaseUrl.isBlank()) {
             return WakeAccountState(
                 configured = true,
                 account = WakeAccount(
-                    id = localUser?.id.orEmpty(),
-                    email = localUser?.email,
+                    id = session.userId,
+                    email = session.email,
                     role = WakeAccountRole.USER,
                     roleVerified = false,
                 ),
@@ -263,8 +205,8 @@ class WakeAccountManager private constructor(
                 WakeAccountState(
                     configured = true,
                     account = WakeAccount(
-                        id = localUser?.id.orEmpty(),
-                        email = localUser?.email,
+                        id = session.userId,
+                        email = session.email,
                         role = WakeAccountRole.USER,
                         roleVerified = false,
                     ),
@@ -293,7 +235,7 @@ class WakeAccountManager private constructor(
             val account = JSONObject(body).getJSONObject("account")
             return WakeAccount(
                 id = account.getString("id"),
-                email = account.optString("email").takeIf { it.isNotBlank() },
+                email = account.optString("email").takeIf { it.isNotBlank() && it != "null" },
                 role = when (account.getString("role")) {
                     "admin" -> WakeAccountRole.ADMIN
                     else -> WakeAccountRole.USER
@@ -320,8 +262,8 @@ class WakeAccountManager private constructor(
         return true
     }
 
-    private fun requireAuth(): Auth? {
-        val auth = client?.auth
+    private fun requireAuth(): NeonAuthClient? {
+        val auth = authClient
         if (auth == null) {
             _state.value = WakeAccountState(
                 configured = false,
@@ -331,19 +273,32 @@ class WakeAccountManager private constructor(
         return auth
     }
 
+    private fun secureNonce(): String {
+        val bytes = ByteArray(32)
+        SecureRandom().nextBytes(bytes)
+        return Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+    }
+
     private fun friendlyMessage(error: Throwable): String {
         val raw = error.message.orEmpty()
         val lower = raw.lowercase()
         return when {
-            "invalid login" in lower || "invalid credentials" in lower ->
+            error is GetCredentialException ->
+                "Google sign-in was cancelled or unavailable. You can try again."
+            "invalid email or password" in lower ||
+                "invalid credentials" in lower ||
+                "invalid password" in lower ->
                 "That email and password combination was not accepted."
-            "email not confirmed" in lower ->
-                "Confirm your email first, then sign in."
-            "already registered" in lower ->
+            "email not verified" in lower || "email not confirmed" in lower ->
+                "Verify your email first, then sign in."
+            "already exists" in lower || "already registered" in lower ->
                 "An account already exists for that email. Try signing in instead."
             "password" in lower && ("weak" in lower || "short" in lower) ->
                 "That password does not meet the account security requirements."
-            "network" in lower || "timeout" in lower || "unable to resolve" in lower ->
+            "network" in lower ||
+                "timeout" in lower ||
+                "unable to resolve" in lower ||
+                "failed to connect" in lower ->
                 "WakeMyWay could not reach the account service. Your alarms still work normally."
             raw.isNotBlank() -> raw.take(MAX_ERROR_LENGTH)
             else -> "The account request could not be completed."
@@ -351,8 +306,6 @@ class WakeAccountManager private constructor(
     }
 
     companion object {
-        const val AUTH_SCHEME = "wakemyway"
-        const val AUTH_HOST = "auth"
         private const val MIN_PASSWORD_LENGTH = 8
         private const val NETWORK_TIMEOUT_MS = 10_000
         private const val MAX_RESPONSE_CHARS = 32_000

@@ -102,7 +102,7 @@ No account is required for first use.
 
 A backend may later use an anonymous installation identity and rotating credentials only when a concrete cloud feature exists. Accounts arrive for sync/subscription/backup/iOS migration, not as an onboarding gate.
 
-Supabase Auth is the preferred future account/auth provider when those capabilities are justified. It is not required for base alarm use. A future mobile client may obtain an auth session directly from Supabase Auth, but application/domain data operations continue through the Wake API rather than binding the client directly to database tables.
+Neon Managed Better Auth is the account/auth provider when those capabilities are enabled. It is not required for base alarm use. A future mobile client may obtain an auth session directly from Neon Managed Better Auth, but application/domain data operations continue through the Wake API rather than binding the client directly to database tables.
 
 ## Secrets
 
@@ -137,7 +137,7 @@ Define before beta:
 - critical snapshot: only while needed for active next occurrence/recovery
 - Tomorrow Contract: through intended occurrence plus a short recovery window unless user chooses history
 - local session/outcome history: enough for product learning with user control/reset
-- cloud data in Supabase: only for actual enabled cloud features
+- cloud data in Neon: only for actual enabled cloud features
 
 Provide clear local reset and later account export/delete flows.
 

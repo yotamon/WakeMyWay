@@ -1,31 +1,41 @@
-# ADR-013: Use Supabase as the preferred managed cloud data platform
+# ADR-013: Use Neon as the managed cloud data and identity platform
 
-**Status:** Accepted, introduced only when a concrete cloud feature exists  
-**Date:** 2026-09-09
+**Status:** Accepted; Supabase selection superseded on 2026-09-26  
+**Date:** 2026-09-09  
+**Amended:** 2026-09-26
 
 ## Context
 
-Wake My Way is local-first. The Android device owns alarm scheduling, current Wake Occurrence state, Wake Runtime behavior, critical fallback audio, and all trust-critical wake behavior.
+WakeMyWay is local-first. Android owns alarm scheduling, current Wake Occurrence state, WakeRuntime,
+critical alarm audio and every trust-critical wake behavior.
 
-Future non-critical cloud capabilities will still need durable data, and later may need account identity and object storage. The project already prefers PostgreSQL + Kysely for server-side persistence and Vercel for non-critical web/API compute.
+Non-critical cloud capabilities need durable PostgreSQL data and now also need real account identity.
+The project already uses Kysely server-side and Vercel for the Wake API. The original version of this
+ADR selected Supabase before account infrastructure was provisioned. No production Supabase project
+or user data was created.
 
-A managed data platform should reduce operations without leaking database schema into mobile product architecture or becoming a dependency of the current wake attempt.
+When account implementation reached production provisioning, Neon provided the required PostgreSQL,
+Managed Better Auth, branching and direct agent/ChatGPT operations while preserving ordinary
+PostgreSQL portability. The project therefore replaces the provider choice without changing the
+local-first product boundary.
 
 ## Decision
 
-Use **Supabase as the preferred managed cloud data platform** when cloud persistence is first justified.
+Use **Neon as WakeMyWay's managed PostgreSQL and identity platform**.
 
-Initial intended responsibilities:
+Current responsibilities:
 
-- managed PostgreSQL for server-side cloud data
-- Supabase Auth later, when accounts/sync/device migration/subscription identity justify sign-in
-- Supabase Storage only when a real file/object-storage use case exists
+- Neon PostgreSQL for server-side cloud data;
+- Neon Managed Better Auth for email/password, Google identity and sessions;
+- Neon branching for isolated database/auth development when useful;
+- Neon object storage/functions only when a concrete product need earns them.
 
-The application backend remains the domain boundary:
+Vercel remains the public Wake API/domain boundary:
 
 ```text
 Android
-   │
+   │ identity: Managed Better Auth API
+   │ domain calls: short-lived Neon JWT
    ▼
 Wake API on Vercel
    │
@@ -33,42 +43,42 @@ Wake API on Vercel
 Kysely
    │
    ▼
-Supabase PostgreSQL
+Neon PostgreSQL
 ```
 
-The Android client must **not** couple domain behavior directly to Supabase database tables.
-
-A future direct Android → Supabase Auth flow is allowed for authentication/session acquisition if chosen, but domain reads/writes still go through the Wake API.
+Android does not receive a database connection string and does not bind domain behavior directly to
+database tables.
 
 ## Local-first constraint
 
-Supabase is never authoritative for:
+Neon is never authoritative for:
 
-- the current Wake Schedule on-device execution
-- the next Wake Occurrence
-- exact alarm registration
-- current Wake Session behavioral state
-- stop/snooze controls
-- critical fallback audio
-- Direct Boot recovery
+- current or future on-device Wake Schedule execution;
+- next Wake Occurrence authority;
+- exact alarm registration;
+- current Wake Session / WakeRuntime state;
+- Stop or Snooze;
+- critical alarm audio;
+- Direct Boot recovery.
 
-If Supabase is unavailable, the current wake attempt must continue using local state and prepared fallbacks.
+If Neon, Vercel, Google or the network is unavailable, a locally committed wake continues from local
+state.
 
-## Data boundary
+## Account and authorization boundary
 
-Cloud data may eventually include privacy-safe records such as:
+Managed Better Auth owns identity and session acquisition only.
 
-- installation/account records
-- optional synced preferences
-- cloud-generated Wake Plan metadata
-- semantic Wake Session outcomes/events needed by enabled cloud features
-- derived Wake Profile data if cloud learning is explicitly introduced
+- `neon_auth.user.id` is the immutable account UUID.
+- Android persists only the opaque auth session token, encrypted with Android Keystore.
+- Android obtains short-lived Neon JWTs for authenticated Wake API requests.
+- WakeMyWay application roles remain in `wmw_private.account_roles`.
+- Email, OAuth profile data and `neon_auth.user.role` never grant WakeMyWay admin access.
 
-Sensitive morning content is not uploaded merely because storage exists. Raw microphone audio is not retained by default. Tomorrow Contract text, transcripts, calendar content, and generated prompts follow the explicit privacy rules in `16-privacy-security.md`.
+See ADR-027 for the full account/authorization contract.
 
 ## Backup and migration contract
 
-The first Android sync seam is intentionally **backup/migration**, not live cloud scheduling authority.
+The first cloud persistence seam remains backup/migration, not live cloud scheduling authority.
 
 A cloud snapshot may contain normal consumer intent only:
 
@@ -76,87 +86,38 @@ A cloud snapshot may contain normal consumer intent only:
 - rich `AlarmDefinition` product intent;
 - version/timestamp metadata needed to validate the backup contract.
 
-It explicitly does not contain:
+It excludes Direct-Boot state, AlarmManager registrations, next-occurrence authority, active
+WakeRuntime state, Stop/Snooze terminal state, private Tomorrow Contract / Prepared Wake Plan text,
+raw microphone audio and transcripts.
 
-- device-local onboarding completion;
-- Direct-Boot Critical Wake state;
-- AlarmManager registration or next-occurrence authority;
-- active Wake Session / Wake Runtime state;
-- Stop/Snooze terminal state;
-- private Tomorrow Contract text or Prepared Wake Plan content;
-- raw microphone audio or transcripts.
-
-Restore is conservative:
-
-```text
-remote backup
-     │
-     ▼
-validate + plan
-     │
-     ├─ same alarm id exists locally → local alarm wins, remote copy skipped
-     └─ remote-only alarm → import disabled
-                                  │
-                                  └─ user must explicitly enable locally
-```
-
-Two explicit preference modes exist:
-
-- **Migrate to fresh device:** restore syncable convenience/default preferences while keeping onboarding local to the new installation.
-- **Merge into existing device:** current-device preferences win; only remote-only alarms are offered/imported under the disabled rule.
-
-The Android migration adapter must recheck both rich local product state and any Alarm Kernel slot immediately before import. A stale cloud plan therefore cannot replace or cancel a locally committed wake by reusing its id.
-
-The cloud gateway is account/session scoped but provider-neutral inside Android. Supabase Auth may later acquire identity/session state, while backup/restore domain traffic still goes through the Wake API. No sign-in UI should be exposed until a real authenticated backend path exists.
-
-A cloud/account outage during restore must fail before local mutation. Backup upload failure is likewise non-mutating. These properties are regression-tested independently of a real provider.
+Remote-only alarms restore disabled and require an explicit local enable action. Local alarm IDs win
+conflicts. Cloud/account failure during restore fails before local mutation.
 
 ## Server access
 
-Vercel/server code should connect to Supabase PostgreSQL using the connection mode appropriate for serverless workloads at implementation time. Re-verify Supabase connection/pooling guidance when the backend is introduced.
+Vercel/server code connects to Neon PostgreSQL with a server-only connection string. Kysely remains
+the application query layer. Provider-specific database SDKs do not enter the domain layer when
+ordinary PostgreSQL is sufficient.
 
-Kysely remains the application query layer. Avoid spreading Supabase-specific query SDK usage through the domain/service layer when ordinary PostgreSQL access is sufficient.
-
-## Auth
-
-No account is required for initial product use.
-
-Supabase Auth is deferred until a feature actually needs durable user identity, such as:
-
-- cross-device sync
-- Android → future iOS migration
-- backup/restore
-- subscription/account management
-
-Anonymous installation identity may exist before account auth.
-
-## Storage
-
-Supabase Storage is deferred until a concrete object-storage feature exists, for example generated/prepared audio or future user-provided assets.
-
-Any asset needed for tomorrow morning's reliable wake must be downloaded, validated, and available locally before the wake occurrence. Runtime network fetch is never the only copy of critical wake media.
+Managed Better Auth JWT verification uses the public branch JWKS. Database credentials and Neon
+management credentials never enter Android builds.
 
 ## Environment policy
 
-Development/test data must not casually share the production database.
+Production account/domain data lives on the Neon production branch. Development or preview work
+should use separate Neon branches/environments when persistence work needs production-like state.
 
-Initial direction:
-
-```text
-local / preview clients → development cloud environment
-production dogfood / release → production cloud environment
-```
-
-The exact preview-database strategy is deferred until cloud development begins.
+Database branching does not change product authority: a branch can clone backend state, never an
+Android Alarm Kernel or active wake.
 
 ## Consequences
 
-- cloud persistence provider is no longer an open architecture question
-- Vercel compute and Supabase data have intentionally separate responsibilities
-- PostgreSQL portability is retained
-- mobile clients remain insulated from database schema churn
-- auth/storage capabilities can be adopted incrementally instead of forcing account infrastructure into V1
-- cloud backup cannot silently schedule, replace or stop a local alarm
-- restoring a remote alarm always requires a later explicit local enable action
-- Supabase outage cannot make a locally prepared alarm fail
-- provider-specific platform features require explicit justification before entering the architecture
+- the original Supabase provider choice is superseded before any production Supabase data existed;
+- Vercel compute and Neon data/identity have intentionally separate responsibilities;
+- PostgreSQL portability remains strong;
+- mobile clients stay insulated from database schema churn;
+- account infrastructure is optional to local wake behavior;
+- cloud backup cannot silently schedule, replace or stop a local alarm;
+- restoring a remote alarm still requires a later explicit local enable action;
+- Neon outage cannot make a locally prepared alarm fail;
+- provider-specific storage/functions require explicit product justification before adoption.

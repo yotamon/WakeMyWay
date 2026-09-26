@@ -66,20 +66,6 @@
         </activity>
 
         <activity
-            android:name=".AuthCallbackActivity"
-            android:exported="true"
-            android:noHistory="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="wakemyway"
-                    android:host="auth" />
-            </intent-filter>
-        </activity>
-
-        <activity
             android:name=".WakeActivity"
             android:directBootAware="true"
             android:excludeFromRecents="true"

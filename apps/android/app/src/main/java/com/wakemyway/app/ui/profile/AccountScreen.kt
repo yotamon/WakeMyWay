@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -52,6 +53,7 @@ fun AccountScreen(
 ) {
     val state by manager.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -232,11 +234,18 @@ fun AccountScreen(
                         )
 
                         OutlinedButton(
-                            onClick = { scope.launch { manager.signInWithGoogle() } },
-                            enabled = !state.loading,
+                            onClick = { scope.launch { manager.signInWithGoogle(context) } },
+                            enabled = !state.loading && manager.googleSignInConfigured,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Continue with Google")
+                        }
+                        if (!manager.googleSignInConfigured) {
+                            Text(
+                                text = "Google sign-in will appear once the production Google client is configured. Email sign-in is available now.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = WmwColors.LightQuietText,
+                            )
                         }
                     }
                 }
