@@ -8,27 +8,23 @@ import com.wakemyway.app.ui.home.VoiceWakeReadiness
 /**
  * Product-level preflight for creating a Wake Occurrence.
  *
- * A critical alarm must never be persisted first and repaired later. The user explicitly grants
- * every capability needed for the alarm being saved. Voice readiness is required only when that
- * alarm has Voice Check-In enabled.
+ * Only Android capabilities required to deliver and control the alarm may block scheduling.
+ * Microphone, local recognition and Realtime are enrichment capabilities: when they are absent the
+ * committed wake remains valid and runs alarm-only rather than deleting or refusing user intent.
  */
 enum class WakeSchedulingBlocker {
     ALARM_SYSTEM,
-    VOICE_PERMISSION,
-    VOICE_UNAVAILABLE,
     NONE,
 }
 
+@Suppress("UNUSED_PARAMETER")
 fun wakeSchedulingBlocker(
     alarmHealth: AlarmHealth,
     voiceReadiness: VoiceWakeReadiness?,
     requiresVoiceReplies: Boolean = true,
-): WakeSchedulingBlocker = when {
-    alarmHealth.futureSchedulingRepairTarget() != AlarmRepairTarget.NONE ->
+): WakeSchedulingBlocker =
+    if (alarmHealth.futureSchedulingRepairTarget() != AlarmRepairTarget.NONE) {
         WakeSchedulingBlocker.ALARM_SYSTEM
-    !requiresVoiceReplies -> WakeSchedulingBlocker.NONE
-    voiceReadiness == VoiceWakeReadiness.SETUP_REQUIRED -> WakeSchedulingBlocker.VOICE_PERMISSION
-    voiceReadiness == VoiceWakeReadiness.UNAVAILABLE || voiceReadiness == null ->
-        WakeSchedulingBlocker.VOICE_UNAVAILABLE
-    else -> WakeSchedulingBlocker.NONE
-}
+    } else {
+        WakeSchedulingBlocker.NONE
+    }
