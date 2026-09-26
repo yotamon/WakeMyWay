@@ -87,7 +87,6 @@ Build-time GitHub Actions Variables:
 
 ```text
 WMW_NEON_AUTH_URL=<public Managed Better Auth base URL>
-WMW_GOOGLE_WEB_CLIENT_ID=<WakeMyWay Google Web OAuth client id>
 WMW_EMAIL_PASSWORD_AUTH_ENABLED=false
 WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
@@ -95,9 +94,9 @@ WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 The official release workflow fails closed when Android account configuration is partial. Neon Auth
 and Wake API URLs must be HTTPS. Google OAuth credentials remain entirely server/provider-side.
 
-The official release workflow fails closed if Neon account infrastructure is configured without at
-least one enabled sign-in method. The production configuration is Google-only today. Email/password
-remains implemented but hidden and locally blocked unless its explicit build flag is enabled.
+The production Android build is Google-only today. Google OAuth credentials are configured in Neon,
+not embedded in the APK. Email/password remains implemented but hidden and locally blocked unless
+its explicit build flag is enabled.
 
 ## 6. Founder/admin grant
 
