@@ -66,6 +66,24 @@
         </activity>
 
         <activity
+            android:name=".AuthCallbackActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.WakeMyWay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="auth"
+                    android:scheme="wakemyway" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".WakeActivity"
             android:directBootAware="true"
             android:excludeFromRecents="true"
