@@ -121,8 +121,9 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 - production Google OAuth uses WakeMyWay-owned credentials rather than Neon shared keys;
 - production localhost auth access is disabled;
 - email/password auth is disabled until custom SMTP + verification UX are production-ready;
-- the opaque session token is encrypted with Android Keystore;
-- Google Credential Manager sign-in creates/loads the same Neon account boundary;
+- the OAuth verifier and opaque session token are encrypted with Android Keystore;
+- browser Google OAuth completes through the official Neon server proxy and returns to the app via
+  the PKCE-bound handoff;
 - sign-out invalidates the provider session and clears local session material;
 - ordinary accounts return `user`;
 - founder account returns `admin`;
