@@ -222,7 +222,6 @@ jobs:
       WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
       WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
       WMW_NEON_AUTH_URL: ${{ vars.WMW_NEON_AUTH_URL }}
-      WMW_GOOGLE_WEB_CLIENT_ID: ${{ vars.WMW_GOOGLE_WEB_CLIENT_ID }}
       WMW_EMAIL_PASSWORD_AUTH_ENABLED: ${{ vars.WMW_EMAIL_PASSWORD_AUTH_ENABLED }}
       WMW_ACCOUNT_API_BASE_URL: ${{ vars.WMW_ACCOUNT_API_BASE_URL }}
     steps:
@@ -294,19 +293,8 @@ jobs:
               echo "::error::Account auth is partially configured: WMW_ACCOUNT_API_BASE_URL is missing."
               exit 1
             }
-            if [ -z "${WMW_GOOGLE_WEB_CLIENT_ID:-}" ] && [ "$EMAIL_AUTH_ENABLED" != "true" ]; then
-              echo "::error::Account auth has no enabled sign-in method. Configure Google or explicitly enable email/password auth."
-              exit 1
-            fi
-            if [ -n "${WMW_GOOGLE_WEB_CLIENT_ID:-}" ]; then
-              case "$WMW_GOOGLE_WEB_CLIENT_ID" in
-                *.apps.googleusercontent.com) ;;
-                *)
-                  echo "::error::WMW_GOOGLE_WEB_CLIENT_ID does not look like a Google OAuth Web client id."
-                  exit 1
-                  ;;
-              esac
-            fi
+            # Google OAuth is owned by the Wake API + Neon Auth provider configuration.
+            # Android no longer embeds or validates a Google OAuth client id.
             case "$WMW_NEON_AUTH_URL" in
               https://*) ;;
               *)
