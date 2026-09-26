@@ -84,7 +84,7 @@ describe('founder installation pairing', () => {
     expect(verified.sub).toBe(installationId);
     expect(verified.scope).toBe('founder-realtime-wake');
 
-    const encodedPayload = paired.deviceToken.split('.')[0];
+    const encodedPayload = paired.deviceToken.split('.')[0]!;
     const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
     expect(payload.v).toBe(2);
   });

@@ -188,7 +188,7 @@ fun WakeAlarmLabScreen(
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "This lab uses the same preflight as production. It cannot arm an unsafe Voice Wake.",
+            text = "This lab uses the same critical alarm preflight as production. Voice is optional enrichment and may degrade alarm-only.",
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
@@ -196,9 +196,9 @@ fun WakeAlarmLabScreen(
         Text(
             modifier = Modifier.padding(top = 28.dp),
             text = if (blocker == WakeSchedulingBlocker.NONE) {
-                "Voice Wake preflight ready"
+                "Alarm preflight ready"
             } else {
-                "Voice Wake preflight blocked"
+                "Alarm preflight blocked"
             },
             style = MaterialTheme.typography.headlineSmall,
         )
@@ -300,25 +300,16 @@ fun WakeAlarmLabScreen(
                 }
             }
 
-            WakeSchedulingBlocker.VOICE_PERMISSION -> {
-                OutlinedButton(
-                    modifier = Modifier.padding(top = 14.dp),
-                    onClick = onEnableVoiceReplies,
-                ) {
-                    Text("Enable microphone for voice replies")
-                }
-            }
-
-            WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
-                Text(
-                    modifier = Modifier.padding(top = 14.dp),
-                    text = "On-device speech recognition is unavailable. This build will not arm a Voice Wake silently without it.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
-
             WakeSchedulingBlocker.NONE -> Unit
+        }
+
+        if (voiceWakeReadiness == VoiceWakeReadiness.SETUP_REQUIRED) {
+            OutlinedButton(
+                modifier = Modifier.padding(top = 14.dp),
+                onClick = onEnableVoiceReplies,
+            ) {
+                Text("Enable microphone for Live voice")
+            }
         }
 
         OutlinedButton(
