@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-09-26  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -13,6 +13,10 @@
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
 ## Current product shape
+
+## Realtime voice degradation policy
+
+Direct Realtime is now an all-or-nothing conversational enhancement for the active wake. The selected local Wake Sound starts independently and remains the baseline surface while Realtime readiness is unresolved. If the Direct adapter is absent, misses its bounded startup window, rejects a turn, or fails after the conversation has started, the current wake becomes alarm-only for the rest of that occurrence: full local alarm volume plus Stop/Snooze, with no Android/local TTS substitution and no late mid-wake upgrade. Local TTS/STT components remain available for diagnostics/preview work but are no longer the consumer production fallback.
 
 WakeMyWay is a local-first Android wake system built around reliable alarms, a deterministic behavioral runtime and optional conversational/cloud enrichment.
 
