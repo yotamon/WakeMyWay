@@ -56,6 +56,9 @@ fun AccountScreen(
     val context = LocalContext.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showEmailForm by remember(manager.googleSignInConfigured) {
+        mutableStateOf(!manager.googleSignInConfigured)
+    }
 
     LaunchedEffect(manager) {
         manager.refresh()
@@ -82,7 +85,7 @@ fun AccountScreen(
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "Sign in for secure backup, account-based access and future Pro features. Your alarms remain local and keep working without an account.",
+                text = "Use Google for the quickest sign-in, or use email and password instead. Your alarms remain local and keep working without an account.",
                 modifier = Modifier.padding(top = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodyLarge,
                 color = WmwColors.LightQuietText,
@@ -185,55 +188,17 @@ fun AccountScreen(
                     onLightSurface = true,
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
-                        OutlinedTextField(
-                            value = email,
-                            onValueChange = { email = it.trimStart().take(MAX_EMAIL_LENGTH) },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Email") },
-                            singleLine = true,
-                            enabled = !state.loading,
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Email,
-                                imeAction = ImeAction.Next,
-                            ),
-                        )
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it.take(MAX_PASSWORD_LENGTH) },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Password") },
-                            singleLine = true,
-                            enabled = !state.loading,
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done,
-                            ),
-                        )
-
-                        Button(
-                            onClick = { scope.launch { manager.signIn(email, password) } },
-                            enabled = !state.loading,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Sign in")
-                        }
-                        OutlinedButton(
-                            onClick = { scope.launch { manager.signUp(email, password) } },
-                            enabled = !state.loading,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Create account")
-                        }
-
                         Text(
-                            text = "or",
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Continue with Google",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.Midnight,
+                        )
+                        Text(
+                            text = "Recommended. If your account uses Google, you do not need a separate WakeMyWay password.",
+                            style = MaterialTheme.typography.bodySmall,
                             color = WmwColors.LightQuietText,
                         )
-
-                        OutlinedButton(
+                        Button(
                             onClick = { scope.launch { manager.signInWithGoogle(context) } },
                             enabled = !state.loading && manager.googleSignInConfigured,
                             modifier = Modifier.fillMaxWidth(),
@@ -242,10 +207,65 @@ fun AccountScreen(
                         }
                         if (!manager.googleSignInConfigured) {
                             Text(
-                                text = "Google sign-in will appear once the production Google client is configured. Email sign-in is available now.",
+                                text = "Google sign-in is not enabled in this build yet. You can still use email and password below.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = WmwColors.LightQuietText,
                             )
+                        }
+
+                        TextButton(
+                            onClick = { showEmailForm = !showEmailForm },
+                            enabled = !state.loading,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        ) {
+                            Text(if (showEmailForm) "Hide email sign-in" else "Use email instead")
+                        }
+
+                        if (showEmailForm) {
+                            Text(
+                                text = "Email & password",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = WmwColors.Midnight,
+                            )
+                            OutlinedTextField(
+                                value = email,
+                                onValueChange = { email = it.trimStart().take(MAX_EMAIL_LENGTH) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Email") },
+                                singleLine = true,
+                                enabled = !state.loading,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Email,
+                                    imeAction = ImeAction.Next,
+                                ),
+                            )
+                            OutlinedTextField(
+                                value = password,
+                                onValueChange = { password = it.take(MAX_PASSWORD_LENGTH) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Password") },
+                                singleLine = true,
+                                enabled = !state.loading,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Done,
+                                ),
+                            )
+                            Button(
+                                onClick = { scope.launch { manager.signIn(email, password) } },
+                                enabled = !state.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Sign in with email")
+                            }
+                            OutlinedButton(
+                                onClick = { scope.launch { manager.signUp(email, password) } },
+                                enabled = !state.loading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("Create email account")
+                            }
                         }
                     }
                 }
