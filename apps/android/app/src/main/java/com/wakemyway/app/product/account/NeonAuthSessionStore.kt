@@ -40,6 +40,41 @@ internal class NeonAuthSessionStore(context: Context) {
         prefs.edit().remove(KEY_SESSION_TOKEN).apply()
     }
 
+    fun savePendingPkceVerifier(verifier: String, createdAtMillis: Long = System.currentTimeMillis()) {
+        require(verifier.length in 43..128) { "PKCE verifier length is invalid." }
+        val payload = "$createdAtMillis:$verifier"
+        prefs.edit().putString(KEY_PENDING_PKCE, encrypt(payload)).apply()
+    }
+
+    fun loadPendingPkceVerifier(nowMillis: Long = System.currentTimeMillis()): String? {
+        val encrypted = prefs.getString(KEY_PENDING_PKCE, null)?.takeIf { it.isNotBlank() }
+            ?: return null
+        val payload = runCatching { decrypt(encrypted) }.getOrElse {
+            clearPendingPkceVerifier()
+            return null
+        }
+        val separator = payload.indexOf(':')
+        if (separator <= 0) {
+            clearPendingPkceVerifier()
+            return null
+        }
+        val createdAt = payload.substring(0, separator).toLongOrNull()
+        val verifier = payload.substring(separator + 1)
+        if (
+            createdAt == null ||
+            nowMillis - createdAt !in 0..PENDING_PKCE_MAX_AGE_MS ||
+            verifier.length !in 43..128
+        ) {
+            clearPendingPkceVerifier()
+            return null
+        }
+        return verifier
+    }
+
+    fun clearPendingPkceVerifier() {
+        prefs.edit().remove(KEY_PENDING_PKCE).apply()
+    }
+
     private fun encrypt(value: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
@@ -86,6 +121,8 @@ internal class NeonAuthSessionStore(context: Context) {
     companion object {
         private const val PREFS = "wake-account-neon-auth-v1"
         private const val KEY_SESSION_TOKEN = "session-token-aes-gcm"
+        private const val KEY_PENDING_PKCE = "pending-google-pkce-aes-gcm"
+        private const val PENDING_PKCE_MAX_AGE_MS = 10 * 60 * 1000L
         private const val KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "wmw-neon-auth-session-v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
