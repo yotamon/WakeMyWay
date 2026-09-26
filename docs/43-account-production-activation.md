@@ -26,6 +26,7 @@ Apply the account migrations to the production branch:
 1. `001_consumer_backups.sql`
 2. `003_account_roles.sql`
 
+Apply `004_mobile_auth_handoffs.sql` for the server-only PKCE handoff table.
 Apply `002_play_subscription_lifecycle.sql` later when the Play commerce lifecycle is activated.
 
 Both account tables reference `neon_auth."user"(id)`. `wmw_private.account_roles` has no client
@@ -56,10 +57,13 @@ email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true
 
 ## 4. Wake API deployment
 
-Vercel needs two server-side account values:
+Vercel needs four server-side account values:
 
 - `NEON_AUTH_BASE_URL`: the public Managed Better Auth base URL.
 - `DATABASE_URL`: the server-only Neon PostgreSQL connection.
+- `ACCOUNT_PUBLIC_BASE_URL=https://wakemyway.vercel.app`: canonical OAuth callback origin.
+- `NEON_AUTH_COOKIE_SECRET`: a random 32+ character server-only secret used by the official Neon
+  server toolkit and as key material for encrypted mobile handoffs.
 
 The database connection is a server secret and must never be copied to Android, documentation,
 release metadata or logs.
@@ -88,9 +92,8 @@ WMW_EMAIL_PASSWORD_AUTH_ENABLED=false
 WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
 
-The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
-API URLs must be HTTPS. The Google Web client id is public application configuration; the Google
-client secret remains server/provider-side.
+The official release workflow fails closed when Android account configuration is partial. Neon Auth
+and Wake API URLs must be HTTPS. Google OAuth credentials remain entirely server/provider-side.
 
 The official release workflow fails closed if Neon account infrastructure is configured without at
 least one enabled sign-in method. The production configuration is Google-only today. Email/password
@@ -122,7 +125,8 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 - production localhost auth access is disabled;
 - email/password auth is disabled until custom SMTP + verification UX are production-ready;
 - the opaque session token is encrypted with Android Keystore;
-- Google Credential Manager sign-in creates/loads the same Neon account boundary;
+- Google browser OAuth creates/loads the same Neon account boundary and the mobile handoff is
+  single-use, five-minute and PKCE-bound;
 - sign-out invalidates the provider session and clears local session material;
 - ordinary accounts return `user`;
 - founder account returns `admin`;
