@@ -34,7 +34,7 @@ const exchangeSchema = z.object({
   verifier: z.string().min(43).max(128).regex(PKCE_VERIFIER),
 });
 
-interface MobileHandoffPayload {
+export interface MobileHandoffPayload {
   v: 1;
   sessionToken: string;
   userId: string;
