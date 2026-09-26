@@ -13,6 +13,14 @@ export interface ConsumerBackupTable {
   updated_at: ColumnType<Date, Date, Date>;
 }
 
+export interface MobileAuthHandoffTable {
+  code_hash: string;
+  pkce_challenge: string;
+  token_envelope: string;
+  expires_at: ColumnType<Date, Date, never>;
+  created_at: ColumnType<Date, Date, never>;
+}
+
 export interface AccountRoleTable {
   account_id: string;
   role: 'user' | 'admin';
@@ -23,6 +31,7 @@ export interface AccountRoleTable {
 export interface AccountDatabase {
   consumer_backups: ConsumerBackupTable;
   account_roles: AccountRoleTable;
+  mobile_auth_handoffs: MobileAuthHandoffTable;
 }
 
 let cachedConnectionString: string | undefined;
