@@ -81,7 +81,7 @@ class WakeVoiceSessionController(
 
             override fun onAssistantSpeechStarted() {
                 mainHandler.post {
-                    if (closed || !realtimeTurnInFlight) return@post
+                    if (closed || alarmOnly || !realtimeTurnInFlight) return@post
                     speaking = true
                     listening = false
                     mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
@@ -96,7 +96,7 @@ class WakeVoiceSessionController(
 
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
-                    if (closed || !realtimeTurnInFlight || !started) return@post
+                    if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
                     speaking = false
                     if (interrupted) {
                         mode = WakeVoiceMode.LISTENING
@@ -112,7 +112,7 @@ class WakeVoiceSessionController(
 
             override fun onUserSpeechStarted() {
                 mainHandler.post {
-                    if (closed || !started || !surfaceVisible) return@post
+                    if (closed || alarmOnly || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
                     listening = true
                     mode = WakeVoiceMode.LISTENING
@@ -123,7 +123,7 @@ class WakeVoiceSessionController(
 
             override fun onUserTurnObserved() {
                 mainHandler.post {
-                    if (closed || !started || !surfaceVisible) return@post
+                    if (closed || alarmOnly || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
                     voiceResponseRequested = false
                     listening = false
@@ -172,7 +172,7 @@ class WakeVoiceSessionController(
         }
     }
     private val silenceWatchdog = Runnable {
-        if (!closed && started && surfaceVisible && !speaking && !listening && snapshot.phase != WakePhase.FINISHED) {
+        if (!closed && !alarmOnly && started && surfaceVisible && !speaking && !listening && snapshot.phase != WakePhase.FINISHED) {
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("silence"),
@@ -509,6 +509,7 @@ class WakeVoiceSessionController(
         mainHandler.removeCallbacks(silenceWatchdog)
         if (
             !closed &&
+            !alarmOnly &&
             started &&
             surfaceVisible &&
             snapshot.phase != WakePhase.FINISHED &&
