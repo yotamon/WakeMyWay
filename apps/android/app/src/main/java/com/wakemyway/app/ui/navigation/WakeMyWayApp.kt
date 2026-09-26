@@ -382,6 +382,7 @@ fun WakeMyWayApp(
                         ProfileScreen(
                             preferences = preferences,
                             onPreferencesChanged = ::savePreferences,
+                            showAccount = accountManager.state.value.configured,
                             onOpenAccount = { backStack.add(AccountRoute) },
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
