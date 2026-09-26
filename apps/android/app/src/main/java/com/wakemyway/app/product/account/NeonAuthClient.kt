@@ -1,9 +1,13 @@
 package com.wakemyway.app.product.account
 
 import android.content.Context
+import android.net.Uri
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -43,19 +47,47 @@ internal class NeonAuthClient(
         )
     }
 
-    suspend fun signInWithGoogle(idToken: String, nonce: String) = withContext(Dispatchers.IO) {
-        authenticate(
-            path = "/sign-in/social",
+    fun prepareGoogleBrowserSignIn(accountApiBaseUrl: String): Uri {
+        val verifier = randomBase64Url()
+        val challenge = Base64.getUrlEncoder()
+            .withoutPadding()
+            .encodeToString(
+                MessageDigest.getInstance("SHA-256")
+                    .digest(verifier.toByteArray(Charsets.UTF_8)),
+            )
+        sessionStore.savePendingPkceVerifier(verifier)
+
+        return Uri.parse("$accountApiBaseUrl/api/v1/account/auth/mobile/google/start")
+            .buildUpon()
+            .appendQueryParameter("code_challenge", challenge)
+            .build()
+    }
+
+    suspend fun completeGoogleBrowserSignIn(
+        accountApiBaseUrl: String,
+        code: String,
+    ) = withContext(Dispatchers.IO) {
+        val verifier = sessionStore.loadPendingPkceVerifier()
+            ?: error("This Google sign-in attempt expired. Please try again.")
+
+        val response = requestUrl(
+            url = "$accountApiBaseUrl/api/v1/account/auth/mobile/exchange",
+            method = "POST",
             payload = JSONObject()
-                .put("provider", "google")
-                .put("disableRedirect", true)
-                .put(
-                    "idToken",
-                    JSONObject()
-                        .put("token", idToken)
-                        .put("nonce", nonce),
-                ),
+                .put("code", code)
+                .put("verifier", verifier),
         )
+        val sessionToken = JSONObject(response.body)
+            .optString("sessionToken")
+            .takeIf { it.isNotBlank() && it != "null" }
+            ?: error("WakeMyWay did not receive a usable account session.")
+
+        sessionStore.save(sessionToken)
+        sessionStore.clearPendingPkceVerifier()
+    }
+
+    fun cancelGoogleBrowserSignIn() {
+        sessionStore.clearPendingPkceVerifier()
     }
 
     suspend fun currentSession(): NeonAuthSession? = withContext(Dispatchers.IO) {
@@ -115,6 +147,7 @@ internal class NeonAuthClient(
             }
         } finally {
             sessionStore.clear()
+            sessionStore.clearPendingPkceVerifier()
         }
     }
 
@@ -143,8 +176,22 @@ internal class NeonAuthClient(
         payload: JSONObject? = null,
         bearer: String? = null,
         allowUnauthorized: Boolean = false,
+    ): HttpResponse = requestUrl(
+        url = "$baseUrl$path",
+        method = method,
+        payload = payload,
+        bearer = bearer,
+        allowUnauthorized = allowUnauthorized,
+    )
+
+    private fun requestUrl(
+        url: String,
+        method: String,
+        payload: JSONObject? = null,
+        bearer: String? = null,
+        allowUnauthorized: Boolean = false,
     ): HttpResponse {
-        val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = NETWORK_TIMEOUT_MS
             readTimeout = NETWORK_TIMEOUT_MS
@@ -192,6 +239,12 @@ internal class NeonAuthClient(
         }
     }
 
+    private fun randomBase64Url(): String {
+        val bytes = ByteArray(PKCE_RANDOM_BYTES)
+        SecureRandom().nextBytes(bytes)
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+    }
+
     private data class HttpResponse(
         val status: Int,
         val body: String,
@@ -200,5 +253,6 @@ internal class NeonAuthClient(
     companion object {
         private const val NETWORK_TIMEOUT_MS = 10_000
         private const val MAX_RESPONSE_CHARS = 64_000
+        private const val PKCE_RANDOM_BYTES = 32
     }
 }
