@@ -60,6 +60,9 @@ class WakeAccountManager private constructor(
     val googleSignInConfigured: Boolean
         get() = authClient != null && googleWebClientId.isNotBlank()
 
+    val emailPasswordSignInConfigured: Boolean
+        get() = authClient != null && BuildConfig.EMAIL_PASSWORD_AUTH_ENABLED
+
     private val _state = MutableStateFlow(
         WakeAccountState(configured = authClient != null),
     )
@@ -87,6 +90,12 @@ class WakeAccountManager private constructor(
 
     suspend fun signIn(email: String, password: String) {
         val auth = requireAuth() ?: return
+        if (!emailPasswordSignInConfigured) {
+            _state.value = _state.value.copy(
+                error = "Email and password sign-in is not enabled in this build.",
+            )
+            return
+        }
         if (!validateCredentials(email, password)) return
 
         runAction {
@@ -97,6 +106,12 @@ class WakeAccountManager private constructor(
 
     suspend fun signUp(email: String, password: String) {
         val auth = requireAuth() ?: return
+        if (!emailPasswordSignInConfigured) {
+            _state.value = _state.value.copy(
+                error = "Email account creation is not enabled in this build.",
+            )
+            return
+        }
         if (!validateCredentials(email, password)) return
 
         runAction {
