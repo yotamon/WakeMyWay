@@ -41,7 +41,6 @@ class DirectRealtimeWakeConversation(
 
     private val appContext = context.applicationContext
     private val settings = FounderRealtimeSettings(appContext)
-    private val pairingClient = FounderRealtimePairingClient()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "wmw-founder-realtime").apply { isDaemon = true }
@@ -81,7 +80,7 @@ class DirectRealtimeWakeConversation(
         val current = generation.incrementAndGet()
         Log.i(LOG_TAG, "connect generation=$current")
         networkExecutor.execute {
-            runCatching { requestBrokerSecretWithAutomaticCredential() }
+            runCatching { requestBrokerSecretWithPairedCredential() }
                 .onSuccess { secret ->
                     Log.i(LOG_TAG, "broker-ready generation=$current")
                     mainHandler.post {
@@ -368,21 +367,16 @@ class DirectRealtimeWakeConversation(
         }
     }
 
-    private fun requestBrokerSecretWithAutomaticCredential(): BrokerSecret {
-        val firstConfig = loadOrBootstrapConfig()
+    private fun requestBrokerSecretWithPairedCredential(): BrokerSecret {
+        val config = settings.load() ?: error("Realtime installation is not paired")
         return try {
-            requestBrokerSecret(firstConfig)
-        } catch (_: BrokerCredentialRejected) {
+            requestBrokerSecret(config)
+        } catch (error: BrokerCredentialRejected) {
+            // Never mint a silent replacement after server rejection. Clear local trust and let the
+            // wake degrade alarm-only until the founder explicitly pairs this installation again.
             settings.clear()
-            requestBrokerSecret(loadOrBootstrapConfig())
+            throw error
         }
-    }
-
-    private fun loadOrBootstrapConfig(): FounderRealtimeConfig {
-        settings.load()?.let { return it }
-        val paired = pairingClient.bootstrap(settings.installationId())
-        settings.saveInstallationCredential(paired.deviceToken, paired.expiresAtEpochSeconds)
-        return settings.load() ?: error("Automatic Realtime credential was not persisted")
     }
 
     private fun requestBrokerSecret(config: FounderRealtimeConfig): BrokerSecret {
