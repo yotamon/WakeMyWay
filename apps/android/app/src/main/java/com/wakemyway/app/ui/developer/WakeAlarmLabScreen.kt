@@ -319,11 +319,11 @@ fun WakeAlarmLabScreen(
                     context.startActivity(
                         Intent().setClassName(
                             context.packageName,
-                            "com.wakemyway.app.voice.VoiceSpikeActivity",
+                            "com.wakemyway.app.voice.RealtimeVoiceSetupActivity",
                         ),
                     )
                 }.onFailure {
-                    message = "Live conversation setup is available in founder/debug builds only."
+                    message = "Live conversation setup is available in Direct founder builds only."
                 }
             },
         ) {
