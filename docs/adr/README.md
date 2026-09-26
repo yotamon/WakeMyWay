@@ -16,7 +16,7 @@ ADRs preserve durable engineering constraints. Canonical terminology lives in [`
 | [`010`](010-minimal-physical-module-topology.md) | Minimal initial Gradle module topology |
 | [`011`](011-direct-boot-critical-state.md) | Direct Boot uses minimal non-sensitive critical state |
 | [`012`](012-vercel-non-critical-cloud.md) | Vercel preferred for initial non-critical cloud/web deployment; realtime remains M8 spike-gated |
-| [`013`](013-supabase-managed-data-platform.md) | Supabase preferred for managed PostgreSQL, later Auth, and conditional Storage; mobile domain stays behind Wake API |
+| [`013`](013-supabase-managed-data-platform.md) | Neon for managed PostgreSQL and Auth, conditional Storage; mobile domain stays behind Wake API |
 | [`014`](014-active-wake-execution-lifecycle.md) | Critical alarm playback/recovery outlives `WakeActivity`; Alarm Kernel owns Active Wake Execution |
 | [`015`](015-alarm-permissions-and-execution.md) | Exact alarm, full-screen presentation, Direct Boot reconciliation, and foreground alarm playback baseline |
 | [`016`](016-vercel-ai-platform.md) | Vercel AI SDK + AI Gateway are the default optional cloud AI layer; realtime transport remains M8 spike-gated |

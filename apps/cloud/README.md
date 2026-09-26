@@ -12,7 +12,7 @@ The service currently has three deliberately separate boundaries:
 optional product account API     optional Play verification     optional AI enrichment
           │                                  │                             │
           ▼                                  ▼                             ▼
-   Supabase Auth JWT                 Play purchase token                 AI platform
+   Neon Auth JWT                 Play purchase token                 AI platform
           │                                  │                             │
           ▼                                  ▼                             ▼
    Wake API on Vercel                Wake API on Vercel                Vercel AI SDK 7
@@ -21,7 +21,7 @@ optional product account API     optional Play verification     optional AI enri
        Kysely                    Google Play Developer API             Vercel AI Gateway
           │
           ▼
- Supabase PostgreSQL
+ Neon PostgreSQL
 ```
 
 The account path stores only explicit consumer-intent backups. It is never an Android wake authority. The AI path enriches non-critical behavior and also remains outside Alarm Kernel and Wake Runtime authority.
@@ -47,11 +47,11 @@ Language model calls use named `fast` and `smart` policies rather than provider 
 
 ## Account identity, authorization and backup boundary
 
-Supabase Auth provides consumer identity/session acquisition. WakeMyWay authorization remains server-owned: `GET /api/v1/account/me` verifies the same Supabase user JWT and resolves an explicit `user` or `admin` role from the private `wmw_private.account_roles` table. Missing role rows resolve to `user`; email and client/user metadata are never authorization inputs.
+Neon Managed Better Auth provides consumer identity/session acquisition. WakeMyWay authorization remains server-owned: `GET /api/v1/account/me` verifies the same Neon user JWT and resolves an explicit `user` or `admin` role from the private `wmw_private.account_roles` table. Missing role rows resolve to `user`; email and client/user metadata are never authorization inputs.
 
 The first persisted account capability is explicit backup/restore, not continuous sync.
 
-`PUT /api/v1/account/backup` stores one latest versioned consumer-intent snapshot for the authenticated Supabase account. `GET /api/v1/account/backup` returns that snapshot or `null` when no backup exists.
+`PUT /api/v1/account/backup` stores one latest versioned consumer-intent snapshot for the authenticated Neon account. `GET /api/v1/account/backup` returns that snapshot or `null` when no backup exists.
 
 The snapshot may contain normal Profile/default preferences and rich `AlarmDefinition` intent. Its schema cannot represent:
 
@@ -64,15 +64,15 @@ The snapshot may contain normal Profile/default preferences and rich `AlarmDefin
 
 Unknown fields are rejected rather than silently persisted. Android restore policy remains local and conservative: local alarm IDs win and remote-only alarms import disabled.
 
-Account requests use a Supabase Auth user access token:
+Account requests use a short-lived Neon Auth JWT:
 
 ```text
-Authorization: Bearer <supabase-user-access-token>
+Authorization: Bearer <neon-user-jwt>
 ```
 
-The Wake API verifies the JWT signature through the project's public JWKS and validates issuer, `authenticated` audience, expiry, and user subject. It does not use a Supabase service-role/secret API key for authentication.
+The Wake API verifies the JWT signature through the project's public JWKS and validates issuer, `authenticated` audience, expiry, and user subject. It does not use a database or Neon management credential for authentication.
 
-Backup rows live in the private `wmw_private` PostgreSQL schema and are accessed only by the Wake API through Kysely. Android does not query Supabase database tables directly.
+Backup rows live in the private `wmw_private` PostgreSQL schema and are accessed only by the Wake API through Kysely. Android does not query Neon database tables directly.
 
 ## Security and privacy boundary
 
@@ -104,11 +104,11 @@ For AI development, set either `AI_GATEWAY_API_KEY` or use the Vercel OIDC envir
 For the account API, configure:
 
 ```text
-SUPABASE_URL=https://<project-ref>.supabase.co
-DATABASE_URL=postgresql://<server-only-supabase-connection>
+NEON_AUTH_BASE_URL=https://<managed-better-auth-host>/<database>/auth
+DATABASE_URL=postgresql://<server-only-neon-connection>
 ```
 
-Then apply `migrations/001_consumer_backups.sql` and `migrations/003_account_roles.sql` to the WakeMyWay Supabase project before serving account traffic. Grant an admin role only after the intended Supabase auth user exists; do not bootstrap privileges by email address.
+Then apply `migrations/001_consumer_backups.sql` and `migrations/003_account_roles.sql` to the WakeMyWay Neon project before serving account traffic. Grant an admin role only after the intended Neon auth user exists; do not bootstrap privileges by email address.
 
 When Play commerce lifecycle storage is enabled, also apply
 `migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
@@ -174,9 +174,9 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
 | `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
-| `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Supabase user JWT | identity/authorization only; missing role fails to `user` |
-| `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Supabase user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
-| `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Supabase user JWT | strict bounded schema; consumer intent only |
+| `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Neon user JWT | identity/authorization only; missing role fails to `user` |
+| `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Neon user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
+| `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Neon user JWT | strict bounded schema; consumer intent only |
 | `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |
 | `POST /api/v1/commerce/play-rtdn` | refresh subscription lifecycle from Google Play RTDN | authenticated Google Pub/Sub OIDC push; disabled by default | message-id dedupe + Google source-of-truth re-query; raw token transient only |
 | `POST /api/internal/ai/text` | text smoke/integration call | internal | ZDR required |

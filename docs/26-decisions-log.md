@@ -73,7 +73,7 @@ TypeScript + Fastify + PostgreSQL + Kysely + OpenAPI is the preferred future dir
 
 ## 2026-09-09 — Supabase data platform
 
-Use Supabase as the preferred future managed data platform: PostgreSQL for cloud persistence, Supabase Auth later when accounts/sync/device migration justify identity, and Supabase Storage only for concrete object-storage use cases. Vercel remains compute/API hosting; Supabase remains data infrastructure. Android domain behavior does not bind directly to Supabase tables, and no Supabase outage may prevent the current local wake attempt.
+Originally selected Supabase as the future data platform. Superseded on 2026-09-26 by ADR-013: Neon now provides PostgreSQL and Managed Better Auth while Vercel remains compute/API hosting. Android domain behavior still does not bind directly to provider tables, and no cloud outage may prevent the current local wake attempt.
 
 ## 2026-09-09 — Voice provider
 
