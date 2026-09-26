@@ -122,7 +122,7 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
         request,
         pathname: url.pathname,
         skipRoutes: [url.pathname],
-        loginUrl: url.pathname,
+        loginUrl: '/',
         ...config,
       });
       if (middleware.action !== 'redirect_oauth') {
