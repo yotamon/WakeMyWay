@@ -173,6 +173,9 @@ class WakeActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        occurrenceId?.let { id ->
+            AlarmPlaybackService.requestBackgroundPresentation(applicationContext, id)
+        }
         sessionViewModel?.onSurfaceHidden()
         preparedPlan = null
         defaultFirstMove = null
