@@ -38,31 +38,37 @@ Managed Better Auth is enabled on `main`.
 Production currently uses Google as the only enabled consumer sign-in method:
 
 1. WakeMyWay-owned Google OAuth credentials replace Neon's shared development keys.
-2. Neon uses the WakeMyWay Google Web OAuth client id/secret.
-3. Android Credential Manager uses the same Web client id as its server client id.
-4. The Android OAuth client is registered for package `com.wakemyway.app` and the production
-   signing certificate.
-5. `https://wakemyway.vercel.app` is the only production trusted origin currently required.
-6. Localhost access is disabled on the production Neon Auth branch.
-7. Email/password auth is disabled in production until WakeMyWay has a custom SMTP provider and
+2. Neon stores the Google Web OAuth client id/secret; the client secret never enters Android.
+3. The Wake API pins `@neondatabase/auth` and uses its official server toolkit for OAuth proxying,
+   session-challenge cookies and callback finalization.
+4. `https://wakemyway.vercel.app` is the only production trusted origin currently required.
+5. Localhost access is disabled on the production Neon Auth branch.
+6. Email/password auth is disabled in production until WakeMyWay has a custom SMTP provider and
    a complete email verification UX.
 
-Android uses Credential Manager to obtain a Google ID token and nonce, then sends them to Neon's
-`/sign-in/social` endpoint. This is Better Auth's supported native/mobile ID-token sign-in path.
-No Google client secret is shipped in the APK.
+Android starts Google OAuth in the system browser through the Wake API. The app creates a high-entropy
+PKCE-style verifier, stores it encrypted with Android Keystore, and sends only its SHA-256 challenge
+to the OAuth start route. Neon completes Google OAuth through its normal callback, then the official
+server toolkit exchanges `neon_auth_session_verifier` for the Neon session cookie.
+
+The Wake API returns to `wakemyway://auth` with only a two-minute AES-GCM encrypted handoff. The
+opaque Neon session token is returned to Android only after the app proves possession of the
+original verifier. Neither a Google token nor a Neon session token is placed in the deep-link URL.
 
 If email/password auth is enabled later, production must first configure custom SMTP and required
 email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true`.
 
 ## 4. Wake API deployment
 
-Vercel needs two server-side account values:
+Vercel needs three server-side account values:
 
 - `NEON_AUTH_BASE_URL`: the public Managed Better Auth base URL.
+- `NEON_AUTH_COOKIE_SECRET`: a sensitive random server secret of at least 32 characters, used by
+  the official Neon Auth proxy toolkit and as key material for the mobile handoff.
 - `DATABASE_URL`: the server-only Neon PostgreSQL connection.
 
-The database connection is a server secret and must never be copied to Android, documentation,
-release metadata or logs.
+The database connection and cookie secret are server secrets and must never be copied to Android,
+documentation values, release metadata or logs.
 
 The Wake API verifies Neon JWTs against the public JWKS endpoint under the Managed Better Auth URL.
 It requires EdDSA signature, the Neon Auth origin as issuer/audience, `role=authenticated`, a valid
@@ -83,18 +89,16 @@ Build-time GitHub Actions Variables:
 
 ```text
 WMW_NEON_AUTH_URL=<public Managed Better Auth base URL>
-WMW_GOOGLE_WEB_CLIENT_ID=<WakeMyWay Google Web OAuth client id>
 WMW_EMAIL_PASSWORD_AUTH_ENABLED=false
 WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
 
-The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
-API URLs must be HTTPS. The Google Web client id is public application configuration; the Google
-client secret remains server/provider-side.
+The Google Web OAuth client id/secret are provider configuration owned by Neon and Google, not Android
+build configuration. The Android app contains no Google client secret and no database credential.
 
-The official release workflow fails closed if Neon account infrastructure is configured without at
-least one enabled sign-in method. The production configuration is Google-only today. Email/password
-remains implemented but hidden and locally blocked unless its explicit build flag is enabled.
+The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
+API URLs must be HTTPS. The production configuration is Google-only today; email/password remains
+implemented but hidden and locally blocked unless its explicit build flag is enabled.
 
 ## 6. Founder/admin grant
 
