@@ -27,6 +27,7 @@ import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.product.account.WakeAccountManager
 import com.wakemyway.app.product.followup.WakeSafetyCheckScheduler
 import com.wakemyway.app.product.history.WakeHistoryRepository
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
@@ -46,6 +47,7 @@ import com.wakemyway.app.ui.insights.InsightsScreen
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.preparation.TomorrowPlanScreen
 import com.wakemyway.app.ui.profile.AboutScreen
+import com.wakemyway.app.ui.profile.AccountScreen
 import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
@@ -77,6 +79,9 @@ private data object InsightsRoute : NavKey
 
 @Serializable
 private data object ProfileRoute : NavKey
+
+@Serializable
+private data object AccountRoute : NavKey
 
 @Serializable
 private data object PrivacyRoute : NavKey
@@ -121,6 +126,7 @@ fun WakeMyWayApp(
     val preferencesRepository = remember { ConsumerPreferencesRepository(context) }
     val historyRepository = remember { WakeHistoryRepository(context) }
     val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
+    val accountManager = remember(context) { WakeAccountManager.get(context) }
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
         runCatching {
@@ -376,6 +382,7 @@ fun WakeMyWayApp(
                         ProfileScreen(
                             preferences = preferences,
                             onPreferencesChanged = ::savePreferences,
+                            onOpenAccount = { backStack.add(AccountRoute) },
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
                             onOpenAppearance = { backStack.add(AppearanceRoute) },
@@ -383,6 +390,13 @@ fun WakeMyWayApp(
                             modifier = contentModifier,
                         )
                     }
+                }
+
+                entry<AccountRoute> {
+                    AccountScreen(
+                        manager = accountManager,
+                        onBack = { backStack.removeLastOrNull() },
+                    )
                 }
 
                 entry<PrivacyRoute> {
