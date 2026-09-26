@@ -70,6 +70,11 @@ WMW_SUPABASE_PUBLISHABLE_KEY=<publishable key>
 WMW_ACCOUNT_API_BASE_URL=https://<WakeMyWay production API origin>
 ```
 
+For official GitHub releases, configure those exact names as repository/environment **Actions
+Variables**. The release workflow passes them into Gradle and fails closed when account configuration
+is only partially supplied or either URL is not HTTPS. The Supabase publishable key is intentionally
+public client configuration, not a service-role secret.
+
 The Account entry is intentionally hidden when Supabase URL/key are absent, so development/release
 builds never expose a fake login surface.
 
