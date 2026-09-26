@@ -64,8 +64,8 @@ android {
         versionCode = wakeMyWayVersionCode
         versionName = wakeMyWayVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
+        buildConfigField("String", "NEON_AUTH_URL", "\"$neonAuthUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         buildConfigField("String", "ACCOUNT_API_BASE_URL", "\"$accountApiBaseUrl\"")
     }
 
@@ -149,9 +149,9 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.kotlinx.serialization.core)
-    implementation(libs.supabase.auth)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.android)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.id)
 
     add("directImplementation", libs.kotlinx.serialization.json)
     // Direct distribution dogfood supports optional OpenAI Realtime WebRTC enrichment.
