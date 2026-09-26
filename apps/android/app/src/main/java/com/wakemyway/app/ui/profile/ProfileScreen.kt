@@ -56,6 +56,7 @@ import com.wakemyway.core.alarm.WakeSoundId
 fun ProfileScreen(
     preferences: ConsumerPreferences,
     onPreferencesChanged: (ConsumerPreferences) -> Unit,
+    onOpenAccount: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenAppearance: () -> Unit,
@@ -112,6 +113,14 @@ fun ProfileScreen(
                     text = "Your alarms and wake preferences stay usable on this phone without an account.",
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.LightQuietText,
+                )
+            }
+
+            ProfileSection("Account", Modifier.padding(top = WmwSpacing.Lg)) {
+                ProfileLink(
+                    title = "WakeMyWay account",
+                    detail = "Optional sign-in for secure backup, account access and future Pro features",
+                    onClick = onOpenAccount,
                 )
             }
 
