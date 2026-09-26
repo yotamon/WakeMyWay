@@ -11,6 +11,7 @@ import java.time.ZoneOffset
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,6 +49,27 @@ class AlarmPlaybackServiceRobolectricTest {
     fun tearDown() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
         runCatching { kernel.cancelSchedule() }
+    }
+
+    @Test
+    fun `in-app wake presentation keeps the foreground notification quiet`() {
+        val primary = requireNotNull(
+            kernel.commitSchedule(oneShotSchedule("in-app-presentation")).nextOccurrence,
+        )
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(primary.id))
+
+        AlarmPlaybackService.startInAppTest(context, primary.id)
+        val startIntent = shadowOf(context).nextStartedService
+        assertNotNull(startIntent)
+
+        val controller = Robolectric.buildService(AlarmPlaybackService::class.java, startIntent)
+            .create()
+            .startCommand(0, 1)
+
+        val notification = shadowOf(controller.get()).lastForegroundNotification
+        assertNotNull(notification)
+        assertEquals(AlarmPresentationAccess.IN_APP_CHANNEL_ID, notification.channelId)
+        assertNull(notification.fullScreenIntent)
     }
 
     @Test
