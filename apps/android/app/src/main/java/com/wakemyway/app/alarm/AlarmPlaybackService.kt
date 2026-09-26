@@ -153,6 +153,20 @@ class AlarmPlaybackService : Service() {
                 }
             }
 
+            ACTION_SURFACE_VISIBLE -> {
+                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                    notificationPresentation = WakeNotificationPresentation.IN_APP
+                    val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
+                    startForeground(
+                        NOTIFICATION_ID,
+                        alarmNotification(occurrenceId, policy, notificationPresentation),
+                    )
+                    START_STICKY
+                } else {
+                    preserveCurrentExecutionOrStop(kernel)
+                }
+            }
+
             ACTION_VOICE_WINDOW -> {
                 val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
                 if (kernel.activeOccurrence()?.id == occurrenceId && policy.voiceCheckInEnabled) {
@@ -620,6 +634,7 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
+        private const val ACTION_SURFACE_VISIBLE = "com.wakemyway.action.WAKE_SURFACE_VISIBLE"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
         private const val EXTRA_IN_APP_PRESENTATION = "in_app_presentation"
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
@@ -659,6 +674,10 @@ class AlarmPlaybackService : Service() {
                     .setData(commandIdentity("recover", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
+        }
+
+        fun requestInAppPresentation(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_SURFACE_VISIBLE, "surface-visible", occurrenceId)
         }
 
         fun requestStop(context: Context, occurrenceId: WakeOccurrenceId) {
