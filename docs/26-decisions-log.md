@@ -475,3 +475,7 @@ The local DPAPI bundle is retained only as an offline recovery path.
 The workflow exposes an optional `dry_run` mode that executes through production signing and candidate verification but creates no tag or GitHub Release. Normal releases leave it disabled.
 
 Canonical procedure: [`42-android-release-operations.md`](42-android-release-operations.md).
+## 2026-09-26 — Realtime-or-alarm voice fallback
+
+Consumer wake speech is now intentionally binary in production: use the approved Realtime conversation when it is ready, otherwise keep the selected local alarm sound with Stop/Snooze. Do not substitute generic/local Android TTS when Realtime is unavailable, late, or fails during a wake. This preserves the quality bar of the conversational product while keeping alarm reliability fully local.
+

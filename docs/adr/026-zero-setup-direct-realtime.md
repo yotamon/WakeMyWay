@@ -49,7 +49,7 @@ WakeRuntime / AlarmPlaybackService remain authoritative
    |                         |
    |                         +-- direct Android <-> OpenAI WebRTC
    |
-   +-- any failure -> local Alfred immediately
+   +-- any failure -> local alarm-only immediately
 ```
 
 No OpenAI API key, Vercel secret, access code, terminal step, account, or manual pairing is part of
@@ -75,5 +75,6 @@ auth flow. Live Realtime audio still goes directly between Android and OpenAI on
 conversation.
 
 Provisioning, credential renewal, WakeMyWay cloud availability, and OpenAI availability are never
-Wake Ready predicates. Local alarm delivery, Stop, Snooze, WakeRuntime, and local Alfred remain
-available independently.
+Wake Ready predicates. Local alarm delivery plus Stop/Snooze remain available independently.
+If Realtime is unavailable or fails during an active wake, WakeMyWay keeps the selected local alarm
+audible and does not replace the missing conversation with generic/local TTS.

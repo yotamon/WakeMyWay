@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-09-26  
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -13,6 +13,10 @@
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
 ## Current product shape
+
+## Realtime voice degradation policy
+
+Direct Realtime is now an all-or-nothing conversational enhancement for the active wake. The selected local Wake Sound starts independently and remains the baseline surface while Realtime readiness is unresolved. If the Direct adapter is absent, misses its bounded startup window, rejects a turn, or fails after the conversation has started, the current wake becomes alarm-only for the rest of that occurrence: full local alarm volume plus Stop/Snooze, with no Android/local TTS substitution and no late mid-wake upgrade. Local TTS/STT components remain available for diagnostics/preview work but are no longer the consumer production fallback.
 
 WakeMyWay is a local-first Android wake system built around reliable alarms, a deterministic behavioral runtime and optional conversational/cloud enrichment.
 
@@ -40,11 +44,12 @@ AlarmManager.setAlarmClock()
                         ↓
              WakeVoiceSessionController
                         ↓
-                   WakeRuntime
-          ├─ local Alfred
-          ├─ on-device voice replies
-          ├─ motion evidence
-          └─ optional Direct Realtime enrichment
+          ┌──────── Realtime ready? ────────┐
+          │ yes                             │ no/failure
+          ↓                                 ↓
+      WakeRuntime                    alarm-only surface
+      ├─ Direct Realtime             selected local sound
+      └─ motion evidence             + local Stop/Snooze
 
 Optional account backup/migration
         │
@@ -171,8 +176,8 @@ ADR 022 and the Alarm Kernel documentation remain the canonical product/executio
 
 The critical wake path is fully local and usable without cloud access.
 
-- New Voice Wake creation remains strict. Required Android scheduling/presentation capabilities and required local voice capability are checked before commit.
-- Losing microphone/on-device recognition after scheduling does not silently delete an otherwise controllable alarm. Voice degrades independently.
+- New wake creation remains strict about Android scheduling/presentation capabilities. Realtime/cloud capability is not a commit-time requirement because the alarm-only path is always valid.
+- Losing Realtime/network/provider capability after scheduling does not delete or invalidate an otherwise controllable alarm. Voice degrades to alarm-only independently.
 - Once an occurrence is delivered, active execution does not depend on future exact-alarm capability. Stop remains immediate; Snooze remains fail-closed because it requires a durable exact replacement.
 - `WakeSessionViewModel` uses acknowledged terminal actions. Stop/Snooze commit Alarm Kernel state before behavioral resources are released or the Wake Surface closes.
 - Duplicate terminal actions are suppressed. Rejected/failed Snooze leaves the current wake visible, audible and controllable.

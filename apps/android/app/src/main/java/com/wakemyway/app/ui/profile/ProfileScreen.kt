@@ -210,9 +210,9 @@ fun ProfileScreen(
                     ProfileLink(
                         title = "Realtime voice",
                         detail = if (ConversationalAlfredState.isReady(context)) {
-                            "OpenAI conversation connected, with automatic local fallback"
+                            "OpenAI conversation ready; alarm-only if unavailable"
                         } else {
-                            "Connect natural OpenAI conversation for Voice Check-In"
+                            "Natural OpenAI conversation for Voice Check-In"
                         },
                         onClick = { ConversationalAlfredState.openSetup(context) },
                     )
@@ -277,7 +277,7 @@ fun PrivacyScreen(
             )
             PrivacyFact(
                 title = "Voice replies",
-                body = "Local Voice Check-In does not persist raw microphone audio or raw transcripts. In Direct builds with Realtime voice, WakeMyWay automatically obtains a short-lived credential and uses OpenAI for live microphone audio and Alfred's generated audio only during the active conversation. WakeMyWay does not persist the audio or transcript. The alarm remains controllable without voice or network.",
+                body = "Voice Check-In uses OpenAI Realtime only during the active conversation. WakeMyWay automatically obtains a short-lived credential and does not persist raw microphone audio or transcripts. If Realtime is unavailable, the selected alarm sound continues without a lower-quality TTS substitute, and Stop/Snooze remain local.",
             )
             PrivacyFact(
                 title = "Alarm delivery",
