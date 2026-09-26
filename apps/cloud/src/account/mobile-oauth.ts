@@ -158,7 +158,7 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
       throw new HttpError(502, 'Neon Auth did not return a session token.');
     }
 
-    const handoff = sealHandoff({
+    const handoff = sealMobileHandoff({
       v: 1,
       sessionToken,
       userId,
@@ -180,10 +180,10 @@ export async function handleMobileGoogleExchange(request: Request): Promise<Resp
 
   try {
     const { handoff, verifier } = await parseJson(request, exchangeSchema, 12 * 1024);
-    const payload = openHandoff(handoff);
+    const payload = openMobileHandoff(handoff);
     if (payload.exp < Date.now()) throw new HttpError(401, 'The mobile sign-in handoff expired.');
 
-    const challenge = pkceChallenge(verifier);
+    const challenge = mobilePkceChallenge(verifier);
     if (!safeEqual(challenge, payload.challenge)) {
       throw new HttpError(401, 'The mobile sign-in verifier is invalid.');
     }
@@ -216,7 +216,7 @@ function authProxyConfig() {
   };
 }
 
-function sealHandoff(payload: MobileHandoffPayload): string {
+export function sealMobileHandoff(payload: MobileHandoffPayload): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', handoffKey(), iv);
   const plaintext = Buffer.from(JSON.stringify(payload), 'utf8');
@@ -225,7 +225,7 @@ function sealHandoff(payload: MobileHandoffPayload): string {
   return Buffer.concat([iv, tag, ciphertext]).toString('base64url');
 }
 
-function openHandoff(value: string): MobileHandoffPayload {
+export function openMobileHandoff(value: string): MobileHandoffPayload {
   let bytes: Buffer;
   try {
     bytes = Buffer.from(value, 'base64url');
@@ -271,7 +271,7 @@ function handoffKey(): Buffer {
     .digest();
 }
 
-function pkceChallenge(verifier: string): string {
+export function mobilePkceChallenge(verifier: string): string {
   return createHash('sha256').update(verifier, 'ascii').digest('base64url');
 }
 
