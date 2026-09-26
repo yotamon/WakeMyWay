@@ -421,6 +421,19 @@ jobs:
           python ../../tooling/android_artifact_report.py             dist/WakeMyWay-direct.apk             dist/WakeMyWay-play.aab             --json dist/release-size.json             --markdown dist/release-size.md
           cat dist/release-size.md >> "$GITHUB_STEP_SUMMARY"
 
+          DIRECT_LIMIT_BYTES=$((112 * 1024 * 1024))
+          PLAY_LIMIT_BYTES=$((42 * 1024 * 1024))
+          DIRECT_BYTES="$(stat -c%s dist/WakeMyWay-direct.apk)"
+          PLAY_BYTES="$(stat -c%s dist/WakeMyWay-play.aab)"
+          if [ "$DIRECT_BYTES" -gt "$DIRECT_LIMIT_BYTES" ]; then
+            echo "::error::Direct APK exceeded 112 MiB production release budget ($DIRECT_BYTES bytes)."
+            exit 1
+          fi
+          if [ "$PLAY_BYTES" -gt "$PLAY_LIMIT_BYTES" ]; then
+            echo "::error::Play AAB exceeded 42 MiB production release budget ($PLAY_BYTES bytes)."
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v7
         with:
           name: signed-release-candidate-${{ github.run_id }}
