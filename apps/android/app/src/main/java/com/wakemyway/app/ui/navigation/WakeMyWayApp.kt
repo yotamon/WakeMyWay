@@ -129,7 +129,6 @@ fun WakeMyWayApp(
     val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
     val accountManager = remember(context) { WakeAccountManager.get(context) }
     val accountState by accountManager.state.collectAsState()
-    val accountState by accountManager.state.collectAsState()
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
         runCatching {
