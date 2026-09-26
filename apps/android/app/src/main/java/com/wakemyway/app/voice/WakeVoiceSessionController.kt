@@ -7,13 +7,8 @@ import android.os.SystemClock
 import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalReason
-import com.wakemyway.app.character.LocalCharacterSpeaker
-import com.wakemyway.app.character.LocalSpeechResult
-import com.wakemyway.app.character.LocalSpeechState
 import com.wakemyway.app.motion.AndroidMotionObserver
 import com.wakemyway.core.alarm.VoiceStyle
-import com.wakemyway.core.character.AlfredCharacter
-import com.wakemyway.core.character.WakeLineKey
 import com.wakemyway.core.runtime.SpeechIntent
 import com.wakemyway.core.runtime.WakeCapabilities
 import com.wakemyway.core.runtime.WakeDirective
@@ -55,10 +50,6 @@ class WakeVoiceSessionController(
         elapsedRealtimeMillis = elapsedRealtimeMillis,
         observer = runtimeTransitionObserver,
     )
-    private val voiceListener = LocalVoiceListener(
-        context = context,
-        languageTag = AlfredCharacter.spec.voiceLocaleTag,
-    )
     private val motionObserver = AndroidMotionObserver(context) { emission ->
         mainHandler.post {
             if (!closed && started && surfaceVisible) {
@@ -71,26 +62,18 @@ class WakeVoiceSessionController(
             }
         }
     }
-    private val speaker = LocalCharacterSpeaker(
-        context = context,
-        character = AlfredCharacter.spec,
-        onStateChanged = ::onSpeechStateChanged,
-    )
     private val conversation: WakeConversationEnrichment? = WakeConversationEnrichmentFactory.create(
         context,
         object : WakeConversationEnrichment.Listener {
             override fun onConversationReady() {
                 mainHandler.post {
                     if (closed) return@post
+                    if (alarmOnly) return@post
                     conversationLive = true
-                    realtimeStartupPending = false
                     mainHandler.removeCallbacks(startFallback)
                     when {
-                        startRequested && !started -> beginRuntime(speechAvailable = true)
-                        started -> {
-                            syncVoiceCapabilities()
-                            syncSurfaceBoundResources()
-                        }
+                        startRequested && !started -> beginRuntime()
+                        started -> syncSurfaceBoundResources()
                         else -> publish()
                     }
                 }
@@ -98,7 +81,7 @@ class WakeVoiceSessionController(
 
             override fun onAssistantSpeechStarted() {
                 mainHandler.post {
-                    if (closed || !realtimeTurnInFlight) return@post
+                    if (closed || alarmOnly || !realtimeTurnInFlight) return@post
                     speaking = true
                     listening = false
                     mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
@@ -113,7 +96,7 @@ class WakeVoiceSessionController(
 
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
-                    if (closed || !realtimeTurnInFlight || !started) return@post
+                    if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
                     speaking = false
                     if (interrupted) {
                         mode = WakeVoiceMode.LISTENING
@@ -129,7 +112,7 @@ class WakeVoiceSessionController(
 
             override fun onUserSpeechStarted() {
                 mainHandler.post {
-                    if (closed || !started || !surfaceVisible) return@post
+                    if (closed || alarmOnly || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
                     listening = true
                     mode = WakeVoiceMode.LISTENING
@@ -140,7 +123,7 @@ class WakeVoiceSessionController(
 
             override fun onUserTurnObserved() {
                 mainHandler.post {
-                    if (closed || !started || !surfaceVisible) return@post
+                    if (closed || alarmOnly || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
                     voiceResponseRequested = false
                     listening = false
@@ -158,38 +141,8 @@ class WakeVoiceSessionController(
 
             override fun onConversationFailure(stage: String) {
                 mainHandler.post {
-                    if (closed) return@post
-                    conversationLive = false
-                    conversation?.setInputEnabled(false)
-                    mainHandler.removeCallbacks(realtimeSilenceTimeout)
-
-                    val failedIntent = realtimeIntent
-                    val failedDuringTurn = realtimeTurnInFlight && failedIntent != null
-                    realtimeTurnInFlight = false
-                    realtimeIntent = null
-                    speaking = false
-                    listening = false
-
-                    realtimeStartupPending = false
-                    mainHandler.removeCallbacks(startFallback)
-                    if (started) {
-                        syncVoiceCapabilities()
-                    } else if (startRequested) {
-                        beginOrAwaitLocalRuntime()
-                    } else {
-                        publish()
-                    }
-
-                    if (failedDuringTurn && started && snapshot.phase != WakePhase.FINISHED) {
-                        if (speaker.state() is LocalSpeechState.Ready) {
-                            speakLocally(failedIntent)
-                        } else {
-                            dispatch(WakeInput.SpeechFailed(nextInputId("realtime-speech-failed")))
-                        }
-                    } else if (started) {
-                        syncSurfaceBoundResources()
-                        syncWatchdog()
-                    }
+                    if (closed || alarmOnly) return@post
+                    enterAlarmOnly()
                 }
             }
         },
@@ -206,22 +159,20 @@ class WakeVoiceSessionController(
     private var motionObservationRequested = false
     private var motionObserving = false
     private var inputSequence = 0L
-    private var speechSequence = 0L
     private var currentLine: String? = null
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
-    private var realtimeStartupPending = false
+    private var alarmOnly = false
     private var realtimeTurnInFlight = false
     private var realtimeIntent: SpeechIntent? = null
 
     private val startFallback = Runnable {
-        if (!started && startRequested && !closed) {
-            realtimeStartupPending = false
-            beginRuntime(speaker.state() is LocalSpeechState.Ready)
+        if (!started && startRequested && !closed && !alarmOnly) {
+            enterAlarmOnly()
         }
     }
     private val silenceWatchdog = Runnable {
-        if (!closed && started && surfaceVisible && !speaking && !listening && snapshot.phase != WakePhase.FINISHED) {
+        if (!closed && !alarmOnly && started && surfaceVisible && !speaking && !listening && snapshot.phase != WakePhase.FINISHED) {
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("silence"),
@@ -233,6 +184,7 @@ class WakeVoiceSessionController(
     private val realtimeSilenceTimeout = Runnable {
         if (
             !closed &&
+            !alarmOnly &&
             started &&
             surfaceVisible &&
             conversationLive &&
@@ -259,20 +211,19 @@ class WakeVoiceSessionController(
             startRequested = true
             publish()
             if (conversation != null) {
-                realtimeStartupPending = true
                 conversation.connect()
                 mainHandler.postDelayed(startFallback, REALTIME_START_BUDGET_MILLIS)
             } else {
-                beginOrAwaitLocalRuntime()
+                enterAlarmOnly()
             }
-        } else {
+        } else if (!alarmOnly) {
             conversation?.connect()
             if (started) {
                 dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
             }
         }
 
-        if (started) syncSurfaceBoundResources()
+        if (started && !alarmOnly) syncSurfaceBoundResources()
     }
 
     override fun confirmOrientation() {
@@ -307,9 +258,7 @@ class WakeVoiceSessionController(
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
         listening = false
         speaking = false
-        voiceListener.close()
         conversation?.close()
-        speaker.close()
         motionObserver.stop()
         motionObserving = false
         if (restoreCriticalAudio) {
@@ -317,8 +266,8 @@ class WakeVoiceSessionController(
         }
     }
 
-    private fun beginRuntime(speechAvailable: Boolean) {
-        if (started || closed) return
+    private fun beginRuntime() {
+        if (started || closed || alarmOnly || !conversationLive) return
         mainHandler.removeCallbacks(startFallback)
         started = true
         runtimeObservation.begin()
@@ -326,9 +275,8 @@ class WakeVoiceSessionController(
             sessionId = WakeSessionId("wake-${occurrenceId.value}"),
             policy = policy,
             capabilities = WakeCapabilities(
-                speechAvailable = speechAvailable || conversationLive,
-                voiceInputAvailable =
-                    voiceListener.availability() is LocalVoiceAvailability.Ready || conversationLive,
+                speechAvailable = true,
+                voiceInputAvailable = true,
                 motionAvailable = true,
             ),
         )
@@ -336,56 +284,8 @@ class WakeVoiceSessionController(
         syncSurfaceBoundResources()
     }
 
-    private fun onSpeechStateChanged(state: LocalSpeechState) {
-        if (closed || !startRequested) return
-        if (!started) {
-            if (realtimeStartupPending) {
-                publish()
-                return
-            }
-            when (state) {
-                is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
-                is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = conversationLive)
-                LocalSpeechState.Initializing -> Unit
-            }
-            return
-        }
-
-        syncVoiceCapabilities()
-    }
-
-    private fun beginOrAwaitLocalRuntime() {
-        when (speaker.state()) {
-            is LocalSpeechState.Ready -> beginRuntime(speechAvailable = true)
-            is LocalSpeechState.Unavailable -> beginRuntime(speechAvailable = false)
-            LocalSpeechState.Initializing ->
-                mainHandler.postDelayed(startFallback, TTS_START_BUDGET_MILLIS)
-        }
-    }
-
-    private fun syncVoiceCapabilities() {
-        if (!started || closed) return
-        val speechAvailable = speaker.state() is LocalSpeechState.Ready || conversationLive
-        val voiceInputAvailable =
-            voiceListener.availability() is LocalVoiceAvailability.Ready || conversationLive
-        val capabilities = snapshot.capabilities.copy(
-            speechAvailable = speechAvailable,
-            voiceInputAvailable = voiceInputAvailable,
-        )
-        if (snapshot.capabilities != capabilities) {
-            dispatch(
-                WakeInput.CapabilitiesChanged(
-                    id = nextInputId("voice-capabilities"),
-                    capabilities = capabilities,
-                ),
-            )
-        } else {
-            publish()
-        }
-    }
-
     private fun dispatch(input: WakeInput) {
-        if (closed || !started || snapshot.phase == WakePhase.FINISHED) return
+        if (closed || alarmOnly || !started || snapshot.phase == WakePhase.FINISHED) return
         mainHandler.removeCallbacks(silenceWatchdog)
 
         val transition = runtimeObservation.reduce(snapshot, input)
@@ -398,6 +298,7 @@ class WakeVoiceSessionController(
     }
 
     private fun execute(directive: WakeDirective) {
+        if (alarmOnly) return
         when (directive) {
             WakeDirective.EnsureAlarmAudible -> {
                 AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
@@ -442,64 +343,27 @@ class WakeVoiceSessionController(
     private fun speak(intent: SpeechIntent) {
         stopListening()
         val liveConversation = conversation?.takeIf { conversationLive && it.ready }
-        if (liveConversation != null) {
-            realtimeIntent = intent
-            realtimeTurnInFlight = true
-            speaking = true
-            listening = false
-            currentLine = null
-            mode = if (snapshot.phase == WakePhase.ORIENTING) {
-                WakeVoiceMode.ORIENTING
-            } else {
-                WakeVoiceMode.SPEAKING
-            }
-            liveConversation.setInputEnabled(true)
-            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
-            publish()
-            if (liveConversation.respond(intent, voiceStyle)) return
-
-            realtimeTurnInFlight = false
-            realtimeIntent = null
-            liveConversation.setInputEnabled(false)
+        if (liveConversation == null) {
+            enterAlarmOnly()
+            return
         }
-        speakLocally(intent)
-    }
 
-    private fun speakLocally(intent: SpeechIntent) {
-        stopListening()
+        realtimeIntent = intent
+        realtimeTurnInFlight = true
         speaking = true
+        listening = false
+        currentLine = null
         mode = if (snapshot.phase == WakePhase.ORIENTING) {
             WakeVoiceMode.ORIENTING
         } else {
             WakeVoiceMode.SPEAKING
         }
+        liveConversation.setInputEnabled(true)
         AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
-
-        val line = AlfredCharacter.render(
-            intent = intent,
-            key = WakeLineKey("${occurrenceId.value}:${speechSequence++}"),
-            style = voiceStyle,
-        )
-        currentLine = line.text
         publish()
 
-        speaker.speak(
-            line = line,
-            utteranceId = "wake-${occurrenceId.value}-${speechSequence}",
-        ) { result ->
-            mainHandler.post {
-                if (closed || !started) return@post
-                speaking = false
-                when (result) {
-                    LocalSpeechResult.Completed -> {
-                        dispatch(WakeInput.SpeechFinished(nextInputId("speech-finished")))
-                    }
-
-                    is LocalSpeechResult.Failed -> {
-                        dispatch(WakeInput.SpeechFailed(nextInputId("speech-failed")))
-                    }
-                }
-            }
+        if (!liveConversation.respond(intent, voiceStyle)) {
+            enterAlarmOnly()
         }
     }
 
@@ -513,6 +377,7 @@ class WakeVoiceSessionController(
             !voiceResponseRequested ||
             !surfaceVisible ||
             closed ||
+            alarmOnly ||
             !started ||
             speaking ||
             listening ||
@@ -534,42 +399,7 @@ class WakeVoiceSessionController(
             return
         }
 
-        if (voiceListener.availability() !is LocalVoiceAvailability.Ready) {
-            voiceResponseRequested = false
-            degradeVoiceInput()
-            return
-        }
-
-        listening = true
-        mode = WakeVoiceMode.LISTENING
-        AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
-        publish()
-
-        voiceListener.listen { result ->
-            mainHandler.post {
-                if (closed || !started || !listening) return@post
-                voiceResponseRequested = false
-                listening = false
-                when (result) {
-                    is LocalVoiceResult.Recognized -> dispatch(
-                        WakeInput.VoiceResponseObserved(
-                            id = nextInputId("voice-response"),
-                            coherent = result.coherent,
-                        ),
-                    )
-
-                    LocalVoiceResult.NoResponse -> dispatch(
-                        WakeInput.SilenceElapsed(
-                            id = nextInputId("voice-silence"),
-                            interval = SILENCE_INTERVAL,
-                        ),
-                    )
-
-                    is LocalVoiceResult.Failed -> degradeVoiceInput()
-                    LocalVoiceResult.Cancelled -> syncWatchdog()
-                }
-            }
-        }
+        enterAlarmOnly()
     }
 
     private fun stopListening() {
@@ -590,7 +420,6 @@ class WakeVoiceSessionController(
         }
         if (!listening) return
         listening = false
-        voiceListener.cancel(deliverCancellation = false)
     }
 
     private fun syncMotionObservation() {
@@ -632,49 +461,30 @@ class WakeVoiceSessionController(
     }
 
     private fun syncSurfaceBoundResources() {
-        if (!started || closed || !surfaceVisible) return
+        if (!started || closed || alarmOnly || !surfaceVisible) return
         syncMotionObservation()
         syncVoiceListening()
-    }
-
-    private fun degradeVoiceInput() {
-        voiceResponseRequested = false
-        if (!snapshot.capabilities.voiceInputAvailable) {
-            syncWatchdog()
-            return
-        }
-        mode = WakeVoiceMode.DEGRADED
-        publish()
-        dispatch(
-            WakeInput.CapabilitiesChanged(
-                id = nextInputId("voice-input-unavailable"),
-                capabilities = snapshot.capabilities.copy(voiceInputAvailable = false),
-            ),
-        )
     }
 
     private fun updateModeFromSnapshot() {
         if (snapshot.phase == WakePhase.ORIENTING) {
             mode = WakeVoiceMode.ORIENTING
-        } else if (!snapshot.capabilities.voiceInputAvailable && snapshot.phase != WakePhase.ALERTING) {
-            mode = WakeVoiceMode.DEGRADED
         } else if (!speaking && !listening && snapshot.phase == WakePhase.ACTIVATING) {
             mode = WakeVoiceMode.MOVING
         }
     }
 
     private fun publish() {
-        if (!started) {
+        if (alarmOnly || !started) {
             onUiState(
                 WakeVoiceUiState(
-                    mode = WakeVoiceMode.STARTING,
+                    mode = WakeVoiceMode.ALARM_ONLY,
                     phase = WakePhase.ALERTING,
-                    spokenLine = currentLine,
                     activationScore = 0,
                     activationThreshold = policy.activationThreshold,
-                    speechAvailable = speaker.state() is LocalSpeechState.Ready || conversationLive,
-                    voiceInputAvailable = voiceListener.availability() is LocalVoiceAvailability.Ready,
-                    conversational = conversationLive,
+                    speechAvailable = false,
+                    voiceInputAvailable = false,
+                    conversational = false,
                 ),
             )
             return
@@ -699,6 +509,7 @@ class WakeVoiceSessionController(
         mainHandler.removeCallbacks(silenceWatchdog)
         if (
             !closed &&
+            !alarmOnly &&
             started &&
             surfaceVisible &&
             snapshot.phase != WakePhase.FINISHED &&
@@ -710,18 +521,39 @@ class WakeVoiceSessionController(
         }
     }
 
+    private fun enterAlarmOnly() {
+        if (closed || alarmOnly) return
+        alarmOnly = true
+        conversationLive = false
+        voiceResponseRequested = false
+        motionObservationRequested = false
+        speaking = false
+        listening = false
+        realtimeTurnInFlight = false
+        realtimeIntent = null
+        currentLine = null
+        mainHandler.removeCallbacks(startFallback)
+        mainHandler.removeCallbacks(silenceWatchdog)
+        mainHandler.removeCallbacks(realtimeSilenceTimeout)
+        conversation?.setInputEnabled(false)
+        conversation?.close()
+        stopMotionObservation()
+        AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        publish()
+    }
+
     private fun nextInputId(kind: String): WakeInputId =
         WakeInputId("${occurrenceId.value}:${inputSequence++}:$kind")
 
     private companion object {
         val SILENCE_INTERVAL: Duration = Duration.ofSeconds(12)
         val REALTIME_LISTEN_INTERVAL: Duration = Duration.ofSeconds(10)
-        const val TTS_START_BUDGET_MILLIS = 1_200L
         const val REALTIME_START_BUDGET_MILLIS = 2_500L
     }
 }
 
 enum class WakeVoiceMode {
+    ALARM_ONLY,
     STARTING,
     SPEAKING,
     LISTENING,
@@ -732,7 +564,7 @@ enum class WakeVoiceMode {
 }
 
 data class WakeVoiceUiState(
-    val mode: WakeVoiceMode = WakeVoiceMode.STARTING,
+    val mode: WakeVoiceMode = WakeVoiceMode.ALARM_ONLY,
     val phase: WakePhase = WakePhase.ALERTING,
     val spokenLine: String? = null,
     val activationScore: Int = 0,

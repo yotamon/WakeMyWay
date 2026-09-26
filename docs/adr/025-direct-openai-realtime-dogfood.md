@@ -22,7 +22,7 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
 - Android obtains a short-lived Realtime client secret from WakeMyWay and then connects directly to
   OpenAI over WebRTC. Vercel is control plane only and never proxies live wake audio.
 - WakeRuntime remains behavioral authority and AlarmKernel remains Stop/Snooze/alarm authority.
-  Realtime failure immediately degrades to local Alfred.
+  Realtime failure immediately degrades to the normal selected local alarm sound and Stop/Snooze controls. Production does not substitute local TTS for a failed Realtime conversation.
 - A Realtime session is bounded to eight assistant turns and three minutes. Each response is capped
   at 120 output tokens and the conversation window uses retention-ratio truncation.
 - Stable Alfred instructions live at the session prefix. Per-turn requests contain only the current
@@ -49,7 +49,7 @@ WakeRuntime                         (always authoritative)
     |
     +-- Direct Realtime available -> OpenAI WebRTC speech enrichment
     |
-    +-- unavailable / timeout / budget / provider failure -> local Alfred
+    +-- unavailable / timeout / budget / provider failure -> local alarm-only
 ```
 
 Realtime setup, network availability, OpenAI availability, and pairing state are never Wake Ready

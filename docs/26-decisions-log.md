@@ -73,7 +73,7 @@ TypeScript + Fastify + PostgreSQL + Kysely + OpenAPI is the preferred future dir
 
 ## 2026-09-09 — Supabase data platform
 
-Use Supabase as the preferred future managed data platform: PostgreSQL for cloud persistence, Supabase Auth later when accounts/sync/device migration justify identity, and Supabase Storage only for concrete object-storage use cases. Vercel remains compute/API hosting; Supabase remains data infrastructure. Android domain behavior does not bind directly to Supabase tables, and no Supabase outage may prevent the current local wake attempt.
+Originally selected Supabase as the future data platform. Superseded on 2026-09-26 by ADR-013: Neon now provides PostgreSQL and Managed Better Auth while Vercel remains compute/API hosting. Android domain behavior still does not bind directly to provider tables, and no cloud outage may prevent the current local wake attempt.
 
 ## 2026-09-09 — Voice provider
 
@@ -475,3 +475,7 @@ The local DPAPI bundle is retained only as an offline recovery path.
 The workflow exposes an optional `dry_run` mode that executes through production signing and candidate verification but creates no tag or GitHub Release. Normal releases leave it disabled.
 
 Canonical procedure: [`42-android-release-operations.md`](42-android-release-operations.md).
+## 2026-09-26 — Realtime-or-alarm voice fallback
+
+Consumer wake speech is now intentionally binary in production: use the approved Realtime conversation when it is ready, otherwise keep the selected local alarm sound with Stop/Snooze. Do not substitute generic/local Android TTS when Realtime is unavailable, late, or fails during a wake. This preserves the quality bar of the conversational product while keeping alarm reliability fully local.
+

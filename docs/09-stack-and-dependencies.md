@@ -123,14 +123,14 @@ Chosen direction, not current scaffold:
 | Runtime | current Node.js LTS at implementation time |
 | Language | TypeScript |
 | Server | Fastify |
-| Database | Supabase-managed PostgreSQL |
+| Database | Neon-managed PostgreSQL |
 | Query layer | Kysely |
 | Logging | Pino |
 | Contract | OpenAPI 3.1 |
 
 Create `services/api` only when cloud preparation, realtime credentials/orchestration, sync, or another concrete capability needs it.
 
-Vercel is the preferred compute/deployment host for that service. Supabase is the preferred managed data platform: PostgreSQL first, Auth later when identity is justified, Storage only when a concrete object-storage need appears. Mobile domain behavior must not bind directly to Supabase table schemas.
+Vercel is the preferred compute/deployment host for that service. Neon is the managed data and identity platform: PostgreSQL plus Managed Better Auth, with Storage only when a concrete object-storage need appears. Mobile domain behavior must not bind directly to Neon table schemas.
 
 Do not create empty modules/services in M0 for architectural symmetry.
 

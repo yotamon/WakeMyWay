@@ -191,9 +191,9 @@ Initial values are Default, Motivational, and Minimal. Voice Style is not a Wake
 
 ### Voice Check-In
 
-Per-alarm product preference allowing the wake experience to request a short spoken response when local speech capability is available.
+Per-alarm product preference allowing the wake experience to use the approved realtime conversational path when that capability is ready at wake time.
 
-Voice Check-In is an enrichment path. Critical local alarm delivery and terminal controls remain functional when voice input is unavailable.
+Voice Check-In is an enrichment path, not a second-quality speech mode. If realtime conversation is unavailable, late, or fails during the session, the current wake degrades to the normal selected Wake Sound with local Stop/Snooze controls. Production does not substitute generic/local TTS for the missing realtime experience. Critical local alarm delivery and terminal controls remain functional throughout.
 
 ### Wake Sound
 
@@ -253,7 +253,7 @@ No Android app can guarantee an alarm after conditions where the OS intentionall
 
 ### Fallback level
 
-The current richness available to a Wake Session, from realtime conversational mode down to bundled emergency alarm audio. Fallback level is a capability/runtime mode, not a Wake Phase.
+The current richness available to a Wake Session. The consumer production boundary is intentionally coarse: realtime conversational mode when it is ready, otherwise normal local alarm playback; branded-sound resolution may still fail farther down to bundled/platform emergency alarm audio. Fallback level is a capability/runtime mode, not a Wake Phase.
 
 ## Architecture language
 

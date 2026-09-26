@@ -11,7 +11,7 @@ export type AccountTokenVerifier = (accessToken: string) => Promise<AccountIdent
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let cachedSupabaseUrl: string | undefined;
+let cachedNeonAuthUrl: string | undefined;
 let cachedVerifier: AccountTokenVerifier | undefined;
 
 export function bearerAccessToken(request: Request): string | undefined {
@@ -30,19 +30,22 @@ export async function requireAccountIdentity(
   return (verifier ?? configuredAccountTokenVerifier())(token);
 }
 
-export function createSupabaseAccountTokenVerifier(supabaseUrl: string): AccountTokenVerifier {
-  const baseUrl = normalizeSupabaseUrl(supabaseUrl);
-  const issuer = `${baseUrl}/auth/v1`;
-  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+export function createNeonAccountTokenVerifier(neonAuthUrl: string): AccountTokenVerifier {
+  const baseUrl = normalizeNeonAuthUrl(neonAuthUrl);
+  const authUrl = new URL(baseUrl);
+  const issuer = authUrl.origin;
+  const jwks = createRemoteJWKSet(new URL(`${baseUrl}/.well-known/jwks.json`));
 
   return async (accessToken: string): Promise<AccountIdentity> => {
     try {
       const { payload } = await jwtVerify(accessToken, jwks, {
+        algorithms: ['EdDSA'],
         issuer,
-        audience: 'authenticated',
+        audience: issuer,
       });
       const subject = payload.sub;
       if (!subject || !UUID_PATTERN.test(subject)) throw new HttpError(401, 'Unauthorized.');
+      if (payload.role !== 'authenticated') throw new HttpError(401, 'Unauthorized.');
 
       const email = typeof payload.email === 'string' && payload.email.length <= 320
         ? payload.email
@@ -63,16 +66,16 @@ export function createSupabaseAccountTokenVerifier(supabaseUrl: string): Account
 }
 
 export function configuredAccountTokenVerifier(): AccountTokenVerifier {
-  const configuredUrl = process.env.SUPABASE_URL?.trim();
+  const configuredUrl = process.env.NEON_AUTH_BASE_URL?.trim();
   if (!configuredUrl) throw new HttpError(503, 'Account authentication is not configured.');
 
-  if (cachedVerifier && cachedSupabaseUrl === configuredUrl) return cachedVerifier;
-  cachedVerifier = createSupabaseAccountTokenVerifier(configuredUrl);
-  cachedSupabaseUrl = configuredUrl;
+  if (cachedVerifier && cachedNeonAuthUrl === configuredUrl) return cachedVerifier;
+  cachedVerifier = createNeonAccountTokenVerifier(configuredUrl);
+  cachedNeonAuthUrl = configuredUrl;
   return cachedVerifier;
 }
 
-function normalizeSupabaseUrl(value: string): string {
+function normalizeNeonAuthUrl(value: string): string {
   let url: URL;
   try {
     url = new URL(value);

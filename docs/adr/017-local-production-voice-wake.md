@@ -1,6 +1,6 @@
 # ADR 017 — Local production voice wake baseline
 
-**Status:** Accepted for implementation; physical-device morning validation remains required before reliability claims  
+**Status:** Superseded for consumer production speech fallback on 2026-09-26; local speech components remain available for diagnostics/preview work  
 **Date:** 2026-09-10
 
 ## Context
@@ -11,7 +11,12 @@ Connecting voice directly to critical playback would create the wrong failure bo
 
 ## Decision
 
-Wake My Way adopts a **local-first production voice wake baseline** with the following ownership model:
+> **2026-09-26 amendment:** the reliability ownership described here remains valid, but local Android
+> TTS/STT is no longer the consumer fallback for a missing Realtime conversation. The current
+> production product boundary is Realtime when ready, otherwise the selected local alarm sound with
+> Stop/Snooze. Local speech components may remain for diagnostics, preview, or future experiments.
+
+Wake My Way originally adopted a **local-first production voice wake baseline** with the following ownership model:
 
 1. `AlarmPlaybackService` remains owner of critical `USAGE_ALARM` playback, notification/full-screen delivery, and durable Stop/Snooze.
 2. `WakeRuntime` remains the only behavioral authority. Android voice and sensor adapters emit typed `WakeInput`; they do not compute a parallel wake score or outcome.

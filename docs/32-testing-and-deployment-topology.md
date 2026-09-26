@@ -353,7 +353,7 @@ GitHub repository
               └── Vercel
                     │
                     ├── Vercel Functions / Fluid compute
-                    ├── Supabase managed PostgreSQL
+                    ├── Neon managed PostgreSQL
                     └── external AI/provider APIs
 ```
 
@@ -401,17 +401,17 @@ Clients must tolerate reconnects for any proxy/RTC route. Never keep wake author
 
 ## Database and cloud data platform
 
-If/when cloud persistence is justified, use **Supabase-managed PostgreSQL** with Kysely as the server-side query layer. Supabase Auth is deferred until account identity is needed, and Supabase Storage is deferred until a concrete object-storage feature exists. See ADR-013.
+If/when cloud persistence is justified, use **Neon-managed PostgreSQL** with Kysely as the server-side query layer. Neon Managed Better Auth owns optional account identity, and Neon Storage remains deferred until a concrete object-storage feature exists. See ADR-013.
 
 The intended boundary is:
 
 ```text
-Android → Wake API on Vercel → Kysely → Supabase PostgreSQL
+Android → Wake API on Vercel → Kysely → Neon PostgreSQL
 ```
 
-Do not couple Android domain reads/writes directly to Supabase database tables. A future direct Supabase Auth session flow is a narrow identity exception, not a replacement for the Wake API domain boundary.
+Do not couple Android domain reads/writes directly to Neon database tables. Direct Neon Managed Better Auth session acquisition is a narrow identity exception, not a replacement for the Wake API domain boundary.
 
-Use separate development/test and production cloud data environments once cloud work begins. Recheck current Supabase serverless connection/pooling guidance before deploying the first backend.
+Use separate development/test and production cloud data environments once cloud work begins. Recheck current Neon serverless connection/pooling guidance before deploying the first backend.
 
 No cloud database is authoritative for:
 

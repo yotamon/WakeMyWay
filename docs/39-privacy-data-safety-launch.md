@@ -101,7 +101,7 @@ Expected processors/services:
 ### Present in repository but not currently active as a public consumer data path
 
 - **Vercel** — optional Wake API / developer cloud hosting.
-- **Supabase** — preferred optional account/backup infrastructure when provisioned.
+- **Neon** — optional account/backup PostgreSQL and Managed Better Auth infrastructure.
 - **OpenAI** — founder/debug conversational Realtime path; not required for the public local wake.
 - other analytics/crash processors: none enabled by default as of this inventory.
 

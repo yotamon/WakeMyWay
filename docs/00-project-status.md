@@ -1,18 +1,22 @@
 # Project status
 
-**Last updated:** 2026-09-25  
+**Last updated:** 2026-09-26  
 **Product:** WakeMyWay (WMW)  
-**Platform:** Android first; optional non-critical Vercel cloud with Supabase as the preferred future managed data/auth platform  
+**Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
 **Current launch program:** #89; canonical plan: `docs/35-paid-launch-readiness.md`  
 **Readiness gates:** TRUST #9 → FINISH #59 → PROVE #87 → SELL #88  
-**Account backend:** authenticated backup backend code exists; production provisioning and user-facing Sign In remain deferred  
+**Account backend:** email/password + Google sign-in, session handling and server-owned roles are implemented behind configuration; production Neon database/auth provisioning is active; WakeMyWay-owned Google OAuth remains pending  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
 ## Current product shape
+
+## Realtime voice degradation policy
+
+Direct Realtime is now an all-or-nothing conversational enhancement for the active wake. The selected local Wake Sound starts independently and remains the baseline surface while Realtime readiness is unresolved. If the Direct adapter is absent, misses its bounded startup window, rejects a turn, or fails after the conversation has started, the current wake becomes alarm-only for the rest of that occurrence: full local alarm volume plus Stop/Snooze, with no Android/local TTS substitution and no late mid-wake upgrade. Local TTS/STT components remain available for diagnostics/preview work but are no longer the consumer production fallback.
 
 WakeMyWay is a local-first Android wake system built around reliable alarms, a deterministic behavioral runtime and optional conversational/cloud enrichment.
 
@@ -40,11 +44,12 @@ AlarmManager.setAlarmClock()
                         ↓
              WakeVoiceSessionController
                         ↓
-                   WakeRuntime
-          ├─ local Alfred
-          ├─ on-device voice replies
-          ├─ motion evidence
-          └─ optional Direct Realtime enrichment
+          ┌──────── Realtime ready? ────────┐
+          │ yes                             │ no/failure
+          ↓                                 ↓
+      WakeRuntime                    alarm-only surface
+      ├─ Direct Realtime             selected local sound
+      └─ motion evidence             + local Stop/Snooze
 
 Optional account backup/migration
         │
@@ -102,7 +107,7 @@ Implemented:
 - versioned credential-protected `ConsumerPreferencesRepository`;
 - real Profile destination in the consumer bottom navigation;
 - local display-name profile;
-- truthful local-only account state with no fake sign-in action;
+- optional real Account surface with email/password and Google sign-in when production identity is configured; unconfigured builds remain truthful and fully local;
 - default Wake Sound, Voice Check-In, Alfred style and Snooze preferences;
 - reusable First Move preference;
 - saved defaults seed brand-new alarm drafts only;
@@ -149,7 +154,7 @@ merge into existing device    → existing-device preferences win
 
 Immediately before import, the Android adapter rechecks both rich product state and any Alarm Kernel slot for the same id. A stale cloud plan therefore cannot replace or cancel a locally committed wake. Remote imports always require a later explicit local enable action before they can become Android schedule authority.
 
-There is still no user-facing Sign In action because no authenticated WakeMyWay account backend has been provisioned yet. ADR-013 remains the backend direction: optional Supabase Auth for identity/session acquisition, Wake API for domain operations, and Supabase PostgreSQL behind that API.
+The Account surface now implements email/password sign-up/sign-in, Google OAuth, encrypted Neon Auth sessions, sign-out and native Google Credential Manager integration. It is configuration-gated until Neon Auth is configured; native Google remains gated until WakeMyWay Google OAuth credentials are provisioned. `GET /api/v1/account/me` verifies the Neon JWT and resolves a server-owned `user` / `admin` role from `wmw_private.account_roles`; email and client metadata never grant privilege. ADR-027 is the canonical auth/authorization decision. Backup and future payment/domain operations continue through the Wake API, with Neon PostgreSQL behind it.
 
 ## Multi-alarm execution foundation
 
@@ -171,8 +176,8 @@ ADR 022 and the Alarm Kernel documentation remain the canonical product/executio
 
 The critical wake path is fully local and usable without cloud access.
 
-- New Voice Wake creation remains strict. Required Android scheduling/presentation capabilities and required local voice capability are checked before commit.
-- Losing microphone/on-device recognition after scheduling does not silently delete an otherwise controllable alarm. Voice degrades independently.
+- New wake creation remains strict about Android scheduling/presentation capabilities. Realtime/cloud capability is not a commit-time requirement because the alarm-only path is always valid.
+- Losing Realtime/network/provider capability after scheduling does not delete or invalidate an otherwise controllable alarm. Voice degrades to alarm-only independently.
 - Once an occurrence is delivered, active execution does not depend on future exact-alarm capability. Stop remains immediate; Snooze remains fail-closed because it requires a durable exact replacement.
 - `WakeSessionViewModel` uses acknowledged terminal actions. Stop/Snooze commit Alarm Kernel state before behavioral resources are released or the Wake Surface closes.
 - Duplicate terminal actions are suppressed. Rejected/failed Snooze leaves the current wake visible, audible and controllable.
@@ -331,7 +336,7 @@ The production wake path now closes the first local adaptive loop:
 - corrupt/missing learning state falls back to the stable default and cannot affect Alarm Kernel authority;
 - the Oriented wake state now waits for an explicit First Move confirmation instead of visually presenting non-functional choice tiles.
 
-Consumer onboarding and alarm setup were also simplified around the adaptive promise: advanced wake behavior remains available without making first alarm creation feel like a settings panel. Account-shaped placeholder UI is intentionally absent while account sync remains optional/deferred.
+Consumer onboarding and alarm setup remain simplified around the adaptive promise: advanced wake behavior is available without making first alarm creation feel like a settings panel. Account access now lives deliberately under Profile, remains optional, and cannot become wake authority.
 
 ## Update distribution
 

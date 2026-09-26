@@ -15,7 +15,7 @@ import java.time.Instant
 /**
  * Account-scoped cloud seam for optional backup/migration.
  *
- * The eventual adapter may use the Wake API backed by Supabase Auth/PostgreSQL, but this contract
+ * The eventual adapter may use the Wake API backed by Neon Auth/PostgreSQL, but this contract
  * deliberately knows nothing about a provider. Implementations must already be scoped to the
  * authenticated installation/account session supplied by the future account layer.
  *

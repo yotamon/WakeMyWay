@@ -151,23 +151,25 @@ Wake Runtime may receive SpeechFailed only when production integration exists
 
 M5 currently exposes this through Wake Alarm Lab only. Production connection to Active Wake Execution remains gated by physical reliability evidence.
 
-## Morning voice flow, future production shape
+## Morning voice flow, current production shape
 
 ```text
 Alarm Kernel starts Active Wake Execution
        ↓
-safe local Wake Motif / USAGE_ALARM output is already owned locally
+selected local Wake Sound / USAGE_ALARM output is already owned locally
        ↓
-Wake Runtime starts deterministic session
+Realtime conversation becomes ready within the bounded startup window?
+       ├─ yes → Wake Runtime starts the conversational session
+       └─ no  → keep alarm-only playback + Stop/Snooze
        ↓
-local Alfred rendering may speak a constrained SpeechIntent
-       ↓
-optional realtime voice may later enrich the same constrained intent
-       ↓
-provider/TTS fails → alarm path and Wake Runtime continue
+Realtime fails during the session?
+       └─ return immediately to alarm-only playback
 ```
 
-Never show a critical-path spinner waiting for speech or AI.
+Consumer production does not substitute Android/local TTS for a missing Realtime conversation. Local
+speech code may still be used by diagnostics, preview tooling, or future experiments. Never show a
+critical-path spinner waiting for speech or AI; the normal alarm surface is the honest baseline while
+Realtime readiness is unresolved.
 
 ## M8 provider spike
 
