@@ -44,11 +44,12 @@ AlarmManager.setAlarmClock()
                         ↓
              WakeVoiceSessionController
                         ↓
-                   WakeRuntime
-          ├─ local Alfred
-          ├─ on-device voice replies
-          ├─ motion evidence
-          └─ optional Direct Realtime enrichment
+          ┌──────── Realtime ready? ────────┐
+          │ yes                             │ no/failure
+          ↓                                 ↓
+      WakeRuntime                    alarm-only surface
+      ├─ Direct Realtime             selected local sound
+      └─ motion evidence             + local Stop/Snooze
 
 Optional account backup/migration
         │
@@ -175,8 +176,8 @@ ADR 022 and the Alarm Kernel documentation remain the canonical product/executio
 
 The critical wake path is fully local and usable without cloud access.
 
-- New Voice Wake creation remains strict. Required Android scheduling/presentation capabilities and required local voice capability are checked before commit.
-- Losing microphone/on-device recognition after scheduling does not silently delete an otherwise controllable alarm. Voice degrades independently.
+- New wake creation remains strict about Android scheduling/presentation capabilities. Realtime/cloud capability is not a commit-time requirement because the alarm-only path is always valid.
+- Losing Realtime/network/provider capability after scheduling does not delete or invalidate an otherwise controllable alarm. Voice degrades to alarm-only independently.
 - Once an occurrence is delivered, active execution does not depend on future exact-alarm capability. Stop remains immediate; Snooze remains fail-closed because it requires a durable exact replacement.
 - `WakeSessionViewModel` uses acknowledged terminal actions. Stop/Snooze commit Alarm Kernel state before behavioral resources are released or the Wake Surface closes.
 - Duplicate terminal actions are suppressed. Rejected/failed Snooze leaves the current wake visible, audible and controllable.
