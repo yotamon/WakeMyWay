@@ -548,7 +548,10 @@ class WakeVoiceSessionController(
     private companion object {
         val SILENCE_INTERVAL: Duration = Duration.ofSeconds(12)
         val REALTIME_LISTEN_INTERVAL: Duration = Duration.ofSeconds(10)
-        const val REALTIME_START_BUDGET_MILLIS = 2_500L
+        // A cold Direct wake may need installation bootstrap, broker token minting and WebRTC
+        // negotiation before the first session.updated event. The alarm remains audible throughout,
+        // so give Realtime enough room to connect instead of cancelling a healthy cold start.
+        const val REALTIME_START_BUDGET_MILLIS = 8_000L
     }
 }
 

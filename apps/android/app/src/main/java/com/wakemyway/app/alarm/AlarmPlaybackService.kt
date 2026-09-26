@@ -33,6 +33,7 @@ class AlarmPlaybackService : Service() {
     private var activePlaybackSpec: WakeSoundPlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hapticsStarted = false
+    private var notificationPresentation = WakeNotificationPresentation.FULL_SCREEN
     private var startupCpuLock: PowerManager.WakeLock? = null
     private var emergencyToneCpuLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -88,11 +89,20 @@ class AlarmPlaybackService : Service() {
         }
 
         return when (intent.action) {
-            ACTION_START -> ensureActiveWake(
-                kernel = kernel,
-                occurrenceId = occurrenceId,
-                validatePresentation = redeliveredStart,
-            )
+            ACTION_START -> {
+                notificationPresentation = if (
+                    intent.getBooleanExtra(EXTRA_IN_APP_PRESENTATION, false)
+                ) {
+                    WakeNotificationPresentation.IN_APP
+                } else {
+                    WakeNotificationPresentation.FULL_SCREEN
+                }
+                ensureActiveWake(
+                    kernel = kernel,
+                    occurrenceId = occurrenceId,
+                    validatePresentation = redeliveredStart,
+                )
+            }
 
             ACTION_RECOVER -> {
                 if (kernel.activeOccurrence()?.id != occurrenceId) {
@@ -140,6 +150,20 @@ class AlarmPlaybackService : Service() {
                         WakeWidgetUpdater.request(this)
                         START_NOT_STICKY
                     }
+                }
+            }
+
+            ACTION_SURFACE_VISIBLE -> {
+                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                    notificationPresentation = WakeNotificationPresentation.IN_APP
+                    val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
+                    startForeground(
+                        NOTIFICATION_ID,
+                        alarmNotification(occurrenceId, policy, notificationPresentation),
+                    )
+                    START_STICKY
+                } else {
+                    preserveCurrentExecutionOrStop(kernel)
                 }
             }
 
@@ -225,11 +249,13 @@ class AlarmPlaybackService : Service() {
         val activeId = kernel.activeOccurrence()?.id ?: occurrenceId
         val policy = kernel.activePolicy(activeId) ?: CriticalWakePolicy.DEFAULT
         val playbackAlreadyActive = playbackAudiblyActive()
-        startForeground(NOTIFICATION_ID, alarmNotification(activeId, policy))
+        startForeground(
+            NOTIFICATION_ID,
+            alarmNotification(activeId, policy, notificationPresentation),
+        )
         if (!playbackAlreadyActive) {
             WakeTimingTrace(this).foreground(activeId)
         }
-        startPlayback(activeId, policy)
         startPlayback(activeId, policy)
         if (mediaPlayer != null) {
             // The looping player owns CPU retention for the rest of the wake via setWakeMode.
@@ -490,20 +516,42 @@ class AlarmPlaybackService : Service() {
     private fun alarmNotification(
         occurrenceId: WakeOccurrenceId,
         policy: CriticalWakePolicy,
-    ) = NotificationCompat.Builder(this, AlarmPresentationAccess.CHANNEL_ID)
+        presentation: WakeNotificationPresentation,
+    ) = NotificationCompat.Builder(
+        this,
+        if (presentation == WakeNotificationPresentation.IN_APP) {
+            AlarmPresentationAccess.IN_APP_CHANNEL_ID
+        } else {
+            AlarmPresentationAccess.CHANNEL_ID
+        },
+    )
         .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
         .setContentTitle("Wake My Way")
         .setContentText("Time to wake up")
         .setCategory(NotificationCompat.CATEGORY_ALARM)
-        .setPriority(NotificationCompat.PRIORITY_MAX)
-        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setPriority(
+            if (presentation == WakeNotificationPresentation.IN_APP) {
+                NotificationCompat.PRIORITY_LOW
+            } else {
+                NotificationCompat.PRIORITY_MAX
+            },
+        )
+        .setVisibility(
+            if (presentation == WakeNotificationPresentation.IN_APP) {
+                NotificationCompat.VISIBILITY_PRIVATE
+            } else {
+                NotificationCompat.VISIBILITY_PUBLIC
+            },
+        )
         .setOngoing(true)
         .setAutoCancel(false)
         .setOnlyAlertOnce(true)
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(wakeActivityIntent(occurrenceId))
-        .setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
         .apply {
+            if (presentation == WakeNotificationPresentation.FULL_SCREEN) {
+                setFullScreenIntent(wakeActivityIntent(occurrenceId), true)
+            }
             if (policy.snoozeEnabled) {
                 addAction(
                     android.R.drawable.ic_lock_idle_alarm,
@@ -574,6 +622,11 @@ class AlarmPlaybackService : Service() {
             .appendPath(occurrenceId.value)
             .build()
 
+    private enum class WakeNotificationPresentation {
+        FULL_SCREEN,
+        IN_APP,
+    }
+
     companion object {
         private const val NOTIFICATION_ID = 4100
         private const val ACTION_START = "com.wakemyway.action.START_WAKE"
@@ -581,7 +634,9 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_STOP = "com.wakemyway.action.STOP_WAKE"
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
+        private const val ACTION_SURFACE_VISIBLE = "com.wakemyway.action.WAKE_SURFACE_VISIBLE"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
+        private const val EXTRA_IN_APP_PRESENTATION = "in_app_presentation"
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
         private const val RECOVERY_GUARD_REFRESH_MILLIS = 4_000L
         private const val TONE_RE_ARM_MILLIS = 4_000L
@@ -600,6 +655,17 @@ class AlarmPlaybackService : Service() {
             )
         }
 
+        fun startInAppTest(context: Context, occurrenceId: WakeOccurrenceId) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AlarmPlaybackService::class.java)
+                    .setAction(ACTION_START)
+                    .setData(commandIdentity("start-in-app", occurrenceId))
+                    .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value)
+                    .putExtra(EXTRA_IN_APP_PRESENTATION, true),
+            )
+        }
+
         fun recover(context: Context, occurrenceId: WakeOccurrenceId) {
             ContextCompat.startForegroundService(
                 context,
@@ -608,6 +674,10 @@ class AlarmPlaybackService : Service() {
                     .setData(commandIdentity("recover", occurrenceId))
                     .putExtra(EXTRA_OCCURRENCE_ID, occurrenceId.value),
             )
+        }
+
+        fun requestInAppPresentation(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_SURFACE_VISIBLE, "surface-visible", occurrenceId)
         }
 
         fun requestStop(context: Context, occurrenceId: WakeOccurrenceId) {

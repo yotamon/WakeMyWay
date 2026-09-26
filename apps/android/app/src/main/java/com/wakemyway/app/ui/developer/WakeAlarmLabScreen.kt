@@ -237,12 +237,21 @@ fun WakeAlarmLabScreen(
                     return@Button
                 }
 
+                val exerciseLiveVoice = voiceWakeReadiness == VoiceWakeReadiness.READY
                 runCatching {
-                    startImmediateWakeTest(context, kernel)
+                    startImmediateWakeTest(
+                        context = context,
+                        kernel = kernel,
+                        exerciseLiveVoice = exerciseLiveVoice,
+                    )
                 }
                     .onSuccess {
                         health = kernel.health()
-                        message = "Instant wake started. Stop or snooze it exactly like a real alarm."
+                        message = if (exerciseLiveVoice) {
+                            "Instant wake started with Live Voice Check-In."
+                        } else {
+                            "Instant alarm-only wake started. Live Voice is not ready on this device."
+                        }
                     }
                     .onFailure {
                         health = kernel.health()
@@ -589,13 +598,16 @@ private fun TimingFacts(number: Int, timing: TimingSnapshot) {
 private fun startImmediateWakeTest(
     context: android.content.Context,
     kernel: AlarmKernel,
+    exerciseLiveVoice: Boolean,
 ): WakeOccurrenceId {
     check(kernel.activeOccurrence() == null) { "A wake is already active" }
 
-    val sourcePolicy = kernel.health().nextOccurrence
-        ?.wakeScheduleId
-        ?.let(kernel::policy)
-        ?: CriticalWakePolicy.DEFAULT
+    val sourcePolicy = (
+        kernel.health().nextOccurrence
+            ?.wakeScheduleId
+            ?.let(kernel::policy)
+            ?: CriticalWakePolicy.DEFAULT
+        ).copy(voiceCheckInEnabled = exerciseLiveVoice)
     val schedule = immediateWakeTestSchedule()
 
     kernel.commitSchedule(schedule, sourcePolicy)
@@ -618,7 +630,9 @@ private fun startImmediateWakeTest(
             BeginActiveResult.STALE -> error("Immediate test occurrence became stale")
         }
 
-        AlarmPlaybackService.start(context, occurrence.id)
+        // The developer test already opens WakeActivity itself. Keep the required foreground
+        // service notification quiet instead of posting a second heads-up/full-screen surface.
+        AlarmPlaybackService.startInAppTest(context, occurrence.id)
         context.startActivity(
             Intent(context, WakeActivity::class.java)
                 .putExtra(AlarmPlaybackService.EXTRA_OCCURRENCE_ID, occurrence.id.value)

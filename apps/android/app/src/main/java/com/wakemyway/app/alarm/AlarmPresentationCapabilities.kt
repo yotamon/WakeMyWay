@@ -52,20 +52,33 @@ fun AlarmHealth.activeWakeRepairTarget(): AlarmRepairTarget = when {
 
 object AlarmPresentationAccess {
     const val CHANNEL_ID = "active-wake"
+    const val IN_APP_CHANNEL_ID = "active-wake-in-app"
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                "Active wake alarms",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = "Critical WakeMyWay alarm playback and wake controls"
-                setSound(null, null)
-                enableVibration(false)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            },
+        manager.createNotificationChannels(
+            listOf(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Active wake alarms",
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = "Critical WakeMyWay alarm playback and wake controls"
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                },
+                NotificationChannel(
+                    IN_APP_CHANNEL_ID,
+                    "Active wake status",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Background status while the WakeMyWay wake screen is already open"
+                    setSound(null, null)
+                    enableVibration(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+                },
+            ),
         )
     }
 

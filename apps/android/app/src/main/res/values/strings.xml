@@ -128,6 +128,7 @@
     <string name="wake_voice_privacy_note">Voice replies are recognized on-device. Audio and transcripts are not saved.</string>
     <string name="wake_alarm_only_title">Good morning.</string>
     <string name="wake_alarm_only_detail">Voice Check-In is off for this alarm.</string>
+    <string name="wake_live_unavailable_detail">Live Voice Check-In is unavailable. The alarm will keep ringing.</string>
     <string name="wake_oriented_greeting">Good morning.</string>
     <string name="wake_oriented_ready">You’re up. Let’s make the first move easy.</string>
     <string name="wake_whats_first">What’s first?</string>
