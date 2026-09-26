@@ -221,6 +221,9 @@ jobs:
       WMW_PRO_SUBSCRIPTION_PRODUCT_ID: ${{ vars.WMW_PRO_SUBSCRIPTION_PRODUCT_ID }}
       WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
       WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
+      WMW_SUPABASE_URL: ${{ vars.WMW_SUPABASE_URL }}
+      WMW_SUPABASE_PUBLISHABLE_KEY: ${{ vars.WMW_SUPABASE_PUBLISHABLE_KEY }}
+      WMW_ACCOUNT_API_BASE_URL: ${{ vars.WMW_ACCOUNT_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v6
 
@@ -268,6 +271,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          ACCOUNT_CONFIGURED=false
+          if [ -n "${WMW_SUPABASE_URL:-}" ] || [ -n "${WMW_SUPABASE_PUBLISHABLE_KEY:-}" ] || [ -n "${WMW_ACCOUNT_API_BASE_URL:-}" ]; then
+            ACCOUNT_CONFIGURED=true
+          fi
+          if [ "$ACCOUNT_CONFIGURED" = "true" ]; then
+            test -n "${WMW_SUPABASE_URL:-}" || {
+              echo "::error::Account auth is partially configured: WMW_SUPABASE_URL is missing."
+              exit 1
+            }
+            test -n "${WMW_SUPABASE_PUBLISHABLE_KEY:-}" || {
+              echo "::error::Account auth is partially configured: WMW_SUPABASE_PUBLISHABLE_KEY is missing."
+              exit 1
+            }
+            test -n "${WMW_ACCOUNT_API_BASE_URL:-}" || {
+              echo "::error::Account auth is partially configured: WMW_ACCOUNT_API_BASE_URL is missing."
+              exit 1
+            }
+            case "$WMW_SUPABASE_URL" in
+              https://*) ;;
+              *)
+                echo "::error::WMW_SUPABASE_URL must be HTTPS."
+                exit 1
+                ;;
+            esac
+            case "$WMW_ACCOUNT_API_BASE_URL" in
+              https://*) ;;
+              *)
+                echo "::error::WMW_ACCOUNT_API_BASE_URL must be HTTPS."
+                exit 1
+                ;;
+            esac
+          fi
+
           if [ "${WMW_PLAY_VERIFICATION_ENABLED:-false}" = "true" ]; then
             test -n "${WMW_PRO_SUBSCRIPTION_PRODUCT_ID:-}" || {
               echo "::error::Play verification is enabled but WMW_PRO_SUBSCRIPTION_PRODUCT_ID is missing."
