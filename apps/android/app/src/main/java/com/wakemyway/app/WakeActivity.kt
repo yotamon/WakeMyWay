@@ -168,6 +168,7 @@ class WakeActivity : ComponentActivity() {
             return
         }
         refreshPrivateWakeContextIfUnlocked()
+        AlarmPlaybackService.requestInAppPresentation(applicationContext, id)
         sessionViewModel?.onSurfaceVisible()
     }
 
