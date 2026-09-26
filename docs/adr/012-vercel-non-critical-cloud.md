@@ -35,4 +35,4 @@ Realtime voice remains governed by ADR-008. **M8** must measure direct provider,
 - backend/service folders remain deferred until a concrete capability needs them
 - Vercel WebSocket beta status/limits must be rechecked during M8
 - durable voice/session state cannot rely solely on one Function process
-- Supabase is the preferred managed PostgreSQL/data platform under ADR-013; exact serverless connection configuration is selected at implementation time
+- Neon is the managed PostgreSQL/data and identity platform under ADR-013; exact serverless connection configuration remains server-side
