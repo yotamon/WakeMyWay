@@ -135,6 +135,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.work.runtime)
@@ -159,9 +160,6 @@ dependencies {
     add("directImplementation", libs.webrtc.android)
     add("playImplementation", libs.play.app.update.ktx)
     add("playImplementation", libs.play.billing)
-    // Activity Result APIs require Fragment 1.3.0+ when a Play-only dependency brings Fragment
-    // onto the runtime graph. Keep the modern Fragment contract scoped to the Play flavor.
-    add("playImplementation", libs.androidx.fragment)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
