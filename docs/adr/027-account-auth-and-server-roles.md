@@ -22,16 +22,23 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
    - Google is the production sign-in method.
    - Email/password remains an optional implementation path, disabled in production until custom
      email delivery and verification are enabled.
-   - Android talks to the public Managed Better Auth API, never directly to PostgreSQL.
+   - Android never talks directly to PostgreSQL. Browser OAuth goes through the Wake API's official
+     Neon Auth server adapter; session refresh/JWT acquisition uses the public Managed Better Auth API.
    - The opaque Better Auth session token is encrypted at rest with an Android Keystore AES-GCM key.
    - Android requests a short-lived Neon JWT only when an authenticated Wake API call needs one.
    - PostgreSQL credentials and other server/operator secrets are never shipped in Android.
 
-2. **Google sign-in is native on Android.**
-   - Android Credential Manager obtains a Google ID token using the production Web OAuth client id.
-   - WakeMyWay submits that ID token and nonce to Neon Managed Better Auth.
-   - There is no app-owned browser PKCE callback activity.
-   - Production uses WakeMyWay-owned Google OAuth credentials rather than Neon's shared development provider.
+2. **Google sign-in uses Neon's managed browser OAuth flow.**
+   - Android opens the Wake API Google start endpoint in a Custom Tab.
+   - The Wake API uses the pinned `@neondatabase/auth/server` toolkit to proxy OAuth to Neon,
+     preserve challenge cookies, and exchange Neon's callback verifier.
+   - Android generates a PKCE verifier that never leaves the device; only its SHA-256 challenge is
+     bound to the browser flow.
+   - After Neon completes OAuth, the Wake API creates a five-minute, single-use encrypted handoff
+     and redirects to `wakemyway://auth?code=...`.
+   - Android exchanges that code plus its PKCE verifier over HTTPS, then stores the resulting opaque
+     Neon session token encrypted with Android Keystore.
+   - Production uses WakeMyWay-owned Google OAuth credentials rather than Neon's shared provider.
 
 3. **WakeMyWay remains usable without an account.**
    - Sign-in is optional.
@@ -65,7 +72,8 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
 - The founder/admin grant can happen only after the intended Neon auth user exists and is an explicit
   UUID-based server-side role insert/update.
 - Builds without Neon Auth configuration remain truthful and fully local.
-- Production uses WakeMyWay-owned Google OAuth credentials and disables localhost auth access.
+- Production uses WakeMyWay-owned Google OAuth credentials, the official Neon server toolkit for
+  browser OAuth callback/session handling, and disables localhost auth access.
 - Email/password is feature-gated off until custom SMTP and a verified-email flow are available.
 - Future backup, payment, support and admin routes share one identity/authorization boundary without
   refactoring or weakening the Alarm Kernel.
