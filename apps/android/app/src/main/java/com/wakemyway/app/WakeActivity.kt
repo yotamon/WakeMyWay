@@ -253,6 +253,15 @@ internal fun WakeSurface(
     }
 
     when (voiceState?.mode) {
+        WakeVoiceMode.ALARM_ONLY -> AlarmOnlyWakeSurface(
+            preparedPlan = preparedPlan,
+            displayTime = displayTime,
+            onSnooze = onSnooze,
+            onStop = onStop,
+            snoozeMinutes = snoozeMinutes,
+            modifier = modifier,
+        )
+
         null,
         WakeVoiceMode.STARTING,
         WakeVoiceMode.SPEAKING,
