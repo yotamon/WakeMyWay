@@ -122,7 +122,7 @@ export async function handleMobileGoogleCallback(
       request,
       pathname: url.pathname,
       skipRoutes: [url.pathname],
-      loginUrl: url.pathname,
+      loginUrl: '/api/v1/account/auth/mobile/login',
       baseUrl: config.neonAuthBaseUrl,
       cookieSecret: config.cookieSecret,
       sameSite: 'lax',
