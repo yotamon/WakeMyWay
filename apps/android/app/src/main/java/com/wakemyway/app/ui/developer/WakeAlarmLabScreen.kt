@@ -156,6 +156,11 @@ fun WakeAlarmLabScreen(
     }
 
     val blocker = wakeSchedulingBlocker(health, voiceWakeReadiness)
+    val instantTestBlocker = wakeSchedulingBlocker(
+        alarmHealth = health,
+        voiceReadiness = voiceWakeReadiness,
+        requiresVoiceReplies = false,
+    )
 
     Column(
         modifier = modifier
@@ -206,7 +211,7 @@ fun WakeAlarmLabScreen(
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "Starts the real Wake runtime, audio, wake UI and voice flow immediately. " +
+            text = "Starts the real Wake runtime, audio and wake UI immediately, plus voice when available. " +
                 "It does not test AlarmManager timing, Doze or locked-screen delivery.",
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
@@ -220,9 +225,15 @@ fun WakeAlarmLabScreen(
                     message = "A wake is already active. Stop it before starting another test."
                     return@Button
                 }
-                if (wakeSchedulingBlocker(currentHealth, voiceWakeReadiness) != WakeSchedulingBlocker.NONE) {
+                if (
+                    wakeSchedulingBlocker(
+                        alarmHealth = currentHealth,
+                        voiceReadiness = voiceWakeReadiness,
+                        requiresVoiceReplies = false,
+                    ) != WakeSchedulingBlocker.NONE
+                ) {
                     health = currentHealth
-                    message = "Wake preflight is not ready. Repair it before starting an instant test."
+                    message = "Alarm preflight is not ready. Repair it before starting an instant test."
                     return@Button
                 }
 
@@ -238,7 +249,7 @@ fun WakeAlarmLabScreen(
                         message = "Could not start instant wake: ${it.message ?: it::class.simpleName}"
                     }
             },
-            enabled = blocker == WakeSchedulingBlocker.NONE && health.activeOccurrence == null,
+            enabled = instantTestBlocker == WakeSchedulingBlocker.NONE && health.activeOccurrence == null,
         ) {
             Text("Test Wake Now")
         }
