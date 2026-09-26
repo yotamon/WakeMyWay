@@ -1,17 +1,9 @@
 package com.wakemyway.app.product.account
 
 import android.content.Context
-import android.util.Base64
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.wakemyway.app.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,7 +43,6 @@ class WakeAccountManager private constructor(
     context: Context,
 ) {
     private val neonAuthUrl = BuildConfig.NEON_AUTH_URL.trim().trimEnd('/')
-    private val googleWebClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
     private val accountApiBaseUrl = BuildConfig.ACCOUNT_API_BASE_URL.trim().trimEnd('/')
     private val accountRequestOrigin = accountApiBaseUrl.toHttpOriginOrNull()
     private val authClient = neonAuthUrl.takeIf { it.isNotBlank() }?.let {
@@ -64,7 +55,7 @@ class WakeAccountManager private constructor(
 
     val googleSignInConfigured: Boolean
         get() = authClient != null &&
-            googleWebClientId.isNotBlank() &&
+            accountApiBaseUrl.isNotBlank() &&
             accountRequestOrigin != null
 
     val emailPasswordSignInConfigured: Boolean
@@ -137,37 +128,48 @@ class WakeAccountManager private constructor(
 
     suspend fun signInWithGoogle(activityContext: Context) {
         val auth = requireAuth() ?: return
-        if (googleWebClientId.isBlank()) {
+        if (!googleSignInConfigured) {
             _state.value = _state.value.copy(
                 error = "Google sign-in is not configured in this build yet.",
             )
             return
         }
 
-        runAction {
-            val nonce = secureNonce()
-            val option = GetSignInWithGoogleOption.Builder(googleWebClientId)
-                .setNonce(nonce)
-                .build()
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(option)
-                .build()
-            val result = CredentialManager.create(activityContext).getCredential(
-                context = activityContext,
-                request = request,
+        runCatching {
+            val signInUrl = auth.prepareGoogleBrowserSignIn(accountApiBaseUrl)
+            val intent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                signInUrl,
             )
-            val credential = result.credential
-            if (
-                credential !is CustomCredential ||
-                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                error("Google did not return a supported identity credential.")
-            }
+            activityContext.startActivity(intent)
+        }.onSuccess {
+            _state.value = _state.value.copy(
+                loading = false,
+                notice = "Finish signing in with Google, then return to WakeMyWay.",
+                error = null,
+            )
+        }.onFailure { error ->
+            _state.value = _state.value.copy(
+                loading = false,
+                error = friendlyMessage(error),
+            )
+        }
+    }
 
-            val googleCredential = GoogleIdTokenCredential.createFrom(credential.data)
-            auth.signInWithGoogle(
-                idToken = googleCredential.idToken,
-                nonce = nonce,
+    suspend fun completeGoogleSignIn(handoff: String?) {
+        val auth = requireAuth() ?: return
+        if (handoff.isNullOrBlank()) {
+            _state.value = _state.value.copy(
+                loading = false,
+                error = "Google sign-in did not return a valid handoff. Please try again.",
+            )
+            return
+        }
+
+        runAction {
+            auth.completeGoogleBrowserSignIn(
+                accountApiBaseUrl = accountApiBaseUrl,
+                handoff = handoff,
             )
             loadCurrentAccount(auth)
         }
@@ -305,18 +307,10 @@ class WakeAccountManager private constructor(
         }.getOrNull()
     }
 
-    private fun secureNonce(): String {
-        val bytes = ByteArray(32)
-        SecureRandom().nextBytes(bytes)
-        return Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-    }
-
     private fun friendlyMessage(error: Throwable): String {
         val raw = error.message.orEmpty()
         val lower = raw.lowercase()
         return when {
-            error is GetCredentialException ->
-                "Google sign-in was cancelled or unavailable. You can try again."
             "invalid email or password" in lower ||
                 "invalid credentials" in lower ||
                 "invalid password" in lower ->

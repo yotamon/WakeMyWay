@@ -22,15 +22,21 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
    - Google is the production sign-in method.
    - Email/password remains an optional implementation path, disabled in production until custom
      email delivery and verification are enabled.
-   - Android talks to the public Managed Better Auth API, never directly to PostgreSQL.
+   - Android never talks directly to PostgreSQL. Browser OAuth is mediated by the Wake API using
+     Neon's official server toolkit; authenticated session/JWT reads still use the public Managed Better Auth API.
    - The opaque Better Auth session token is encrypted at rest with an Android Keystore AES-GCM key.
    - Android requests a short-lived Neon JWT only when an authenticated Wake API call needs one.
    - PostgreSQL credentials and other server/operator secrets are never shipped in Android.
 
-2. **Google sign-in is native on Android.**
-   - Android Credential Manager obtains a Google ID token using the production Web OAuth client id.
-   - WakeMyWay submits that ID token and nonce to Neon Managed Better Auth.
-   - There is no app-owned browser PKCE callback activity.
+2. **Google sign-in uses Neon's official server OAuth proxy flow.**
+   - Android generates an OAuth handoff verifier locally, stores it encrypted with Android Keystore,
+     and opens the Wake API start URL in the system browser.
+   - The Wake API uses the pinned `@neondatabase/auth/server` toolkit to proxy social sign-in,
+     preserve Neon session-challenge cookies and finalize `neon_auth_session_verifier` callbacks.
+   - The browser callback returns to WakeMyWay through `wakemyway://auth` with only a short-lived
+     encrypted handoff. No Google token or Neon session token is placed in the deep link.
+   - Android exchanges the handoff only when it proves possession of the original PKCE-style
+     verifier, then stores the opaque Neon session token encrypted with Android Keystore.
    - Production uses WakeMyWay-owned Google OAuth credentials rather than Neon's shared development provider.
 
 3. **WakeMyWay remains usable without an account.**

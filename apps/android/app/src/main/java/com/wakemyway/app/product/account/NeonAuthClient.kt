@@ -1,9 +1,14 @@
 package com.wakemyway.app.product.account
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -43,19 +48,41 @@ internal class NeonAuthClient(
         )
     }
 
-    suspend fun signInWithGoogle(idToken: String, nonce: String) = withContext(Dispatchers.IO) {
-        authenticate(
-            path = "/sign-in/social",
+    fun prepareGoogleBrowserSignIn(accountApiBaseUrl: String): Uri {
+        require(accountApiBaseUrl.startsWith("https://")) {
+            "WakeMyWay account API must use HTTPS for Google sign-in."
+        }
+        val verifier = secureVerifier()
+        val challenge = pkceChallenge(verifier)
+        sessionStore.savePendingGoogleVerifier(verifier)
+        return Uri.parse(accountApiBaseUrl)
+            .buildUpon()
+            .appendEncodedPath("api/v1/account/mobile-google-start")
+            .appendQueryParameter("challenge", challenge)
+            .build()
+    }
+
+    suspend fun completeGoogleBrowserSignIn(
+        accountApiBaseUrl: String,
+        handoff: String,
+    ) = withContext(Dispatchers.IO) {
+        val verifier = sessionStore.loadPendingGoogleVerifier()
+            ?: error("Google sign-in expired. Please try again.")
+
+        val response = requestAbsolute(
+            url = "$accountApiBaseUrl/api/v1/account/mobile-google-exchange",
+            method = "POST",
             payload = JSONObject()
-                .put("provider", "google")
-                .put("disableRedirect", true)
-                .put(
-                    "idToken",
-                    JSONObject()
-                        .put("token", idToken)
-                        .put("nonce", nonce),
-                ),
+                .put("handoff", handoff)
+                .put("verifier", verifier),
         )
+        val body = JSONObject(response.body)
+        val sessionToken = body.optString("sessionToken")
+            .takeIf { it.isNotBlank() && it != "null" }
+            ?: error("WakeMyWay did not receive a Neon session.")
+
+        sessionStore.save(sessionToken)
+        sessionStore.clearPendingGoogleVerifier()
     }
 
     suspend fun currentSession(): NeonAuthSession? = withContext(Dispatchers.IO) {
@@ -143,8 +170,22 @@ internal class NeonAuthClient(
         payload: JSONObject? = null,
         bearer: String? = null,
         allowUnauthorized: Boolean = false,
+    ): HttpResponse = requestAbsolute(
+        url = "$baseUrl$path",
+        method = method,
+        payload = payload,
+        bearer = bearer,
+        allowUnauthorized = allowUnauthorized,
+    )
+
+    private fun requestAbsolute(
+        url: String,
+        method: String,
+        payload: JSONObject? = null,
+        bearer: String? = null,
+        allowUnauthorized: Boolean = false,
     ): HttpResponse {
-        val connection = (URL("$baseUrl$path").openConnection() as HttpURLConnection).apply {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = NETWORK_TIMEOUT_MS
             readTimeout = NETWORK_TIMEOUT_MS
@@ -190,6 +231,24 @@ internal class NeonAuthClient(
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun secureVerifier(): String {
+        val bytes = ByteArray(32)
+        SecureRandom().nextBytes(bytes)
+        return Base64.encodeToString(
+            bytes,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+        )
+    }
+
+    private fun pkceChallenge(verifier: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(verifier.toByteArray(StandardCharsets.US_ASCII))
+        return Base64.encodeToString(
+            digest,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+        )
     }
 
     private data class HttpResponse(

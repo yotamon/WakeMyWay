@@ -105,6 +105,7 @@ For the account API, configure:
 
 ```text
 NEON_AUTH_BASE_URL=https://<managed-better-auth-host>/<database>/auth
+NEON_AUTH_COOKIE_SECRET=<server-only-random-secret-at-least-32-characters>
 DATABASE_URL=postgresql://<server-only-neon-connection>
 ```
 
@@ -175,6 +176,9 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
 | `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
 | `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Neon user JWT | identity/authorization only; missing role fails to `user` |
+| `GET /api/v1/account/mobile-google-start` | begin Google OAuth through the official Neon Auth server proxy | PKCE challenge + browser cookies | no Google/Neon token returned to Android |
+| `GET /api/v1/account/mobile-google-complete` | finalize Neon OAuth verifier and prepare app handoff | Neon challenge/session cookies | two-minute encrypted handoff only |
+| `POST /api/v1/account/mobile-google-exchange` | exchange the app handoff for the opaque Neon session token | PKCE verifier | bounded one-device handoff; token then stored encrypted on Android |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Neon user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Neon user JWT | strict bounded schema; consumer intent only |
 | `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |

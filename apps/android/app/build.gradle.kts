@@ -44,10 +44,6 @@ val neonAuthUrl = escapedBuildConfigString(
     gradleProperty = "WMW_NEON_AUTH_URL",
     environmentVariable = "WMW_NEON_AUTH_URL",
 )
-val googleWebClientId = escapedBuildConfigString(
-    gradleProperty = "WMW_GOOGLE_WEB_CLIENT_ID",
-    environmentVariable = "WMW_GOOGLE_WEB_CLIENT_ID",
-)
 val accountApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_ACCOUNT_API_BASE_URL",
     environmentVariable = "WMW_ACCOUNT_API_BASE_URL",
@@ -69,7 +65,6 @@ android {
         versionName = wakeMyWayVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "NEON_AUTH_URL", "\"$neonAuthUrl\"")
-        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         buildConfigField("String", "ACCOUNT_API_BASE_URL", "\"$accountApiBaseUrl\"")
         buildConfigField("boolean", "EMAIL_PASSWORD_AUTH_ENABLED", emailPasswordAuthEnabled.toString())
     }
@@ -155,9 +150,6 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.kotlinx.serialization.core)
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.google.id)
 
     add("directImplementation", libs.kotlinx.serialization.json)
     // Direct distribution dogfood supports optional OpenAI Realtime WebRTC enrichment.
