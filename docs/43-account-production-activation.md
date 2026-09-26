@@ -35,19 +35,24 @@ write path; missing role rows mean ordinary `user`.
 
 Managed Better Auth is enabled on `main`.
 
-Development configuration may use Neon's shared Google and shared email providers, but production
-must complete the Neon Auth production checklist:
+Production currently uses Google as the only enabled consumer sign-in method:
 
-1. configure a WakeMyWay-owned Google OAuth application;
-2. configure that Google client id/secret in Neon Auth;
-3. configure the native Android OAuth client for package `com.wakemyway.app` and the production
-   signing certificate;
-4. configure a production email provider;
-5. enable an explicit email verification policy;
-6. keep only required trusted domains/redirects and disable localhost for production.
+1. WakeMyWay-owned Google OAuth credentials replace Neon's shared development keys.
+2. Neon uses the WakeMyWay Google Web OAuth client id/secret.
+3. Android Credential Manager uses the same Web client id as its server client id.
+4. The Android OAuth client is registered for package `com.wakemyway.app` and the production
+   signing certificate.
+5. `https://wakemyway.vercel.app` is the only production trusted origin currently required.
+6. Localhost access is disabled on the production Neon Auth branch.
+7. Email/password auth is disabled in production until WakeMyWay has a custom SMTP provider and
+   a complete email verification UX.
 
-Android uses Credential Manager to obtain a Google ID token and sends that token plus a nonce to
-Neon's `/sign-in/social` endpoint. No Google client secret is shipped in the APK.
+Android uses Credential Manager to obtain a Google ID token and nonce, then sends them to Neon's
+`/sign-in/social` endpoint. This is Better Auth's supported native/mobile ID-token sign-in path.
+No Google client secret is shipped in the APK.
+
+If email/password auth is enabled later, production must first configure custom SMTP and required
+email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true`.
 
 ## 4. Wake API deployment
 
@@ -79,6 +84,7 @@ Build-time GitHub Actions Variables:
 ```text
 WMW_NEON_AUTH_URL=<public Managed Better Auth base URL>
 WMW_GOOGLE_WEB_CLIENT_ID=<WakeMyWay Google Web OAuth client id>
+WMW_EMAIL_PASSWORD_AUTH_ENABLED=false
 WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
 
@@ -86,9 +92,9 @@ The official release workflow fails closed when account configuration is partial
 API URLs must be HTTPS. The Google Web client id is public application configuration; the Google
 client secret remains server/provider-side.
 
-The Account entry stays hidden when Neon Auth is not configured. If Neon is configured before the
-Google client id is available in a development build, email auth may work while the Google action is
-truthfully disabled.
+The official release workflow fails closed if Neon account infrastructure is configured without at
+least one enabled sign-in method. The production configuration is Google-only today. Email/password
+remains implemented but hidden and locally blocked unless its explicit build flag is enabled.
 
 ## 6. Founder/admin grant
 
@@ -112,8 +118,9 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 
 ## 7. Acceptance checklist
 
-- email/password account creation works;
-- email/password session survives app restart;
+- production Google OAuth uses WakeMyWay-owned credentials rather than Neon shared keys;
+- production localhost auth access is disabled;
+- email/password auth is disabled until custom SMTP + verification UX are production-ready;
 - the opaque session token is encrypted with Android Keystore;
 - Google Credential Manager sign-in creates/loads the same Neon account boundary;
 - sign-out invalidates the provider session and clears local session material;

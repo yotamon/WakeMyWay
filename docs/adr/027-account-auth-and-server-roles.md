@@ -19,7 +19,9 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
 ## Decision
 
 1. **Neon Managed Better Auth owns identity and session acquisition only.**
-   - Email/password and Google identity are supported.
+   - Google is the production sign-in method.
+   - Email/password remains an optional implementation path, disabled in production until custom
+     email delivery and verification are enabled.
    - Android talks to the public Managed Better Auth API, never directly to PostgreSQL.
    - The opaque Better Auth session token is encrypted at rest with an Android Keystore AES-GCM key.
    - Android requests a short-lived Neon JWT only when an authenticated Wake API call needs one.
@@ -63,7 +65,7 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
 - The founder/admin grant can happen only after the intended Neon auth user exists and is an explicit
   UUID-based server-side role insert/update.
 - Builds without Neon Auth configuration remain truthful and fully local.
-- Production launch requires WakeMyWay-owned Google OAuth credentials, production email delivery and
-  verification policy even though Neon shared providers are sufficient for development.
+- Production uses WakeMyWay-owned Google OAuth credentials and disables localhost auth access.
+- Email/password is feature-gated off until custom SMTP and a verified-email flow are available.
 - Future backup, payment, support and admin routes share one identity/authorization boundary without
   refactoring or weakening the Alarm Kernel.
