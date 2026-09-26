@@ -3,6 +3,7 @@ package com.wakemyway.app.ui.navigation
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +128,7 @@ fun WakeMyWayApp(
     val historyRepository = remember { WakeHistoryRepository(context) }
     val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
     val accountManager = remember(context) { WakeAccountManager.get(context) }
+    val accountState by accountManager.state.collectAsState()
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
         runCatching {
@@ -382,7 +384,7 @@ fun WakeMyWayApp(
                         ProfileScreen(
                             preferences = preferences,
                             onPreferencesChanged = ::savePreferences,
-                            showAccount = accountManager.state.value.configured,
+                            showAccount = accountState.configured,
                             onOpenAccount = { backStack.add(AccountRoute) },
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
