@@ -53,12 +53,19 @@ class WakeAccountManager private constructor(
     private val neonAuthUrl = BuildConfig.NEON_AUTH_URL.trim().trimEnd('/')
     private val googleWebClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
     private val accountApiBaseUrl = BuildConfig.ACCOUNT_API_BASE_URL.trim().trimEnd('/')
+    private val accountRequestOrigin = accountApiBaseUrl.toHttpOriginOrNull()
     private val authClient = neonAuthUrl.takeIf { it.isNotBlank() }?.let {
-        NeonAuthClient(context.applicationContext, it)
+        NeonAuthClient(
+            context = context.applicationContext,
+            baseUrl = it,
+            requestOrigin = accountRequestOrigin,
+        )
     }
 
     val googleSignInConfigured: Boolean
-        get() = authClient != null && googleWebClientId.isNotBlank()
+        get() = authClient != null &&
+            googleWebClientId.isNotBlank() &&
+            accountRequestOrigin != null
 
     val emailPasswordSignInConfigured: Boolean
         get() = authClient != null && BuildConfig.EMAIL_PASSWORD_AUTH_ENABLED
@@ -286,6 +293,16 @@ class WakeAccountManager private constructor(
             )
         }
         return auth
+    }
+
+    private fun String.toHttpOriginOrNull(): String? {
+        if (isBlank()) return null
+        return runCatching {
+            val url = URL(this)
+            if (url.protocol != "https") return@runCatching null
+            val port = if (url.port == -1 || url.port == url.defaultPort) "" else ":${url.port}"
+            "${url.protocol}://${url.host}$port"
+        }.getOrNull()
     }
 
     private fun secureNonce(): String {

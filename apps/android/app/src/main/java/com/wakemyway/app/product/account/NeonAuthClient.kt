@@ -17,6 +17,7 @@ internal data class NeonAuthSession(
 internal class NeonAuthClient(
     context: Context,
     private val baseUrl: String,
+    private val requestOrigin: String?,
 ) {
     private val sessionStore = NeonAuthSessionStore(context.applicationContext)
 
@@ -150,6 +151,7 @@ internal class NeonAuthClient(
             useCaches = false
             doInput = true
             setRequestProperty("Accept", "application/json")
+            requestOrigin?.let { setRequestProperty("Origin", it) }
             if (bearer != null) {
                 setRequestProperty("Authorization", "Bearer $bearer")
             }
