@@ -52,6 +52,10 @@ val accountApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_ACCOUNT_API_BASE_URL",
     environmentVariable = "WMW_ACCOUNT_API_BASE_URL",
 )
+val emailPasswordAuthEnabled = providers.gradleProperty("WMW_EMAIL_PASSWORD_AUTH_ENABLED")
+    .orElse(providers.environmentVariable("WMW_EMAIL_PASSWORD_AUTH_ENABLED"))
+    .map { it.trim().equals("true", ignoreCase = true) }
+    .getOrElse(false)
 
 android {
     namespace = "com.wakemyway.app"
@@ -67,6 +71,7 @@ android {
         buildConfigField("String", "NEON_AUTH_URL", "\"$neonAuthUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         buildConfigField("String", "ACCOUNT_API_BASE_URL", "\"$accountApiBaseUrl\"")
+        buildConfigField("boolean", "EMAIL_PASSWORD_AUTH_ENABLED", emailPasswordAuthEnabled.toString())
     }
 
     compileOptions {
