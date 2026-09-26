@@ -15,6 +15,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.wakemyway.app.BuildConfig
 import com.wakemyway.app.R
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
@@ -137,6 +138,9 @@ fun WakeMyWayApp(
     }
     val showDeveloperTools = remember(context) {
         (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    }
+    val showWakeLab = remember(context, showDeveloperTools) {
+        showDeveloperTools || BuildConfig.DISTRIBUTION_CHANNEL == "direct"
     }
     var alarmHealth by remember { mutableStateOf(alarmKernel.health()) }
     var alarms by remember { mutableStateOf(alarmController.list()) }
@@ -307,6 +311,7 @@ fun WakeMyWayApp(
                             },
                             modifier = contentModifier,
                             showDeveloperTools = showDeveloperTools,
+                            showWakeLab = showWakeLab,
                             voiceWakeReadiness = voiceWakeReadiness,
                             onEnableVoiceReplies = onEnableVoiceReplies,
                             onRepairWakeSystem = onRepairWakeSystem,
