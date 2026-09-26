@@ -45,9 +45,11 @@ WakeMyWay cloud feature
 
 Language model calls use named `fast` and `smart` policies rather than provider names. AI Gateway model fallback is configured centrally so product/domain code does not implement its own provider cascade.
 
-## Account backup boundary
+## Account identity, authorization and backup boundary
 
-The first production account capability is explicit backup/restore, not continuous sync.
+Supabase Auth provides consumer identity/session acquisition. WakeMyWay authorization remains server-owned: `GET /api/v1/account/me` verifies the same Supabase user JWT and resolves an explicit `user` or `admin` role from the private `wmw_private.account_roles` table. Missing role rows resolve to `user`; email and client/user metadata are never authorization inputs.
+
+The first persisted account capability is explicit backup/restore, not continuous sync.
 
 `PUT /api/v1/account/backup` stores one latest versioned consumer-intent snapshot for the authenticated Supabase account. `GET /api/v1/account/backup` returns that snapshot or `null` when no backup exists.
 
@@ -106,7 +108,7 @@ SUPABASE_URL=https://<project-ref>.supabase.co
 DATABASE_URL=postgresql://<server-only-supabase-connection>
 ```
 
-Then apply `migrations/001_consumer_backups.sql` to the WakeMyWay Supabase project before serving account backup traffic.
+Then apply `migrations/001_consumer_backups.sql` and `migrations/003_account_roles.sql` to the WakeMyWay Supabase project before serving account traffic. Grant an admin role only after the intended Supabase auth user exists; do not bootstrap privileges by email address.
 
 When Play commerce lifecycle storage is enabled, also apply
 `migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
@@ -172,6 +174,7 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
 | `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
+| `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Supabase user JWT | identity/authorization only; missing role fails to `user` |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Supabase user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Supabase user JWT | strict bounded schema; consumer intent only |
 | `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |

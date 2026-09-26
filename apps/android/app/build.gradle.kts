@@ -40,6 +40,18 @@ val commerceApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_COMMERCE_API_BASE_URL",
     environmentVariable = "WMW_COMMERCE_API_BASE_URL",
 )
+val supabaseUrl = escapedBuildConfigString(
+    gradleProperty = "WMW_SUPABASE_URL",
+    environmentVariable = "WMW_SUPABASE_URL",
+)
+val supabasePublishableKey = escapedBuildConfigString(
+    gradleProperty = "WMW_SUPABASE_PUBLISHABLE_KEY",
+    environmentVariable = "WMW_SUPABASE_PUBLISHABLE_KEY",
+)
+val accountApiBaseUrl = escapedBuildConfigString(
+    gradleProperty = "WMW_ACCOUNT_API_BASE_URL",
+    environmentVariable = "WMW_ACCOUNT_API_BASE_URL",
+)
 
 android {
     namespace = "com.wakemyway.app"
@@ -52,6 +64,9 @@ android {
         versionCode = wakeMyWayVersionCode
         versionName = wakeMyWayVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
+        buildConfigField("String", "ACCOUNT_API_BASE_URL", "\"$accountApiBaseUrl\"")
     }
 
     compileOptions {
@@ -134,6 +149,9 @@ dependencies {
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.supabase.auth)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.android)
 
     add("directImplementation", libs.kotlinx.serialization.json)
     // Direct distribution dogfood supports optional OpenAI Realtime WebRTC enrichment.

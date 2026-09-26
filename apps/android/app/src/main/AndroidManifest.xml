@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- USE_EXACT_ALARM only exists on API 33+. Android 12/12L (API 31/32) needs the user-grantable
          legacy permission or no exact alarm can ever be registered or repaired on those OS versions. -->
@@ -61,6 +62,20 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".AuthCallbackActivity"
+            android:exported="true"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="wakemyway"
+                    android:host="auth" />
             </intent-filter>
         </activity>
 

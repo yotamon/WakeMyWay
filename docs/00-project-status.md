@@ -6,7 +6,7 @@
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
 **Current launch program:** #89; canonical plan: `docs/35-paid-launch-readiness.md`  
 **Readiness gates:** TRUST #9 → FINISH #59 → PROVE #87 → SELL #88  
-**Account backend:** authenticated backup backend code exists; production provisioning and user-facing Sign In remain deferred  
+**Account backend:** email/password + Google sign-in, session handling and server-owned roles are implemented behind configuration; production Supabase/Google provisioning remains pending  
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
@@ -107,7 +107,7 @@ Implemented:
 - versioned credential-protected `ConsumerPreferencesRepository`;
 - real Profile destination in the consumer bottom navigation;
 - local display-name profile;
-- truthful local-only account state with no fake sign-in action;
+- optional real Account surface with email/password and Google sign-in when production identity is configured; unconfigured builds remain truthful and fully local;
 - default Wake Sound, Voice Check-In, Alfred style and Snooze preferences;
 - reusable First Move preference;
 - saved defaults seed brand-new alarm drafts only;
@@ -154,7 +154,7 @@ merge into existing device    → existing-device preferences win
 
 Immediately before import, the Android adapter rechecks both rich product state and any Alarm Kernel slot for the same id. A stale cloud plan therefore cannot replace or cancel a locally committed wake. Remote imports always require a later explicit local enable action before they can become Android schedule authority.
 
-There is still no user-facing Sign In action because no authenticated WakeMyWay account backend has been provisioned yet. ADR-013 remains the backend direction: optional Supabase Auth for identity/session acquisition, Wake API for domain operations, and Supabase PostgreSQL behind that API.
+The Account surface now implements email/password sign-up/sign-in, Google OAuth, persisted Supabase sessions, sign-out and a PKCE app callback. It is configuration-gated until a dedicated WakeMyWay Supabase project and Google OAuth credentials are provisioned. `GET /api/v1/account/me` verifies the Supabase JWT and resolves a server-owned `user` / `admin` role from `wmw_private.account_roles`; email and client metadata never grant privilege. ADR-027 is the canonical auth/authorization decision. Backup and future payment/domain operations continue through the Wake API, with Supabase PostgreSQL behind it.
 
 ## Multi-alarm execution foundation
 
@@ -336,7 +336,7 @@ The production wake path now closes the first local adaptive loop:
 - corrupt/missing learning state falls back to the stable default and cannot affect Alarm Kernel authority;
 - the Oriented wake state now waits for an explicit First Move confirmation instead of visually presenting non-functional choice tiles.
 
-Consumer onboarding and alarm setup were also simplified around the adaptive promise: advanced wake behavior remains available without making first alarm creation feel like a settings panel. Account-shaped placeholder UI is intentionally absent while account sync remains optional/deferred.
+Consumer onboarding and alarm setup remain simplified around the adaptive promise: advanced wake behavior is available without making first alarm creation feel like a settings panel. Account access now lives deliberately under Profile, remains optional, and cannot become wake authority.
 
 ## Update distribution
 

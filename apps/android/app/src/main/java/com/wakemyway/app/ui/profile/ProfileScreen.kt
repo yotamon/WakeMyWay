@@ -56,6 +56,8 @@ import com.wakemyway.core.alarm.WakeSoundId
 fun ProfileScreen(
     preferences: ConsumerPreferences,
     onPreferencesChanged: (ConsumerPreferences) -> Unit,
+    showAccount: Boolean = false,
+    onOpenAccount: () -> Unit = {},
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenAppearance: () -> Unit,
@@ -113,6 +115,16 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.LightQuietText,
                 )
+            }
+
+            if (showAccount) {
+                ProfileSection("Account", Modifier.padding(top = WmwSpacing.Lg)) {
+                    ProfileLink(
+                        title = "WakeMyWay account",
+                        detail = "Optional sign-in for secure backup, account access and future Pro features",
+                        onClick = onOpenAccount,
+                    )
+                }
             }
 
             ProfileSection("New alarm defaults", Modifier.padding(top = WmwSpacing.Lg)) {
