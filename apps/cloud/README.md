@@ -105,10 +105,13 @@ For the account API, configure:
 
 ```text
 NEON_AUTH_BASE_URL=https://<managed-better-auth-host>/<database>/auth
+ACCOUNT_PUBLIC_BASE_URL=https://wakemyway.vercel.app
+NEON_AUTH_COOKIE_SECRET=<server-only-random-32+-character-secret>
 DATABASE_URL=postgresql://<server-only-neon-connection>
 ```
 
-Then apply `migrations/001_consumer_backups.sql` and `migrations/003_account_roles.sql` to the WakeMyWay Neon project before serving account traffic. Grant an admin role only after the intended Neon auth user exists; do not bootstrap privileges by email address.
+Then apply `migrations/001_consumer_backups.sql`, `migrations/003_account_roles.sql`, and
+`migrations/004_mobile_auth_handoffs.sql` to the WakeMyWay Neon project before serving account traffic. Grant an admin role only after the intended Neon auth user exists; do not bootstrap privileges by email address.
 
 When Play commerce lifecycle storage is enabled, also apply
 `migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
@@ -174,6 +177,9 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
 | `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
+| `GET /api/v1/account/auth/mobile/google/start` | start Google OAuth through official Neon server toolkit | PKCE challenge + browser challenge cookie | no alarm authority; no session in URL |
+| `GET /api/v1/account/auth/mobile/callback` | exchange Neon OAuth verifier and mint one-time mobile handoff | Neon challenge cookie + verifier | encrypted session handoff, five-minute TTL |
+| `POST /api/v1/account/auth/mobile/exchange` | consume PKCE-bound one-time handoff | random code + on-device verifier | returns opaque Neon session only once |
 | `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Neon user JWT | identity/authorization only; missing role fails to `user` |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Neon user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Neon user JWT | strict bounded schema; consumer intent only |
