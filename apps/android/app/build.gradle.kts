@@ -40,13 +40,13 @@ val commerceApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_COMMERCE_API_BASE_URL",
     environmentVariable = "WMW_COMMERCE_API_BASE_URL",
 )
-val supabaseUrl = escapedBuildConfigString(
-    gradleProperty = "WMW_SUPABASE_URL",
-    environmentVariable = "WMW_SUPABASE_URL",
+val neonAuthUrl = escapedBuildConfigString(
+    gradleProperty = "WMW_NEON_AUTH_URL",
+    environmentVariable = "WMW_NEON_AUTH_URL",
 )
-val supabasePublishableKey = escapedBuildConfigString(
-    gradleProperty = "WMW_SUPABASE_PUBLISHABLE_KEY",
-    environmentVariable = "WMW_SUPABASE_PUBLISHABLE_KEY",
+val googleWebClientId = escapedBuildConfigString(
+    gradleProperty = "WMW_GOOGLE_WEB_CLIENT_ID",
+    environmentVariable = "WMW_GOOGLE_WEB_CLIENT_ID",
 )
 val accountApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_ACCOUNT_API_BASE_URL",
