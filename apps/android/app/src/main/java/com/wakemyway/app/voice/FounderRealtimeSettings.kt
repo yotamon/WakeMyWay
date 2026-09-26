@@ -31,7 +31,12 @@ class FounderRealtimeSettings(context: Context) {
     fun load(): FounderRealtimeConfig? {
         val encrypted = prefs.getString(KEY_DEVICE_TOKEN, null).orEmpty()
         val expiresAt = prefs.getLong(KEY_EXPIRES_AT, 0L)
-        if (encrypted.isBlank() || expiresAt <= currentEpochSeconds() + EXPIRY_SAFETY_WINDOW_SECONDS) {
+        val credentialVersion = prefs.getInt(KEY_CREDENTIAL_VERSION, 0)
+        if (
+            encrypted.isBlank() ||
+            credentialVersion != CREDENTIAL_VERSION ||
+            expiresAt <= currentEpochSeconds() + EXPIRY_SAFETY_WINDOW_SECONDS
+        ) {
             if (encrypted.isNotBlank()) clearCredential()
             return null
         }
@@ -56,6 +61,7 @@ class FounderRealtimeSettings(context: Context) {
         prefs.edit()
             .putString(KEY_DEVICE_TOKEN, encrypt(deviceToken))
             .putLong(KEY_EXPIRES_AT, expiresAtEpochSeconds)
+            .putInt(KEY_CREDENTIAL_VERSION, CREDENTIAL_VERSION)
             .apply()
         ConversationalAlfredState.setReady(appContext, true)
     }
@@ -80,6 +86,7 @@ class FounderRealtimeSettings(context: Context) {
         prefs.edit()
             .remove(KEY_DEVICE_TOKEN)
             .remove(KEY_EXPIRES_AT)
+            .remove(KEY_CREDENTIAL_VERSION)
             .apply()
         ConversationalAlfredState.setReady(appContext, false)
     }
@@ -141,6 +148,8 @@ class FounderRealtimeSettings(context: Context) {
         private const val PREFS = "founder-realtime-dogfood-v2"
         private const val KEY_DEVICE_TOKEN = "device-token-aes-gcm"
         private const val KEY_EXPIRES_AT = "device-token-expires-at"
+        private const val KEY_CREDENTIAL_VERSION = "device-token-version"
+        private const val CREDENTIAL_VERSION = 2
         private const val KEY_INSTALLATION_ID = "installation-id"
         private const val KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "wmw-founder-realtime-token-v2"
