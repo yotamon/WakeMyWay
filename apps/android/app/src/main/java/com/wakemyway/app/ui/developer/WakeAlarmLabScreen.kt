@@ -1,7 +1,6 @@
 package com.wakemyway.app.ui.developer
 
 import android.content.Intent
-import com.wakemyway.app.WakeActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.WakeActivity
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
