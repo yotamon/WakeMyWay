@@ -247,6 +247,7 @@ internal fun WakeSurface(
             onSnooze = onSnooze,
             onStop = onStop,
             snoozeMinutes = snoozeMinutes,
+            voiceUnavailable = false,
             modifier = modifier,
         )
         return
@@ -259,6 +260,7 @@ internal fun WakeSurface(
             onSnooze = onSnooze,
             onStop = onStop,
             snoozeMinutes = snoozeMinutes,
+            voiceUnavailable = true,
             modifier = modifier,
         )
 
@@ -352,6 +354,7 @@ private fun AlarmOnlyWakeSurface(
     onSnooze: (() -> Unit)?,
     onStop: () -> Unit,
     snoozeMinutes: Long,
+    voiceUnavailable: Boolean,
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
@@ -375,10 +378,10 @@ private fun AlarmOnlyWakeSurface(
             sunrise = true,
         )
         Text(
-            text = if (preparedPlan != null) {
-                stringResource(R.string.wake_private_context_ready)
-            } else {
-                stringResource(R.string.wake_alarm_only_detail)
+            text = when {
+                voiceUnavailable -> stringResource(R.string.wake_live_unavailable_detail)
+                preparedPlan != null -> stringResource(R.string.wake_private_context_ready)
+                else -> stringResource(R.string.wake_alarm_only_detail)
             },
             modifier = Modifier.padding(top = WmwSpacing.Md),
             style = MaterialTheme.typography.bodyMedium,
