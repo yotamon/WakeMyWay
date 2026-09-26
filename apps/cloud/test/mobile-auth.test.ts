@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   handleMobileAuthExchange,
+  handleMobileGoogleCallback,
   handleMobileGoogleStart,
 } from '../src/account/mobile-auth-handler';
 import {
@@ -99,6 +100,74 @@ describe('mobile Neon OAuth handoff', () => {
       disableRedirect: true,
       callbackURL: `${PUBLIC_BASE}/api/v1/account/auth/mobile/callback`,
     });
+  });
+
+  it('completes Neon's verifier exchange before handing the session to Android', async () => {
+    const store = new MemoryHandoffStore();
+    const verifier = 'p'.repeat(43);
+    const challenge = pkceChallenge(verifier);
+    const now = new Date('2026-09-27T00:00:00.000Z');
+    const sessionPayload = {
+      session: {
+        id: 'session-id',
+        userId: '2d53f744-d923-4a85-9ed6-7ea4aeece445',
+        expiresAt: '2026-09-28T00:00:00.000Z',
+        createdAt: '2026-09-27T00:00:00.000Z',
+        updatedAt: '2026-09-27T00:00:00.000Z',
+      },
+      user: {
+        id: '2d53f744-d923-4a85-9ed6-7ea4aeece445',
+        email: 'wake@example.test',
+        name: 'Wake User',
+        createdAt: '2026-09-27T00:00:00.000Z',
+        updatedAt: '2026-09-27T00:00:00.000Z',
+      },
+    };
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify(sessionPayload),
+      {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'set-cookie': '__Secure-neon-auth.session_token=neon-session-token; Path=/; HttpOnly; Secure; SameSite=Lax',
+        },
+      },
+    )));
+
+    const callback = await handleMobileGoogleCallback(
+      new Request(
+        `${PUBLIC_BASE}/api/v1/account/auth/mobile/callback?neon_auth_session_verifier=neon-verifier`,
+        {
+          headers: {
+            cookie: [
+              '__Secure-neon-auth.session_challenge=browser-challenge',
+              `__Secure-wmw-mobile-pkce=${challenge}`,
+            ].join('; '),
+          },
+        },
+      ),
+      { store, now: () => now },
+    );
+
+    expect(callback.status).toBe(302);
+    const callbackLocation = new URL(callback.headers.get('location')!);
+    expect(callbackLocation.protocol).toBe('wakemyway:');
+    expect(callbackLocation.host).toBe('auth');
+    const code = callbackLocation.searchParams.get('code');
+    expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    const exchange = await handleMobileAuthExchange(
+      new Request(`${PUBLIC_BASE}/api/v1/account/auth/mobile/exchange`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code, verifier }),
+      }),
+      { store, now: () => now },
+    );
+
+    expect(exchange.status).toBe(200);
+    await expect(exchange.json()).resolves.toEqual({ sessionToken: 'neon-session-token' });
   });
 
   it('exchanges a PKCE-bound handoff exactly once', async () => {
