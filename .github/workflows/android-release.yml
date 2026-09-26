@@ -272,16 +272,12 @@ jobs:
         run: |
           set -euo pipefail
           ACCOUNT_CONFIGURED=false
-          if [ -n "${WMW_NEON_AUTH_URL:-}" ] || [ -n "${WMW_GOOGLE_WEB_CLIENT_ID:-}" ] || [ -n "${WMW_ACCOUNT_API_BASE_URL:-}" ]; then
+          if [ -n "${WMW_NEON_AUTH_URL:-}" ] || [ -n "${WMW_ACCOUNT_API_BASE_URL:-}" ]; then
             ACCOUNT_CONFIGURED=true
           fi
           if [ "$ACCOUNT_CONFIGURED" = "true" ]; then
             test -n "${WMW_NEON_AUTH_URL:-}" || {
               echo "::error::Account auth is partially configured: WMW_NEON_AUTH_URL is missing."
-              exit 1
-            }
-            test -n "${WMW_GOOGLE_WEB_CLIENT_ID:-}" || {
-              echo "::error::Account auth is partially configured: WMW_GOOGLE_WEB_CLIENT_ID is missing for native Google sign-in."
               exit 1
             }
             test -n "${WMW_ACCOUNT_API_BASE_URL:-}" || {
