@@ -102,7 +102,7 @@ describe('mobile Neon OAuth handoff', () => {
     });
   });
 
-  it('completes Neon's verifier exchange before handing the session to Android', async () => {
+  it("completes Neon's verifier exchange before handing the session to Android", async () => {
     const store = new MemoryHandoffStore();
     const verifier = 'p'.repeat(43);
     const challenge = pkceChallenge(verifier);
