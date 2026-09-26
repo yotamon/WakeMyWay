@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.developer
 
 import android.content.Intent
+import com.wakemyway.app.WakeActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,10 @@ import androidx.compose.ui.unit.sp
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.AlarmRegistrar
+import com.wakemyway.app.alarm.BeginActiveResult
+import com.wakemyway.app.alarm.CriticalWakePolicy
 import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.character.AlfredCharacterLab
@@ -36,6 +41,7 @@ import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.wakeSchedulingBlocker
 import com.wakemyway.core.schedule.WakeCompletionPolicy
+import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeSchedule
 import com.wakemyway.core.schedule.WakeScheduleId
 import java.time.DayOfWeek
@@ -195,6 +201,50 @@ fun WakeAlarmLabScreen(
 
         Text(
             modifier = Modifier.padding(top = 24.dp),
+            text = "Instant functional test",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = "Starts the real Wake runtime, audio, wake UI and voice flow immediately. " +
+                "It does not test AlarmManager timing, Doze or locked-screen delivery.",
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        Button(
+            modifier = Modifier.padding(top = 12.dp),
+            onClick = {
+                val currentHealth = kernel.health()
+                if (currentHealth.activeOccurrence != null) {
+                    health = currentHealth
+                    message = "A wake is already active. Stop it before starting another test."
+                    return@Button
+                }
+                if (wakeSchedulingBlocker(currentHealth, voiceWakeReadiness) != WakeSchedulingBlocker.NONE) {
+                    health = currentHealth
+                    message = "Wake preflight is not ready. Repair it before starting an instant test."
+                    return@Button
+                }
+
+                runCatching {
+                    startImmediateWakeTest(context, kernel)
+                }
+                    .onSuccess {
+                        health = kernel.health()
+                        message = "Instant wake started. Stop or snooze it exactly like a real alarm."
+                    }
+                    .onFailure {
+                        health = kernel.health()
+                        message = "Could not start instant wake: ${it.message ?: it::class.simpleName}"
+                    }
+            },
+            enabled = blocker == WakeSchedulingBlocker.NONE && health.activeOccurrence == null,
+        ) {
+            Text("Test Wake Now")
+        }
+
+        Text(
+            modifier = Modifier.padding(top = 28.dp),
             text = "Physical reliability scenario",
             style = MaterialTheme.typography.titleMedium,
         )
@@ -525,6 +575,73 @@ private fun TimingFacts(number: Int, timing: TimingSnapshot) {
     }
 }
 
+private fun startImmediateWakeTest(
+    context: android.content.Context,
+    kernel: AlarmKernel,
+): WakeOccurrenceId {
+    check(kernel.activeOccurrence() == null) { "A wake is already active" }
+
+    val sourcePolicy = kernel.health().nextOccurrence
+        ?.wakeScheduleId
+        ?.let(kernel::policy)
+        ?: CriticalWakePolicy.DEFAULT
+    val schedule = immediateWakeTestSchedule()
+
+    kernel.commitSchedule(schedule, sourcePolicy)
+    val occurrence = requireNotNull(kernel.health(schedule.id)?.nextOccurrence) {
+        "Immediate test occurrence was not created"
+    }
+
+    // The temporary schedule only seeds the same durable state consumed by the real wake runtime.
+    // Its future AlarmManager registration is removed before activation so the test cannot ring
+    // again later or disturb the user's real alarm schedule.
+    AlarmRegistrar(context).cancel(occurrence.id)
+
+    try {
+        when (kernel.beginActive(occurrence.id)) {
+            BeginActiveResult.STARTED,
+            BeginActiveResult.ALREADY_ACTIVE,
+            -> Unit
+
+            BeginActiveResult.CONFLICT -> error("Another wake became active")
+            BeginActiveResult.STALE -> error("Immediate test occurrence became stale")
+        }
+
+        AlarmPlaybackService.start(context, occurrence.id)
+        context.startActivity(
+            Intent(context, WakeActivity::class.java)
+                .putExtra(AlarmPlaybackService.EXTRA_OCCURRENCE_ID, occurrence.id.value)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                ),
+        )
+        return occurrence.id
+    } catch (error: Throwable) {
+        if (kernel.activeOccurrence()?.id == occurrence.id) {
+            runCatching { AlarmPlaybackService.requestStop(context, occurrence.id) }
+        } else {
+            runCatching { kernel.cancelSchedule(schedule.id) }
+        }
+        throw error
+    }
+}
+
+private fun immediateWakeTestSchedule(): WakeSchedule {
+    // The occurrence only needs to resolve as a valid future one-shot. It is activated immediately
+    // and its OS registration is cancelled before the Wake runtime starts.
+    val target = ZonedDateTime.now().plusMinutes(5).withNano(0)
+    return WakeSchedule(
+        id = IMMEDIATE_WAKE_TEST_SCHEDULE_ID,
+        zoneId = target.zone,
+        timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
+        revision = System.currentTimeMillis().coerceAtLeast(1),
+        completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+        oneShotDate = target.toLocalDate(),
+    )
+}
+
 private fun founderTestSchedule(
     scenarioId: String,
     minutesFromNow: Long,
@@ -557,4 +674,5 @@ private fun yesNo(value: Boolean): String = if (value) "yes" else "no"
 
 private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"
 
+private val IMMEDIATE_WAKE_TEST_SCHEDULE_ID = WakeScheduleId("lab-immediate")
 private const val HISTORY_LIMIT = 6
