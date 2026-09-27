@@ -17,7 +17,7 @@ WakeRuntime
    ↓ typed SpeechIntent / activation evidence
 WakeConversationEnrichment
    ├─ founder Realtime WebRTC enrichment (debug)
-   └─ deterministic local Alfred fallback
+   └─ Realtime unavailable/failed ? alarm-only
 ```
 
 The Realtime provider owns wording/audio quality only. WakeRuntime remains authoritative for session progression and completion.
@@ -53,7 +53,7 @@ Properties:
 - WakeRuntime explicitly requests each assistant turn;
 - transcripts/model payloads are not persisted by WMW;
 - Tomorrow Contract, calendar and other private wake context are not sent in this founder slice;
-- failure or unavailable configuration falls back to local Alfred without delaying critical alarm behavior.
+- failure or unavailable configuration degrades to alarm-only without delaying critical alarm behavior.
 
 ## Founder configuration
 
@@ -72,7 +72,7 @@ Realtime cannot:
 - decide that the user is awake;
 - finish a Wake Session.
 
-If Realtime fails, the current `SpeechIntent` is rendered through deterministic local Alfred and the existing local STT/motion path remains available.
+If Realtime fails, production stops requesting conversational turns and keeps the selected local alarm audible with local Stop/Snooze. Motion/orientation behavior remains local; production does not substitute Android TTS.
 
 ## Validation
 
@@ -82,7 +82,7 @@ Before promoting Realtime beyond founder/debug dogfood, validate on a physical p
 2. Realtime joins without delaying initial alarm audio;
 3. user can interrupt Alfred naturally;
 4. multiple `you → Alfred → you` turns occur before activation completion;
-5. network loss falls back to local Alfred without silence/deadlock;
+5. network loss degrades to alarm-only without silence/deadlock;
 6. Stop and Snooze remain immediate and local;
 7. audio route restoration is correct after completion/interruption;
 8. no transcript/private wake context appears in WMW persistence or diagnostics.
