@@ -222,6 +222,7 @@ jobs:
       WMW_PLAY_VERIFICATION_ENABLED: ${{ vars.WMW_PLAY_VERIFICATION_ENABLED }}
       WMW_COMMERCE_API_BASE_URL: ${{ vars.WMW_COMMERCE_API_BASE_URL }}
       WMW_NEON_AUTH_URL: ${{ vars.WMW_NEON_AUTH_URL }}
+      WMW_GOOGLE_WEB_CLIENT_ID: ${{ vars.WMW_GOOGLE_WEB_CLIENT_ID }}
       WMW_EMAIL_PASSWORD_AUTH_ENABLED: ${{ vars.WMW_EMAIL_PASSWORD_AUTH_ENABLED }}
       WMW_ACCOUNT_API_BASE_URL: ${{ vars.WMW_ACCOUNT_API_BASE_URL }}
     steps:
@@ -293,6 +294,12 @@ jobs:
               echo "::error::Account auth is partially configured: WMW_ACCOUNT_API_BASE_URL is missing."
               exit 1
             }
+            if [ "$EMAIL_AUTH_ENABLED" != "true" ]; then
+              test -n "${WMW_GOOGLE_WEB_CLIENT_ID:-}" || {
+                echo "::error::Google is the only enabled sign-in method, but WMW_GOOGLE_WEB_CLIENT_ID is missing."
+                exit 1
+              }
+            fi
             case "$WMW_NEON_AUTH_URL" in
               https://*) ;;
               *)
