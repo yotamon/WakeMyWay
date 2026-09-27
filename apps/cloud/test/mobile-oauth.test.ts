@@ -1,7 +1,7 @@
 import {
   handleAuthProxyRequest,
+  handleAuthRequest,
   NEON_AUTH_SESSION_COOKIE_NAME,
-  processAuthMiddleware,
 } from '@neondatabase/auth/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,7 +10,7 @@ vi.mock('@neondatabase/auth/server', async importOriginal => {
   return {
     ...actual,
     handleAuthProxyRequest: vi.fn(),
-    processAuthMiddleware: vi.fn(),
+    handleAuthRequest: vi.fn(),
   };
 });
 
@@ -31,7 +31,7 @@ beforeEach(() => {
   process.env.NEON_AUTH_COOKIE_SECRET =
     'test-cookie-secret-that-is-at-least-thirty-two-characters-long';
   vi.mocked(handleAuthProxyRequest).mockReset();
-  vi.mocked(processAuthMiddleware).mockReset();
+  vi.mocked(handleAuthRequest).mockReset();
 });
 
 afterEach(() => {
@@ -40,50 +40,14 @@ afterEach(() => {
 });
 
 describe('mobile Neon OAuth handoff', () => {
-  it('uses the official Neon middleware exchange on the verifier callback', async () => {
+  it('exchanges the Neon verifier directly and creates one PKCE-bound app handoff', async () => {
     const challenge = mobilePkceChallenge(VERIFIER);
-    const verifierCookie =
-      `${NEON_AUTH_SESSION_COOKIE_NAME}=${SESSION_TOKEN}; Path=/; HttpOnly; Secure; SameSite=Lax`;
-    vi.mocked(processAuthMiddleware).mockResolvedValue({
-      action: 'redirect_oauth',
-      redirectUrl: new URL(
-        `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?challenge=${challenge}`,
-      ),
-      cookies: [verifierCookie],
-    });
-
-    const request = new Request(
-      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?challenge=${challenge}&neon_auth_session_verifier=server-verifier`,
-      {
-        headers: {
-          cookie: '__Secure-neon-auth.session_challenge=browser-challenge',
-        },
-      },
-    );
-
-    const response = await handleMobileGoogleComplete(request);
-
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe(
-      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?challenge=${challenge}`,
-    );
-    expect(response.headers.getSetCookie()).toContain(verifierCookie);
-    expect(handleAuthProxyRequest).not.toHaveBeenCalled();
-  });
-
-  it('creates the PKCE-bound app handoff on the second callback pass', async () => {
-    const challenge = mobilePkceChallenge(VERIFIER);
-    vi.mocked(processAuthMiddleware).mockResolvedValue({
-      action: 'allow',
-      headers: { 'x-neon-auth-middleware': 'true' },
-    });
-
     const headers = new Headers();
     headers.append(
       'set-cookie',
-      '__Secure-neon-auth.session_data=cached-session; Path=/; HttpOnly; Secure; SameSite=Lax',
+      `${NEON_AUTH_SESSION_COOKIE_NAME}=${SESSION_TOKEN}; Path=/; HttpOnly; Secure; SameSite=Lax`,
     );
-    vi.mocked(handleAuthProxyRequest).mockResolvedValue(
+    vi.mocked(handleAuthRequest).mockResolvedValue(
       new Response(
         JSON.stringify({
           session: { id: 'session-id' },
@@ -96,14 +60,14 @@ describe('mobile Neon OAuth handoff', () => {
       ),
     );
 
-    const request = new Request(
-      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?challenge=${challenge}`,
-      {
-        headers: {
-          cookie: `${NEON_AUTH_SESSION_COOKIE_NAME}=${SESSION_TOKEN}`,
-        },
+    const callbackUrl =
+      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?` +
+      `challenge=${challenge}&neon_auth_session_verifier=server-verifier`;
+    const request = new Request(callbackUrl, {
+      headers: {
+        cookie: '__Secure-neon-auth.session_challenge=browser-challenge',
       },
-    );
+    });
 
     const response = await handleMobileGoogleComplete(request);
 
@@ -120,11 +84,46 @@ describe('mobile Neon OAuth handoff', () => {
       challenge,
     });
 
-    expect(processAuthMiddleware).toHaveBeenCalledTimes(1);
-    expect(handleAuthProxyRequest).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(handleAuthProxyRequest).mock.calls[0]?.[0]).toMatchObject({
-      path: 'get-session',
-    });
+    expect(handleAuthRequest).toHaveBeenCalledTimes(1);
+    expect(handleAuthProxyRequest).not.toHaveBeenCalled();
+
+    const [baseUrl, proxiedRequest, path] = vi.mocked(handleAuthRequest).mock.calls[0]!;
+    expect(baseUrl).toBe('https://example.neonauth.test/neondb/auth');
+    expect(path).toBe('get-session');
+    expect(proxiedRequest.url).toBe(callbackUrl);
+    expect(proxiedRequest.headers.get('cookie')).toContain(
+      '__Secure-neon-auth.session_challenge=browser-challenge',
+    );
+  });
+
+  it('fails cleanly when the verifier exchange does not return a Neon session token', async () => {
+    const challenge = mobilePkceChallenge(VERIFIER);
+    vi.mocked(handleAuthRequest).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          session: { id: 'session-id' },
+          user: { id: USER_ID, email: 'yotamon@example.test' },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const request = new Request(
+      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?` +
+        `challenge=${challenge}&neon_auth_session_verifier=server-verifier`,
+      {
+        headers: {
+          cookie: '__Secure-neon-auth.session_challenge=browser-challenge',
+        },
+      },
+    );
+
+    const response = await handleMobileGoogleComplete(request);
+
+    expect(response.status).toBe(502);
+    await expect(response.text()).resolves.toContain(
+      'Neon Auth did not return a session token.',
+    );
   });
 
   it('round-trips an encrypted handoff without exposing the session token', () => {

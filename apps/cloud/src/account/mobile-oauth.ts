@@ -6,12 +6,11 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import {
-  extractNeonAuthCookies,
   handleAuthProxyRequest,
+  handleAuthRequest,
   NEON_AUTH_SESSION_COOKIE_NAME,
-  parseCookieValue,
   parseSetCookies,
-  processAuthMiddleware,
+  serializeSetCookie,
 } from '@neondatabase/auth/server';
 import { z } from 'zod';
 
@@ -97,7 +96,7 @@ export async function handleMobileGoogleStart(request: Request): Promise<Respons
     const body = (await upstream.json()) as SocialStartResponse;
     if (!body.url) throw new HttpError(502, 'Neon Auth did not return an OAuth authorization URL.');
 
-    return redirectWithCookies(body.url, upstream.headers.getSetCookie());
+    return redirectWithCookies(body.url, setCookieHeaders(upstream.headers));
   } catch (error) {
     return browserErrorResponse(error, id, 'account.mobile-google-start');
   }
@@ -117,58 +116,38 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
 
     const config = authProxyConfig();
 
-    // Neon Auth's official framework adapters finalize OAuth in middleware.
-    // The first callback includes neon_auth_session_verifier + the challenge
-    // cookie. processAuthMiddleware exchanges that verifier for the real
-    // session cookie and returns a redirect back to this same URL with the
-    // verifier removed. We must preserve every Set-Cookie header on that
-    // redirect. The browser then performs the second pass below with a valid
-    // Neon session cookie.
-    const middlewareResult = await processAuthMiddleware({
-      request,
-      pathname: url.pathname,
-      skipRoutes: [url.pathname],
-      loginUrl: '/api/v1/account/mobile-google-start',
-      baseUrl: config.baseUrl,
-      cookieSecret: config.cookieSecret,
-      sessionDataTtl: config.sessionDataTtl,
-      sameSite: config.sameSite,
-    });
-
-    if (middlewareResult.action === 'redirect_oauth') {
-      return redirectWithCookies(
-        middlewareResult.redirectUrl.toString(),
-        middlewareResult.cookies,
-      );
-    }
-    if (middlewareResult.action === 'redirect_login') {
-      return browserFailure('Google sign-in could not create a Neon session.', 401);
-    }
-
-    const sessionRequest = new Request(request.url, {
+    // This route is a mobile handoff, not a protected web page. Neon Auth's
+    // framework middleware is designed to persist a browser session and then
+    // redirect back through the page framework. For Android we only need the
+    // one-time verifier exchange. Use Neon's official low-level proxy request
+    // primitive directly, then seal the resulting opaque session token into
+    // the PKCE-bound app handoff. This avoids persisting an unnecessary browser
+    // session and avoids framework-specific callback middleware behavior.
+    const exchangeRequest = new Request(request.url, {
       method: 'GET',
       headers: request.headers,
     });
-    const sessionResponse = await handleAuthProxyRequest({
-      request: sessionRequest,
-      path: 'get-session',
-      ...config,
-    });
+    const sessionResponse = await handleAuthRequest(
+      config.baseUrl,
+      exchangeRequest,
+      'get-session',
+    );
     if (!sessionResponse.ok) {
-      return browserFailure('Google sign-in could not create a Neon session.', sessionResponse.status);
+      return browserFailure(
+        'Google sign-in could not create a Neon session.',
+        sessionResponse.status,
+      );
     }
 
-    const sessionData = (await sessionResponse.json()) as NeonSessionResponse;
+    const sessionData = await sessionResponse.clone().json() as NeonSessionResponse;
     const userId = sessionData.user?.id;
     if (!userId || !isUuid(userId)) {
       throw new HttpError(502, 'Neon Auth did not return an authenticated user.');
     }
 
-    const sessionToken =
-      parseCookieValue(
-        extractNeonAuthCookies(request.headers),
-        NEON_AUTH_SESSION_COOKIE_NAME,
-      ) ?? sessionTokenFromSetCookies(sessionResponse.headers.getSetCookie());
+    const sessionToken = sessionTokenFromSetCookies(
+      setCookieHeaders(sessionResponse.headers),
+    );
     if (!sessionToken) {
       throw new HttpError(502, 'Neon Auth did not return a session token.');
     }
@@ -183,7 +162,7 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
 
     const appUrl = new URL('wakemyway://auth');
     appUrl.searchParams.set('handoff', handoff);
-    return redirectWithCookies(appUrl.toString(), sessionResponse.headers.getSetCookie());
+    return redirectWithCookies(appUrl.toString());
   } catch (error) {
     return browserErrorResponse(error, id, 'account.mobile-google-complete');
   }
@@ -294,6 +273,19 @@ function safeEqual(left: string, right: string): boolean {
   const leftBytes = Buffer.from(left, 'utf8');
   const rightBytes = Buffer.from(right, 'utf8');
   return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
+}
+
+function setCookieHeaders(headers: Headers): string[] {
+  const getSetCookie = (
+    headers as Headers & { getSetCookie?: () => string[] }
+  ).getSetCookie;
+  if (typeof getSetCookie === 'function') {
+    return getSetCookie.call(headers);
+  }
+
+  const combined = headers.get('set-cookie');
+  if (!combined) return [];
+  return parseSetCookies(combined).map(cookie => serializeSetCookie(cookie));
 }
 
 function sessionTokenFromSetCookies(headers: string[]): string | null {
