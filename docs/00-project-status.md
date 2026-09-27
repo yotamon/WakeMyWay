@@ -277,26 +277,28 @@ or manual pairing step. The old private-code flow remains only as dormant founde
 The path keeps AlarmKernel/WakeRuntime authoritative, uses short-lived server-minted OpenAI client
 credentials, derives a pseudonymous safety identifier per installation, applies an eight-turn /
 three-minute client budget, caps assistant output, keeps stable instructions at the session prefix,
-and falls back immediately to local Alfred on any failure. Raw Realtime audio/transcripts remain
-unpersisted. Play builds remain local-only.
+and degrades immediately to alarm-only playback on any failure. Raw Realtime audio/transcripts
+remain unpersisted. Play builds remain local-only.
 
-Automatic bootstrap is still a private Direct dogfood boundary, not a public anti-abuse mechanism.
-Broader rollout must add server-verifiable entitlement/attestation before Realtime is enabled for
-general Play distribution. Physical morning/network/audio-route evidence is still required.
+Direct Realtime is founder-only and requires explicit high-entropy pairing. Anonymous installation
+bootstrap has been retired; v1 credentials are rejected server-side and cleared locally. Vercel
+Firewall rate-limits the pairing and broker routes. A broader public rollout must use a
+server-verifiable entitlement/attestation model before Realtime is enabled for general Play
+distribution. Physical morning/network/audio-route evidence is still required.
 
 Realtime turn handling is hardened against two concrete race/quality failures found during Direct
 dogfood. A session is not exposed as ready until OpenAI acknowledges the applied `session.update`;
-failure to receive that acknowledgement within a bounded timeout falls back locally. User speech is
-not promoted to a typed WakeRuntime voice observation at VAD `speech_stopped`; it must first satisfy
-the short-turn floor and reach `input_audio_buffer.committed`, so the latest utterance is in the
-conversation before a new assistant response can be requested. Direct Realtime also uses semantic
+failure to receive that acknowledgement within a bounded timeout degrades to alarm-only. User speech
+is not promoted to a typed WakeRuntime voice observation at VAD `speech_stopped`; it must first
+satisfy the short-turn floor and reach `input_audio_buffer.committed`, so the latest utterance is in
+the conversation before a new assistant response can be requested. Direct Realtime also uses semantic
 VAD with eager turn detection plus far-field input noise reduction for the bedside use case. The
-deterministic WakeRuntime, local Alfred fallback and Alarm Kernel authority remain unchanged.
+deterministic WakeRuntime and Alarm Kernel authority remain unchanged.
 
-Direct startup now gives an available Realtime enrichment a bounded 2.5-second first-turn window
-before falling back to local TTS, while critical alarm audio continues independently. This prevents
-an already-ready local TTS engine from always winning the initial conversational turn. Realtime
-readiness also counts as voice-input capability even when Android's local recognizer is unavailable.
+Direct startup gives an available Realtime enrichment a bounded first-turn connection window while
+critical alarm audio continues independently. If Realtime is not ready within that window, the wake
+continues alarm-only; production does not substitute local TTS. Microphone/Realtime readiness is
+enrichment state and never blocks committing an otherwise safe alarm.
 The Direct adapter emits only non-sensitive lifecycle/failure-stage diagnostics (credential ready,
 SDP accepted/rejected, data-channel open, session ready, provider error type/code) so physical
 dogfood failures can be classified without logging prompts, audio, transcripts, or credentials.

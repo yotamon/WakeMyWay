@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Voice is enrichment for an already-created alarm. Losing microphone/on-device recognition
-        // must not disable the base alarm; the wake path falls back locally instead.
+        // must not disable the base alarm; the wake degrades to alarm-only instead.
         wakeSystemRevision++
         WakeWidgetUpdater.request(this)
     }

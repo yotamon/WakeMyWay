@@ -164,7 +164,7 @@ class VoiceSpikeActivity : ComponentActivity() {
             setPadding(0, dp(30), 0, dp(6))
         })
         content.addView(TextView(this).apply {
-            text = "Alarm timing, critical alarm audio, Stop, Snooze, motion evidence and the decision that the wake is complete never depend on OpenAI or the network. If Realtime is unavailable, Alfred falls back to the local voice path."
+            text = "Alarm timing, critical alarm audio, Stop, Snooze, motion evidence and the decision that the wake is complete never depend on OpenAI or the network. If Realtime is unavailable, the wake continues alarm-only."
             textSize = 14f
             alpha = 0.75f
         })
@@ -225,7 +225,7 @@ class VoiceSpikeActivity : ComponentActivity() {
             configured && status.available -> {
                 statusPill.text = "READY"
                 statusTitle.text = "Alfred is connected"
-                statusBody.text = "Realtime conversation is configured for this phone. The local wake path remains the automatic fallback."
+                statusBody.text = "Realtime conversation is configured for this phone. If Realtime is unavailable, the wake continues alarm-only."
                 primaryButton.text = "Re-check connection"
             }
             configured && !status.available -> {
@@ -326,7 +326,7 @@ class VoiceSpikeActivity : ComponentActivity() {
         serverReady = true
         statusPill.text = "READY"
         statusTitle.text = "Alfred is connected"
-        statusBody.text = "This phone is ready for natural Realtime conversation. If the cloud path is slow or unavailable at wake time, Alfred falls back locally without affecting the alarm."
+        statusBody.text = "This phone is ready for natural Realtime conversation. If the cloud path is slow or unavailable at wake time, the alarm continues without voice."
         codeInput.visibility = View.GONE
         primaryButton.visibility = View.VISIBLE
         primaryButton.text = "Re-check connection"
@@ -355,7 +355,7 @@ class VoiceSpikeActivity : ComponentActivity() {
             )
             else -> renderUnavailable(
                 "Alfred couldn't connect",
-                "The local alarm and local Alfred fallback are unaffected. Check the network and try again.",
+                "The local alarm is unaffected and will continue without voice. Check the network and try again.",
             )
         }
     }
