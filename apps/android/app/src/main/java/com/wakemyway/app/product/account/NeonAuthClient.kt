@@ -64,11 +64,11 @@ internal class NeonAuthClient(
     }
 
     suspend fun currentSession(): NeonAuthSession? = withContext(Dispatchers.IO) {
-        val sessionToken = sessionStore.load() ?: return@withContext null
+        val sessionCookie = sessionStore.load() ?: return@withContext null
         val sessionResponse = request(
             path = "/get-session",
             method = "GET",
-            bearer = sessionToken,
+            sessionCookie = sessionCookie,
             allowUnauthorized = true,
         )
         if (sessionResponse.status == HttpURLConnection.HTTP_UNAUTHORIZED) {
@@ -86,7 +86,7 @@ internal class NeonAuthClient(
         val jwtResponse = request(
             path = "/token",
             method = "GET",
-            bearer = sessionToken,
+            sessionCookie = sessionCookie,
             allowUnauthorized = true,
         )
         if (jwtResponse.status == HttpURLConnection.HTTP_UNAUTHORIZED) {
@@ -107,13 +107,13 @@ internal class NeonAuthClient(
     }
 
     suspend fun signOut() = withContext(Dispatchers.IO) {
-        val sessionToken = sessionStore.load()
+        val sessionCookie = sessionStore.load()
         try {
-            if (sessionToken != null) {
+            if (sessionCookie != null) {
                 request(
                     path = "/sign-out",
                     method = "POST",
-                    bearer = sessionToken,
+                    sessionCookie = sessionCookie,
                     payload = JSONObject(),
                     allowUnauthorized = true,
                 )
@@ -129,30 +129,29 @@ internal class NeonAuthClient(
         sessionMayBeAbsent: Boolean = false,
     ) {
         val response = request(path = path, method = "POST", payload = payload)
-        val body = JSONObject(response.body)
-        val sessionToken = body.optString("token").takeIf { it.isNotBlank() && it != "null" }
+        val sessionCookie = extractSessionCookie(response.setCookieHeaders)
 
-        if (sessionToken == null) {
+        if (sessionCookie == null) {
             if (sessionMayBeAbsent) {
                 sessionStore.clear()
                 return
             }
-            error("Neon Auth did not return a usable session.")
+            error("Neon Auth completed sign-in but did not return a session cookie.")
         }
-        sessionStore.save(sessionToken)
+        sessionStore.save(sessionCookie)
     }
 
     private fun request(
         path: String,
         method: String,
         payload: JSONObject? = null,
-        bearer: String? = null,
+        sessionCookie: String? = null,
         allowUnauthorized: Boolean = false,
     ): HttpResponse = requestAbsolute(
         url = "$baseUrl$path",
         method = method,
         payload = payload,
-        bearer = bearer,
+        sessionCookie = sessionCookie,
         allowUnauthorized = allowUnauthorized,
     )
 
@@ -160,7 +159,7 @@ internal class NeonAuthClient(
         url: String,
         method: String,
         payload: JSONObject? = null,
-        bearer: String? = null,
+        sessionCookie: String? = null,
         allowUnauthorized: Boolean = false,
     ): HttpResponse {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -171,8 +170,8 @@ internal class NeonAuthClient(
             doInput = true
             setRequestProperty("Accept", "application/json")
             requestOrigin?.let { setRequestProperty("Origin", it) }
-            if (bearer != null) {
-                setRequestProperty("Authorization", "Bearer $bearer")
+            if (sessionCookie != null) {
+                setRequestProperty("Cookie", sessionCookie)
             }
             if (payload != null) {
                 doOutput = true
@@ -191,6 +190,9 @@ internal class NeonAuthClient(
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (body.length > MAX_RESPONSE_CHARS) throw IOException("Account service response was too large.")
+            val setCookieHeaders = connection.headerFields.entries
+                .filter { (name, _) -> name?.equals("Set-Cookie", ignoreCase = true) == true }
+                .flatMap { (_, values) -> values.orEmpty() }
 
             if (
                 status !in 200..299 &&
@@ -205,7 +207,11 @@ internal class NeonAuthClient(
                     message.ifBlank { "Account service returned HTTP $status." },
                 )
             }
-            return HttpResponse(status = status, body = body)
+            return HttpResponse(
+                status = status,
+                body = body,
+                setCookieHeaders = setCookieHeaders,
+            )
         } finally {
             connection.disconnect()
         }
@@ -214,10 +220,26 @@ internal class NeonAuthClient(
     private data class HttpResponse(
         val status: Int,
         val body: String,
+        val setCookieHeaders: List<String>,
     )
 
     companion object {
         private const val NETWORK_TIMEOUT_MS = 10_000
         private const val MAX_RESPONSE_CHARS = 64_000
+        private val SESSION_COOKIE_PATTERN = Regex(
+            pattern = """(?:^|[\s,])([\w.-]*session_token)=([^;,\s]+)""",
+            option = RegexOption.IGNORE_CASE,
+        )
+
+        internal fun extractSessionCookie(setCookieHeaders: List<String>): String? =
+            setCookieHeaders
+                .asSequence()
+                .flatMap { SESSION_COOKIE_PATTERN.findAll(it).asSequence() }
+                .mapNotNull { match ->
+                    val name = match.groupValues.getOrNull(1).orEmpty()
+                    val value = match.groupValues.getOrNull(2).orEmpty()
+                    if (name.isBlank() || value.isBlank()) null else "$name=$value"
+                }
+                .firstOrNull()
     }
 }
