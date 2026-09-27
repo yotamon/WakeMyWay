@@ -11,7 +11,6 @@ import {
   NEON_AUTH_SESSION_COOKIE_NAME,
   parseCookieValue,
   parseSetCookies,
-  processAuthMiddleware,
 } from '@neondatabase/auth/server';
 import { z } from 'zod';
 
@@ -116,24 +115,11 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
     }
 
     const config = authProxyConfig();
-    const verifier = url.searchParams.get('neon_auth_session_verifier');
-    if (verifier) {
-      const middleware = await processAuthMiddleware({
-        request,
-        pathname: url.pathname,
-        skipRoutes: [url.pathname],
-        loginUrl: '/',
-        ...config,
-      });
-      if (middleware.action !== 'redirect_oauth') {
-        throw new HttpError(502, 'Neon Auth could not finalize the OAuth callback.');
-      }
-      return redirectWithCookies(
-        middleware.redirectUrl.toString(),
-        middleware.cookies,
-      );
-    }
 
+    // Mobile OAuth does not need a browser page redirect after Neon returns the
+    // verifier. Proxying the callback request directly through get-session lets
+    // the official Neon toolkit exchange the verifier + challenge cookie and
+    // return the authenticated session in a single server round trip.
     const sessionResponse = await handleAuthProxyRequest({
       request,
       path: 'get-session',
