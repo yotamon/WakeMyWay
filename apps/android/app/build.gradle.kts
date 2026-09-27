@@ -48,6 +48,10 @@ val accountApiBaseUrl = escapedBuildConfigString(
     gradleProperty = "WMW_ACCOUNT_API_BASE_URL",
     environmentVariable = "WMW_ACCOUNT_API_BASE_URL",
 )
+val googleWebClientId = escapedBuildConfigString(
+    gradleProperty = "WMW_GOOGLE_WEB_CLIENT_ID",
+    environmentVariable = "WMW_GOOGLE_WEB_CLIENT_ID",
+)
 val emailPasswordAuthEnabled = providers.gradleProperty("WMW_EMAIL_PASSWORD_AUTH_ENABLED")
     .orElse(providers.environmentVariable("WMW_EMAIL_PASSWORD_AUTH_ENABLED"))
     .map { it.trim().equals("true", ignoreCase = true) }
@@ -66,6 +70,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "NEON_AUTH_URL", "\"$neonAuthUrl\"")
         buildConfigField("String", "ACCOUNT_API_BASE_URL", "\"$accountApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         buildConfigField("boolean", "EMAIL_PASSWORD_AUTH_ENABLED", emailPasswordAuthEnabled.toString())
     }
 
@@ -153,6 +158,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.google.id)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
