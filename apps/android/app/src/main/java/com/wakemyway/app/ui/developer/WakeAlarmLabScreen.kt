@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.BuildConfig
 import com.wakemyway.app.WakeActivity
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
@@ -319,11 +320,15 @@ fun WakeAlarmLabScreen(
                     context.startActivity(
                         Intent().setClassName(
                             context.packageName,
-                            "com.wakemyway.app.voice.RealtimeVoiceSetupActivity",
+                            if (BuildConfig.DISTRIBUTION_CHANNEL == "direct") {
+                                "com.wakemyway.app.voice.RealtimeVoiceSetupActivity"
+                            } else {
+                                "com.wakemyway.app.voice.VoiceSpikeActivity"
+                            },
                         ),
                     )
                 }.onFailure {
-                    message = "Live conversation setup is available in Direct founder builds only."
+                    message = "Live conversation setup is unavailable in this build."
                 }
             },
         ) {
