@@ -126,6 +126,20 @@ android {
     }
 }
 
+// Direct release APKs are side-loaded onto physical Android phones. Keep both ARM ABIs, but do
+// not ship emulator-only x86 WebRTC native libraries in the production APK. Direct debug keeps all
+// ABIs so API-36 emulator reliability tests remain representative.
+androidComponents {
+    onVariants(
+        selector()
+            .withBuildType("release")
+            .withFlavor("distribution" to "direct"),
+    ) { variant ->
+        variant.packaging.jniLibs.excludes.add("**/x86/**")
+        variant.packaging.jniLibs.excludes.add("**/x86_64/**")
+    }
+}
+
 roborazzi {
     outputDir.set(file("src/test/screenshots"))
 }
