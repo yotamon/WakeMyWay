@@ -14,36 +14,37 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Stores account-session material outside Direct Boot and wake authority.
  *
- * Both the opaque Neon session token and the short-lived mobile OAuth PKCE verifier are encrypted
- * with an app-owned Android Keystore key. Android backup rules deny SharedPreferences, so neither
- * value is exported through cloud backup or device transfer.
+ * Neon Managed Better Auth authenticates native clients with its signed session cookie. WakeMyWay
+ * stores only the cookie's `name=value` pair, encrypted with an app-owned Android Keystore key.
+ * Android backup rules deny SharedPreferences, so session material is not exported through cloud
+ * backup or device transfer.
  */
 internal class NeonAuthSessionStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun load(): String? = loadEncrypted(KEY_SESSION_TOKEN)
+    fun load(): String? {
+        val sessionCookie = loadEncrypted(KEY_SESSION_COOKIE)
+        if (sessionCookie == null && prefs.contains(KEY_LEGACY_SESSION_TOKEN)) {
+            // v0.2.16 briefly stored the unsigned Better Auth response token. Neon Managed Better
+            // Auth does not accept it as a bearer credential, so never reinterpret it as a cookie.
+            prefs.edit().remove(KEY_LEGACY_SESSION_TOKEN).apply()
+        }
+        return sessionCookie
+    }
 
-    fun save(sessionToken: String) {
-        require(sessionToken.isNotBlank()) { "Neon Auth session token is empty." }
-        saveEncrypted(KEY_SESSION_TOKEN, sessionToken)
+    fun save(sessionCookie: String) {
+        require(sessionCookie.isNotBlank()) { "Neon Auth session cookie is empty." }
+        require('=' in sessionCookie) { "Neon Auth session cookie is malformed." }
+        prefs.edit().remove(KEY_LEGACY_SESSION_TOKEN).apply()
+        saveEncrypted(KEY_SESSION_COOKIE, sessionCookie)
     }
 
     fun clear() {
         prefs.edit()
-            .remove(KEY_SESSION_TOKEN)
+            .remove(KEY_SESSION_COOKIE)
+            .remove(KEY_LEGACY_SESSION_TOKEN)
             .remove(KEY_PENDING_GOOGLE_VERIFIER)
             .apply()
-    }
-
-    fun savePendingGoogleVerifier(verifier: String) {
-        require(verifier.isNotBlank()) { "Google OAuth verifier is empty." }
-        saveEncrypted(KEY_PENDING_GOOGLE_VERIFIER, verifier)
-    }
-
-    fun loadPendingGoogleVerifier(): String? = loadEncrypted(KEY_PENDING_GOOGLE_VERIFIER)
-
-    fun clearPendingGoogleVerifier() {
-        prefs.edit().remove(KEY_PENDING_GOOGLE_VERIFIER).apply()
     }
 
     private fun loadEncrypted(name: String): String? {
@@ -105,7 +106,8 @@ internal class NeonAuthSessionStore(context: Context) {
 
     companion object {
         private const val PREFS = "wake-account-neon-auth-v1"
-        private const val KEY_SESSION_TOKEN = "session-token-aes-gcm"
+        private const val KEY_SESSION_COOKIE = "session-cookie-aes-gcm-v2"
+        private const val KEY_LEGACY_SESSION_TOKEN = "session-token-aes-gcm"
         private const val KEY_PENDING_GOOGLE_VERIFIER = "pending-google-verifier-aes-gcm"
         private const val KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "wmw-neon-auth-session-v1"

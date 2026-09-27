@@ -22,21 +22,23 @@ client-side flag or identity-provider role as the WakeMyWay admin boundary would
    - Google is the production sign-in method.
    - Email/password remains an optional implementation path, disabled in production until custom
      email delivery and verification are enabled.
-   - Android never talks directly to PostgreSQL. Browser OAuth is mediated by the Wake API using
-     Neon's official server toolkit; authenticated session/JWT reads still use the public Managed Better Auth API.
-   - The opaque Better Auth session token is encrypted at rest with an Android Keystore AES-GCM key.
+   - Android never talks directly to PostgreSQL. Native Google sign-in uses AndroidX Credential
+     Manager, then exchanges the Google ID token directly with the public Managed Better Auth API.
+   - The signed Better Auth session cookie's `name=value` pair is encrypted at rest with an Android
+     Keystore AES-GCM key. The unsigned response-body session id is never used as bearer auth.
    - Android requests a short-lived Neon JWT only when an authenticated Wake API call needs one.
    - PostgreSQL credentials and other server/operator secrets are never shipped in Android.
 
-2. **Google sign-in uses Neon's official server OAuth proxy flow.**
-   - Android generates an OAuth handoff verifier locally, stores it encrypted with Android Keystore,
-     and opens the Wake API start URL in the system browser.
-   - The Wake API uses the pinned `@neondatabase/auth/server` toolkit to proxy social sign-in,
-     preserve Neon session-challenge cookies and finalize `neon_auth_session_verifier` callbacks.
-   - The browser callback returns to WakeMyWay through `wakemyway://auth` with only a short-lived
-     encrypted handoff. No Google token or Neon session token is placed in the deep link.
-   - Android exchanges the handoff only when it proves possession of the original PKCE-style
-     verifier, then stores the opaque Neon session token encrypted with Android Keystore.
+2. **Google sign-in uses the native ID-token path supported by Better Auth.**
+   - AndroidX Credential Manager obtains a Google ID token for the WakeMyWay Web OAuth client id.
+   - Android generates a fresh nonce for each request and submits the ID token + nonce to
+     `/sign-in/social` with `provider=google`.
+   - Neon Managed Better Auth verifies the Google token, creates the session and returns its signed
+     session cookie in `Set-Cookie`.
+   - Android stores only the cookie's `name=value` pair and replays it only to the Neon Auth origin
+     for `/get-session`, `/token` and `/sign-out`.
+   - The Wake API keeps its official Neon server toolkit for server-side auth/account work and
+     temporary compatibility with already-released browser-handoff builds.
    - Production uses WakeMyWay-owned Google OAuth credentials rather than Neon's shared development provider.
 
 3. **WakeMyWay remains usable without an account.**
