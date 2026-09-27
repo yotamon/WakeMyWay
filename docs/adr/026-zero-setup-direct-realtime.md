@@ -1,7 +1,13 @@
 # ADR 026: Zero-setup Direct Realtime installation auth
 
-**Status:** Accepted  
+**Status:** Superseded on 2026-09-27 by the explicit founder-pairing hardening in ADR 021/025  
 **Date:** 2026-09-25
+
+> **Security amendment:** the anonymous installation-id bootstrap described below is no longer
+> permitted. It exposed a billable Realtime credential-minting path without a server-verifiable
+> entitlement. Device credential schema v2 rejects all credentials minted under this policy, and
+> Direct founder dogfood again requires explicit high-entropy pairing. This ADR is retained only as
+> history.
 
 ## Context
 
