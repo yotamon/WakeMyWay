@@ -48,17 +48,18 @@ jobs:
           cat apps/android/app/build/reports/release-size/report.md >> "$GITHUB_STEP_SUMMARY"
 
           # 1.0 guardrail: fail on meaningful binary growth instead of merely reporting it.
-          # These ceilings leave small deterministic build headroom above the v0.2.12 baseline.
-          DIRECT_LIMIT_BYTES=$((112 * 1024 * 1024))
-          PLAY_LIMIT_BYTES=$((42 * 1024 * 1024))
+          # The Direct ceiling is intentionally close to the 75.38 MiB ARM-only candidate;
+          # Play keeps a small margin above the current 36.64 MiB AAB.
+          DIRECT_LIMIT_BYTES=$((80 * 1024 * 1024))
+          PLAY_LIMIT_BYTES=$((40 * 1024 * 1024))
           DIRECT_BYTES="$(stat -c%s "$DIRECT_APK")"
           PLAY_BYTES="$(stat -c%s "$PLAY_AAB")"
           if [ "$DIRECT_BYTES" -gt "$DIRECT_LIMIT_BYTES" ]; then
-            echo "::error::Direct APK exceeded 112 MiB release budget ($DIRECT_BYTES bytes)."
+            echo "::error::Direct APK exceeded 80 MiB release budget ($DIRECT_BYTES bytes)."
             exit 1
           fi
           if [ "$PLAY_BYTES" -gt "$PLAY_LIMIT_BYTES" ]; then
-            echo "::error::Play AAB exceeded 42 MiB release budget ($PLAY_BYTES bytes)."
+            echo "::error::Play AAB exceeded 40 MiB release budget ($PLAY_BYTES bytes)."
             exit 1
           fi
 
