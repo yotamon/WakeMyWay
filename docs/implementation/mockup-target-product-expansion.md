@@ -189,7 +189,7 @@ Sections:
   - Motivational;
   - Minimal;
 - prompt preview;
-- microphone/on-device recognition readiness.
+- microphone/Realtime enrichment readiness, kept separate from critical alarm readiness.
 
 #### More
 

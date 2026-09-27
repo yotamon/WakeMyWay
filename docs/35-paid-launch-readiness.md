@@ -119,7 +119,7 @@ The release envelope must contain retained real-device evidence for at least:
 - reboot / Direct Boot before unlock;
 - timezone and manual clock changes;
 - update/package replacement with durable alarm state preserved;
-- microphone/on-device recognition loss after scheduling;
+- microphone/Realtime enrichment loss after scheduling;
 - exact-alarm capability loss before a planned wake;
 - exact-alarm capability loss after Active Wake has started;
 - notification/full-screen capability loss and repair;
@@ -247,7 +247,7 @@ Return for the next wake
 - Safe shrinking/resource optimization enabled where appropriate.
 - Critical local assets never move behind a network dependency.
 
-The v0.2.2 direct APK release asset was roughly 112 MB. Treat this as a baseline to investigate, not an arbitrary failure threshold. Optimize only where sound quality and offline alarm reliability are preserved.
+The hardened Direct release candidate measures **75.38 MiB** after excluding emulator-only x86/x86_64 WebRTC binaries while retaining both physical-phone ARM ABIs; the Play AAB candidate measures **36.64 MiB**. CI enforces **80 MiB Direct / 40 MiB Play** ceilings. Optimize further only where sound quality and offline alarm reliability are preserved.
 
 ## Current FINISH evidence
 
@@ -257,7 +257,7 @@ Merged hardening now includes:
 - explicit semantic roles/labels plus 48dp interaction targets on custom controls;
 - reviewed RTL smoke evidence across the core consumer journey, with content-aware text direction and layout-aware navigation chevrons;
 - reviewed canonical visual regression and compact responsive smoke coverage;
-- measured release artifacts: **52.70 MiB Direct APK** and **34.53 MiB Play AAB**;
+- measured hardened release artifacts: **75.38 MiB Direct APK** and **36.64 MiB Play AAB**, with production size ceilings enforced in CI;
 - release-only Play dependency correctness fixed by an actual release build rather than lint suppression;
 - explicit Android cloud-backup/device-transfer exclusions for app-managed credential- and device-protected state;
 - a release-derived Play Macrobenchmark contract for cold startup, with hosted CI limited to buildability rather than noisy timing assertions;
