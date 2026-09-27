@@ -42,8 +42,9 @@ Production currently uses Google as the only enabled consumer sign-in method:
 3. Android uses AndroidX Credential Manager with the WakeMyWay Google Web OAuth client id to obtain
    a Google ID token. The Google client secret never enters Android.
 4. Android submits that ID token and its nonce directly to Neon's Better Auth `/sign-in/social`
-   endpoint. Better Auth verifies the Google token and returns the normal opaque Neon session token;
-   no browser OAuth callback or Wake API handoff is required for current Android builds.
+   endpoint. Better Auth verifies the Google token and establishes the managed session with its
+   signed `session_token` cookie; no browser OAuth callback or Wake API handoff is required for
+   current Android builds.
 5. The Wake API keeps its pinned `@neondatabase/auth` server toolkit for server-side account/session
    work and for temporary backwards compatibility with older browser-handoff builds.
 6. `https://wakemyway.vercel.app` is the production trusted origin used by WakeMyWay account API
@@ -53,8 +54,10 @@ Production currently uses Google as the only enabled consumer sign-in method:
    a complete email verification UX.
 
 The native Google path intentionally avoids browser challenge cookies, callback verifier exchanges,
-custom-scheme OAuth handoffs and browser-to-app state transfer. The resulting Neon session token is
-stored encrypted with Android Keystore and is never placed in an intent or URL.
+custom-scheme OAuth handoffs and browser-to-app state transfer. Android captures only the managed
+Better Auth session cookie's `name=value` pair and stores it encrypted with Android Keystore. The
+cookie is replayed only to the Neon Auth origin for `/get-session`, `/token` and `/sign-out`.
+The unsigned `token` field from Better Auth response JSON is not treated as a bearer credential.
 
 If email/password auth is enabled later, production must first configure custom SMTP and required
 email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true`.
@@ -71,9 +74,11 @@ Vercel needs three server-side account values:
 The database connection and cookie secret are server secrets and must never be copied to Android,
 documentation values, release metadata or logs.
 
-The Wake API verifies Neon JWTs against the public JWKS endpoint under the Managed Better Auth URL.
-It requires EdDSA signature, the Neon Auth origin as issuer/audience, `role=authenticated`, a valid
-expiry and a UUID subject.
+Android exchanges the managed session cookie at Neon Auth `/token` for a short-lived JWT. That JWT,
+not the session cookie, is sent to Wake API endpoints in `Authorization: Bearer`. The Wake API
+verifies Neon JWTs against the public JWKS endpoint under the Managed Better Auth URL. It requires
+EdDSA signature, the Neon Auth origin as issuer/audience, `role=authenticated`, a valid expiry and
+a UUID subject.
 
 Verify with a real signed-in user:
 
@@ -131,7 +136,7 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 - email/password auth is disabled until custom SMTP + verification UX are production-ready;
 - Android Google sign-in uses Credential Manager and Better Auth ID-token sign-in without a browser
   callback;
-- the opaque Neon session token is encrypted with Android Keystore;
+- the managed Neon session cookie is encrypted with Android Keystore and is sent only to Neon Auth;
 - the Google ID token nonce is generated fresh for each native sign-in and verified by Better Auth;
 - sign-out invalidates the provider session and clears local session material;
 - ordinary accounts return `user`;
