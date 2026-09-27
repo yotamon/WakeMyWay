@@ -7,8 +7,8 @@ import {
 } from 'node:crypto';
 import {
   handleAuthProxyRequest,
-  handleAuthRequest,
   NEON_AUTH_SESSION_COOKIE_NAME,
+  processAuthMiddleware,
   parseSetCookies,
   serializeSetCookie,
 } from '@neondatabase/auth/server';
@@ -116,40 +116,51 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
 
     const config = authProxyConfig();
 
-    // This route is a mobile handoff, not a protected web page. Neon Auth's
-    // framework middleware is designed to persist a browser session and then
-    // redirect back through the page framework. For Android we only need the
-    // one-time verifier exchange. Use Neon's official low-level proxy request
-    // primitive directly, then seal the resulting opaque session token into
-    // the PKCE-bound app handoff. This avoids persisting an unnecessary browser
-    // session and avoids framework-specific callback middleware behavior.
-    const exchangeRequest = new Request(request.url, {
-      method: 'GET',
-      headers: request.headers,
+    // OAuth callbacks must be finalized by Neon's official middleware layer.
+    // It exchanges the verifier + challenge cookie and returns the sanitized
+    // session cookies. Calling handleAuthRequest() directly skips that exchange
+    // contract and can fail before a Neon session is created.
+    const middlewareResult = await processAuthMiddleware({
+      request,
+      pathname: url.pathname,
+      skipRoutes: [url.pathname],
+      loginUrl: '/api/v1/account/mobile-google-start',
+      ...config,
     });
-    const sessionResponse = await handleAuthRequest(
-      config.baseUrl,
-      exchangeRequest,
-      'get-session',
-    );
+    if (middlewareResult.action !== 'redirect_oauth') {
+      throw new HttpError(502, 'Google sign-in could not finalize the Neon session.');
+    }
+
+    const sessionToken = sessionTokenFromSetCookies(middlewareResult.cookies);
+    if (!sessionToken) {
+      throw new HttpError(502, 'Neon Auth did not return a session token.');
+    }
+
+    const cookieHeader = cookieHeaderFromSetCookies(middlewareResult.cookies);
+    const sessionRequest = new Request(request.url, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        origin: url.origin,
+        cookie: cookieHeader,
+      },
+    });
+    const sessionResponse = await handleAuthProxyRequest({
+      request: sessionRequest,
+      path: 'get-session',
+      ...config,
+    });
     if (!sessionResponse.ok) {
       return browserFailure(
-        'Google sign-in could not create a Neon session.',
+        'Google sign-in created a session but it could not be verified.',
         sessionResponse.status,
       );
     }
 
-    const sessionData = await sessionResponse.clone().json() as NeonSessionResponse;
+    const sessionData = await sessionResponse.json() as NeonSessionResponse;
     const userId = sessionData.user?.id;
     if (!userId || !isUuid(userId)) {
       throw new HttpError(502, 'Neon Auth did not return an authenticated user.');
-    }
-
-    const sessionToken = sessionTokenFromSetCookies(
-      setCookieHeaders(sessionResponse.headers),
-    );
-    if (!sessionToken) {
-      throw new HttpError(502, 'Neon Auth did not return a session token.');
     }
 
     const handoff = sealMobileHandoff({
@@ -162,7 +173,10 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
 
     const appUrl = new URL('wakemyway://auth');
     appUrl.searchParams.set('handoff', handoff);
-    return redirectWithCookies(appUrl.toString());
+
+    // Preserve the official middleware cookies on the browser redirect. This
+    // includes verifier/challenge cleanup and matches Neon's adapter contract.
+    return redirectWithCookies(appUrl.toString(), middlewareResult.cookies);
   } catch (error) {
     return browserErrorResponse(error, id, 'account.mobile-google-complete');
   }
@@ -295,6 +309,16 @@ function sessionTokenFromSetCookies(headers: string[]): string | null {
     }
   }
   return null;
+}
+
+function cookieHeaderFromSetCookies(headers: string[]): string {
+  const values: string[] = [];
+  for (const header of headers) {
+    for (const cookie of parseSetCookies(header)) {
+      if (cookie.value) values.push(`${cookie.name}=${cookie.value}`);
+    }
+  }
+  return values.join('; ');
 }
 
 function redirectWithCookies(location: string, cookies: string[] = []): Response {
