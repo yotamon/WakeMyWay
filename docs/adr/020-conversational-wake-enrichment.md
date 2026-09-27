@@ -1,7 +1,8 @@
 # ADR 020: Conversational Wake as non-authoritative enrichment
 
 **Status:** Accepted for founder dogfood  
-**Date:** 2026-09-10
+**Date:** 2026-09-10  
+**Amended:** 2026-09-27
 
 ## Context
 
@@ -20,7 +21,7 @@ For founder/debug dogfood, implement a direct OpenAI Realtime WebRTC adapter tha
 - lets WakeRuntime request each assistant response through the current `SpeechIntent`;
 - emits only bounded typed conversation events back to the Android controller;
 - never receives authority to Stop, Snooze, schedule, score, or complete a wake;
-- falls back immediately to deterministic local Alfred when unavailable or failed.
+- degrades immediately to alarm-only playback when unavailable or failed; production does not substitute local TTS.
 
 `SpeechIntent.KeepEngaging` is added so WakeRuntime can deliberately continue the conversation after a coherent reply while activation evidence remains below threshold.
 
@@ -32,4 +33,4 @@ Founder broker credentials remain debug-only and are encrypted locally using And
 
 ## Non-goals
 
-This ADR does not select a permanent commercial provider, permit private Tomorrow Contract/calendar context, make cloud availability a Wake Ready prerequisite, or replace local TTS/STT fallback.
+This ADR does not select a permanent commercial provider, permit private Tomorrow Contract/calendar context, or make cloud/voice availability a Wake Ready prerequisite. The earlier local TTS/STT production fallback was superseded by the Realtime-or-alarm-only contract.
