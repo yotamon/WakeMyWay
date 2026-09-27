@@ -23,14 +23,15 @@ WakeSchedulingGate
         ├─ exact alarm capability
         ├─ notifications enabled
         ├─ active-wake channel HIGH
-        ├─ full-screen alarm access
-        ├─ microphone permission
-        └─ on-device recognition availability
+        └─ full-screen alarm access
         ↓
-all ready?
-   ├─ no → open next repair / permission flow
-   │         no occurrence committed
+critical alarm ready?
+   ├─ no → open next repair flow
+   │         no enabled occurrence committed
    └─ yes → AlarmKernel.commitSchedule()
+
+Voice enrichment readiness (microphone / Realtime pairing / provider availability)
+is observed separately and never authorizes or blocks alarm scheduling.
 ```
 
 The lab additionally re-evaluates the gate immediately inside its T+2m click handler. A stale Compose state cannot authorize the commit.
@@ -76,4 +77,4 @@ A real alarm must survive accidental task dismissal. `AlarmPlaybackService` ther
 
 ## Current voice boundary
 
-`RECORD_AUDIO` and on-device recognition are hard pre-scheduling requirements for the current Voice Wake product. Alfred's offline TTS engine/voice is still an asynchronous runtime capability. It is not a permission and remains separately degradable for this regression fix; hard-gating on a verified installed Alfred-compatible offline voice is a separate product decision after locked-screen presentation is physically re-proven.
+`RECORD_AUDIO`, local speech recognition, Realtime pairing, network state and provider availability are enrichment capabilities, not alarm-scheduling requirements. A safe alarm may be committed without them and degrades to the selected local alarm sound with local Stop/Snooze when conversational Realtime is unavailable. No TTS/STT engine is allowed to become wake authority.

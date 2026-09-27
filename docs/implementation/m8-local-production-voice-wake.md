@@ -1,7 +1,12 @@
 # M8 local production voice wake
 
-**Status:** implementation in PR #36; physical-device validation required before reliability claims  
-**Date:** 2026-09-10  
+**Status:** Historical baseline from PR #36; consumer local TTS/STT fallback was superseded on 2026-09-26 by Realtime-or-alarm-only
+
+**Date:** 2026-09-10
+
+**Current source of truth:** [`../adr/020-conversational-wake-enrichment.md`](../adr/020-conversational-wake-enrichment.md) and [`conversational-wake.md`](conversational-wake.md)
+
+> This document preserves the original M8 local-speech implementation and validation history. It must not be used to infer current scheduling prerequisites or production fallback behavior. Today, voice is optional enrichment; failure or missing permission never blocks a safe alarm and production does not substitute local TTS.
 **Decision:** [`../adr/017-local-production-voice-wake.md`](../adr/017-local-production-voice-wake.md)
 
 ## Goal
