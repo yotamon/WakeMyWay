@@ -73,6 +73,57 @@ class AlarmPlaybackServiceRobolectricTest {
     }
 
     @Test
+    fun `scheduled wake restores critical background notification after wake surface hides`() {
+        val primary = requireNotNull(
+            kernel.commitSchedule(oneShotSchedule("presentation-lifecycle")).nextOccurrence,
+        )
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(primary.id))
+
+        AlarmPlaybackService.start(context, primary.id)
+        val startIntent = shadowOf(context).nextStartedService
+        val controller = Robolectric.buildService(AlarmPlaybackService::class.java, startIntent)
+            .create()
+            .startCommand(0, 1)
+
+        val initial = shadowOf(controller.get()).lastForegroundNotification
+        assertEquals(AlarmPresentationAccess.CHANNEL_ID, initial.channelId)
+        assertNotNull(initial.fullScreenIntent)
+
+        AlarmPlaybackService.requestInAppPresentation(context, primary.id)
+        controller.get().onStartCommand(shadowOf(context).nextStartedService, 0, 2)
+        val visible = shadowOf(controller.get()).lastForegroundNotification
+        assertEquals(AlarmPresentationAccess.IN_APP_CHANNEL_ID, visible.channelId)
+        assertNull(visible.fullScreenIntent)
+
+        AlarmPlaybackService.requestBackgroundPresentation(context, primary.id)
+        controller.get().onStartCommand(shadowOf(context).nextStartedService, 0, 3)
+        val hidden = shadowOf(controller.get()).lastForegroundNotification
+        assertEquals(AlarmPresentationAccess.CHANNEL_ID, hidden.channelId)
+        assertNull(hidden.fullScreenIntent)
+    }
+
+    @Test
+    fun `developer in-app wake never promotes when its surface hides`() {
+        val primary = requireNotNull(
+            kernel.commitSchedule(oneShotSchedule("in-app-lifecycle")).nextOccurrence,
+        )
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(primary.id))
+
+        AlarmPlaybackService.startInAppTest(context, primary.id)
+        val startIntent = shadowOf(context).nextStartedService
+        val controller = Robolectric.buildService(AlarmPlaybackService::class.java, startIntent)
+            .create()
+            .startCommand(0, 1)
+
+        AlarmPlaybackService.requestBackgroundPresentation(context, primary.id)
+        controller.get().onStartCommand(shadowOf(context).nextStartedService, 0, 2)
+
+        val notification = shadowOf(controller.get()).lastForegroundNotification
+        assertEquals(AlarmPresentationAccess.IN_APP_CHANNEL_ID, notification.channelId)
+        assertNull(notification.fullScreenIntent)
+    }
+
+    @Test
     fun `an active wake with a fully degraded audio stack stays alive and foreground`() {
         val primary = requireNotNull(
             kernel.commitSchedule(oneShotSchedule("degraded-audio")).nextOccurrence,

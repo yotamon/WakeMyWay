@@ -34,6 +34,7 @@ class AlarmPlaybackService : Service() {
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hapticsStarted = false
     private var notificationPresentation = WakeNotificationPresentation.FULL_SCREEN
+    private var criticalPresentationAllowed = true
     private var startupCpuLock: PowerManager.WakeLock? = null
     private var emergencyToneCpuLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -90,9 +91,9 @@ class AlarmPlaybackService : Service() {
 
         return when (intent.action) {
             ACTION_START -> {
-                notificationPresentation = if (
-                    intent.getBooleanExtra(EXTRA_IN_APP_PRESENTATION, false)
-                ) {
+                val inAppOnly = intent.getBooleanExtra(EXTRA_IN_APP_PRESENTATION, false)
+                criticalPresentationAllowed = !inAppOnly
+                notificationPresentation = if (inAppOnly) {
                     WakeNotificationPresentation.IN_APP
                 } else {
                     WakeNotificationPresentation.FULL_SCREEN
@@ -156,6 +157,24 @@ class AlarmPlaybackService : Service() {
             ACTION_SURFACE_VISIBLE -> {
                 if (kernel.activeOccurrence()?.id == occurrenceId) {
                     notificationPresentation = WakeNotificationPresentation.IN_APP
+                    val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
+                    startForeground(
+                        NOTIFICATION_ID,
+                        alarmNotification(occurrenceId, policy, notificationPresentation),
+                    )
+                    START_STICKY
+                } else {
+                    preserveCurrentExecutionOrStop(kernel)
+                }
+            }
+
+            ACTION_SURFACE_HIDDEN -> {
+                if (kernel.activeOccurrence()?.id == occurrenceId) {
+                    notificationPresentation = if (criticalPresentationAllowed) {
+                        WakeNotificationPresentation.BACKGROUND
+                    } else {
+                        WakeNotificationPresentation.IN_APP
+                    }
                     val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
                     startForeground(
                         NOTIFICATION_ID,
@@ -624,6 +643,7 @@ class AlarmPlaybackService : Service() {
 
     private enum class WakeNotificationPresentation {
         FULL_SCREEN,
+        BACKGROUND,
         IN_APP,
     }
 
@@ -635,6 +655,7 @@ class AlarmPlaybackService : Service() {
         private const val ACTION_SNOOZE = "com.wakemyway.action.SNOOZE_WAKE"
         private const val ACTION_VOICE_WINDOW = "com.wakemyway.action.VOICE_WINDOW"
         private const val ACTION_SURFACE_VISIBLE = "com.wakemyway.action.WAKE_SURFACE_VISIBLE"
+        private const val ACTION_SURFACE_HIDDEN = "com.wakemyway.action.WAKE_SURFACE_HIDDEN"
         private const val ACTION_RESTORE_CRITICAL_VOLUME = "com.wakemyway.action.RESTORE_CRITICAL_VOLUME"
         private const val EXTRA_IN_APP_PRESENTATION = "in_app_presentation"
         private const val VOICE_WINDOW_MAX_MILLIS = 12_000L
@@ -678,6 +699,10 @@ class AlarmPlaybackService : Service() {
 
         fun requestInAppPresentation(context: Context, occurrenceId: WakeOccurrenceId) {
             sendCommand(context, ACTION_SURFACE_VISIBLE, "surface-visible", occurrenceId)
+        }
+
+        fun requestBackgroundPresentation(context: Context, occurrenceId: WakeOccurrenceId) {
+            sendCommand(context, ACTION_SURFACE_HIDDEN, "surface-hidden", occurrenceId)
         }
 
         fun requestStop(context: Context, occurrenceId: WakeOccurrenceId) {

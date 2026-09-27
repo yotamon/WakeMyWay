@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-10  
-**Amended:** 2026-09-15  
+**Amended:** 2026-09-27  
 **Evidence:** founder physical-device regressions after PR #37
 
 ## Context
@@ -22,9 +22,9 @@ Those are different questions and must not share one predicate.
 
 ## Decision
 
-For the current product, **creating a new Voice Wake remains a strict preflight transaction**.
+For the current product, **creating a new Wake remains a strict critical-alarm preflight transaction**.
 
-No Wake Occurrence may be committed from any user-accessible scheduling path until all of these are true:
+No enabled Wake Occurrence may be committed from a user-accessible scheduling path until the Android capabilities required to deliver and control the alarm are healthy:
 
 ```text
 exact-alarm capability
@@ -34,15 +34,11 @@ notifications enabled
 active-wake channel >= HIGH
         +
 full-screen alarm access
-        +
-RECORD_AUDIO permission
-        +
-on-device speech recognition available
         ↓
-new Voice Wake may be scheduled
+new Wake may be scheduled
 ```
 
-The product repairs one missing prerequisite at a time. The schedule is not written first and then repaired.
+Microphone permission, Android speech-recognition availability, Realtime pairing, network state and provider availability are **not** scheduling prerequisites. Voice is optional enrichment: if it is unavailable, the committed wake remains valid and runs alarm-only. The product repairs one missing critical alarm prerequisite at a time; it never persists an unsafe alarm first and asks the user to repair controllability later.
 
 However, Wake My Way now distinguishes four concepts:
 
@@ -54,7 +50,8 @@ Active execution safety
   notifications + high-priority channel + full-screen presentation
 
 Voice conversation readiness
-  microphone + on-device recognition (+ optional Realtime enrichment)
+  microphone permission + paired/available Realtime when applicable
+  (informational enrichment state only; never scheduling authority)
 
 Snooze readiness
   active execution safety + exact scheduling at the moment Snooze is requested
@@ -70,8 +67,8 @@ A previously valid schedule does not become the same thing as a new scheduling t
 
 - Losing notification permission, required channel importance, or full-screen alarm access makes the wake potentially uncontrollable. A future affected occurrence is invalidated; an unsafe active service is stopped after durable authority is cleared.
 - Losing exact-alarm capability invalidates/requires repair of a future occurrence. If the occurrence has already fired, the active wake continues as long as presentation remains safe. Snooze fails closed because a durable exact replacement cannot be guaranteed.
-- Losing microphone permission or on-device recognition after scheduling does **not** delete the alarm. The morning experience degrades to the remaining local capabilities: critical alarm, Wake Surface, deterministic local presentation where available, and motion evidence. A newly created Voice Wake still requires voice readiness at commit time.
-- Optional Realtime availability is never part of Wake Ready and never controls alarm survival.
+- Losing microphone permission, Realtime pairing, network/provider availability, or any local speech capability does **not** delete the alarm and does not make a future schedule invalid. The morning experience degrades to critical alarm + Wake Surface + local Stop/Snooze and remaining motion/orientation behavior.
+- Voice/Realtime availability is never part of Wake Ready and never controls alarm survival or schedule creation.
 
 ## Defense in depth
 
@@ -110,13 +107,13 @@ The safety invariant is not “task dismissal stops the alarm.” The invariant 
 
 ## Consequences
 
-- A user must explicitly complete required Android access before a new Voice Wake can be scheduled.
+- A user must explicitly complete the Android access required for a controllable alarm before an enabled Wake can be scheduled.
 - Existing schedules from older builds may be invalidated after upgrade if future scheduling/presentation prerequisites are incomplete.
 - Revoking critical presentation access after scheduling may cause the affected wake to be cancelled rather than produce an uncontrollable siren.
 - Revoking microphone/on-device recognition after scheduling degrades voice behavior instead of silently deleting a safe alarm.
 - Losing exact-alarm access after a wake has fired does not stop the active wake; Snooze remains unavailable/fail-closed until exact scheduling is restored.
-- On-device voice recognition remains required by the current **new Voice Wake** product contract. A future explicit non-voice alarm mode may define a separate creation prerequisite set.
-- Offline TTS availability remains a runtime capability rather than a permission or alarm-survival requirement.
+- Voice enrichment is capability-dependent and may be absent without weakening the alarm contract.
+- Local TTS/STT may remain diagnostic or experimental components but are not consumer scheduling or fallback requirements.
 - Critical alarm reliability remains local, with controllability treated as an execution-safety precondition and voice treated as degradable experience capability.
 
 ## Validation
@@ -130,4 +127,4 @@ Automated coverage must verify:
 - shared production/lab preflight;
 - existing Alarm Kernel behavior, lint/build, visual regression and API-36 device reliability.
 
-Physical validation must start from a clean install/upgrade state, verify that production setup and Wake Alarm Lab refuse new scheduling with missing prerequisites, then exercise locked-screen near-term wakes while independently revoking voice, exact-alarm and presentation capabilities to prove the intended degradation/cancellation behavior.
+Physical validation must start from a clean install/upgrade state, verify that production setup and Wake Alarm Lab refuse scheduling only when critical alarm prerequisites are missing, and verify that microphone/Realtime loss never deletes or blocks an otherwise safe alarm. Then exercise locked-screen near-term wakes while independently revoking exact-alarm and presentation capabilities to prove the intended degradation/cancellation behavior.

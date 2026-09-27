@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-11  
-**Amended:** 2026-09-15
+**Amended:** 2026-09-27
 
 ## Context
 
@@ -38,7 +38,7 @@ WebRTC audio conversation
 
 The app has a fixed WakeMyWay backend URL. The user never enters a broker URL, an OpenAI API key, `WMW_INTERNAL_API_KEY`, or a token-signing key.
 
-Founder installation credentials are signed with the dedicated `WMW_FOUNDER_TOKEN_SIGNING_KEY`, are scoped to founder Realtime wake, and expire after 90 days. `WMW_INTERNAL_API_KEY` remains a separate server-only credential for internal/admin authorization. Rotating the founder signing key revokes paired founder installations without forcing rotation of internal API authorization, and rotating the internal API key does not silently change the installation-token trust domain.
+Founder installation credentials are signed with the dedicated `WMW_FOUNDER_TOKEN_SIGNING_KEY`, are scoped to founder Realtime wake, and expire after 90 days. Pairing is always explicit: an installation ID alone can never mint a credential. The credential schema is currently version 2; the v2 transition intentionally invalidates every credential minted under the retired anonymous-bootstrap policy. `WMW_INTERNAL_API_KEY` remains a separate server-only credential for internal/admin authorization. Rotating the founder signing key revokes paired founder installations without forcing rotation of internal API authorization, and rotating the internal API key does not silently change the installation-token trust domain.
 
 The separate `WMW_FOUNDER_PAIRING_CODE` is used only for pairing. It must be high entropy, at least 24 characters, must stay out of source control, and can be rotated after successful pairing.
 
@@ -51,8 +51,8 @@ Before Android marks the connection Ready, it probes the full WakeMyWay → Open
 - `WMW_FOUNDER_TOKEN_SIGNING_KEY` stays server-side and is never accepted as an API bearer credential.
 - Realtime is optional enrichment and is never part of `Wake Ready`.
 - Alarm timing, playback, Stop, Snooze, recovery, activation evidence, and completion authority remain local.
-- If pairing expires, is revoked, the server is unavailable, or Realtime fails, the active Wake Session falls back to local Alfred.
-- Founder pairing does not create a general user-authentication system. Production multi-user authentication remains a separate future decision.
+- If pairing expires, is revoked, the server is unavailable, or Realtime fails, the active Wake Session degrades immediately to alarm-only playback with local Stop/Snooze controls.
+- Founder pairing is separate from WakeMyWay account authentication. Signing in to an account does not currently grant Realtime dogfood access.
 - WakeMyWay does not persist Realtime audio or transcripts in this founder slice.
 - Tomorrow Contract and prepared private context are not sent to Realtime in this founder slice.
 

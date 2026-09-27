@@ -3,32 +3,18 @@ package com.wakemyway.app.voice
 import android.content.Context
 
 /**
- * Direct-distribution pre-warmer for zero-setup Realtime access.
+ * Direct-distribution Realtime readiness refresher.
  *
- * Runs off the app-start critical path, provisions only the scoped installation credential, and
- * never opens a model session. Wake delivery remains fully local if provisioning fails.
+ * Founder Realtime uses explicit pairing. App start may refresh the local marker, but it never
+ * mints a cloud/OpenAI-backed credential without the founder secret.
  */
 object DirectRealtimeProvisioner {
     @JvmStatic
     fun provision(context: Context) {
         val appContext = context.applicationContext
-        val settings = FounderRealtimeSettings(appContext)
-        if (settings.load() != null) return
-
-        Thread(
-            {
-                runCatching {
-                    val paired = FounderRealtimePairingClient().bootstrap(settings.installationId())
-                    settings.saveInstallationCredential(
-                        paired.deviceToken,
-                        paired.expiresAtEpochSeconds,
-                    )
-                }
-            },
-            "wmw-realtime-prewarm",
-        ).apply {
-            isDaemon = true
-            start()
-        }
+        ConversationalAlfredState.setReady(
+            appContext,
+            FounderRealtimeSettings(appContext).configured(),
+        )
     }
 }

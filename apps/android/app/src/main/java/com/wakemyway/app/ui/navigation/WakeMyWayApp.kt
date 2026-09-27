@@ -120,8 +120,6 @@ fun WakeMyWayApp(
 ) {
     val context = LocalContext.current
     val alarmSetupRequiredCopy = stringResource(R.string.tonight_readiness_attention)
-    val voiceSetupRequiredCopy = stringResource(R.string.tonight_voice_wake_setup_detail)
-    val voiceUnavailableCopy = stringResource(R.string.tonight_voice_wake_unavailable_detail)
     val alarmKernel = remember { AlarmKernel(context) }
     val alarmController = remember { AlarmProductController(context) }
     val preparationManager = remember { WakePreparationManager(context) }
@@ -239,14 +237,6 @@ fun WakeMyWayApp(
                 onRepairWakeSystem()
                 AlarmEditorResult(saved = false, detail = alarmSetupRequiredCopy)
             }
-
-            WakeSchedulingBlocker.VOICE_PERMISSION -> {
-                onRepairWakeSystem()
-                AlarmEditorResult(saved = false, detail = voiceSetupRequiredCopy)
-            }
-
-            WakeSchedulingBlocker.VOICE_UNAVAILABLE ->
-                AlarmEditorResult(saved = false, detail = voiceUnavailableCopy)
 
             WakeSchedulingBlocker.NONE -> null
         }

@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Small no-secret client for automatic Direct installation bootstrap and legacy diagnostics. */
+/** Founder-only pairing client. No cloud/OpenAI-backed credential is minted without the explicit access code. */
 class FounderRealtimePairingClient {
     data class ServerStatus(
         val available: Boolean,
@@ -59,9 +59,6 @@ class FounderRealtimePairingClient {
         }
     }
 
-    fun bootstrap(installationId: String): PairingResult =
-        requestPairing(JSONObject().put("installationId", installationId), automatic = true)
-
     fun pair(accessCode: String, installationId: String): PairingResult {
         val normalizedCode = accessCode.trim()
         if (normalizedCode.length < MIN_ACCESS_CODE_LENGTH) {
@@ -72,11 +69,10 @@ class FounderRealtimePairingClient {
             JSONObject()
                 .put("code", normalizedCode)
                 .put("installationId", installationId),
-            automatic = false,
         )
     }
 
-    private fun requestPairing(payload: JSONObject, automatic: Boolean): PairingResult {
+    private fun requestPairing(payload: JSONObject): PairingResult {
         val connection = open(FounderRealtimeSettings.PAIR_URL, "POST").apply {
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
@@ -98,12 +94,8 @@ class FounderRealtimePairingClient {
                     PairingResult(token, expiresAt)
                 }
                 401, 403 -> throw PairingException(
-                    if (automatic) PairingException.Kind.SERVER_NOT_READY else PairingException.Kind.ACCESS_CODE_REJECTED,
-                    if (automatic) {
-                        "Automatic Realtime access is not available"
-                    } else {
-                        "That founder access code was not accepted"
-                    },
+                    PairingException.Kind.ACCESS_CODE_REJECTED,
+                    "That founder access code was not accepted",
                 )
                 503 -> throw PairingException(
                     PairingException.Kind.SERVER_NOT_READY,

@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wakemyway.app.BuildConfig
 import com.wakemyway.app.WakeActivity
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
@@ -188,7 +189,7 @@ fun WakeAlarmLabScreen(
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "This lab uses the same preflight as production. It cannot arm an unsafe Voice Wake.",
+            text = "This lab uses the same critical alarm preflight as production. Voice is optional enrichment and may degrade alarm-only.",
             style = MaterialTheme.typography.bodySmall,
             color = WmwColors.QuietText,
         )
@@ -196,9 +197,9 @@ fun WakeAlarmLabScreen(
         Text(
             modifier = Modifier.padding(top = 28.dp),
             text = if (blocker == WakeSchedulingBlocker.NONE) {
-                "Voice Wake preflight ready"
+                "Alarm preflight ready"
             } else {
-                "Voice Wake preflight blocked"
+                "Alarm preflight blocked"
             },
             style = MaterialTheme.typography.headlineSmall,
         )
@@ -300,25 +301,16 @@ fun WakeAlarmLabScreen(
                 }
             }
 
-            WakeSchedulingBlocker.VOICE_PERMISSION -> {
-                OutlinedButton(
-                    modifier = Modifier.padding(top = 14.dp),
-                    onClick = onEnableVoiceReplies,
-                ) {
-                    Text("Enable microphone for voice replies")
-                }
-            }
-
-            WakeSchedulingBlocker.VOICE_UNAVAILABLE -> {
-                Text(
-                    modifier = Modifier.padding(top = 14.dp),
-                    text = "On-device speech recognition is unavailable. This build will not arm a Voice Wake silently without it.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-            }
-
             WakeSchedulingBlocker.NONE -> Unit
+        }
+
+        if (voiceWakeReadiness == VoiceWakeReadiness.SETUP_REQUIRED) {
+            OutlinedButton(
+                modifier = Modifier.padding(top = 14.dp),
+                onClick = onEnableVoiceReplies,
+            ) {
+                Text("Enable microphone for Live voice")
+            }
         }
 
         OutlinedButton(
@@ -328,11 +320,15 @@ fun WakeAlarmLabScreen(
                     context.startActivity(
                         Intent().setClassName(
                             context.packageName,
-                            "com.wakemyway.app.voice.VoiceSpikeActivity",
+                            if (BuildConfig.DISTRIBUTION_CHANNEL == "direct") {
+                                "com.wakemyway.app.voice.RealtimeVoiceSetupActivity"
+                            } else {
+                                "com.wakemyway.app.voice.VoiceSpikeActivity"
+                            },
                         ),
                     )
                 }.onFailure {
-                    message = "Live conversation setup is available in founder/debug builds only."
+                    message = "Live conversation setup is unavailable in this build."
                 }
             },
         ) {

@@ -310,7 +310,7 @@ fun AccountScreen(
             }
 
             Text(
-                text = "Signing in never becomes wake authority. Exact alarm scheduling, playback, Stop and Snooze remain local Android responsibilities.",
+                text = "Your alarms stay on this phone and keep working even when you are offline or signed out.",
                 modifier = Modifier.padding(top = WmwSpacing.Xl),
                 style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.LightQuietText,

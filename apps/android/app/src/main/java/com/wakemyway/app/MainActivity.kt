@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.speech.SpeechRecognizer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -215,7 +214,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Voice is enrichment for an already-created alarm. Losing microphone/on-device recognition
-        // must not disable the base alarm; the wake path falls back locally instead.
+        // must not disable the base alarm; the wake degrades to alarm-only instead.
         wakeSystemRevision++
         WakeWidgetUpdater.request(this)
     }
@@ -342,18 +341,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshVoiceWakeReadiness() {
-        voiceWakeReadiness = when {
-            !supportsOnDeviceVoiceReplies() -> VoiceWakeReadiness.UNAVAILABLE
+        // Conversational input is optional enrichment. Realtime failure degrades alarm-only, so
+        // local Android speech-recognition availability is never a scheduling prerequisite.
+        voiceWakeReadiness = if (
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED -> VoiceWakeReadiness.READY
-            else -> VoiceWakeReadiness.SETUP_REQUIRED
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            VoiceWakeReadiness.READY
+        } else {
+            VoiceWakeReadiness.SETUP_REQUIRED
         }
-    }
-
-    private fun supportsOnDeviceVoiceReplies(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
-        return runCatching { SpeechRecognizer.isOnDeviceRecognitionAvailable(this) }
-            .getOrDefault(false)
     }
 
     private fun markVoicePermissionRequested() {

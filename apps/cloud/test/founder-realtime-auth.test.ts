@@ -31,14 +31,16 @@ describe('founder Realtime server readiness', () => {
       'OpenAI API key',
       'founder Realtime gate',
       'founder token signing key',
+      'founder pairing code',
     ]);
   });
 
-  it('is available with only the consumer pairing prerequisites', () => {
+  it('is available only when explicit founder pairing is configured', () => {
     const minimalEnvironment: NodeJS.ProcessEnv = {
       OPENAI_API_KEY: 'server-only-openai-key',
       WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
       WMW_FOUNDER_TOKEN_SIGNING_KEY: 's'.repeat(64),
+      WMW_FOUNDER_PAIRING_CODE: 'WakeMyWay-Founder-Connect-2026',
     };
 
     expect(founderRealtimeSetupStatus(minimalEnvironment)).toEqual({ available: true, missing: [] });
@@ -55,18 +57,13 @@ describe('founder Realtime server readiness', () => {
 });
 
 describe('founder installation pairing', () => {
-  it('bootstraps a Direct installation without user-entered access code', () => {
-    const paired = pairFounderInstallation(
-      { installationId },
-      { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
-    );
-
-    const verified = verifyFounderDeviceToken(paired.deviceToken, {
-      environment: readyEnvironment,
-      nowSeconds: 1_800_000_001,
-    });
-    expect(verified.sub).toBe(installationId);
-    expect(verified.scope).toBe('founder-realtime-wake');
+  it('rejects anonymous Direct installation bootstrap', () => {
+    expect(() =>
+      pairFounderInstallation(
+        { installationId },
+        { environment: readyEnvironment, nowSeconds: 1_800_000_000 },
+      ),
+    ).toThrow(HttpError);
   });
 
   it('exchanges the access code for a scoped expiring installation credential', () => {
@@ -86,6 +83,10 @@ describe('founder installation pairing', () => {
     });
     expect(verified.sub).toBe(installationId);
     expect(verified.scope).toBe('founder-realtime-wake');
+
+    const encodedPayload = paired.deviceToken.split('.')[0]!;
+    const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+    expect(payload.v).toBe(2);
   });
 
   it('rejects a wrong founder access code', () => {

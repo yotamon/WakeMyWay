@@ -30,9 +30,9 @@ class WakeSchedulingGateTest {
     }
 
     @Test
-    fun `microphone setup blocks scheduling when alarm system is controllable`() {
+    fun `missing microphone setup does not invalidate an otherwise safe alarm`() {
         assertEquals(
-            WakeSchedulingBlocker.VOICE_PERMISSION,
+            WakeSchedulingBlocker.NONE,
             wakeSchedulingBlocker(
                 alarmHealth = health(),
                 voiceReadiness = VoiceWakeReadiness.SETUP_REQUIRED,
@@ -41,9 +41,9 @@ class WakeSchedulingGateTest {
     }
 
     @Test
-    fun `missing on-device recognition blocks a voice wake`() {
+    fun `missing local voice capability degrades to alarm-only instead of blocking scheduling`() {
         assertEquals(
-            WakeSchedulingBlocker.VOICE_UNAVAILABLE,
+            WakeSchedulingBlocker.NONE,
             wakeSchedulingBlocker(
                 alarmHealth = health(),
                 voiceReadiness = VoiceWakeReadiness.UNAVAILABLE,
