@@ -11,6 +11,7 @@ import {
   NEON_AUTH_SESSION_COOKIE_NAME,
   parseCookieValue,
   parseSetCookies,
+  processAuthMiddleware,
 } from '@neondatabase/auth/server';
 import { z } from 'zod';
 
@@ -116,12 +117,40 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
 
     const config = authProxyConfig();
 
-    // Mobile OAuth does not need a browser page redirect after Neon returns the
-    // verifier. Proxying the callback request directly through get-session lets
-    // the official Neon toolkit exchange the verifier + challenge cookie and
-    // return the authenticated session in a single server round trip.
-    const sessionResponse = await handleAuthProxyRequest({
+    // Neon Auth's official framework adapters finalize OAuth in middleware.
+    // The first callback includes neon_auth_session_verifier + the challenge
+    // cookie. processAuthMiddleware exchanges that verifier for the real
+    // session cookie and returns a redirect back to this same URL with the
+    // verifier removed. We must preserve every Set-Cookie header on that
+    // redirect. The browser then performs the second pass below with a valid
+    // Neon session cookie.
+    const middlewareResult = await processAuthMiddleware({
       request,
+      pathname: url.pathname,
+      skipRoutes: [url.pathname],
+      loginUrl: '/api/v1/account/mobile-google-start',
+      baseUrl: config.baseUrl,
+      cookieSecret: config.cookieSecret,
+      sessionDataTtl: config.sessionDataTtl,
+      sameSite: config.sameSite,
+    });
+
+    if (middlewareResult.action === 'redirect_oauth') {
+      return redirectWithCookies(
+        middlewareResult.redirectUrl.toString(),
+        middlewareResult.cookies,
+      );
+    }
+    if (middlewareResult.action === 'redirect_login') {
+      return browserFailure('Google sign-in could not create a Neon session.', 401);
+    }
+
+    const sessionRequest = new Request(request.url, {
+      method: 'GET',
+      headers: request.headers,
+    });
+    const sessionResponse = await handleAuthProxyRequest({
+      request: sessionRequest,
       path: 'get-session',
       ...config,
     });
