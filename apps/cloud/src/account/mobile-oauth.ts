@@ -82,6 +82,8 @@ export async function handleMobileGoogleStart(request: Request): Promise<Respons
         body: JSON.stringify({
           provider: 'google',
           callbackURL: callbackUrl.toString(),
+          newUserCallbackURL: callbackUrl.toString(),
+          errorCallbackURL: callbackUrl.toString(),
           disableRedirect: true,
         }),
       },

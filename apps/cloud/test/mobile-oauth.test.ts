@@ -16,6 +16,7 @@ vi.mock('@neondatabase/auth/server', async importOriginal => {
 import {
   handleMobileGoogleComplete,
   handleMobileGoogleExchange,
+  handleMobileGoogleStart,
   mobilePkceChallenge,
   openMobileHandoff,
   sealMobileHandoff,
@@ -41,6 +42,47 @@ afterEach(() => {
 });
 
 describe('mobile Neon OAuth handoff', () => {
+  it('routes both returning and first-time Google users through the mobile callback', async () => {
+    const challenge = mobilePkceChallenge(VERIFIER);
+    vi.mocked(handleAuthProxyRequest).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          url: 'https://example.neonauth.test/neondb/auth/sign-in/social/init?token=test',
+          redirect: false,
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+            'set-cookie':
+              `${NEON_AUTH_SESSION_CHALLENGE_COOKIE_NAME}=signed-browser-challenge; Path=/; HttpOnly; Secure`,
+          },
+        },
+      ),
+    );
+
+    const response = await handleMobileGoogleStart(
+      new Request(
+        `https://wakemyway.vercel.app/api/v1/account/mobile-google-start?challenge=${challenge}`,
+      ),
+    );
+
+    expect(response.status).toBe(302);
+    expect(handleAuthProxyRequest).toHaveBeenCalledTimes(1);
+    const proxiedRequest = vi.mocked(handleAuthProxyRequest).mock.calls[0]![0].request;
+    const body = JSON.parse(await proxiedRequest.text()) as Record<string, unknown>;
+    const expectedCallback =
+      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?challenge=${challenge}`;
+
+    expect(body).toMatchObject({
+      provider: 'google',
+      callbackURL: expectedCallback,
+      newUserCallbackURL: expectedCallback,
+      errorCallbackURL: expectedCallback,
+      disableRedirect: true,
+    });
+  });
+
   it('packages the Neon verifier and challenge cookie without consuming them in the browser callback', async () => {
     const challenge = mobilePkceChallenge(VERIFIER);
     const request = new Request(
