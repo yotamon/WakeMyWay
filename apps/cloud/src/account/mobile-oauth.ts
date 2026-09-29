@@ -7,8 +7,8 @@ import {
 } from 'node:crypto';
 import {
   handleAuthProxyRequest,
+  NEON_AUTH_SESSION_CHALLENGE_COOKIE_NAME,
   NEON_AUTH_SESSION_COOKIE_NAME,
-  processAuthMiddleware,
   parseSetCookies,
   serializeSetCookie,
 } from '@neondatabase/auth/server';
@@ -27,6 +27,7 @@ const PKCE_CHALLENGE = /^[A-Za-z0-9_-]{43}$/;
 const PKCE_VERIFIER = /^[A-Za-z0-9._~-]{43,128}$/;
 const HANDOFF = /^[A-Za-z0-9_-]{32,8192}$/;
 const HANDOFF_TTL_MS = 2 * 60 * 1000;
+const LEGACY_SESSION_CHALLENGE_COOKIE_NAME = '__Secure-neon-auth.session_challange';
 
 const exchangeSchema = z.object({
   handoff: z.string().min(32).max(8192).regex(HANDOFF),
@@ -34,9 +35,9 @@ const exchangeSchema = z.object({
 });
 
 export interface MobileHandoffPayload {
-  v: 1;
-  sessionToken: string;
-  userId: string;
+  v: 2;
+  sessionVerifier: string;
+  challengeCookie: string;
   challenge: string;
   exp: number;
 }
@@ -114,69 +115,36 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
       throw new HttpError(400, 'The mobile sign-in challenge is invalid.');
     }
 
-    const config = authProxyConfig();
-
-    // OAuth callbacks must be finalized by Neon's official middleware layer.
-    // It exchanges the verifier + challenge cookie and returns the sanitized
-    // session cookies. Calling handleAuthRequest() directly skips that exchange
-    // contract and can fail before a Neon session is created.
-    const middlewareResult = await processAuthMiddleware({
-      request,
-      pathname: url.pathname,
-      skipRoutes: [url.pathname],
-      loginUrl: '/api/v1/account/mobile-google-start',
-      ...config,
-    });
-    if (middlewareResult.action !== 'redirect_oauth') {
-      throw new HttpError(502, 'Google sign-in could not finalize the Neon session.');
+    const sessionVerifier =
+      url.searchParams.get('neon_auth_session_verifier')?.trim() ?? '';
+    if (!isSessionVerifier(sessionVerifier)) {
+      throw new HttpError(400, 'Neon Auth did not return a valid session verifier.');
     }
 
-    const sessionToken = sessionTokenFromSetCookies(middlewareResult.cookies);
-    if (!sessionToken) {
-      throw new HttpError(502, 'Neon Auth did not return a session token.');
-    }
-
-    const cookieHeader = cookieHeaderFromSetCookies(middlewareResult.cookies);
-    const sessionRequest = new Request(request.url, {
-      method: 'GET',
-      headers: {
-        accept: 'application/json',
-        origin: url.origin,
-        cookie: cookieHeader,
-      },
-    });
-    const sessionResponse = await handleAuthProxyRequest({
-      request: sessionRequest,
-      path: 'get-session',
-      ...config,
-    });
-    if (!sessionResponse.ok) {
-      return browserFailure(
-        'Google sign-in created a session but it could not be verified.',
-        sessionResponse.status,
+    const challengeCookie = sessionChallengeCookieFromRequest(request);
+    if (!challengeCookie) {
+      throw new HttpError(
+        400,
+        'The Google sign-in challenge cookie was not returned. Please start sign-in again.',
       );
     }
 
-    const sessionData = await sessionResponse.json() as NeonSessionResponse;
-    const userId = sessionData.user?.id;
-    if (!userId || !isUuid(userId)) {
-      throw new HttpError(502, 'Neon Auth did not return an authenticated user.');
-    }
-
+    // Do not consume Neon's one-time verifier in the browser callback. Bind the
+    // verifier and challenge cookie to the app's PKCE challenge, then perform the
+    // actual Neon exchange only after the app proves possession of its verifier.
+    // This makes the browser callback deterministic and keeps the usable Neon
+    // session credential out of the deep-link URL.
     const handoff = sealMobileHandoff({
-      v: 1,
-      sessionToken,
-      userId,
+      v: 2,
+      sessionVerifier,
+      challengeCookie,
       challenge,
       exp: Date.now() + HANDOFF_TTL_MS,
     });
 
     const appUrl = new URL('wakemyway://auth');
     appUrl.searchParams.set('handoff', handoff);
-
-    // Preserve the official middleware cookies on the browser redirect. This
-    // includes verifier/challenge cleanup and matches Neon's adapter contract.
-    return redirectWithCookies(appUrl.toString(), middlewareResult.cookies);
+    return redirectWithCookies(appUrl.toString());
   } catch (error) {
     return browserErrorResponse(error, id, 'account.mobile-google-complete');
   }
@@ -196,10 +164,64 @@ export async function handleMobileGoogleExchange(request: Request): Promise<Resp
       throw new HttpError(401, 'The mobile sign-in verifier is invalid.');
     }
 
+    const url = new URL(request.url);
+    requireHttps(url);
+    const config = authProxyConfig();
+    const verifierUrl = new URL('/api/auth/get-session', url.origin);
+    verifierUrl.searchParams.set('neon_auth_session_verifier', payload.sessionVerifier);
+
+    const exchangeRequest = new Request(verifierUrl, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        origin: url.origin,
+        cookie: payload.challengeCookie,
+      },
+    });
+    const exchangeResponse = await handleAuthProxyRequest({
+      request: exchangeRequest,
+      path: 'get-session',
+      ...config,
+    });
+    if (!exchangeResponse.ok) {
+      throw new HttpError(
+        exchangeResponse.status === 401 ? 401 : 502,
+        'Neon Auth could not exchange the Google sign-in verifier.',
+      );
+    }
+
+    const sessionCookie = sessionCookieFromSetCookies(setCookieHeaders(exchangeResponse.headers));
+    if (!sessionCookie) {
+      throw new HttpError(502, 'Neon Auth did not return a managed session cookie.');
+    }
+
+    const verifyRequest = new Request(new URL('/api/auth/get-session', url.origin), {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        origin: url.origin,
+        cookie: sessionCookie,
+      },
+    });
+    const verifyResponse = await handleAuthProxyRequest({
+      request: verifyRequest,
+      path: 'get-session',
+      ...config,
+    });
+    if (!verifyResponse.ok) {
+      throw new HttpError(502, 'Neon Auth created a session but it could not be verified.');
+    }
+
+    const sessionData = await verifyResponse.json() as NeonSessionResponse;
+    const userId = sessionData.user?.id;
+    if (!userId || !isUuid(userId)) {
+      throw new HttpError(502, 'Neon Auth did not return an authenticated user.');
+    }
+
     return json(
       {
-        sessionToken: payload.sessionToken,
-        userId: payload.userId,
+        sessionCookie,
+        userId,
       },
       200,
       id,
@@ -251,11 +273,11 @@ export function openMobileHandoff(value: string): MobileHandoffPayload {
     const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
     const decoded = JSON.parse(plaintext) as Partial<MobileHandoffPayload>;
     if (
-      decoded.v !== 1 ||
-      typeof decoded.sessionToken !== 'string' ||
-      decoded.sessionToken.length < 16 ||
-      typeof decoded.userId !== 'string' ||
-      !isUuid(decoded.userId) ||
+      decoded.v !== 2 ||
+      typeof decoded.sessionVerifier !== 'string' ||
+      !isSessionVerifier(decoded.sessionVerifier) ||
+      typeof decoded.challengeCookie !== 'string' ||
+      !isSessionChallengeCookie(decoded.challengeCookie) ||
       typeof decoded.challenge !== 'string' ||
       !PKCE_CHALLENGE.test(decoded.challenge) ||
       typeof decoded.exp !== 'number'
@@ -302,23 +324,46 @@ function setCookieHeaders(headers: Headers): string[] {
   return parseSetCookies(combined).map(cookie => serializeSetCookie(cookie));
 }
 
-function sessionTokenFromSetCookies(headers: string[]): string | null {
+function sessionCookieFromSetCookies(headers: string[]): string | null {
   for (const header of headers) {
     for (const cookie of parseSetCookies(header)) {
-      if (cookie.name === NEON_AUTH_SESSION_COOKIE_NAME) return cookie.value;
+      if (cookie.name === NEON_AUTH_SESSION_COOKIE_NAME && cookie.value) {
+        return `${cookie.name}=${cookie.value}`;
+      }
     }
   }
   return null;
 }
 
-function cookieHeaderFromSetCookies(headers: string[]): string {
-  const values: string[] = [];
-  for (const header of headers) {
-    for (const cookie of parseSetCookies(header)) {
-      if (cookie.value) values.push(`${cookie.name}=${cookie.value}`);
+function sessionChallengeCookieFromRequest(request: Request): string | null {
+  const cookieHeader = request.headers.get('cookie') ?? '';
+  for (const part of cookieHeader.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator <= 0) continue;
+    const name = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    if (
+      value &&
+      (
+        name === NEON_AUTH_SESSION_CHALLENGE_COOKIE_NAME ||
+        name === LEGACY_SESSION_CHALLENGE_COOKIE_NAME
+      )
+    ) {
+      return `${name}=${value}`;
     }
   }
-  return values.join('; ');
+  return null;
+}
+
+function isSessionChallengeCookie(value: string): boolean {
+  return (
+    value.startsWith(`${NEON_AUTH_SESSION_CHALLENGE_COOKIE_NAME}=`) ||
+    value.startsWith(`${LEGACY_SESSION_CHALLENGE_COOKIE_NAME}=`)
+  ) && value.length <= 4096;
+}
+
+function isSessionVerifier(value: string): boolean {
+  return value.length >= 8 && value.length <= 4096 && /^[A-Za-z0-9._~-]+$/.test(value);
 }
 
 function redirectWithCookies(location: string, cookies: string[] = []): Response {

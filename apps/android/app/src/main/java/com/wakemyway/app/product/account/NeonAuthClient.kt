@@ -1,9 +1,14 @@
 package com.wakemyway.app.product.account
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.security.SecureRandom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -43,24 +48,41 @@ internal class NeonAuthClient(
         )
     }
 
-    suspend fun signInWithGoogleIdToken(
-        idToken: String,
-        nonce: String,
-    ) = withContext(Dispatchers.IO) {
-        require(idToken.isNotBlank()) { "Google did not return an ID token." }
-        require(nonce.isNotBlank()) { "Google sign-in nonce is empty." }
+    fun prepareGoogleBrowserSignIn(accountApiBaseUrl: String): Uri {
+        require(accountApiBaseUrl.startsWith("https://")) {
+            "WakeMyWay account API must use HTTPS for Google sign-in."
+        }
+        val verifier = secureVerifier()
+        val challenge = pkceChallenge(verifier)
+        sessionStore.savePendingGoogleVerifier(verifier)
+        return Uri.parse(accountApiBaseUrl)
+            .buildUpon()
+            .appendEncodedPath("api/v1/account/mobile-google-start")
+            .appendQueryParameter("challenge", challenge)
+            .build()
+    }
 
-        authenticate(
-            path = "/sign-in/social",
+    suspend fun completeGoogleBrowserSignIn(
+        accountApiBaseUrl: String,
+        handoff: String,
+    ) = withContext(Dispatchers.IO) {
+        val verifier = sessionStore.loadPendingGoogleVerifier()
+            ?: error("Google sign-in expired. Please try again.")
+
+        val response = requestAbsolute(
+            url = "$accountApiBaseUrl/api/v1/account/mobile-google-exchange",
+            method = "POST",
             payload = JSONObject()
-                .put("provider", "google")
-                .put(
-                    "idToken",
-                    JSONObject()
-                        .put("token", idToken)
-                        .put("nonce", nonce),
-                ),
+                .put("handoff", handoff)
+                .put("verifier", verifier),
         )
+        val body = JSONObject(response.body)
+        val sessionCookie = body.optString("sessionCookie")
+            .takeIf { it.isNotBlank() && it != "null" }
+            ?: error("WakeMyWay did not receive a Neon session.")
+
+        sessionStore.save(sessionCookie)
+        sessionStore.clearPendingGoogleVerifier()
     }
 
     suspend fun currentSession(): NeonAuthSession? = withContext(Dispatchers.IO) {
@@ -222,6 +244,24 @@ internal class NeonAuthClient(
         val body: String,
         val setCookieHeaders: List<String>,
     )
+
+    private fun secureVerifier(): String {
+        val bytes = ByteArray(32)
+        SecureRandom().nextBytes(bytes)
+        return Base64.encodeToString(
+            bytes,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+        )
+    }
+
+    private fun pkceChallenge(verifier: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(verifier.toByteArray(StandardCharsets.US_ASCII))
+        return Base64.encodeToString(
+            digest,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+        )
+    }
 
     companion object {
         private const val NETWORK_TIMEOUT_MS = 10_000

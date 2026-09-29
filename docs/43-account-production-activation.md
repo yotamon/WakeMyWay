@@ -38,26 +38,31 @@ Managed Better Auth is enabled on `main`.
 Production currently uses Google as the only enabled consumer sign-in method:
 
 1. WakeMyWay-owned Google OAuth credentials replace Neon's shared development keys.
-2. Neon stores the Google Web OAuth client id/secret; the client secret never enters Android.
-3. Android uses AndroidX Credential Manager with the WakeMyWay Google Web OAuth client id to obtain
-   a Google ID token. The Google client secret never enters Android.
-4. Android submits that ID token and its nonce directly to Neon's Better Auth `/sign-in/social`
-   endpoint. Better Auth verifies the Google token and establishes the managed session with its
-   signed `session_token` cookie; no browser OAuth callback or Wake API handoff is required for
-   current Android builds.
-5. The Wake API keeps its pinned `@neondatabase/auth` server toolkit for server-side account/session
-   work and for temporary backwards compatibility with older browser-handoff builds.
-6. `https://wakemyway.vercel.app` is the production trusted origin used by WakeMyWay account API
-   traffic.
-7. Localhost access is disabled on the production Neon Auth branch.
-8. Email/password auth is disabled in production until WakeMyWay has a custom SMTP provider and
-   a complete email verification UX.
+2. Neon stores the Google Web OAuth client id/secret; neither value is required in the Android APK.
+3. Android creates a high-entropy PKCE verifier, stores it encrypted with Android Keystore and opens
+   the Wake API Google-start URL in the system browser.
+4. The Wake API uses the pinned `@neondatabase/auth/server` proxy toolkit to request Neon's official
+   social-login URL. The resulting Neon `session_challenge` cookie is rewritten for the Wake API
+   origin and retained by the browser.
+5. Google OAuth completes at Neon. Neon redirects the browser back to the Wake API with
+   `neon_auth_session_verifier`.
+6. The Wake API does not consume that one-time verifier in the browser callback. Instead it seals the
+   verifier plus the matching Neon challenge cookie into a short-lived AES-GCM handoff bound to the
+   Android PKCE challenge, then redirects to `wakemyway://auth`.
+7. Android proves possession of the original PKCE verifier to the Wake API. Only then does the Wake
+   API exchange Neon's verifier + challenge at `/get-session`, verify the returned user, and return
+   the managed Neon `session_token` cookie's `name=value` pair to Android.
+8. Android encrypts that managed session cookie with Android Keystore and replays it only to the Neon
+   Auth origin for `/get-session`, `/token` and `/sign-out`.
+9. `https://wakemyway.vercel.app` remains the only production trusted HTTP origin required by Neon.
+10. Localhost access is disabled on the production Neon Auth branch.
+11. Email/password auth is disabled in production until WakeMyWay has a custom SMTP provider and a
+    complete email verification UX.
 
-The native Google path intentionally avoids browser challenge cookies, callback verifier exchanges,
-custom-scheme OAuth handoffs and browser-to-app state transfer. Android captures only the managed
-Better Auth session cookie's `name=value` pair and stores it encrypted with Android Keystore. The
-cookie is replayed only to the Neon Auth origin for `/get-session`, `/token` and `/sign-out`.
-The unsigned `token` field from Better Auth response JSON is not treated as a bearer credential.
+Neon Managed Better Auth currently returns the browser OAuth flow for `/sign-in/social`; WakeMyWay
+must not assume the self-hosted Better Auth native `idToken` path is available on the managed Neon
+service. The browser handoff above follows Neon's session-challenge/session-verifier protocol while
+keeping the usable session credential out of the deep-link URL.
 
 If email/password auth is enabled later, production must first configure custom SMTP and required
 email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true`.
@@ -95,15 +100,13 @@ Build-time GitHub Actions Variables:
 
 ```text
 WMW_NEON_AUTH_URL=<public Managed Better Auth base URL>
-WMW_GOOGLE_WEB_CLIENT_ID=<WakeMyWay Google Web OAuth client id>
 WMW_EMAIL_PASSWORD_AUTH_ENABLED=false
 WMW_ACCOUNT_API_BASE_URL=https://wakemyway.vercel.app
 ```
 
-The Google Web OAuth client id is public application configuration and is compiled into Android so
-Credential Manager can request an ID token for the correct audience. The matching Google client
-secret remains provider-side in Neon/Google and never enters the APK. The app contains no database
-credential.
+Google OAuth client configuration stays provider-side in Neon/Google and does not need to be
+compiled into Android. The app contains no Google client secret, Neon management credential or
+database credential.
 
 The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
 API URLs must be HTTPS. The production configuration is Google-only today; email/password remains
@@ -134,10 +137,10 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 - production Google OAuth uses WakeMyWay-owned credentials rather than Neon shared keys;
 - production localhost auth access is disabled;
 - email/password auth is disabled until custom SMTP + verification UX are production-ready;
-- Android Google sign-in uses Credential Manager and Better Auth ID-token sign-in without a browser
-  callback;
+- Android Google sign-in uses the Neon-supported browser OAuth + session-verifier protocol;
+- the browser callback handoff is short-lived, AES-GCM encrypted and bound to an app-held PKCE
+  verifier;
 - the managed Neon session cookie is encrypted with Android Keystore and is sent only to Neon Auth;
-- the Google ID token nonce is generated fresh for each native sign-in and verified by Better Auth;
 - sign-out invalidates the provider session and clears local session material;
 - ordinary accounts return `user`;
 - founder account returns `admin`;
