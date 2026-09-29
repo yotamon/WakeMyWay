@@ -85,6 +85,23 @@ describe('mobile Neon OAuth handoff', () => {
     );
   });
 
+  it('surfaces account-not-linked OAuth callbacks before looking for a session verifier', async () => {
+    const challenge = mobilePkceChallenge(VERIFIER);
+    const request = new Request(
+      `https://wakemyway.vercel.app/api/v1/account/mobile-google-complete?` +
+        `challenge=${challenge}&error=account_not_linked`,
+      { headers: { cookie: CHALLENGE_COOKIE } },
+    );
+
+    const response = await handleMobileGoogleComplete(request);
+
+    expect(response.status).toBe(409);
+    await expect(response.text()).resolves.toContain(
+      'already belongs to an existing WakeMyWay account',
+    );
+    expect(handleAuthProxyRequest).not.toHaveBeenCalled();
+  });
+
   it('rejects a callback without the original browser challenge cookie', async () => {
     const challenge = mobilePkceChallenge(VERIFIER);
     const request = new Request(
@@ -126,8 +143,9 @@ describe('mobile Neon OAuth handoff', () => {
       challenge: mobilePkceChallenge(VERIFIER),
       exp: Date.now() + 60_000,
     });
-    const replacement = sealed.endsWith('A') ? 'B' : 'A';
-    const tampered = sealed.slice(0, -1) + replacement;
+    const index = Math.floor(sealed.length / 2);
+    const replacement = sealed[index] === 'A' ? 'B' : 'A';
+    const tampered = sealed.slice(0, index) + replacement + sealed.slice(index + 1);
 
     expect(() => openMobileHandoff(tampered)).toThrow('invalid');
   });

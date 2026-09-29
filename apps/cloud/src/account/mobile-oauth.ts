@@ -115,6 +115,21 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
       throw new HttpError(400, 'The mobile sign-in challenge is invalid.');
     }
 
+    const oauthError = sanitizeOAuthError(url.searchParams.get('error'));
+    if (oauthError) {
+      console.warn('[account.mobile-google-complete] OAuth provider returned an error', {
+        requestId: id,
+        error: oauthError,
+      });
+      if (oauthError === 'account_not_linked') {
+        throw new HttpError(
+          409,
+          'This Google email already belongs to an existing WakeMyWay account that is not linked to Google.',
+        );
+      }
+      throw new HttpError(400, 'Google sign-in was not completed. Please return to WakeMyWay and try again.');
+    }
+
     const sessionVerifier =
       url.searchParams.get('neon_auth_session_verifier')?.trim() ?? '';
     if (!isSessionVerifier(sessionVerifier)) {
@@ -364,6 +379,11 @@ function isSessionChallengeCookie(value: string): boolean {
 
 function isSessionVerifier(value: string): boolean {
   return value.length >= 8 && value.length <= 4096 && /^[A-Za-z0-9._~-]+$/.test(value);
+}
+
+function sanitizeOAuthError(value: string | null): string | null {
+  const normalized = value?.trim().toLowerCase() ?? '';
+  return /^[a-z0-9_-]{1,80}$/.test(normalized) ? normalized : null;
 }
 
 function redirectWithCookies(location: string, cookies: string[] = []): Response {
