@@ -14,10 +14,10 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Stores account-session material outside Direct Boot and wake authority.
  *
- * Neon Managed Better Auth authenticates native clients with its signed session cookie. WakeMyWay
- * stores only the cookie's `name=value` pair, encrypted with an app-owned Android Keystore key.
- * Android backup rules deny SharedPreferences, so session material is not exported through cloud
- * backup or device transfer.
+ * Neon Managed Better Auth authenticates WakeMyWay with its signed session cookie. WakeMyWay stores
+ * only the cookie's `name=value` pair plus the short-lived mobile OAuth PKCE verifier, both
+ * encrypted with an app-owned Android Keystore key. Android backup rules deny SharedPreferences, so
+ * session material is not exported through cloud backup or device transfer.
  */
 internal class NeonAuthSessionStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -45,6 +45,18 @@ internal class NeonAuthSessionStore(context: Context) {
             .remove(KEY_LEGACY_SESSION_TOKEN)
             .remove(KEY_PENDING_GOOGLE_VERIFIER)
             .apply()
+    }
+
+    fun savePendingGoogleVerifier(verifier: String) {
+        require(verifier.isNotBlank()) { "Google OAuth verifier is empty." }
+        saveEncrypted(KEY_PENDING_GOOGLE_VERIFIER, verifier)
+    }
+
+    fun loadPendingGoogleVerifier(): String? =
+        loadEncrypted(KEY_PENDING_GOOGLE_VERIFIER)
+
+    fun clearPendingGoogleVerifier() {
+        prefs.edit().remove(KEY_PENDING_GOOGLE_VERIFIER).apply()
     }
 
     private fun loadEncrypted(name: String): String? {
