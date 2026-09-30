@@ -268,9 +268,19 @@ class DirectRealtimeWakeConversation(
             "output_audio_buffer.stopped" -> finishAssistantAudio(current, false)
             "output_audio_buffer.cleared" -> finishAssistantAudio(current, true)
             "response.done" -> {
-                val status = event.optJSONObject("response")?.optString("status")
-                if (status == "failed" || status == "incomplete") {
-                    Log.w(LOG_TAG, "response-done status=${status.take(32)} generation=$current")
+                val response = event.optJSONObject("response")
+                val status = response?.optString("status").orEmpty()
+                val reason = response
+                    ?.optJSONObject("status_details")
+                    ?.optString("reason")
+                    .orEmpty()
+                if (status != "completed") {
+                    Log.w(
+                        LOG_TAG,
+                        "response-done status=${status.take(32)} reason=${reason.take(48)} generation=$current",
+                    )
+                }
+                if (RealtimeResponseTerminalPolicy.shouldFailSession(status)) {
                     emitFailure("response", current)
                 }
             }
@@ -581,7 +591,9 @@ class DirectRealtimeWakeConversation(
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
         const val MIN_USER_TURN_MS = 320L
         const val MAX_ASSISTANT_TURNS = 8
-        const val MAX_OUTPUT_TOKENS = 120
+        // Realtime audio output consumes many more output tokens than equivalent text. Keep a
+        // bounded but generous ceiling so a normal one- or two-sentence wake prompt is not clipped.
+        const val MAX_OUTPUT_TOKENS = 1_024
         const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
