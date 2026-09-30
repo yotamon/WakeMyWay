@@ -32,10 +32,25 @@ object ConversationalAlfredState {
     }
 
     /**
-     * Realtime no longer has a consumer setup/pairing state to pre-warm. Authentication is resolved
-     * from the signed-in WakeMyWay account only when optional Realtime enrichment is requested.
+     * Pre-warms an invisible distribution-scoped Realtime credential after account/session startup.
+     * Direct uses account authentication; Play has no implementation and silently no-ops.
      */
-    fun prewarmIfSupported(context: Context) = Unit
+    fun prewarmIfSupported(context: Context) {
+        runCatching {
+            val type = Class.forName("com.wakemyway.app.voice.DirectRealtimeProvisioner")
+            type.getMethod("provision", Context::class.java)
+                .invoke(null, context.applicationContext)
+        }
+    }
+
+    /** Clears any distribution-scoped Realtime credential when the account signs out. */
+    fun clearProvisioningIfSupported(context: Context) {
+        runCatching {
+            val type = Class.forName("com.wakemyway.app.voice.DirectRealtimeProvisioner")
+            type.getMethod("clear", Context::class.java)
+                .invoke(null, context.applicationContext)
+        }
+    }
 
     fun setupAvailable(context: Context): Boolean = resolveSetupActivity(context) != null
 
