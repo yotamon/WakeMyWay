@@ -132,7 +132,9 @@ describe('account Realtime token route', () => {
     expect(response.status).toBe(200);
     expect(verifyCredential).toHaveBeenCalledWith('scoped-device-token');
     expect(store.authorize).toHaveBeenCalledWith(credential);
-    expect(store.authorize.mock.invocationCallOrder[0]).toBeLessThan(mintSecret.mock.invocationCallOrder[0]);
+    expect(store.authorize.mock.invocationCallOrder[0]!).toBeLessThan(
+      mintSecret.mock.invocationCallOrder[0]!,
+    );
     expect(await response.json()).toMatchObject({
       configurationId: 'direct-openai:webrtc-account-wake-v1',
       token: 'ephemeral-secret',
