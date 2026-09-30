@@ -17,6 +17,7 @@ const environmentSchema = z.object({
   OPENAI_API_KEY: z.string().trim().min(1).optional(),
   WMW_ENABLE_DIRECT_OPENAI_REALTIME_SPIKE: booleanStringSchema,
   WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: booleanStringSchema,
+  WMW_ENABLE_ACCOUNT_REALTIME: booleanStringSchema,
   WMW_OPENAI_REALTIME_MODEL: z.string().trim().min(1).default('gpt-realtime-2.1'),
   WMW_OPENAI_REALTIME_VOICE: z.string().trim().min(1).max(128).default('marin'),
   WMW_OPENAI_SAFETY_IDENTIFIER: z.string().trim().min(8).max(256).optional(),
@@ -33,6 +34,7 @@ export interface DirectOpenAiRealtimeConfig {
   configured: boolean;
   enabled: boolean;
   founderDogfoodEnabled: boolean;
+  accountWakeEnabled: boolean;
   apiKey?: string;
   model: string;
   voice: string;
@@ -76,6 +78,7 @@ export function parseDirectOpenAiRealtimeConfig(
     configured: Boolean(env.OPENAI_API_KEY),
     enabled: env.WMW_ENABLE_DIRECT_OPENAI_REALTIME_SPIKE,
     founderDogfoodEnabled: env.WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD,
+    accountWakeEnabled: env.WMW_ENABLE_ACCOUNT_REALTIME || env.WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD,
     ...(env.OPENAI_API_KEY ? { apiKey: env.OPENAI_API_KEY } : {}),
     model: env.WMW_OPENAI_REALTIME_MODEL,
     voice: env.WMW_OPENAI_REALTIME_VOICE,
@@ -105,6 +108,18 @@ export function requireFounderWakeRealtimeDogfood(
   }
   if (!config.apiKey) {
     throw new HttpError(503, 'Founder Realtime Wake dogfood is not configured.');
+  }
+  return { ...config, apiKey: config.apiKey };
+}
+
+export function requireAccountWakeRealtime(
+  config = parseDirectOpenAiRealtimeConfig(process.env),
+): DirectOpenAiRealtimeConfig & { apiKey: string } {
+  if (!config.accountWakeEnabled) {
+    throw new HttpError(503, 'Account Realtime Wake is disabled.');
+  }
+  if (!config.apiKey) {
+    throw new HttpError(503, 'Account Realtime Wake is not configured.');
   }
   return { ...config, apiKey: config.apiKey };
 }
@@ -170,7 +185,7 @@ export async function createAccountWakeRealtimeClientSecret(options: {
   fetchImpl?: FetchLike;
   safetyIdentifier: string;
 }): Promise<AccountWakeRealtimeClientSecret> {
-  const config = requireFounderWakeRealtimeDogfood(
+  const config = requireAccountWakeRealtime(
     parseDirectOpenAiRealtimeConfig(options.environment ?? process.env),
   );
   const token = await mintRealtimeClientSecret(
