@@ -25,11 +25,13 @@ Apply the account migrations to the production branch:
 
 1. `001_consumer_backups.sql`
 2. `003_account_roles.sql`
+3. `004_account_realtime_devices.sql`
 
 Apply `002_play_subscription_lifecycle.sql` later when the Play commerce lifecycle is activated.
 
-Both account tables reference `neon_auth."user"(id)`. `wmw_private.account_roles` has no client
-write path; missing role rows mean ordinary `user`.
+The account authorization tables reference `neon_auth."user"(id)`. `wmw_private.account_roles`
+and `wmw_private.account_realtime_devices` have no client write path. Missing role rows mean
+ordinary `user`; missing/revoked Realtime device rows fail the billable voice boundary closed.
 
 ## 3. Neon Managed Better Auth
 
@@ -48,7 +50,9 @@ Production currently uses Google as the only enabled consumer sign-in method:
    `neon_auth_session_verifier`.
 6. The Wake API does not consume that one-time verifier in the browser callback. Instead it seals the
    verifier plus the matching Neon challenge cookie into a short-lived AES-GCM handoff bound to the
-   Android PKCE challenge, then redirects to `wakemyway://auth`.
+   Android PKCE challenge, then redirects to the verified HTTPS App Link
+   `https://wakemyway.vercel.app/auth/mobile`. The sealed handoff is carried in the URL fragment,
+   so a browser fallback request does not transmit it to Vercel or normal access logs.
 7. Android proves possession of the original PKCE verifier to the Wake API. Only then does the Wake
    API exchange Neon's verifier + challenge at `/get-session`, verify the returned user, and return
    the managed Neon `session_token` cookie's `name=value` pair to Android.
@@ -69,12 +73,16 @@ email verification (OTP or link), then set `WMW_EMAIL_PASSWORD_AUTH_ENABLED=true
 
 ## 4. Wake API deployment
 
-Vercel needs three server-side account values:
+Vercel needs the server-side account values below:
 
 - `NEON_AUTH_BASE_URL`: the public Managed Better Auth base URL.
 - `NEON_AUTH_COOKIE_SECRET`: a sensitive random server secret of at least 32 characters, used by
   the official Neon Auth proxy toolkit and as key material for the mobile handoff.
 - `DATABASE_URL`: the server-only Neon PostgreSQL connection.
+- `WMW_REALTIME_TOKEN_SIGNING_KEY`: the server-only HMAC key for short-lived Realtime device
+  credentials.
+- `WMW_ANDROID_APP_LINK_CERT_SHA256`: the production Android signing-certificate SHA-256
+  fingerprint(s), comma-separated when Direct and Play use different certificates.
 
 The database connection and cookie secret are server secrets and must never be copied to Android,
 documentation values, release metadata or logs.
@@ -108,6 +116,12 @@ Google OAuth client configuration stays provider-side in Neon/Google and does no
 compiled into Android. The app contains no Google client secret, Neon management credential or
 database credential.
 
+The Android manifest declares `android:autoVerify="true"` only for
+`https://wakemyway.vercel.app/auth/mobile`. Before release, verify that
+`https://wakemyway.vercel.app/.well-known/assetlinks.json` returns HTTP 200 with the exact
+production package and signing fingerprint(s). The legacy `wakemyway://auth` filter is migration
+fallback only.
+
 The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
 API URLs must be HTTPS. The production configuration is Google-only today; email/password remains
 implemented but hidden and locally blocked unless its explicit build flag is enabled.
@@ -140,8 +154,16 @@ The Android Admin badge is valid only after `GET /api/v1/account/me` returns the
 - Android Google sign-in uses the Neon-supported browser OAuth + session-verifier protocol;
 - the browser callback handoff is short-lived, AES-GCM encrypted and bound to an app-held PKCE
   verifier;
+- the canonical mobile callback is a verified HTTPS Android App Link and the sealed handoff remains
+  fragment-only until Android consumes it;
+- `/.well-known/assetlinks.json` matches the exact production signing certificate(s);
 - the managed Neon session cookie is encrypted with Android Keystore and is sent only to Neon Auth;
-- sign-out invalidates the provider session and clears local session material;
+- Direct Realtime provisioning writes an active private device-authorization row and returns only a
+  14-day scoped bearer;
+- every OpenAI Realtime client-secret mint requires the matching server row to remain active,
+  unexpired and non-revoked;
+- sign-out attempts server-side Realtime revocation before invalidating the provider session and
+  always clears local session material;
 - ordinary accounts return `user`;
 - founder account returns `admin`;
 - account/network failure never changes, cancels or blocks an already-local alarm;
