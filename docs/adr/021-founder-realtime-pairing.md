@@ -1,8 +1,12 @@
 # ADR 021: Founder Realtime uses scoped installation pairing
 
-**Status:** Accepted  
+**Status:** Superseded on 2026-09-30 by ADR 028  
 **Date:** 2026-09-11  
 **Amended:** 2026-09-27
+
+> **2026-09-30:** This explicit access-code flow is retained only as historical/debug context. Direct
+> consumer builds now use invisible account-authenticated provisioning from ADR 028 and package no
+> private-access setup page.
 
 ## Context
 
