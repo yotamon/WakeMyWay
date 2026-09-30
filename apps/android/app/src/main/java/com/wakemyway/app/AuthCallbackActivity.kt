@@ -18,7 +18,7 @@ class AuthCallbackActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val handoff = intent?.data?.getQueryParameter("handoff")
+        val handoff = intent?.data?.let(::handoffFromUri)
         lifecycleScope.launch {
             WakeAccountManager.get(applicationContext).completeGoogleSignIn(handoff)
             startActivity(
@@ -28,5 +28,13 @@ class AuthCallbackActivity : ComponentActivity() {
             )
             finish()
         }
+    }
+
+    private fun handoffFromUri(uri: android.net.Uri): String? {
+        uri.getQueryParameter("handoff")?.takeIf { it.isNotBlank() }?.let { return it }
+        val fragment = uri.fragment?.takeIf { it.isNotBlank() } ?: return null
+        return android.net.Uri.parse("https://localhost/?$fragment")
+            .getQueryParameter("handoff")
+            ?.takeIf { it.isNotBlank() }
     }
 }
