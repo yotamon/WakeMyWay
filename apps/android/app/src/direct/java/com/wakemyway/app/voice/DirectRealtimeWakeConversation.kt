@@ -264,7 +264,17 @@ class DirectRealtimeWakeConversation(
             }
 
             "input_audio_buffer.committed" -> {
-                if (!inputEnabled || !turnCommitGate.onCommitted()) return
+                if (!inputEnabled) return
+                if (!turnCommitGate.onCommitted()) {
+                    // speech_started cancelled the listening timeout already. Never leave a
+                    // too-short/noisy commit in a permanent listening state.
+                    mainHandler.post {
+                        if (isCurrent(current) && inputEnabled) {
+                            listener.onUserTurnObserved(coherent = false)
+                        }
+                    }
+                    return
+                }
                 val itemId = event.optString("item_id").trim()
                 if (itemId.isBlank() || !ITEM_ID_PATTERN.matches(itemId)) {
                     mainHandler.post {
@@ -377,7 +387,8 @@ class DirectRealtimeWakeConversation(
      * Wake Runtime remains the sole owner of behavioral state transitions and completion.
      */
     private fun handleTurnQualityClassification(response: JSONObject?, current: Long): Boolean {
-        val metadata = response?.optJSONObject("metadata") ?: return false
+        val completedResponse = response ?: return false
+        val metadata = completedResponse.optJSONObject("metadata") ?: return false
         if (metadata.optString("topic") != TURN_CLASSIFICATION_TOPIC) return false
 
         val itemId = metadata.optString("wake_item_id").trim()
@@ -386,9 +397,9 @@ class DirectRealtimeWakeConversation(
         mainHandler.removeCallbacks(turnClassificationTimeout)
         pendingTurnClassificationItemId = null
 
-        val status = response.optString("status")
+        val status = completedResponse.optString("status")
         val coherent = if (status == "completed") {
-            RealtimeTurnQualityDecision.fromModelOutput(extractResponseText(response))
+            RealtimeTurnQualityDecision.fromModelOutput(extractResponseText(completedResponse))
         } else {
             false
         }
@@ -758,7 +769,7 @@ Do not judge whether the requested physical action was completed. Do not infer w
         const val MAX_SDP_BYTES = 512 * 1024
         const val MAX_EVENT_BYTES = 64 * 1024
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
-        const val MIN_USER_TURN_MS = 320L
+        const val MIN_USER_TURN_MS = 160L
         const val TURN_CLASSIFICATION_TIMEOUT_MS = 2_500L
         const val TURN_CLASSIFICATION_MAX_OUTPUT_TOKENS = 16
         const val MAX_ASSISTANT_TURNS = 8
