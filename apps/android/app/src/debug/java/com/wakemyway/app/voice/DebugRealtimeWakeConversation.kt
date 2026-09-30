@@ -511,8 +511,8 @@ class DebugRealtimeWakeConversation(
             append("\nCurrent Wake Runtime directive: ")
             append(
                 when (intent) {
-                    SpeechIntent.InitialWake -> "Open naturally with a brief greeting."
-                    SpeechIntent.AskToSitUp -> "Ask them to sit upright and answer out loud when they are sitting."
+                    SpeechIntent.InitialWake -> "Use a quiet brief greeting, ask them to sit upright, and ask for one short spoken confirmation when there. Do not add another task."
+                    SpeechIntent.AskToSitUp -> "Ask only for sitting upright and one short spoken confirmation. Keep cognitive load near zero."
                     SpeechIntent.AskToMove -> "Ask for feet on the floor or an equivalent safe shift out of sleep posture, then one short spoken confirmation."
                     SpeechIntent.ActivateUpperBody -> "Ask for one brief seated upper-body activation such as two slow shoulder rolls, then one short spoken confirmation."
                     SpeechIntent.StandIfSafe -> "Ask them to stand beside the bed only if safe and normal for them; otherwise use a seated upper-body alternative. Ask for one short confirmation."
