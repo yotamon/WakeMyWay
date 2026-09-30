@@ -6,43 +6,51 @@ import {
   requireAndroidAppLinksConfig,
 } from '../src/public/android-app-links';
 
+const DIRECT_FINGERPRINT =
+  '3F:32:D8:46:80:FD:22:AA:BC:F1:50:8A:A3:C6:51:9F:FC:F3:4E:B9:FB:21:C0:C0:B4:C8:86:A4:DC:F0:49:BC';
+
 describe('Android App Links association', () => {
-  it('fails closed when production signing fingerprints are absent', async () => {
-    expect(() => requireAndroidAppLinksConfig({})).toThrow();
+  it('publishes the pinned Direct production signing identity without external configuration', async () => {
+    const config = requireAndroidAppLinksConfig({});
+    expect(config.fingerprints).toEqual([DIRECT_FINGERPRINT]);
+
     const response = androidAssetLinksResponse({});
-    expect(response.status).toBe(503);
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
   });
 
-  it('normalizes and publishes one or more SHA-256 signing fingerprints', async () => {
-    const first = 'a'.repeat(64);
-    const second = Array.from({ length: 32 }, (_, index) =>
+  it('adds valid future signing fingerprints and rejects malformed configuration', async () => {
+    const extra = Array.from({ length: 32 }, (_, index) =>
       index.toString(16).padStart(2, '0'),
     ).join(':');
 
     const config = requireAndroidAppLinksConfig({
-      WMW_ANDROID_APP_LINK_CERT_SHA256: `${first},${second}`,
+      WMW_ANDROID_APP_LINK_CERT_SHA256: extra,
     });
-    expect(config.fingerprints).toHaveLength(2);
-    expect(config.fingerprints[0]).toMatch(/^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}$/);
+    expect(config.fingerprints).toEqual([DIRECT_FINGERPRINT, extra.toUpperCase()]);
 
-    const document = androidAssetLinksDocument(config) as Array<Record<string, unknown>>;
-    expect(document).toEqual([
+    expect(() =>
+      requireAndroidAppLinksConfig({ WMW_ANDROID_APP_LINK_CERT_SHA256: 'not-a-sha256' }),
+    ).toThrow();
+
+    const invalid = androidAssetLinksResponse({
+      WMW_ANDROID_APP_LINK_CERT_SHA256: 'not-a-sha256',
+    });
+    expect(invalid.status).toBe(503);
+    expect(invalid.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('publishes the standard package association document', () => {
+    const config = requireAndroidAppLinksConfig({});
+    expect(androidAssetLinksDocument(config)).toEqual([
       {
         relation: ['delegate_permission/common.handle_all_urls'],
         target: {
           namespace: 'android_app',
           package_name: 'com.wakemyway.app',
-          sha256_cert_fingerprints: config.fingerprints,
+          sha256_cert_fingerprints: [DIRECT_FINGERPRINT],
         },
       },
     ]);
-
-    const response = androidAssetLinksResponse({
-      WMW_ANDROID_APP_LINK_CERT_SHA256: first,
-    });
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('application/json');
-    await expect(response.json()).resolves.toEqual(expect.any(Array));
   });
 });
