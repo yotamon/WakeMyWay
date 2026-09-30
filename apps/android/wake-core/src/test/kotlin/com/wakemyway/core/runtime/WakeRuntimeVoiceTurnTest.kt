@@ -102,7 +102,7 @@ class WakeRuntimeVoiceTurnTest {
             snapshot,
             WakeInput.MotionObserved(
                 id("movement"),
-                MotionEvidenceKind.DEVICE_PICKUP,
+                MotionEvidenceKind.SUSTAINED_MOVEMENT,
             ),
             conversationalPolicy,
         ).snapshot
@@ -150,6 +150,42 @@ class WakeRuntimeVoiceTurnTest {
         assertEquals(0, snapshot.activationEvidence.devicePickups)
         assertEquals(0, snapshot.activationEvidence.orientationChanges)
         assertEquals(0, snapshot.activationEvidence.sustainedMovements)
+    }
+
+    @Test
+    fun `device pickup alone does not unlock standing`() {
+        val conversationalPolicy = WakePolicy(activationThreshold = 20)
+        var snapshot = runtime.initial(
+            sessionId = WakeSessionId("pickup-not-standing"),
+            policy = conversationalPolicy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+
+        repeat(2) { index ->
+            snapshot = runtime.reduce(
+                snapshot,
+                WakeInput.VoiceResponseObserved(id("reply-$index"), coherent = true),
+                conversationalPolicy,
+            ).snapshot
+        }
+        snapshot = runtime.reduce(
+            snapshot,
+            WakeInput.MotionObserved(id("pickup"), MotionEvidenceKind.DEVICE_PICKUP),
+            conversationalPolicy,
+        ).snapshot
+
+        val third = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("reply-2"), coherent = true),
+            conversationalPolicy,
+        )
+
+        assertFalse(WakeDirective.Speak(SpeechIntent.StandIfSafe) in third.directives)
+        assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in third.directives)
     }
 
     @Test
