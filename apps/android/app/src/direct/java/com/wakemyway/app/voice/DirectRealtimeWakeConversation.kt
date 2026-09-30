@@ -5,18 +5,19 @@ import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.wakemyway.app.network.WakeHttpClient
 import com.wakemyway.app.product.account.WakeAccountManager
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import org.webrtc.AudioSource
@@ -43,9 +44,7 @@ class DirectRealtimeWakeConversation(
     private val credentialStore = RealtimeAccountCredentialStore(appContext)
     private val provisioningClient = AccountRealtimeProvisioningClient()
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val networkExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "wmw-account-realtime").apply { isDaemon = true }
-    }
+    private val networkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val generation = AtomicLong(0L)
     private val readyState = AtomicBoolean(false)
     private val connectingState = AtomicBoolean(false)
@@ -89,7 +88,7 @@ class DirectRealtimeWakeConversation(
         disconnectResources(resetConnecting = false)
         val current = generation.incrementAndGet()
         Log.i(LOG_TAG, "connect generation=$current")
-        networkExecutor.execute {
+        networkScope.launch {
             runCatching { requestBrokerSecretWithAccount() }
                 .onSuccess { secret ->
                     Log.i(LOG_TAG, "broker-ready generation=$current")
@@ -138,7 +137,7 @@ class DirectRealtimeWakeConversation(
         closed = true
         generation.incrementAndGet()
         disconnectResources()
-        networkExecutor.shutdownNow()
+        networkScope.cancel()
     }
 
     private fun startPeerConnection(secret: BrokerSecret, current: Long) {
@@ -192,7 +191,7 @@ class DirectRealtimeWakeConversation(
         secret: BrokerSecret,
         current: Long,
     ) {
-        networkExecutor.execute {
+        networkScope.launch {
             runCatching { exchangeSdp(secret, offer.description) }
                 .onSuccess { answer ->
                     mainHandler.post {
@@ -515,20 +514,20 @@ class DirectRealtimeWakeConversation(
         }
     }
 
-    private fun requestBrokerSecretWithAccount(): BrokerSecret {
+    private suspend fun requestBrokerSecretWithAccount(): BrokerSecret {
         val credential = credentialStore.load() ?: provisionDeviceCredential()
         return try {
             requestBrokerSecret(credential.deviceToken)
         } catch (_: BrokerCredentialRejected) {
-            // Account-authorized credentials may expire or be rotated. Clear and re-provision once;
-            // any further failure degrades immediately to the local alarm-only path.
+            // Account-authorized credentials may expire, be rotated, or be revoked server-side.
+            // Clear and re-provision once; any remaining failure degrades to the local alarm.
             credentialStore.clear()
             requestBrokerSecret(provisionDeviceCredential().deviceToken)
         }
     }
 
-    private fun provisionDeviceCredential(): RealtimeDeviceCredential {
-        val accessToken = runBlocking { accountManager.currentAccessTokenForRealtime() }
+    private suspend fun provisionDeviceCredential(): RealtimeDeviceCredential {
+        val accessToken = accountManager.currentAccessTokenForRealtime()
             ?: error("WakeMyWay account session is unavailable")
         val credential = provisioningClient.provision(
             accessToken = accessToken,
@@ -539,69 +538,52 @@ class DirectRealtimeWakeConversation(
         return credential
     }
 
-    private fun requestBrokerSecret(deviceToken: String): BrokerSecret {
-        val connection = (URL(AccountRealtimeProvisioningClient.TOKEN_URL).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = NETWORK_TIMEOUT_MS
-            readTimeout = NETWORK_TIMEOUT_MS
-            useCaches = false
-            doInput = true
-            setRequestProperty("Authorization", "Bearer $deviceToken")
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Length", "0")
-        }
-        try {
-            val status = connection.responseCode
-            if (status == 401 || status == 403) throw BrokerCredentialRejected()
-            if (status !in 200..299) error("Realtime credential request failed")
-            val json = JSONObject(readBounded(connection.inputStream, MAX_BROKER_RESPONSE_BYTES))
-            check(json.optString("candidate") == "direct-openai")
-            check(json.optString("connectionMode") == "webrtc-ephemeral")
-            check(json.optString("configurationId") == EXPECTED_CONFIGURATION_ID)
-            check(json.optString("privacyEligibility") == EXPECTED_PRIVACY_CLASSIFICATION)
-            val token = json.getString("token").trim()
-            val callsUrl = json.getString("realtimeCallsUrl").trim()
-            val voice = json.getString("voice").trim()
-            check(
-                token.isNotBlank() &&
-                    voice.isNotBlank() &&
-                    callsUrl == OPENAI_REALTIME_CALLS_URL,
-            )
-            return BrokerSecret(token, callsUrl, voice)
-        } finally {
-            connection.disconnect()
-        }
+    private suspend fun requestBrokerSecret(deviceToken: String): BrokerSecret {
+        val response = WakeHttpClient.execute(
+            Request.Builder()
+                .url(AccountRealtimeProvisioningClient.TOKEN_URL)
+                .post(EMPTY_REQUEST_BODY)
+                .header("Authorization", "Bearer $deviceToken")
+                .header("Accept", "application/json")
+                .build(),
+            MAX_BROKER_RESPONSE_BYTES,
+        )
+        if (response.status == 401 || response.status == 403) throw BrokerCredentialRejected()
+        if (response.status !in 200..299) error("Realtime credential request failed")
+
+        val json = JSONObject(response.body)
+        check(json.optString("candidate") == "direct-openai")
+        check(json.optString("connectionMode") == "webrtc-ephemeral")
+        check(json.optString("configurationId") == EXPECTED_CONFIGURATION_ID)
+        check(json.optString("privacyEligibility") == EXPECTED_PRIVACY_CLASSIFICATION)
+        val token = json.getString("token").trim()
+        val callsUrl = json.getString("realtimeCallsUrl").trim()
+        val voice = json.getString("voice").trim()
+        check(
+            token.isNotBlank() &&
+                voice.isNotBlank() &&
+                callsUrl == OPENAI_REALTIME_CALLS_URL,
+        )
+        return BrokerSecret(token, callsUrl, voice)
     }
 
-    private fun exchangeSdp(secret: BrokerSecret, offerSdp: String): String {
+    private suspend fun exchangeSdp(secret: BrokerSecret, offerSdp: String): String {
         check(offerSdp.isNotBlank() && offerSdp.length <= MAX_SDP_BYTES)
-        val connection = (URL(secret.callsUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = NETWORK_TIMEOUT_MS
-            readTimeout = NETWORK_TIMEOUT_MS
-            useCaches = false
-            doInput = true
-            doOutput = true
-            setRequestProperty("Authorization", "Bearer ${secret.token}")
-            setRequestProperty("Content-Type", "application/sdp")
-            setRequestProperty("Accept", "application/sdp")
+        val response = WakeHttpClient.execute(
+            Request.Builder()
+                .url(secret.callsUrl)
+                .post(offerSdp.toRequestBody(WakeHttpClient.sdpMediaType))
+                .header("Authorization", "Bearer ${secret.token}")
+                .header("Accept", "application/sdp")
+                .build(),
+            MAX_SDP_BYTES,
+        )
+        if (response.status !in 200..299) {
+            Log.w(LOG_TAG, "sdp-exchange-rejected status=${response.status}")
+            error("Realtime SDP exchange failed")
         }
-        try {
-            connection.outputStream.use {
-                it.write(offerSdp.toByteArray(StandardCharsets.UTF_8))
-            }
-            val status = connection.responseCode
-            if (status !in 200..299) {
-                Log.w(LOG_TAG, "sdp-exchange-rejected status=$status")
-                error("Realtime SDP exchange failed")
-            }
-            Log.i(LOG_TAG, "sdp-exchange-accepted")
-            return readBounded(connection.inputStream, MAX_SDP_BYTES).also {
-                check(it.isNotBlank())
-            }
-        } finally {
-            connection.disconnect()
-        }
+        Log.i(LOG_TAG, "sdp-exchange-accepted")
+        return response.body.also { check(it.isNotBlank()) }
     }
 
     private fun configureWakeAudioRoute() {
@@ -653,20 +635,6 @@ class DirectRealtimeWakeConversation(
         restoreAudioRoute()
     }
 
-    private fun readBounded(stream: InputStream, maxBytes: Int): String = stream.use { input ->
-        val output = ByteArrayOutputStream(minOf(maxBytes, 16 * 1024))
-        val buffer = ByteArray(8 * 1024)
-        var total = 0
-        while (true) {
-            val count = input.read(buffer)
-            if (count == -1) break
-            total += count
-            check(total <= maxBytes)
-            output.write(buffer, 0, count)
-        }
-        String(output.toByteArray(), StandardCharsets.UTF_8)
-    }
-
     /**
      * A failure belongs to the connection generation that observed it. Invalidating that generation
      * before resource teardown prevents late callbacks from an old peer/request from failing a newer
@@ -692,9 +660,8 @@ class DirectRealtimeWakeConversation(
     }
 
     private companion object {
-        const val NETWORK_TIMEOUT_MS = 12_000
-        const val MAX_BROKER_RESPONSE_BYTES = 32 * 1024
-        const val MAX_SDP_BYTES = 512 * 1024
+        const val MAX_BROKER_RESPONSE_BYTES = 32L * 1024
+        const val MAX_SDP_BYTES = 512L * 1024
         const val MAX_EVENT_BYTES = 64 * 1024
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
         const val MIN_USER_TURN_MS = 160L
@@ -713,6 +680,7 @@ class DirectRealtimeWakeConversation(
         const val TURN_CLASSIFICATION_TOPIC = "wake-turn-quality"
         val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
         val ITEM_ID_PATTERN = Regex("^[A-Za-z0-9._:-]{1,160}$")
+        val EMPTY_REQUEST_BODY = ByteArray(0).toRequestBody(null)
 
         @Volatile
         var webRtcInitialized = false

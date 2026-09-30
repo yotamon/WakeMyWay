@@ -393,6 +393,26 @@ jobs:
             exit 1
           fi
 
+      - name: Verify production Android App Link association
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSOCIATION_URL="https://wakemyway.vercel.app/.well-known/assetlinks.json"
+          curl --fail --location --silent --show-error "$ASSOCIATION_URL" -o "$RUNNER_TEMP/assetlinks.json"
+
+          EXPECTED_CERT="$(echo "$WMW_DIRECT_CERT_SHA256" | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')"
+          jq -e --arg package "com.wakemyway.app" --arg cert "$EXPECTED_CERT" '
+            any(.[];
+              ((.relation | index("delegate_permission/common.handle_all_urls")) != null)
+              and .target.namespace == "android_app"
+              and .target.package_name == $package
+              and ((.target.sha256_cert_fingerprints | index($cert)) != null)
+            )
+          ' "$RUNNER_TEMP/assetlinks.json" >/dev/null || {
+            echo "::error::Production Android App Link association does not contain the Direct release signing certificate."
+            exit 1
+          }
+
       - name: Generate update manifest and release metadata
         shell: bash
         env:

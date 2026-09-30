@@ -159,8 +159,11 @@ export async function handleMobileGoogleComplete(request: Request): Promise<Resp
       exp: Date.now() + HANDOFF_TTL_MS,
     });
 
-    const appUrl = new URL('wakemyway://auth');
-    appUrl.searchParams.set('handoff', handoff);
+    // Prefer a verified HTTPS Android App Link. Keep the encrypted handoff in the fragment so it is
+    // never sent in the HTTP request or server access logs if the browser fallback page is reached.
+    // That page can bridge older installed builds back to the legacy custom scheme during rollout.
+    const appUrl = new URL('/auth/mobile', url.origin);
+    appUrl.hash = new URLSearchParams({ handoff }).toString();
     return redirectWithCookies(appUrl.toString());
   } catch (error) {
     return browserErrorResponse(error, id, 'account.mobile-google-complete');

@@ -99,9 +99,13 @@ describe('mobile Neon OAuth handoff', () => {
 
     expect(response.status).toBe(302);
     const location = response.headers.get('location');
-    expect(location).toMatch(/^wakemyway:\/\/auth\?handoff=/);
+    expect(location).toBeTruthy();
+    const callback = new URL(location!);
+    expect(callback.origin).toBe('https://wakemyway.vercel.app');
+    expect(callback.pathname).toBe('/auth/mobile');
+    expect(callback.search).toBe('');
 
-    const handoff = new URL(location!).searchParams.get('handoff');
+    const handoff = new URLSearchParams(callback.hash.slice(1)).get('handoff');
     expect(handoff).toBeTruthy();
     expect(openMobileHandoff(handoff!)).toMatchObject({
       v: 2,
