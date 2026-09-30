@@ -81,8 +81,9 @@ Vercel needs the server-side account values below:
 - `DATABASE_URL`: the server-only Neon PostgreSQL connection.
 - `WMW_REALTIME_TOKEN_SIGNING_KEY`: the server-only HMAC key for short-lived Realtime device
   credentials.
-- `WMW_ANDROID_APP_LINK_CERT_SHA256`: the production Android signing-certificate SHA-256
-  fingerprint(s), comma-separated when Direct and Play use different certificates.
+- `WMW_ANDROID_APP_LINK_CERT_SHA256`: optional additional Android signing-certificate SHA-256
+  fingerprint(s), such as Google Play App Signing. The Direct production certificate is pinned in
+  code and the release workflow; malformed configured additions fail closed.
 
 The database connection and cookie secret are server secrets and must never be copied to Android,
 documentation values, release metadata or logs.
@@ -119,7 +120,8 @@ database credential.
 The Android manifest declares `android:autoVerify="true"` only for
 `https://wakemyway.vercel.app/auth/mobile`. Before release, verify that
 `https://wakemyway.vercel.app/.well-known/assetlinks.json` returns HTTP 200 with the exact
-production package and signing fingerprint(s). The legacy `wakemyway://auth` filter is migration
+production package and Direct signing fingerprint; add the Play App Signing fingerprint before a
+Play-distributed build relies on the same verified callback. The legacy `wakemyway://auth` filter is migration
 fallback only.
 
 The official release workflow fails closed when account configuration is partial. Neon Auth and Wake
