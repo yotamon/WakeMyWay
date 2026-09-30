@@ -6,6 +6,7 @@ const OPENAI_CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_sec
 export const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';
 export const DIRECT_OPENAI_CONFIGURATION_ID = 'direct-openai:webrtc-ephemeral-v1';
 export const FOUNDER_WAKE_CONFIGURATION_ID = 'direct-openai:webrtc-founder-wake-v1';
+export const ACCOUNT_WAKE_CONFIGURATION_ID = 'direct-openai:webrtc-account-wake-v1';
 
 const booleanStringSchema = z.preprocess(
   value => (typeof value === 'string' ? value.trim() : value),
@@ -57,6 +58,11 @@ export interface DirectOpenAiRealtimeClientSecret extends RealtimeClientSecretBa
 export interface FounderWakeRealtimeClientSecret extends RealtimeClientSecretBase {
   configurationId: typeof FOUNDER_WAKE_CONFIGURATION_ID;
   privacyEligibility: 'founder-consented-default-api-retention';
+}
+
+export interface AccountWakeRealtimeClientSecret extends RealtimeClientSecretBase {
+  configurationId: typeof ACCOUNT_WAKE_CONFIGURATION_ID;
+  privacyEligibility: 'authenticated-account-default-api-retention';
 }
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -151,6 +157,33 @@ export async function createFounderWakeRealtimeClientSecret(options: {
     privacyEligibility: 'founder-consented-default-api-retention',
   };
 }
+
+/**
+ * Account-authenticated consumer Realtime credential.
+ *
+ * The account JWT is verified by WakeMyWay before this function is reached. The current founder
+ * dogfood gate remains the temporary operational kill switch while the provider/privacy rollout is
+ * still limited to Direct builds; no founder pairing secret is involved in this path.
+ */
+export async function createAccountWakeRealtimeClientSecret(options: {
+  environment?: NodeJS.ProcessEnv;
+  fetchImpl?: FetchLike;
+  safetyIdentifier: string;
+}): Promise<AccountWakeRealtimeClientSecret> {
+  const config = requireFounderWakeRealtimeDogfood(
+    parseDirectOpenAiRealtimeConfig(options.environment ?? process.env),
+  );
+  const token = await mintRealtimeClientSecret(
+    { ...config, safetyIdentifier: options.safetyIdentifier },
+    options.fetchImpl ?? fetch,
+  );
+
+  return {
+    ...token,
+    configurationId: ACCOUNT_WAKE_CONFIGURATION_ID,
+    privacyEligibility: 'authenticated-account-default-api-retention',
+  };
+
 
 function requireRealtimeCredentials(
   config: DirectOpenAiRealtimeConfig,
