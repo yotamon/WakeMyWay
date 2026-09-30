@@ -115,10 +115,14 @@ class WakeRuntime {
                             coherentVoiceResponses = remembered.activationEvidence.coherentVoiceResponses + 1,
                         ),
                     )
-                    val nextSpeech = if (wasAlreadyActivating) {
-                        SpeechIntent.KeepEngaging
-                    } else {
+                    val nextSpeech = if (!wasAlreadyActivating) {
                         SpeechIntent.AskToMove
+                    } else {
+                        when (next.activationEvidence.coherentVoiceResponses) {
+                            2 -> SpeechIntent.ActivateUpperBody
+                            3 -> SpeechIntent.StandIfSafe
+                            else -> SpeechIntent.KeepEngaging
+                        }
                     }
                     advanceOr(
                         next,
