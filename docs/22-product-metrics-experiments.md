@@ -152,6 +152,59 @@ Measure outcome + annoyance + agency, not preference alone.
 
 During founder/trusted dogfood, observe whether users keep or remove a later conventional safety alarm. The goal is not to maximize removal; it is to understand when trust is earned.
 
+## Commercial outcome metrics
+
+Monetization is downstream of product outcome. Do not report conversion without the wake-quality context that produced it.
+
+The canonical commercial model lives in [`24-monetization.md`](24-monetization.md).
+
+Track the following funnel separately:
+
+~~~text
+install
+→ first alarm configured
+→ first intended wake
+→ qualified Premium Preview
+→ Preview #3 completed
+→ Plus paywall viewed
+→ trial started
+→ paid
+→ first renewal
+~~~
+
+Commercial metrics:
+
+| Metric | Why it matters |
+|---|---|
+| Preview #1 → Preview #3 completion | whether users experience enough premium value to make a purchase decision |
+| Preview completion → trial start | package/value proposition clarity |
+| Trial → paid | whether demonstrated value survives the payment decision |
+| Annual vs monthly mix | cash flow, churn exposure and contribution model |
+| First renewal | whether Plus is recurring value rather than novelty |
+| Refund rate | expectation/value mismatch signal |
+| Involuntary billing loss | avoidable subscription revenue leakage |
+| Provider cost / live wake | direct variable-cost control |
+| Provider cost / Confirmed Wake Success | whether AI spend produces the product outcome |
+| Variable cost / Plus payer / month | unit-economics guardrail |
+| Developer net revenue / payer | actual store settlement basis |
+| Contribution / payer | economic value before fixed costs/acquisition |
+| Contribution margin | whether growth is economically safe |
+| CAC / payback / LTV:CAC | only after paid acquisition begins |
+
+Never optimize Preview/paywall conversion by weakening Free, increasing morning pressure, or exaggerating personalized findings.
+
+### Initial commercial interpretation bands
+
+Until WakeMyWay has enough volume for its own stable benchmarks, use these as investigation bands rather than launch claims:
+
+- Google Play D35 download → paid materially below ~1% means the top-of-funnel/package remains unproven;
+- trial → paid around 30%+ is a credible early signal, while materially below ~20% warrants product/package investigation before discounting;
+- annual share of roughly 60–80% is the working merchandising target;
+- average provider + variable cloud cost above €1.25 per Plus payer/month requires an efficiency/provider review before scale;
+- blended contribution margin below 65% blocks meaningful paid-acquisition scaling.
+
+The first qualified beta cohort should replace generic benchmarks with WakeMyWay-specific distributions.
+
 ## Experiment guardrails
 
 - Never intentionally reduce critical alarm-delivery or active-execution reliability for an experiment.
