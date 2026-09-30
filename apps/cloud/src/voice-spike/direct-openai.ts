@@ -183,7 +183,7 @@ export async function createAccountWakeRealtimeClientSecret(options: {
     configurationId: ACCOUNT_WAKE_CONFIGURATION_ID,
     privacyEligibility: 'authenticated-account-default-api-retention',
   };
-
+}
 
 function requireRealtimeCredentials(
   config: DirectOpenAiRealtimeConfig,
