@@ -155,6 +155,32 @@ The weighted scalar is available only through runtime diagnostics for replay/tun
 
 Silence, timer expiry, escalation level, speech completion, and speech failure are **not** Activation Evidence. They may cause a stronger intervention, but they cannot move a session into Orienting on their own.
 
+## Conversational physiological progression
+
+When two-way voice is available, Wake Runtime owns the **order of wake interventions** as well as the activation gate. Realtime does not decide what physical step comes next.
+
+The current dogfood sequence is:
+
+```text
+InitialWake       -> sit upright + short reply
+1st coherent turn -> feet down / safe equivalent
+2nd coherent turn -> brief seated upper-body activation
+3rd coherent turn -> stand if safe, with a seated alternative
+later turns       -> one small reachable environmental activation
+```
+
+These are intervention intents, not assertions that the action happened. A coherent spoken reply contributes bounded Activation Evidence, while motion remains an independent evidence channel. Wake Runtime may enter Orienting whenever its configured activation gate is satisfied; it does not require completing every conversational step.
+
+If a spoken turn is unusable or silence expires, re-engagement may become more direct but must not earn activation evidence or ask the model to invent a more aggressive physical task.
+
+This keeps a useful separation:
+
+```text
+WakeRuntime: what step / whether enough evidence exists
+AI renderer: natural wording for that approved step
+Sensors/turn gate: typed observations only
+```
+
 ## Snooze transaction
 
 Snooze uses a durable-effect handshake:
