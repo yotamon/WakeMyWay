@@ -351,7 +351,7 @@ After users have experienced multiple mornings:
 - ask what they would do if WakeMyWay disappeared;
 - identify the alternative they would return to;
 - test whether they value the outcome or only novelty;
-- present a real Free/Pro package and price;
+- present the real Free + WakeMyWay Plus package and price;
 - observe trial/start-checkout behavior when available;
 - test additional price hypotheses only when evidence justifies it.
 
@@ -655,7 +655,7 @@ Recommended order:
 
 Low-risk Gate 4 preparation such as drafting store copy, legal inventory, support taxonomy and Play Console setup may happen before Gate 3 ends.
 
-Do **not** lock launch price, manufacture Pro-only features or optimize conversion before there is evidence that target users value the outcome.
+Do **not** lock launch price, manufacture arbitrary Plus-only features or optimize conversion before there is evidence that target users value the outcome.
 
 # PR acceptance during the freeze
 
