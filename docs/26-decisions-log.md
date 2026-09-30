@@ -485,13 +485,13 @@ Consumer wake speech is now intentionally binary in production: use the approved
 
 WakeMyWay does not treat Realtime conversation as the primary intervention or optimize for chat length. Early conversation exists to conduct a low-cognitive-load physical transition through sleep inertia.
 
-The default dogfood progression is intentionally bounded: sit upright → feet down/safe equivalent → brief seated upper-body activation → stand only if safe and only after independent motion evidence → small reachable environmental activation.
+The default dogfood progression is intentionally bounded: sit upright → feet down/safe equivalent → brief seated upper-body activation → stand only if safe and only after orientation-change or sustained-movement evidence → small reachable environmental activation.
 
 ## Wake Runtime owns progression
 
 The language model does not choose the next physical step. Wake Runtime emits a typed speech intent and Realtime may only render that intent naturally.
 
-A usable spoken turn remains engagement evidence, not proof that the requested physical action occurred. Verbal engagement alone cannot escalate the protocol to standing.
+A usable spoken turn remains engagement evidence, not proof that the requested physical action occurred. Verbal engagement or device pickup alone cannot escalate the protocol to standing.
 
 ## Safety beats forced compliance
 
