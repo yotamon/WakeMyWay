@@ -6,7 +6,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 5,
+        version = 6,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -182,14 +182,14 @@ object AlfredCharacter {
     )
 
     private val MOTIVATIONAL_INITIAL_WAKE = listOf(
-        "Morning. You've got this. Sit up, then tell me you're there.",
+        "Morning. The bed has made its case. Sit up, then tell me you're there.",
         "Good morning. One clear first move: sit up, then answer me.",
         "Morning. Let's start strong and simple. Sit up, then tell me.",
     )
 
     private val MOTIVATIONAL_ASK_TO_SIT_UP = listOf(
         "Good start. Sit up, then tell me when you're there.",
-        "You've got this. Sit up, then give me a quick answer.",
+        "No ceremony required. Sit up, then give me a quick answer.",
         "One strong first move: sit up, then tell me you're there.",
     )
 
@@ -201,7 +201,7 @@ object AlfredCharacter {
 
     private val MOTIVATIONAL_KEEP_ENGAGING = listOf(
         "That's it. Keep the momentum. One more clear move, then answer me.",
-        "Good work. One more small action, then tell me you're there.",
+        "That'll do. One more small action, then tell me you're there.",
         "Keep it going. One more deliberate move, then answer me.",
     )
 
@@ -213,7 +213,7 @@ object AlfredCharacter {
         ),
         listOf(
             "Keep going. Feet down, then tell me you're with me.",
-            "You can do this. Get upright, then answer me.",
+            "Let's not negotiate with the mattress. Get upright, then answer me.",
             "Let's keep the start alive. One clear move, then answer.",
         ),
         listOf(
@@ -242,7 +242,7 @@ object AlfredCharacter {
 
     private val MOTIVATIONAL_ORIENTATION = listOf(
         "Good. You're making progress. Take a moment and find the first move.",
-        "Nice work. Get your bearings, then choose what comes first.",
+        "There we are. Get your bearings, then choose what comes first.",
         "Good. Keep that momentum and find the next useful move.",
     )
 
