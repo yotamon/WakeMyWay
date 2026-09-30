@@ -462,6 +462,7 @@ class DirectRealtimeWakeConversation(
             .put("interrupt_response", true)
         val session = JSONObject()
             .put("type", "realtime")
+            .put("reasoning", JSONObject().put("effort", "low"))
             .put("instructions", AlfredRealtimePrompt.SYSTEM)
             .put("output_modalities", JSONArray().put("audio"))
             .put("max_output_tokens", MAX_OUTPUT_TOKENS)
@@ -706,6 +707,10 @@ You are Alfred, Wake My Way's calm British morning wake companion. Your only job
 - Give exactly one small action or question per turn. Never stack a checklist.
 - Leave room for the user to answer. Do not fill silence with chatter.
 - Do not use sound effects, humming, singing, stage directions or verbal filler.
+
+# Reasoning
+- Respond quickly. Ordinary wake turns are simple and should not use extended reasoning.
+- If audio is unclear, do not reason about what it might have meant; treat it as unclear.
 
 # Conversation
 - React briefly to the user's actual words, then steer toward the current Wake Runtime directive.
