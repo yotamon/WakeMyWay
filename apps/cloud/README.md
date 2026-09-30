@@ -70,6 +70,11 @@ Account requests use a short-lived Neon Auth JWT:
 Authorization: Bearer <neon-user-jwt>
 ```
 
+Direct Realtime uses that JWT only for invisible device provisioning. After provisioning, the
+Android app stores a 90-day scoped Realtime device credential encrypted with Android Keystore and
+uses that scoped credential, not the account JWT, to request short-lived OpenAI Realtime client
+secrets at wake time. There is no consumer access code or Realtime setup page.
+
 The Wake API verifies the JWT signature through the project's public JWKS and validates issuer, `authenticated` audience, expiry, and user subject. It does not use a database or Neon management credential for authentication.
 
 Backup rows live in the private `wmw_private` PostgreSQL schema and are accessed only by the Wake API through Kysely. Android does not query Neon database tables directly.
@@ -156,7 +161,7 @@ Create/configure the Vercel project with **Root Directory** `apps/cloud`. Node.j
 
 Runtime configuration depends on enabled capabilities:
 
-- account API: `SUPABASE_URL` and server-only `DATABASE_URL`
+- account API: `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, and server-only `DATABASE_URL`
 - AI Gateway authentication: Vercel OIDC or `AI_GATEWAY_API_KEY`
 - `WMW_INTERNAL_API_KEY` for internal diagnostics/spikes
 - optional model-policy overrides from `.env.example`
@@ -179,6 +184,8 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/v1/account/mobile-google-start` | begin Google OAuth through the official Neon Auth server proxy | PKCE challenge + browser cookies | no Google/Neon token returned to Android |
 | `GET /api/v1/account/mobile-google-complete` | finalize Neon OAuth verifier and prepare app handoff | Neon challenge/session cookies | two-minute encrypted handoff only |
 | `POST /api/v1/account/mobile-google-exchange` | exchange the app handoff for the opaque Neon session token | PKCE verifier | bounded one-device handoff; token then stored encrypted on Android |
+| `POST /api/v1/account/realtime-provision` | invisibly issue a scoped Realtime device credential | Neon user JWT | account-authorized, installation-scoped, encrypted at rest on Android; no access code |
+| `POST /api/v1/account/realtime-token` | mint a short-lived OpenAI Realtime client secret | scoped Realtime device credential | billable voice boundary; pseudonymous safety id; never alarm authority |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Neon user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Neon user JWT | strict bounded schema; consumer intent only |
 | `POST /api/v1/commerce/play-verify` | verify one allowed subscription token with Google Play | public token exchange, disabled by default + edge rate limit before enablement | raw purchase token transient; SHA-256 lifecycle ledger only; normalized response; no card data |
