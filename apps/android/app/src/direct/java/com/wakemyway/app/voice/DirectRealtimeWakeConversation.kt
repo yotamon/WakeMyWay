@@ -2,10 +2,10 @@ package com.wakemyway.app.voice
 
 import android.content.Context
 import android.media.AudioManager
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.wakemyway.app.product.account.WakeAccountManager
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.runtime.SpeechIntent
 import java.io.ByteArrayOutputStream
@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.webrtc.AudioSource
@@ -37,13 +38,11 @@ class DirectRealtimeWakeConversation(
     private val listener: WakeConversationEnrichment.Listener,
 ) : WakeConversationEnrichment {
     private data class BrokerSecret(val token: String, val callsUrl: String, val voice: String)
-    private class BrokerCredentialRejected : Exception()
-
     private val appContext = context.applicationContext
-    private val settings = FounderRealtimeSettings(appContext)
+    private val accountManager = WakeAccountManager.get(appContext)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "wmw-founder-realtime").apply { isDaemon = true }
+        Thread(runnable, "wmw-account-realtime").apply { isDaemon = true }
     }
     private val generation = AtomicLong(0L)
     private val readyState = AtomicBoolean(false)
@@ -80,7 +79,7 @@ class DirectRealtimeWakeConversation(
         val current = generation.incrementAndGet()
         Log.i(LOG_TAG, "connect generation=$current")
         networkExecutor.execute {
-            runCatching { requestBrokerSecretWithPairedCredential() }
+            runCatching { requestBrokerSecretWithAccount() }
                 .onSuccess { secret ->
                     Log.i(LOG_TAG, "broker-ready generation=$current")
                     mainHandler.post {
@@ -148,11 +147,11 @@ class DirectRealtimeWakeConversation(
             peerConnection = peer
             val source = factory.createAudioSource(MediaConstraints())
             audioSource = source
-            val microphone = factory.createAudioTrack("wmw-founder-wake-mic", source).apply {
+            val microphone = factory.createAudioTrack("wmw-account-wake-mic", source).apply {
                 setEnabled(inputEnabled)
             }
             audioTrack = microphone
-            check(peer.addTrack(microphone, listOf("wmw-founder-wake")) != null)
+            check(peer.addTrack(microphone, listOf("wmw-account-wake")) != null)
             val channel = peer.createDataChannel("oai-events", DataChannel.Init())
             dataChannel = channel
             channel.registerObserver(dataChannelObserver(channel, secret, current))
@@ -367,33 +366,26 @@ class DirectRealtimeWakeConversation(
         }
     }
 
-    private fun requestBrokerSecretWithPairedCredential(): BrokerSecret {
-        val config = settings.load() ?: error("Realtime installation is not paired")
-        return try {
-            requestBrokerSecret(config)
-        } catch (error: BrokerCredentialRejected) {
-            // Never mint a silent replacement after server rejection. Clear local trust and let the
-            // wake degrade alarm-only until the founder explicitly pairs this installation again.
-            settings.clear()
-            throw error
-        }
+    private fun requestBrokerSecretWithAccount(): BrokerSecret {
+        val accessToken = runBlocking { accountManager.currentAccessTokenForRealtime() }
+            ?: error("WakeMyWay account session is unavailable")
+        return requestBrokerSecret(accessToken)
     }
 
-    private fun requestBrokerSecret(config: FounderRealtimeConfig): BrokerSecret {
-        val connection = (URL(config.brokerUrl).openConnection() as HttpURLConnection).apply {
+    private fun requestBrokerSecret(accessToken: String): BrokerSecret {
+        val connection = (URL(ACCOUNT_REALTIME_TOKEN_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = NETWORK_TIMEOUT_MS
             readTimeout = NETWORK_TIMEOUT_MS
             useCaches = false
             doInput = true
-            setRequestProperty("Authorization", "Bearer ${config.operatorToken}")
+            setRequestProperty("Authorization", "Bearer $accessToken")
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Content-Length", "0")
         }
         try {
             val status = connection.responseCode
-            if (status == 401 || status == 403) throw BrokerCredentialRejected()
-            if (status !in 200..299) error("Broker request failed")
+            if (status !in 200..299) error("Realtime credential request failed")
             val json = JSONObject(readBounded(connection.inputStream, MAX_BROKER_RESPONSE_BYTES))
             check(json.optString("candidate") == "direct-openai")
             check(json.optString("connectionMode") == "webrtc-ephemeral")
@@ -492,15 +484,6 @@ class DirectRealtimeWakeConversation(
         restoreAudioRoute()
     }
 
-    private fun validateBrokerUrl(raw: String) {
-        val uri = Uri.parse(raw)
-        require(
-            uri.scheme.equals("https", true) &&
-                !uri.host.isNullOrBlank() &&
-                uri.path.orEmpty().endsWith(FounderRealtimeSettings.FOUNDER_WAKE_PATH),
-        )
-    }
-
     private fun readBounded(stream: InputStream, maxBytes: Int): String = stream.use { input ->
         val output = ByteArrayOutputStream(minOf(maxBytes, 16 * 1024))
         val buffer = ByteArray(8 * 1024)
@@ -578,9 +561,10 @@ class DirectRealtimeWakeConversation(
         const val MAX_OUTPUT_TOKENS = 120
         const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
+        const val ACCOUNT_REALTIME_TOKEN_URL = "https://wakemyway.vercel.app/api/v1/account/realtime-token"
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
-        const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-founder-wake-v1"
-        const val EXPECTED_PRIVACY_CLASSIFICATION = "founder-consented-default-api-retention"
+        const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-account-wake-v1"
+        const val EXPECTED_PRIVACY_CLASSIFICATION = "authenticated-account-default-api-retention"
         const val LOG_TAG = "WmwRealtime"
         val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
 
