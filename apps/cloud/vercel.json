@@ -15,6 +15,14 @@
     {
       "source": "/support",
       "destination": "/api/public/support"
+    },
+    {
+      "source": "/.well-known/assetlinks.json",
+      "destination": "/api/public/assetlinks"
+    },
+    {
+      "source": "/auth/mobile",
+      "destination": "/api/public/mobile-auth"
     }
   ]
 }
