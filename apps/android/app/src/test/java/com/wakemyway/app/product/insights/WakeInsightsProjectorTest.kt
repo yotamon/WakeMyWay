@@ -4,6 +4,9 @@ import com.wakemyway.app.product.history.WakeHistoryBehaviorTimingOrigin
 import com.wakemyway.app.product.history.WakeHistoryEntry
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.learning.WakeBehaviorObservation
+import com.wakemyway.core.learning.WakeCalibration
+import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -198,6 +201,39 @@ class WakeInsightsProjectorTest {
     }
 
     @Test
+    fun `intervention rating is requested only for the newest calibrated morning`() {
+        val older = entry(
+            id = "older",
+            scheduledAt = now.minus(Duration.ofDays(1)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.GOT_UP),
+        )
+        val newest = entry(
+            id = "newest",
+            scheduledAt = now.minus(Duration.ofHours(1)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.GOT_UP),
+        )
+
+        val first = WakeInsightsProjector.project(
+            entries = listOf(older, newest),
+            period = WakeInsightsPeriod.ALL,
+            now = now,
+        )
+        assertEquals(WakeOccurrenceId("newest"), first.pendingInterventionRating?.finalOccurrenceId)
+
+        val ratedNewest = newest.copy(interventionRating = WakeInterventionRating.ABOUT_RIGHT)
+        val second = WakeInsightsProjector.project(
+            entries = listOf(older, ratedNewest),
+            period = WakeInsightsPeriod.ALL,
+            now = now,
+        )
+        assertNull(second.pendingInterventionRating)
+    }
+
+    @Test
     fun `local schedule metadata is carried to morning insight`() {
         val local = LocalDateTime.of(2026, 9, 16, 7, 30)
         val primary = entry(
@@ -234,6 +270,8 @@ class WakeInsightsProjectorTest {
         scheduledLocalDateTime: LocalDateTime? = LocalDateTime.of(2026, 9, 16, 7, 30),
         zoneId: ZoneId? = berlin,
         scheduleId: WakeScheduleId = WakeScheduleId("schedule"),
+        calibration: WakeCalibration? = null,
+        interventionRating: WakeInterventionRating? = null,
     ) = WakeHistoryEntry(
         sessionId = WakeSessionId("session-$id"),
         occurrenceId = WakeOccurrenceId(id),
@@ -249,6 +287,8 @@ class WakeInsightsProjectorTest {
         replacementOccurrenceId = replacement?.let(::WakeOccurrenceId),
         behavior = behavior,
         behaviorTimingOrigin = timingOrigin,
+        calibration = calibration,
+        interventionRating = interventionRating,
     )
 
     private fun behavior(

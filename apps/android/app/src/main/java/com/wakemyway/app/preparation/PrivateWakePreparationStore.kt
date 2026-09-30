@@ -43,12 +43,13 @@ class PrivateWakePreparationStore(
     }
 
     fun readContract(): TomorrowContract? = readAtomic(contractFile) { input ->
-        requireHeader(input, CONTRACT_MAGIC)
+        val storageVersion = requireHeader(input, CONTRACT_MAGIC)
         TomorrowContract(
             id = TomorrowContractId(input.readUTF()),
             wakeOccurrenceId = WakeOccurrenceId(input.readUTF()),
             rawText = input.readUTF(),
             firstMove = input.readNullableUtf(),
+            useInVoiceCheckIn = if (storageVersion >= 2) input.readBoolean() else false,
             revision = input.readLong(),
             createdAtEpochMillis = input.readLong(),
             updatedAtEpochMillis = input.readLong(),
@@ -62,6 +63,7 @@ class PrivateWakePreparationStore(
             output.writeUTF(contract.wakeOccurrenceId.value)
             output.writeUTF(contract.rawText)
             output.writeNullableUtf(contract.firstMove)
+            output.writeBoolean(contract.useInVoiceCheckIn)
             output.writeLong(contract.revision)
             output.writeLong(contract.createdAtEpochMillis)
             output.writeLong(contract.updatedAtEpochMillis)
@@ -141,9 +143,13 @@ class PrivateWakePreparationStore(
         }
     }
 
-    private fun requireHeader(input: DataInputStream, expectedMagic: Int) {
+    private fun requireHeader(input: DataInputStream, expectedMagic: Int): Int {
         check(input.readInt() == expectedMagic) { "Unexpected private wake preparation file type" }
-        check(input.readInt() == STORAGE_SCHEMA_VERSION) { "Unsupported private wake preparation storage version" }
+        val version = input.readInt()
+        check(version in 1..STORAGE_SCHEMA_VERSION) {
+            "Unsupported private wake preparation storage version"
+        }
+        return version
     }
 
     private fun writeHeader(output: DataOutputStream, magic: Int) {
@@ -168,7 +174,7 @@ class PrivateWakePreparationStore(
         private const val DIRECTORY_NAME = "wake-preparation"
         private const val CONTRACT_FILE_NAME = "tomorrow-contract-v1.bin"
         private const val PLAN_FILE_NAME = "prepared-wake-plan-v1.bin"
-        private const val STORAGE_SCHEMA_VERSION = 1
+        private const val STORAGE_SCHEMA_VERSION = 2
         private const val CONTRACT_MAGIC = 0x574D5743 // WMWC
         private const val PLAN_MAGIC = 0x574D5750 // WMWP
         private const val MAX_FALLBACK_LINES = 16

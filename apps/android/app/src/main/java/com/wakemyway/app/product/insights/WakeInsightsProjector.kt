@@ -4,6 +4,7 @@ import com.wakemyway.app.product.history.WakeHistoryBehaviorTimingOrigin
 import com.wakemyway.app.product.history.WakeHistoryEntry
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
 import com.wakemyway.core.schedule.WakeScheduleId
@@ -28,6 +29,7 @@ data class WakeMorningInsight(
     val finalOccurrenceId: WakeOccurrenceId,
     val finalReason: WakeHistoryTerminalReason,
     val calibrationOutcome: WakeCalibrationOutcome?,
+    val interventionRating: WakeInterventionRating?,
     val snoozeCount: Int,
     val physicalWakeCount: Int,
 ) {
@@ -60,6 +62,13 @@ data class WakeInsightsSummary(
                     WakeHistoryTerminalReason.COMPLETED,
                     WakeHistoryTerminalReason.STOPPED,
                 )
+        }
+
+    val pendingInterventionRating: WakeMorningInsight?
+        get() = mornings.firstOrNull()?.takeIf {
+            it.calibrationOutcome != null &&
+                it.calibrationOutcome != WakeCalibrationOutcome.SKIPPED &&
+                it.interventionRating == null
         }
 }
 
@@ -100,6 +109,7 @@ object WakeInsightsProjector {
                 finalOccurrenceId = final.occurrenceId,
                 finalReason = final.terminalReason,
                 calibrationOutcome = final.calibration?.outcome,
+                interventionRating = final.interventionRating,
                 snoozeCount = chain.count { it.terminalReason == WakeHistoryTerminalReason.SNOOZED },
                 physicalWakeCount = chain.size,
             )

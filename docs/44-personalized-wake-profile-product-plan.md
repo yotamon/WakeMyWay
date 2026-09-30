@@ -944,17 +944,19 @@ A bad preference file must never make the alarm late, silent, non-stoppable, or 
 
 ---
 
-## Open product questions to resolve before Build
+## First-build decisions — 2026-09-30
 
-1. Should humorPreference be included in onboarding or only Profile settings?
-2. Should default First Move remain onboarding-optional, or wait until first alarm setup?
-3. Does Voice Style remain a visible per-alarm control after Wake Preferences exist, or should its role be simplified?
-4. Which exact pacing dimensions are worth exposing to the resolver in Slice 3 after device dogfood?
-5. What disclosure wording is clearest when a Tomorrow Contract may be used in Realtime?
-6. Should “Too gentle / About right / Too intense” become a new typed outcome signal or map into existing Wake Friction feedback?
-7. After the Character system expands, which preference combinations must be tested against every shipped Character?
+The implementation pass resolved the questions that block the first production slice:
 
-These questions do not block documentation review. They must be resolved before the implementation slice they affect.
+1. **Humor stays out of onboarding.** It remains editable under Wake Preferences so onboarding stays at five high-value decisions.
+2. **First Move stays in the existing profile/alarm/preparation surfaces.** Do not add another onboarding question for data WakeMyWay already supports elsewhere.
+3. **Voice Style remains a per-alarm presentation override for now.** Wake Preferences provide stable user defaults; the resolver gives Minimal Voice Style precedence over a social talkativeness preference.
+4. **Initial personalized pacing is narrow and bounded.** Listen timeout ranges from 9–12 seconds and idle re-engagement from 9–14 seconds; balanced defaults preserve the existing 10/12-second behavior. These are dogfood hypotheses, not physiological claims.
+5. **Tomorrow Contract sharing is per-wake opt-in.** The preparation surface explicitly states that the reason/First Move may be sent to the Realtime provider when enabled and that the data remains absent from Direct-Boot critical state.
+6. **“Too gentle / About right / Too intense” is a separate typed intervention rating.** It is stored with Wake history and does not mutate Wake Policy from one answer.
+7. **Cross-Character preference matrices remain a future Character-expansion gate.** Alfred is the only current production Character path, so no speculative multi-Character matrix is added to this build.
+
+These choices may be revisited from dogfood/beta evidence without collapsing explicit preferences into learned Wake Policy.
 
 ---
 
@@ -969,9 +971,9 @@ These questions do not block documentation review. They must be resolved before 
 - [x] Privacy direction is defined.
 - [x] Initial non-goals are explicit.
 - [x] Success evidence is defined.
-- [ ] Product owner reviews/accepts onboarding question wording.
-- [ ] Product owner resolves the open questions required for Slice 1-3.
-- [ ] 1.0 feature freeze ends or an explicit Build exception is recorded.
+- [x] Product owner accepted the personalized onboarding direction by explicitly requesting implementation.
+- [x] Slice 1-3 blocking questions are resolved in the first-build decisions above.
+- [x] Explicit 1.0 feature-freeze Build exception is recorded in `26-decisions-log.md`.
 
 ---
 

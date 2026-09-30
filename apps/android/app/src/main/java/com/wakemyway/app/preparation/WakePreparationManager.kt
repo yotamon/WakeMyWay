@@ -26,6 +26,7 @@ class WakePreparationManager(
         wakeOccurrenceId: WakeOccurrenceId,
         rawText: String,
         firstMove: String?,
+        useInVoiceCheckIn: Boolean = false,
     ): WakePreparationSnapshot {
         val snapshot = synchronized(PREPARATION_COMMIT_LOCK) {
             val normalizedText = rawText.trim()
@@ -39,6 +40,7 @@ class WakePreparationManager(
                 wakeOccurrenceId = wakeOccurrenceId,
                 rawText = normalizedText,
                 firstMove = normalizedFirstMove,
+                useInVoiceCheckIn = useInVoiceCheckIn,
                 revision = previousForOccurrence?.revision?.plus(1) ?: 1,
                 createdAtEpochMillis = previousForOccurrence?.createdAtEpochMillis ?: now,
                 updatedAtEpochMillis = now,

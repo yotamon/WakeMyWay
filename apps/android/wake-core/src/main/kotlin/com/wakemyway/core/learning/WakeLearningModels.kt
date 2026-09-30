@@ -45,6 +45,12 @@ enum class WakeAgency {
     HIGH,
 }
 
+enum class WakeInterventionRating {
+    TOO_GENTLE,
+    ABOUT_RIGHT,
+    TOO_INTENSE,
+}
+
 data class WakeFrictionFeedback(
     val annoyance: WakeAnnoyance,
     val agency: WakeAgency,

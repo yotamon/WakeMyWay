@@ -8,6 +8,7 @@ import com.wakemyway.app.product.history.WakeHistoryRepository
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.learning.WakeLearning
 import com.wakemyway.core.learning.WakeOutcomeSummary
 import com.wakemyway.core.learning.WakePolicySnapshot
@@ -111,6 +112,17 @@ class WakeLearningRepository(
             calibration = WakeCalibration(outcome),
         )
         return refresh()
+    }
+
+    @Synchronized
+    fun submitInterventionRating(
+        occurrenceId: WakeOccurrenceId,
+        rating: WakeInterventionRating,
+    ): WakeLearningState {
+        historyRepository.attachInterventionRating(occurrenceId, rating)
+        // V0 learning deliberately does not mutate policy from one subjective rating. Keep the
+        // evidence durable so future bounded rules can require repeated patterns.
+        return state()
     }
 
     /**
