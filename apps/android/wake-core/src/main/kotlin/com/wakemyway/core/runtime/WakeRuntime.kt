@@ -119,8 +119,7 @@ class WakeRuntime {
                         SpeechIntent.AskToMove
                     } else {
                         val physicalEvidenceObserved =
-                            next.activationEvidence.devicePickups > 0 ||
-                                next.activationEvidence.orientationChanges > 0 ||
+                            next.activationEvidence.orientationChanges > 0 ||
                                 next.activationEvidence.sustainedMovements > 0
                         when {
                             next.activationEvidence.coherentVoiceResponses == 2 ->
