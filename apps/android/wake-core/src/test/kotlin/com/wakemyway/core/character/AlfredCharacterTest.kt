@@ -12,6 +12,8 @@ class AlfredCharacterTest {
         SpeechIntent.InitialWake,
         SpeechIntent.AskToSitUp,
         SpeechIntent.AskToMove,
+        SpeechIntent.ActivateUpperBody,
+        SpeechIntent.StandIfSafe,
         SpeechIntent.KeepEngaging,
         SpeechIntent.ReEngage(0),
         SpeechIntent.ReEngage(1),
@@ -27,7 +29,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(6, spec.version)
+        assertEquals(7, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)
@@ -115,6 +117,52 @@ class AlfredCharacterTest {
                     listOf("tell", "answer", "hello").any { cue -> cue in line },
                     "Opening line must invite a short spoken reply: $line",
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `upper body activation stays seated and bounded`() {
+        VoiceStyle.entries.forEach { style ->
+            renderedTexts(SpeechIntent.ActivateUpperBody, style).forEach { line ->
+                assertTrue("shoulder" in line, "Upper-body cue must stay concrete: $line")
+                assertTrue(
+                    listOf("jump", "squat", "run", "breath").none { forbidden -> forbidden in line },
+                    "Upper-body cue introduced unsafe escalation: $line",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `standing cue always includes a safety alternative`() {
+        VoiceStyle.entries.forEach { style ->
+            renderedTexts(SpeechIntent.StandIfSafe, style).forEach { line ->
+                assertTrue("safe" in line, "Standing cue must be explicitly conditional: $line")
+                assertTrue(
+                    listOf("otherwise", "if not").any { alternative -> alternative in line },
+                    "Standing cue must include a seated alternative: $line",
+                )
+                assertTrue(
+                    listOf("sit", "seated").any { seated -> seated in line },
+                    "Standing cue must preserve a seated alternative: $line",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `re-engage never escalates posture or movement`() {
+        VoiceStyle.entries.forEach { style ->
+            (0..3).forEach { level ->
+                renderedTexts(SpeechIntent.ReEngage(level), style).forEach { line ->
+                    listOf("feet", "upright", "stand", "sit up", "move now").forEach { forbidden ->
+                        assertTrue(
+                            forbidden !in line,
+                            "Re-engage must not invent a harder physical action with '$forbidden': $line",
+                        )
+                    }
+                }
             }
         }
     }
