@@ -39,6 +39,7 @@ Read only the rows that apply to the current task.
 | UX, flows, or visual design | `docs/04-ux-psychology.md`, `docs/05-ux-flows.md`, `docs/07-design-system.md` |
 | Testing, release, deployment, or device validation | `docs/32-testing-and-deployment-topology.md` |
 | Cloud AI | `docs/adr/016-vercel-ai-platform.md`, `docs/implementation/vercel-ai-platform.md` |
+| Monetization, Plus packaging, pricing or variable-cost policy | `docs/24-monetization.md`, then `docs/40-play-billing-boundary.md` for commerce implementation |
 | Durable architecture decision | relevant file under `docs/adr/` |
 
 When a referenced document points to a more specific contract, follow that reference only if the task needs it.
