@@ -3,11 +3,15 @@ package com.wakemyway.app.voice
 import android.content.Context
 import com.wakemyway.app.product.account.WakeAccountManager
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Invisible account-backed Realtime provisioning for Direct builds. */
 object DirectRealtimeProvisioner {
     private val provisioning = AtomicBoolean(false)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @JvmStatic
     fun provision(context: Context) {
@@ -19,11 +23,10 @@ object DirectRealtimeProvisioner {
         }
         if (!provisioning.compareAndSet(false, true)) return
 
-        Thread({
+        scope.launch {
             try {
-                val accessToken = runBlocking {
-                    WakeAccountManager.get(appContext).currentAccessTokenForRealtime()
-                } ?: error("WakeMyWay account session is unavailable")
+                val accessToken = WakeAccountManager.get(appContext).currentAccessTokenForRealtime()
+                    ?: error("WakeMyWay account session is unavailable")
                 val credential = AccountRealtimeProvisioningClient().provision(
                     accessToken = accessToken,
                     installationId = store.installationId(),
@@ -35,9 +38,6 @@ object DirectRealtimeProvisioner {
             } finally {
                 provisioning.set(false)
             }
-        }, "wmw-account-realtime-provision").apply {
-            isDaemon = true
-            start()
         }
     }
 
