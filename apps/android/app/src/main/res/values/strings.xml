@@ -78,7 +78,7 @@
     <string name="setup_disable_failed">The wake schedule could not be turned off.</string>
 
     <string name="tomorrow_plan_back">Back</string>
-    <string name="tomorrow_plan_private_badge">Private · local</string>
+    <string name="tomorrow_plan_private_badge">Private by default</string>
     <string name="tomorrow_plan_eyebrow">Tomorrow Contract</string>
     <string name="tomorrow_plan_title">What makes tomorrow matter?</string>
     <string name="tomorrow_plan_subtitle">Give your future self one useful reason to get moving. Keep it specific, short and kind.</string>
@@ -95,7 +95,7 @@
     <string name="tomorrow_plan_saved">Saved and prepared locally for this wake.</string>
     <string name="tomorrow_plan_save_failed">Could not save private morning context. The alarm itself remains safe and local.</string>
     <string name="tomorrow_plan_clear">Clear</string>
-    <string name="tomorrow_plan_privacy_note">Private and local. Never included in the Direct-Boot alarm snapshot.</string>
+    <string name="tomorrow_plan_privacy_note">Stored privately on this phone. Shared with Realtime only when you enable it above. Never included in the Direct-Boot alarm snapshot.</string>
     <string name="tomorrow_plan_clear_title">Clear private morning context?</string>
     <string name="tomorrow_plan_clear_body">The Tomorrow Contract and its prepared local plan will be deleted.</string>
     <string name="tomorrow_plan_clear_confirm">Clear</string>

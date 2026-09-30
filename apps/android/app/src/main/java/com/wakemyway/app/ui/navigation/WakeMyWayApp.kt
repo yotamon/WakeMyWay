@@ -65,6 +65,7 @@ import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.profile.SubscriptionScreen
+import com.wakemyway.app.ui.profile.WakePreferencesScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.update.UpdateState
 import com.wakemyway.app.wakeSchedulingBlocker
@@ -105,6 +106,9 @@ private data object PrivacyRoute : NavKey
 
 @Serializable
 private data object AppearanceRoute : NavKey
+
+@Serializable
+private data object WakePreferencesRoute : NavKey
 
 @Serializable
 private data object AboutRoute : NavKey
@@ -206,6 +210,16 @@ fun WakeMyWayApp(
         }
     }
 
+    fun rateIntervention(
+        occurrenceId: com.wakemyway.core.schedule.WakeOccurrenceId,
+        rating: com.wakemyway.core.learning.WakeInterventionRating,
+    ) {
+        runCatching {
+            wakeLearning = learningRepository.submitInterventionRating(occurrenceId, rating)
+            wakeHistory = historyRepository.list()
+        }
+    }
+
     fun savePreferences(next: ConsumerPreferences) {
         preferences = preferencesRepository.replace(next)
     }
@@ -292,6 +306,12 @@ fun WakeMyWayApp(
                     OnboardingScreen(
                         onComplete = ::completeOnboarding,
                         onSkip = ::completeOnboarding,
+                        initialWakePreferences = preferences.wakePreferences,
+                        onWakePreferencesChanged = { wakePreferences ->
+                            preferences = preferencesRepository.update {
+                                it.copy(wakePreferences = wakePreferences)
+                            }
+                        },
                     )
                 }
 
@@ -402,6 +422,7 @@ fun WakeMyWayApp(
                             learningState = wakeLearning,
                             onPeriodSelected = { period = it },
                             onCalibrateMorning = ::calibrateMorning,
+                            onRateIntervention = ::rateIntervention,
                             modifier = contentModifier,
                         )
                     }
@@ -435,11 +456,22 @@ fun WakeMyWayApp(
                             },
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
+                            onOpenWakePreferences = { backStack.add(WakePreferencesRoute) },
                             onOpenAppearance = { backStack.add(AppearanceRoute) },
                             onOpenAbout = { backStack.add(AboutRoute) },
                             modifier = contentModifier,
                         )
                     }
+                }
+
+                entry<WakePreferencesRoute> {
+                    WakePreferencesScreen(
+                        preferences = preferences.wakePreferences,
+                        onChanged = { wakePreferences ->
+                            savePreferences(preferences.copy(wakePreferences = wakePreferences))
+                        },
+                        onBack = { backStack.removeLastOrNull() },
+                    )
                 }
 
                 entry<AccountRoute> {

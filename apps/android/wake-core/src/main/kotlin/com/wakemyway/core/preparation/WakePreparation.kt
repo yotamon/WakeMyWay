@@ -27,6 +27,7 @@ data class TomorrowContract(
     val wakeOccurrenceId: WakeOccurrenceId,
     val rawText: String,
     val firstMove: String? = null,
+    val useInVoiceCheckIn: Boolean = false,
     val revision: Long = 1,
     val createdAtEpochMillis: Long,
     val updatedAtEpochMillis: Long = createdAtEpochMillis,

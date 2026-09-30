@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.app.product.learning.WakeLearningState
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.app.product.insights.WakeInsightsPeriod
 import com.wakemyway.app.product.insights.WakeInsightsSummary
@@ -56,6 +57,7 @@ fun InsightsScreen(
     learningState: WakeLearningState,
     onPeriodSelected: (WakeInsightsPeriod) -> Unit,
     onCalibrateMorning: (WakeOccurrenceId, WakeCalibrationOutcome) -> Unit,
+    onRateIntervention: (WakeOccurrenceId, WakeInterventionRating) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -96,6 +98,17 @@ fun InsightsScreen(
                     },
                     modifier = Modifier.padding(top = WmwSpacing.Lg),
                 )
+            }
+
+            if (summary.pendingCalibration == null) {
+                summary.pendingInterventionRating?.let { morning ->
+                    InterventionRatingCard(
+                        onRate = { rating ->
+                            onRateIntervention(morning.finalOccurrenceId, rating)
+                        },
+                        modifier = Modifier.padding(top = WmwSpacing.Lg),
+                    )
+                }
             }
 
             LearningCard(
@@ -309,6 +322,52 @@ private fun MorningCheckInCard(
                     modifier = Modifier.weight(1f),
                     quiet = true,
                     onClick = { onCalibrate(WakeCalibrationOutcome.SKIPPED) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InterventionRatingCard(
+    onRate: (WakeInterventionRating) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    WmwCard(modifier = modifier, onLightSurface = true) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+            Text(
+                text = "WAKE FEEL",
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnText,
+            )
+            Text(
+                text = "How did WakeMyWay feel?",
+                style = MaterialTheme.typography.titleLarge,
+                color = WmwColors.Midnight,
+            )
+            Text(
+                text = "One rating is feedback, not an instruction to suddenly change tomorrow. Repeated patterns can guide bounded adjustments later.",
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.LightQuietText,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                CalibrationChoice(
+                    label = "Too gentle",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onRate(WakeInterventionRating.TOO_GENTLE) },
+                )
+                CalibrationChoice(
+                    label = "About right",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onRate(WakeInterventionRating.ABOUT_RIGHT) },
+                )
+                CalibrationChoice(
+                    label = "Too intense",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onRate(WakeInterventionRating.TOO_INTENSE) },
                 )
             }
         }

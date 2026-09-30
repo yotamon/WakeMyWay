@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -93,6 +94,9 @@ fun TomorrowPlanScreen(
             initialSnapshot?.contract?.firstMove
                 ?: defaultFirstMove.orEmpty(),
         )
+    }
+    var useInVoiceCheckIn by remember(occurrenceId) {
+        mutableStateOf(initialSnapshot?.contract?.useInVoiceCheckIn ?: false)
     }
     var message by remember(occurrenceId) { mutableStateOf<String?>(null) }
     var isListening by remember(occurrenceId) { mutableStateOf(false) }
@@ -283,6 +287,31 @@ fun TomorrowPlanScreen(
                 colors = fieldColors,
             )
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Use this in Voice Check-In",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = WmwColors.Midnight,
+                    )
+                    Text(
+                        "When enabled, this wake's reason and First Move may be sent to the Realtime voice provider for this morning only.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.LightQuietText,
+                    )
+                }
+                Switch(
+                    checked = useInVoiceCheckIn,
+                    onCheckedChange = { useInVoiceCheckIn = it },
+                )
+            }
+
             message?.let {
                 Text(
                     text = it,
@@ -307,6 +336,7 @@ fun TomorrowPlanScreen(
                             wakeOccurrenceId = wakeOccurrence.id,
                             rawText = rawText,
                             firstMove = firstMove,
+                            useInVoiceCheckIn = useInVoiceCheckIn,
                         )
                     }.onSuccess {
                         snapshot = it
@@ -342,6 +372,7 @@ fun TomorrowPlanScreen(
                         manager.clear()
                         rawText = ""
                         firstMove = defaultFirstMove.orEmpty()
+                        useInVoiceCheckIn = false
                         snapshot = manager.snapshotFor(wakeOccurrence.id)
                         message = clearedCopy
                         showClearConfirmation = false

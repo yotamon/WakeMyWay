@@ -65,6 +65,7 @@ fun ProfileScreen(
     onOpenSubscription: () -> Unit = {},
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenWakePreferences: () -> Unit = {},
     onOpenAppearance: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -119,6 +120,11 @@ fun ProfileScreen(
                     text = "Your alarms and wake preferences stay usable on this phone without an account.",
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.LightQuietText,
+                )
+                ProfileLink(
+                    title = "Wake preferences",
+                    detail = "How persistent, conversational and playful the morning voice should be",
+                    onClick = onOpenWakePreferences,
                 )
             }
 

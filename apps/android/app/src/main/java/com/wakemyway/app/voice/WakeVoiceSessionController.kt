@@ -8,7 +8,12 @@ import com.wakemyway.app.alarm.AlarmPlaybackService
 import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalReason
 import com.wakemyway.app.motion.AndroidMotionObserver
+import com.wakemyway.core.alarm.CharacterId
 import com.wakemyway.core.alarm.VoiceStyle
+import com.wakemyway.core.personalization.WakeAllowedContext
+import com.wakemyway.core.personalization.WakePreferences
+import com.wakemyway.core.personalization.WakeSessionPlan
+import com.wakemyway.core.personalization.WakeSessionStrategyResolver
 import com.wakemyway.core.runtime.SpeechIntent
 import com.wakemyway.core.runtime.WakeCapabilities
 import com.wakemyway.core.runtime.WakeDirective
@@ -21,7 +26,6 @@ import com.wakemyway.core.runtime.WakeRuntime
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.runtime.WakeSessionSnapshot
 import com.wakemyway.core.schedule.WakeOccurrenceId
-import java.time.Duration
 
 interface WakeSessionController : AutoCloseable {
     fun onSurfaceVisible()
@@ -37,12 +41,22 @@ class WakeVoiceSessionController(
     private val onCompleted: () -> Unit,
     private val voiceStyle: VoiceStyle = VoiceStyle.DEFAULT,
     private val policy: WakePolicy = WakePolicy(),
+    wakePreferences: WakePreferences = WakePreferences(),
+    characterId: CharacterId = CharacterId.ALFRED,
+    allowedContext: WakeAllowedContext = WakeAllowedContext(),
     private val terminalActions: WakeTerminalActions = WakeTerminalActions(context.applicationContext),
     runtimeTransitionObserver: WakeRuntimeTransitionObserver = WakeRuntimeTransitionObserver.NONE,
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val sessionPlan: WakeSessionPlan = WakeSessionStrategyResolver.resolve(
+        preferences = wakePreferences,
+        characterId = characterId,
+        voiceStyle = voiceStyle,
+        wakePolicy = policy,
+        allowedContext = allowedContext,
+    )
     private val runtime = WakeRuntime()
     private val runtimeObservation = WakeRuntimeObservationBridge(
         runtime = runtime,
@@ -181,7 +195,7 @@ class WakeVoiceSessionController(
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("silence"),
-                    interval = SILENCE_INTERVAL,
+                    interval = sessionPlan.conversationPacing.idleReengageDelay,
                 ),
             )
         }
@@ -202,7 +216,7 @@ class WakeVoiceSessionController(
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("realtime-silence"),
-                    interval = REALTIME_LISTEN_INTERVAL,
+                    interval = sessionPlan.conversationPacing.listenTimeout,
                 ),
             )
         }
@@ -367,7 +381,7 @@ class WakeVoiceSessionController(
         AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
         publish()
 
-        if (!liveConversation.respond(intent, voiceStyle)) {
+        if (!liveConversation.respond(WakeSpeechRequest(intent, sessionPlan))) {
             enterAlarmOnly()
         }
     }
@@ -399,7 +413,10 @@ class WakeVoiceSessionController(
             conversation.setInputEnabled(true)
             AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
             mainHandler.removeCallbacks(realtimeSilenceTimeout)
-            mainHandler.postDelayed(realtimeSilenceTimeout, REALTIME_LISTEN_INTERVAL.toMillis())
+            mainHandler.postDelayed(
+                realtimeSilenceTimeout,
+                sessionPlan.conversationPacing.listenTimeout.toMillis(),
+            )
             publish()
             return
         }
@@ -522,7 +539,10 @@ class WakeVoiceSessionController(
             !speaking &&
             !listening
         ) {
-            mainHandler.postDelayed(silenceWatchdog, SILENCE_INTERVAL.toMillis())
+            mainHandler.postDelayed(
+                silenceWatchdog,
+                sessionPlan.conversationPacing.idleReengageDelay.toMillis(),
+            )
         }
     }
 
@@ -551,8 +571,6 @@ class WakeVoiceSessionController(
         WakeInputId("${occurrenceId.value}:${inputSequence++}:$kind")
 
     private companion object {
-        val SILENCE_INTERVAL: Duration = Duration.ofSeconds(12)
-        val REALTIME_LISTEN_INTERVAL: Duration = Duration.ofSeconds(10)
         // A cold Direct wake may need installation bootstrap, broker token minting and WebRTC
         // negotiation before the first session.updated event. The alarm remains audible throughout,
         // so give Realtime enough room to connect instead of cancelling a healthy cold start.

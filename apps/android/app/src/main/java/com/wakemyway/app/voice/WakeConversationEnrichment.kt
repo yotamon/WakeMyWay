@@ -1,8 +1,13 @@
 package com.wakemyway.app.voice
 
 import android.content.Context
-import com.wakemyway.core.alarm.VoiceStyle
+import com.wakemyway.core.personalization.WakeSessionPlan
 import com.wakemyway.core.runtime.SpeechIntent
+
+data class WakeSpeechRequest(
+    val intent: SpeechIntent,
+    val sessionPlan: WakeSessionPlan,
+)
 
 /**
  * Optional non-authoritative conversational enrichment for an active Wake Session.
@@ -27,10 +32,7 @@ interface WakeConversationEnrichment : AutoCloseable {
     fun connect()
 
     /** Requests one bounded natural-language response for a typed Wake Runtime intent and style. */
-    fun respond(
-        intent: SpeechIntent,
-        style: VoiceStyle,
-    ): Boolean
+    fun respond(request: WakeSpeechRequest): Boolean
 
     /** Enables/disables microphone contribution to the realtime conversation. */
     fun setInputEnabled(enabled: Boolean)

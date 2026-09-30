@@ -499,3 +499,30 @@ Standing always has a seated alternative. The default protocol excludes strenuou
 
 The sequence is a versioned product hypothesis grounded in current sleep-inertia evidence, not a medical prescription or claim of a universally optimal way to wake. Dogfood/beta outcomes, return-to-bed calibration, annoyance and agency may change it.
 
+
+# Personalized wake Build exception — 2026-09-30
+
+## Explicit feature-freeze exception
+
+The product owner explicitly requested production implementation of the accepted personalized wake plan in `44-personalized-wake-profile-product-plan.md` while the 1.0 feature freeze is active.
+
+This is a deliberate exception, not a relaxation of the freeze.
+
+## Authority boundaries remain unchanged
+
+The implementation may add explicit Wake Preferences, session strategy composition, bounded Realtime presentation modifiers, consented Tomorrow Contract context and typed feedback.
+
+It may not move authority away from the existing systems:
+
+- Alarm Kernel still owns critical alarm delivery, active execution, Stop and Snooze.
+- Wake Runtime still owns in-session behavioral progression.
+- Character remains an explicit user choice.
+- Wake Learning remains off-session, bounded and explainable.
+- Realtime personalization remains optional enrichment and fails back to the normal alarm-only path.
+- one subjective feedback item never directly rewrites tomorrow's policy.
+
+## Privacy boundary
+
+Wake Preferences remain credential-protected local product data. Tomorrow Contract content remains local by default and may enter Realtime only when the user explicitly enables that per-wake use. No personalized private text enters Direct-Boot critical state.
+
+Canonical product/implementation contract: [`44-personalized-wake-profile-product-plan.md`](44-personalized-wake-profile-product-plan.md).

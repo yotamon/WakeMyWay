@@ -6,8 +6,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.wakemyway.app.product.account.WakeAccountManager
-import com.wakemyway.core.alarm.VoiceStyle
-import com.wakemyway.core.runtime.SpeechIntent
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
@@ -103,10 +101,7 @@ class DirectRealtimeWakeConversation(
         }
     }
 
-    override fun respond(
-        intent: SpeechIntent,
-        style: VoiceStyle,
-    ): Boolean {
+    override fun respond(request: WakeSpeechRequest): Boolean {
         if (!ready) return false
         if (assistantTurnCount >= MAX_ASSISTANT_TURNS) {
             emitFailure("turn-budget")
@@ -122,7 +117,7 @@ class DirectRealtimeWakeConversation(
                     .put("conversation", "auto")
                     .put("output_modalities", JSONArray().put("audio"))
                     .put("max_output_tokens", MAX_OUTPUT_TOKENS)
-                    .put("instructions", AlfredRealtimePrompt.turn(intent, style)),
+                    .put("instructions", AlfredRealtimePrompt.turn(request)),
             ),
         )
         if (sent) assistantTurnCount += 1

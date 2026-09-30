@@ -2,6 +2,13 @@ package com.wakemyway.app.product
 
 import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.alarm.WakeSoundId
+import com.wakemyway.core.personalization.ConversationAmount
+import com.wakemyway.core.personalization.HumorPreference
+import com.wakemyway.core.personalization.InterventionStyle
+import com.wakemyway.core.personalization.MorningBarrier
+import com.wakemyway.core.personalization.MotivationStyle
+import com.wakemyway.core.personalization.PerceivedWakeInertia
+import com.wakemyway.core.personalization.WakePreferences
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -40,6 +47,14 @@ class ConsumerPreferencesRepositoryTest {
             defaultSnoozeMinutes = 15,
             defaultFirstMove = "Open the curtains",
             appearance = AppAppearance.SOFT_DAWN,
+            wakePreferences = WakePreferences(
+                morningBarrier = MorningBarrier.SNOOZE_LOOP,
+                perceivedWakeInertia = PerceivedWakeInertia.ABOUT_30_MINUTES,
+                interventionStyle = InterventionStyle.FIRM,
+                motivationStyle = MotivationStyle.ACCOUNTABILITY,
+                conversationAmount = ConversationAmount.MINIMAL,
+                humorPreference = HumorPreference.OFF,
+            ),
         )
 
         repository.replace(expected)
@@ -151,6 +166,52 @@ class ConsumerPreferencesRepositoryTest {
         assertEquals(recovered, repository.get())
     }
 
+    @Test
+    fun `schema v1 migrates to balanced wake preferences`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """{"schemaVersion":1,"onboardingCompleted":true,"defaultSoundId":"morning-light","defaultVoiceCheckInEnabled":true,"defaultVoiceStyle":"DEFAULT","defaultSnoozeMinutes":5,"appearance":"DAYLIGHT"}""",
+            Charsets.UTF_8,
+        )
+
+        val preferences = ConsumerPreferencesRepository(context, fileName).get()
+
+        assertEquals(WakePreferences(), preferences.wakePreferences)
+        assertTrue(preferences.onboardingCompleted)
+    }
+
+    @Test
+    fun `unknown wake preference values fall back field by field`() {
+        val fileName = uniqueFileName()
+        File(context.filesDir, fileName).writeText(
+            """
+            {
+              "schemaVersion": 2,
+              "onboardingCompleted": true,
+              "defaultSoundId": "morning-light",
+              "defaultVoiceCheckInEnabled": true,
+              "defaultVoiceStyle": "DEFAULT",
+              "defaultSnoozeMinutes": 5,
+              "appearance": "DAYLIGHT",
+              "wakePreferences": {
+                "morningBarrier": "FUTURE_BARRIER",
+                "interventionStyle": "FIRM",
+                "conversationAmount": "MINIMAL",
+                "humorPreference": "OFF"
+              }
+            }
+            """.trimIndent(),
+            Charsets.UTF_8,
+        )
+
+        val wake = ConsumerPreferencesRepository(context, fileName).get().wakePreferences
+
+        assertEquals(MorningBarrier.UNSURE, wake.morningBarrier)
+        assertEquals(InterventionStyle.FIRM, wake.interventionStyle)
+        assertEquals(ConversationAmount.MINIMAL, wake.conversationAmount)
+        assertEquals(HumorPreference.OFF, wake.humorPreference)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `unsupported snooze default is rejected`() {
         ConsumerPreferences(defaultSnoozeMinutes = 7)
@@ -165,6 +226,7 @@ class ConsumerPreferencesRepositoryTest {
         assertEquals(5, preferences.defaultSnoozeMinutes)
         assertNull(preferences.defaultFirstMove)
         assertEquals(AppAppearance.DAYLIGHT, preferences.appearance)
+        assertEquals(WakePreferences(), preferences.wakePreferences)
     }
 
     private fun repository(): ConsumerPreferencesRepository = ConsumerPreferencesRepository(
