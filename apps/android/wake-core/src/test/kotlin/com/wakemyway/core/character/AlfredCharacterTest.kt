@@ -27,7 +27,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(5, spec.version)
+        assertEquals(6, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)

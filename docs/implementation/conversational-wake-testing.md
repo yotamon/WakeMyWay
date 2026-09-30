@@ -49,6 +49,27 @@ Run each case from the real wake surface:
 4. Verify built-in speaker, wired audio if available, and Bluetooth behavior separately.
 5. Repeat with the phone beside the bed rather than held near the mouth.
 
+## Character continuity dogfood
+
+Run one uninterrupted wake session through at least six assistant turns and intentionally vary the
+user's behaviour: cooperative reply, bargaining, profanity, joke, silence/re-engage and completion.
+
+Pass only when:
+
+- Alfred sounds like the same person on every turn;
+- accent and conversational distance remain stable;
+- motivational or firmer turns do not become a new upbeat/coach persona;
+- no generic assistant praise or customer-service language appears;
+- humour stays sparse and dry rather than becoming a running comedy bit;
+- re-engagement after unclear audio does not sound like a reset or reintroduction;
+- an interruption resumes the same conversational thread and character;
+- a Realtime reconnect is recorded as a new technical session rather than silently being mistaken
+  for continuous character identity during evaluation.
+
+When reporting a failure, note the assistant turn number, runtime intent, selected VoiceStyle and
+logged Alfred persona version. Do not persist raw microphone audio or full transcripts in routine
+telemetry.
+
 ## Evidence to record
 
 Record only non-sensitive product telemetry or manual notes:
