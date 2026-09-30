@@ -222,6 +222,10 @@ If a future capability needs a provider directly, record the measured reason. Re
 
 WakeMyWay intentionally stays within the current Vercel Hobby deployment limit of 12 Serverless Functions.
 
+The four public URLs `/privacy`, `/support`, `/.well-known/assetlinks.json`, and
+`/auth/mobile` are served by one dynamic `api/public/[page].ts` function so App Link hardening does
+not consume additional Hobby function budget.
+
 The six internal AI URLs:
 
 - `/api/internal/ai/text`
