@@ -100,6 +100,40 @@ class AlarmKernel(
     }
 
     /**
+     * Privacy-reset boundary for removing all retained critical schedule metadata.
+     *
+     * This is intentionally stronger than [cancelSchedule]: normal cancellation keeps disabled slot
+     * metadata so reconciliation/migration can reason about history. A user-requested local-data erase
+     * must remove those retained schedule/policy snapshots too. Active Wake is a hard refusal because
+     * privacy cleanup must never become an execution authority transition.
+     */
+    fun purgeAllScheduleStateForDataReset() {
+        synchronized(CriticalWakeStore.STATE_LOCK) {
+            val state = store.read() ?: return
+            check(state.activeOccurrence == null) {
+                "Cannot purge critical schedule state while a wake is active."
+            }
+
+            val obsolete = state.slots.values.flatMap { slot ->
+                listOfNotNull(slot.registeredOccurrenceId, slot.nextOccurrence?.id)
+            }.distinct()
+            store.write(
+                state.copy(
+                    slots = emptyMap(),
+                    activeOccurrence = null,
+                    generation = state.generation + 1,
+                ),
+            )
+            obsolete.forEach { occurrenceId ->
+                runCatching { registrar.cancel(occurrenceId) }
+            }
+            check(store.read()?.slots?.isEmpty() != false) {
+                "Critical schedule state remained after data reset purge."
+            }
+        }
+    }
+
+    /**
      * Removes Android registrations for future occurrences without deleting the durable schedule plan.
      *
      * Use this when future delivery is temporarily unsafe (for example presentation capability was

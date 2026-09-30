@@ -76,6 +76,38 @@ class AlarmKernelRobolectricTest {
     }
 
     @Test
+    fun `data reset purge removes disabled critical schedule metadata`() {
+        val first = oneShotSchedule("privacy-first", minutesFromNow = 20)
+        val second = oneShotSchedule("privacy-second", minutesFromNow = 40)
+        kernel.commitSchedule(first)
+        kernel.commitSchedule(second)
+        kernel.cancelSchedule(first.id)
+        val store = CriticalWakeStore(context, criticalStateFileName)
+
+        val before = (store.readResult() as CriticalWakeReadResult.State).value
+        assertEquals(2, before.slots.size)
+        assertFalse(before.slots.getValue(first.id).enabled)
+
+        kernel.purgeAllScheduleStateForDataReset()
+
+        val after = (store.readResult() as CriticalWakeReadResult.State).value
+        assertTrue(after.slots.isEmpty())
+        assertNull(after.activeOccurrence)
+        assertTrue(kernel.currentSchedules().isEmpty())
+        assertTrue(kernel.nextOccurrences().isEmpty())
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `data reset purge refuses to clear an active wake`() {
+        val occurrence = requireNotNull(
+            kernel.commitSchedule(oneShotSchedule("privacy-active")).nextOccurrence,
+        )
+        assertEquals(BeginActiveResult.STARTED, kernel.beginActive(occurrence.id))
+
+        kernel.purgeAllScheduleStateForDataReset()
+    }
+
+    @Test
     fun `failed snooze keeps the current occurrence active`() {
         val committed = kernel.commitSchedule(oneShotSchedule("snooze-failure"))
         val primary = requireNotNull(committed.nextOccurrence)

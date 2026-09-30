@@ -1,8 +1,12 @@
 package com.wakemyway.app.ui.navigation
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,12 +27,19 @@ import com.wakemyway.app.alarm.AlarmKernel
 import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.futureSchedulingRepairTarget
 import com.wakemyway.app.alarm.repairTarget
+import com.wakemyway.app.commerce.CommerceAvailability
+import com.wakemyway.app.commerce.CommerceGatewayFactory
+import com.wakemyway.app.commerce.CommerceLaunchResult
+import com.wakemyway.app.commerce.CommercePurchaseState
+import com.wakemyway.app.commerce.CommerceSnapshot
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakePreparationSnapshot
 import com.wakemyway.app.preparation.WakePreparationStatus
 import com.wakemyway.app.product.AlarmProductController
 import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
+import com.wakemyway.app.product.LocalWakeDataResetManager
+import com.wakemyway.app.product.LocalWakeDataResetResult
 import com.wakemyway.app.product.account.WakeAccountManager
 import com.wakemyway.app.product.followup.WakeSafetyCheckScheduler
 import com.wakemyway.app.product.history.WakeHistoryRepository
@@ -53,6 +64,7 @@ import com.wakemyway.app.ui.profile.AccountScreen
 import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
+import com.wakemyway.app.ui.profile.SubscriptionScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.update.UpdateState
 import com.wakemyway.app.wakeSchedulingBlocker
@@ -84,6 +96,9 @@ private data object ProfileRoute : NavKey
 
 @Serializable
 private data object AccountRoute : NavKey
+
+@Serializable
+private data object SubscriptionRoute : NavKey
 
 @Serializable
 private data object PrivacyRoute : NavKey
@@ -127,6 +142,8 @@ fun WakeMyWayApp(
     val historyRepository = remember { WakeHistoryRepository(context) }
     val learningRepository = remember { WakeLearningRepository(context, historyRepository) }
     val accountManager = remember(context) { WakeAccountManager.get(context) }
+    val commerceGateway = remember(context) { CommerceGatewayFactory.create(context) }
+    val localWakeDataResetManager = remember(context) { LocalWakeDataResetManager(context) }
     val accountState by accountManager.state.collectAsState()
     val initialPreferences = remember { preferencesRepository.get() }
     val appVersionName = remember(context) {
@@ -145,9 +162,17 @@ fun WakeMyWayApp(
     var preferences by remember { mutableStateOf(initialPreferences) }
     var wakeHistory by remember { mutableStateOf(historyRepository.list()) }
     var wakeLearning by remember { mutableStateOf(learningRepository.state()) }
+    var commerceSnapshot by remember {
+        mutableStateOf(CommerceSnapshot(availability = CommerceAvailability.UNAVAILABLE))
+    }
     val backStack = rememberNavBackStack(
         if (initialPreferences.onboardingCompleted) HomeRoute else OnboardingRoute,
     )
+
+    DisposableEffect(commerceGateway) {
+        commerceGateway.start { snapshot -> commerceSnapshot = snapshot }
+        onDispose { commerceGateway.close() }
+    }
 
     fun refreshProductState(reconcile: Boolean = true) {
         val currentHealth = alarmKernel.health()
@@ -183,6 +208,16 @@ fun WakeMyWayApp(
 
     fun savePreferences(next: ConsumerPreferences) {
         preferences = preferencesRepository.replace(next)
+    }
+
+    fun eraseLocalWakeData(): LocalWakeDataResetResult {
+        val result = localWakeDataResetManager.erase()
+        if (result == LocalWakeDataResetResult.Completed) {
+            preferences = preferencesRepository.get()
+            refreshProductState(reconcile = false)
+            refreshWakeHistory()
+        }
+        return result
     }
 
     fun completeOnboarding() {
@@ -245,6 +280,7 @@ fun WakeMyWayApp(
     LaunchedEffect(wakeSystemRevision) {
         refreshProductState()
         refreshWakeHistory()
+        commerceGateway.refresh()
     }
 
     WakeMyWayTheme(appearance = preferences.appearance) {
@@ -381,6 +417,22 @@ fun WakeMyWayApp(
                             onPreferencesChanged = ::savePreferences,
                             showAccount = accountState.configured,
                             onOpenAccount = { backStack.add(AccountRoute) },
+                            showSubscription = commerceSnapshot.subscriptionProductId != null &&
+                                commerceSnapshot.verificationAvailable,
+                            subscriptionDetail = when {
+                                commerceSnapshot.hasPaidEntitlement -> "Pro active through Google Play"
+                                commerceSnapshot.purchaseState == CommercePurchaseState.PENDING ->
+                                    "Google Play purchase pending"
+                                commerceSnapshot.purchaseState == CommercePurchaseState.PURCHASED ->
+                                    "Purchase awaiting verification"
+                                commerceSnapshot.purchaseState == CommercePurchaseState.SUSPENDED ->
+                                    "Subscription needs attention"
+                                else -> "Plans, restore and billing through Google Play"
+                            },
+                            onOpenSubscription = {
+                                commerceGateway.refresh()
+                                backStack.add(SubscriptionRoute)
+                            },
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
                             onOpenAppearance = { backStack.add(AppearanceRoute) },
@@ -397,8 +449,43 @@ fun WakeMyWayApp(
                     )
                 }
 
+                entry<SubscriptionRoute> {
+                    SubscriptionScreen(
+                        snapshot = commerceSnapshot,
+                        onPurchase = { offer ->
+                            (context as? Activity)
+                                ?.let { activity ->
+                                    commerceGateway.launchPurchase(activity, offer.offerToken)
+                                }
+                                ?: CommerceLaunchResult.FAILED
+                        },
+                        onRestore = commerceGateway::refresh,
+                        onManage = {
+                            val managementUri = Uri.parse(
+                                "https://play.google.com/store/account/subscriptions",
+                            ).buildUpon().apply {
+                                commerceSnapshot.subscriptionProductId?.let { productId ->
+                                    appendQueryParameter("sku", productId)
+                                    appendQueryParameter("package", context.packageName)
+                                }
+                            }.build()
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, managementUri))
+                            }
+                        },
+                        onBack = { backStack.removeLastOrNull() },
+                    )
+                }
+
                 entry<PrivacyRoute> {
-                    PrivacyScreen(onBack = { backStack.removeLastOrNull() })
+                    PrivacyScreen(
+                        onEraseLocalWakeData = ::eraseLocalWakeData,
+                        onLocalWakeDataErased = {
+                            backStack.clear()
+                            backStack.add(OnboardingRoute)
+                        },
+                        onBack = { backStack.removeLastOrNull() },
+                    )
                 }
 
                 entry<AppearanceRoute> {

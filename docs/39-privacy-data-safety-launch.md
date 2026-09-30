@@ -2,7 +2,7 @@
 
 **Status:** Gate 4 preparation  
 **Canonical gate:** #88  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-30
 
 This is the repository source of truth for the public privacy/Data Safety draft. It is not legal advice and it must be reconciled against the exact release build and Play Console configuration immediately before submission.
 
@@ -26,16 +26,16 @@ When a capability becomes live later, reopen this inventory before shipping.
 | Wake history | credential-protected local semantic history | No by default | Yes, local | no raw transcript/audio |
 | Wake calibration | local semantic outcome | No by default | Yes, local | values such as GOT_UP / RETURNED_TO_BED |
 | Learned policy | local bounded deterministic state | No | Yes, local | no cloud/ML dependency |
-| Raw microphone audio | processed for local voice interaction | No in the normal 1.0 consumer path | No archive | never persist by default |
-| Full transcript | not retained by normal local wake | No by default | No | semantic facts only |
+| Raw microphone audio | processed locally for voice evidence; Direct Realtime can transmit live audio to OpenAI during an enabled Voice Check-In | Direct only when Realtime is active | WakeMyWay does not archive raw audio | Play remains local/alarm-only unless this boundary is explicitly changed |
+| Conversational transcript/content | not persisted by WakeMyWay; Direct Realtime may transiently process conversation through OpenAI | Direct only when Realtime is active | No WakeMyWay transcript archive | only bounded semantic wake facts are stored locally |
 | Motion sensor samples | processed locally | No | No raw stream | only bounded semantic movement evidence |
 | Reliability journal | local non-sensitive technical timeline | No unless user explicitly exports/shares it | Yes, bounded local | support diagnostic |
-| Account identity | no consumer Sign In currently exposed | No current consumer collection | No current consumer account | reopen if account ships |
-| Consumer cloud backup | backend code exists but no verified consumer path is exposed | No current consumer transfer | Not active | do not claim active sync |
-| Founder/debug Realtime | developer/debug enrichment only | not part of public 1.0 consumer path | no public consumer archive | exclude from public claims |
+| Account identity | optional Google sign-in is exposed when production account configuration is present | Yes, only when the user explicitly signs in | Neon Managed Better Auth session/account state; local alarms do not require it | include exact account fields/processors in final Data Safety/privacy review |
+| Consumer cloud backup | backend code exists but no verified consumer backup/restore path is exposed in the Android UI | No current consumer backup transfer | Not active | do not claim active sync |
+| Conversational Realtime | Direct distribution can use short-lived OpenAI Realtime credentials during an active Voice Check-In; Play remains local/alarm-only until explicitly enabled | Direct only when Voice Check-In uses Realtime | WakeMyWay does not persist raw microphone audio or transcripts; provider processing is transient per configured provider terms | public policy must match the distribution actually launched |
 | Analytics SDK events | no remote product analytics SDK currently live | No | No | Android Vitals/Play platform data is separate |
 | Crash SDK data | no third-party crash SDK currently embedded | No app-level SDK collection | No | Play Console Android Vitals may still report platform diagnostics |
-| Purchase/subscription data | Billing lifecycle exists but live purchase UI is disabled by default | Only when explicitly enabled: product id + purchase token transit Wake API → Google Play | Raw token transient; server stores SHA-256 token digest + normalized lifecycle/ack/expiry; bounded RTDN message-id dedupe | Reopen final Data Safety before enabling paid UI; external Play proof remains #119 |
+| Purchase/subscription data | guarded Play purchase/restore/manage UI exists but is invisible unless product id + HTTPS verification are explicitly configured | When enabled: product id + purchase token transit Wake API → Google Play | Raw token transient; server stores SHA-256 token digest + normalized lifecycle/ack/expiry; bounded RTDN message-id dedupe | external Play license/config proof remains required before public enablement |
 
 ## Local storage and reset
 
@@ -50,7 +50,7 @@ Current local data includes:
 
 Android platform Auto Backup and device-to-device restore are explicitly denied for app-managed state. WakeMyWay does not treat uncontrolled OS restore as a safe migration mechanism.
 
-Before public launch, the consumer product must expose or document a truthful local reset/delete route for the state that actually exists. Do not promise cloud deletion while no cloud account exists.
+The Android consumer product now exposes **Privacy → Erase local wake data**. The reset refuses to run during Active Wake, cancels future alarms through the normal Alarm Kernel boundary, purges retained Direct-Boot schedule/policy slots, then clears local alarm definitions, preferences, Tomorrow Contract/prepared-plan state, wake history/calibration, learned policy, reliability history, local voice provisioning and WakeMyWay notifications before returning to onboarding. Account identity/session state is intentionally separate and is managed from the Account surface; consumer cloud backup remains inactive, so the app does not claim a cloud-backup deletion flow.
 
 ## Microphone disclosure
 
@@ -60,8 +60,9 @@ Core rules:
 - a committed alarm remains local;
 - microphone loss must not silently delete an otherwise safe scheduled alarm;
 - raw microphone audio is not archived by WakeMyWay;
-- normal local voice interaction should not require server retention;
-- if a future production conversational provider receives audio, this policy and Play Data Safety answers must be updated before release.
+- local voice evidence does not require server retention;
+- the Direct distribution may send live audio to OpenAI Realtime only during an enabled active Voice Check-In and does not persist raw audio/transcripts in WakeMyWay storage;
+- the Play release remains local/alarm-only for conversational Realtime unless the shipped boundary is explicitly changed and this inventory/Data Safety declaration is reopened.
 
 ## Motion disclosure
 
@@ -92,18 +93,16 @@ Sharing the report with support is user-initiated.
 
 ## Provider / processor inventory
 
-### Current public consumer release
+### Current consumer release dependencies
 
-Expected processors/services:
-- **Google Play** — app distribution, optional future Play Billing, Play platform diagnostics/Android Vitals.
-- **Android / device OEM services** — platform alarm, notification, speech and system services as provided by the device.
+Expected processors/services depend on the enabled distribution/configuration:
+- **Google Play** — Play distribution, Play Billing when explicitly enabled, and platform diagnostics/Android Vitals;
+- **Android / device OEM services** — platform alarm, notification, speech and system services as provided by the device;
+- **Vercel** — Wake API hosting for configured account, Realtime-broker and commerce verification paths;
+- **Neon** — Managed Better Auth/account infrastructure when the optional account surface is configured;
+- **OpenAI** — Direct-distribution conversational Realtime processing during an enabled Voice Check-In; never alarm authority.
 
-### Present in repository but not currently active as a public consumer data path
-
-- **Vercel** — optional Wake API / developer cloud hosting.
-- **Neon** — optional account/backup PostgreSQL and Managed Better Auth infrastructure.
-- **OpenAI** — founder/debug conversational Realtime path; not required for the public local wake.
-- other analytics/crash processors: none enabled by default as of this inventory.
+Consumer cloud backup remains repository-only/inactive until an Android backup/restore surface is explicitly shipped. Other analytics/crash processors remain disabled by default as of this inventory.
 
 Before launch, verify the exact release dependency graph and production environment rather than copying this list blindly.
 
@@ -116,8 +115,9 @@ This is a planning worksheet, not the final Play Console declaration.
 Current local-first build:
 - no broad first-party remote analytics collection;
 - no raw audio collection/retention by WakeMyWay;
-- no consumer account collection while Sign In is absent;
-- no cloud backup collection while the consumer transport is absent.
+- optional account identity/session processing occurs only when the user explicitly uses configured Google sign-in;
+- no consumer cloud-backup collection while the Android backup/restore transport is absent;
+- Direct Realtime may transiently process microphone/conversational audio through OpenAI during an enabled Voice Check-In; the Play distribution does not currently ship that Realtime path.
 
 If billing is enabled:
 - Play returns subscription ProductDetails and purchase state to the Play-distributed app;

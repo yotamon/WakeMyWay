@@ -1,12 +1,12 @@
 # Project status
 
-**Last updated:** 2026-09-26  
+**Last updated:** 2026-09-30
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
 **Current launch program:** #89; canonical plan: `docs/35-paid-launch-readiness.md`  
 **Readiness gates:** TRUST #9 → FINISH #59 → PROVE #87 → SELL #88  
-**Account backend:** email/password + Google sign-in, session handling and server-owned roles are implemented behind configuration; production Neon database/auth provisioning is active; WakeMyWay-owned Google OAuth remains pending  
+**Account backend:** production Neon Managed Better Auth is active; Google sign-in now completes the Android mobile callback/session handoff for both returning and first-time users; account/cloud state remains optional and non-authoritative
 **Physical release gate:** #9  
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
@@ -388,7 +388,8 @@ Gate 4 repository preparation is now substantially complete without locking pric
 - `docs/39-privacy-data-safety-launch.md` contains the shipped-data inventory, Data Safety worksheet, processor/retention posture and deployable fail-closed `/privacy` + `/support` surfaces;
 - `docs/40-play-billing-boundary.md` records the merged Play Billing 9.1.0 client, server verification, server acknowledgement, SHA-256 lifecycle ledger and authenticated RTDN path;
 - signed Play release configuration is fail-closed and purchase launch remains disabled unless product/verification/HTTPS settings are explicitly supplied;
-- no consumer paywall, final price or invented Pro-only feature wall is exposed before #87 evidence;
+- a guarded Play consumer commerce surface now renders Play-localized offers, verified/pending/suspended lifecycle state, restore and official Google Play subscription management only when the product id and verifier are configured; final price/package and any Pro-only feature wall still wait for #87 evidence;
+- Privacy now exposes a confirmed local-data erase flow that refuses to run during Active Wake, cancels future Alarm Kernel authority, purges retained Direct-Boot schedule/policy slots, clears local alarm/preparation/history/learning/reliability/voice-provisioning state and returns the app to onboarding while leaving account identity as a separate concern;
 - production crash/ANR monitoring should use Play/Android Vitals first; WakeMyWay does not add broad analytics/session replay merely to satisfy an observability checkbox;
 - a real monitored support/privacy contact, deployed production URLs, Play Console products/credentials/RTDN, license-tester evidence, final Data Safety/content-rating entries and rollout actions remain external launch prerequisites.
 

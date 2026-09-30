@@ -4,7 +4,7 @@
 **Canonical gate:** #88  
 **Preparation issue:** #113  
 **Pricing dependency:** Gate 3 / #87  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-09-30
 
 This document turns the commercial/release side of WakeMyWay into an executable launch path without changing the product promise or inventing paid-only features before beta evidence exists.
 
@@ -255,14 +255,17 @@ Server-side verification enablement (before `WMW_PLAY_VERIFICATION_ENABLED=true`
 - RTDN Pub/Sub push uses authenticated OIDC with the exact audience/service account;
 - license-tester exercise of purchase/verify/RTDN completed.
 
-Once billing is live:
+The Android Play build now has a guarded **Profile → WakeMyWay Pro** surface when the subscription product and verifier are configured. It renders eligible base-plan offers with Play-localized recurring prices, supports purchase and explicit restore, shows pending/verification/suspension state, and opens the official Google Play subscription-management screen for management/cancellation. Promotional/trial offers remain hidden until their introductory terms are explicitly designed and verified.
+
+Before public enablement, exercise:
 - purchase;
 - pending purchase;
-- restore;
+- restore/reinstall;
 - renewal;
-- cancellation;
+- cancellation and entitled-through-period-end behavior;
 - grace/on-hold/paused/expired states as supported by current Play Billing;
-- subscription management link through Google Play.
+- subscription management through Google Play;
+- verifier/RTDN outage while future and active alarms remain unaffected.
 
 Never troubleshoot billing by asking for full payment-card details.
 

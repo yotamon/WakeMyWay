@@ -4,14 +4,14 @@
 **Client boundary:** merged in #116  
 **Initial server verification:** merged in #118  
 **Server acknowledgement + RTDN lifecycle:** merged in #120  
-**Last verified against official Play Billing docs:** 2026-09-24  
+**Last verified against official Play Billing docs:** 2026-09-30
 **Library target:** Google Play Billing Library 9.1.0
 
 ## Purpose
 
-WakeMyWay has a complete non-authoritative Play commerce foundation without exposing a public paywall or letting commerce become wake authority.
+WakeMyWay has a complete non-authoritative Play commerce foundation plus a guarded consumer purchase/restore/manage surface. The surface remains invisible unless a Play subscription product id and HTTPS server verification are explicitly configured, and commerce never becomes wake authority.
 
-The remaining work is external configuration/evidence plus the final package/price decision from Gate 3.
+The remaining work is external Play configuration/evidence plus the final package/price and premium-value decision from Gate 3.
 
 ## Source-set and server boundary
 
@@ -111,7 +111,7 @@ The Play adapter:
 
 Prices and billing periods come from Play ProductDetails.
 
-The adapter intentionally does not choose a preferred monthly/annual/trial offer. Final offer presentation belongs to the package/paywall shaped from Gate 3 evidence.
+The adapter intentionally does not hardcode a preferred monthly/annual/trial offer. The guarded consumer screen currently renders only eligible **base-plan** ProductDetails offers with Play-localized recurring prices; promotional/trial offers remain hidden until their introductory terms and merchandising are explicitly designed and verified. Final launch product/base-plan configuration, default merchandising and any premium feature boundary remain Gate 3/Play Console decisions.
 
 ## Server verification and acknowledgement
 
@@ -238,11 +238,11 @@ Repository contracts cover:
 - wrong-package rejection;
 - response/log privacy.
 
-## External proof before public purchase UI
+## External proof before public purchase enablement
 
-Repository code is not sufficient to make purchases live.
+Repository code is not sufficient to make purchases live. The guarded screen is intentionally hidden until launch configuration enables it.
 
-Before enabling a consumer paywall:
+Before enabling consumer purchases:
 
 - create the Play subscription product/base plans/offers;
 - provision Google Play Developer API/service-account access;
@@ -257,30 +257,30 @@ Before enabling a consumer paywall:
 
 The last two must demonstrate no alarm behavior change.
 
-## Paywall boundary
+## Consumer purchase boundary
 
-There is intentionally still:
+The repository now includes a deliberately guarded consumer subscription surface:
 
-- no consumer purchase screen;
-- no visible Pro badge;
-- no final price in app copy;
-- no invented Pro-only feature wall;
-- no subscription prompt during wake/setup.
+- it appears only when the Play subscription product id and server verifier are both configured;
+- it renders eligible offers and localized recurring prices from Google Play rather than hardcoding price copy;
+- it distinguishes pending, purchased-but-unverified, verified-entitled and suspended lifecycle states;
+- it exposes explicit Restore purchases;
+- it links active/existing subscriptions to the official Google Play subscription-management surface for cancellation/management;
+- it never appears during Active Wake and does not gate a committed alarm.
 
-Gate 3 (#87) must first establish which package users value and what price is credible.
+There is intentionally still no invented Pro-only feature wall or fixed launch price in product copy. Gate 3 (#87) must establish which premium outcome users value and what price/package is credible before final Play merchandising is locked.
 
 The implementation order is now:
 
 ~~~text
-safe lifecycle foundation      ✅
-server verification             ✅
-server acknowledgement + RTDN   ✅
+safe lifecycle foundation       ✅
+server verification              ✅
+server acknowledgement + RTDN    ✅
+guarded purchase/restore/manage  ✅
         ↓
 external Play license proof
         ↓
-Gate 3 package evidence
-        ↓
-paywall/package implementation
+Gate 3 package/price evidence
         ↓
 closed paid test
         ↓

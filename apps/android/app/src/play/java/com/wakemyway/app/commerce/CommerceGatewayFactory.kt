@@ -51,6 +51,7 @@ private class PlayBillingGateway(
         } else {
             CommerceAvailability.CONNECTING
         },
+        subscriptionProductId = productId.takeIf(String::isNotBlank),
         verificationAvailable = verifier.available,
     )
 
@@ -194,6 +195,8 @@ private class PlayBillingGateway(
                         offerToken = offer.offerToken,
                         formattedPrice = recurring.formattedPrice,
                         billingPeriod = recurring.billingPeriod,
+                        title = productDetails?.title,
+                        description = productDetails?.description,
                     )
                 }
                 .distinctBy { it.offerToken }
