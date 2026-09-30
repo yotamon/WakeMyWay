@@ -59,6 +59,21 @@ Optional account backup/migration
 
 The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration use the selected local planning atmosphere, while Active Wake intentionally follows the fixed authored midnight-to-daylight progression. The same sunrise-wave geometry is used by the launcher identity, system launch treatment, Wake Line and first-run experience.
 
+## Physiological-first conversational wake hardening
+
+The current Direct conversational wake is being hardened around a science-informed, low-cognitive-load wake protocol rather than generic free-form morning chat.
+
+The accepted dogfood behavior keeps Alarm Kernel and WakeRuntime authority unchanged while making intervention sequencing explicit:
+
+- one brief action per early turn;
+- sit upright → feet down/safe equivalent → brief seated upper-body activation;
+- standing is conditional, has a seated alternative, and requires independent motion evidence before it may be requested;
+- later activation may use one small reachable environmental cue;
+- open-ended early questions, puzzles/CAPTCHA behavior, motivational monologues and strenuous exercise are excluded;
+- Realtime renders the current typed intent but cannot choose the progression, claim posture/movement, or complete the wake.
+
+The research basis and uncertainty are documented in `docs/research/wake-psychology.md`. The exact sequence remains a dogfood hypothesis under the existing PROVE gate; overnight physical evidence, return-to-bed calibration, annoyance and agency remain required before treating it as a tuned default.
+
 ## Android home widget
 
 PR #130 adds the first production Android home-screen surface: one responsive **Next Wake** Glance widget with Compact, Medium and Expanded densities.
