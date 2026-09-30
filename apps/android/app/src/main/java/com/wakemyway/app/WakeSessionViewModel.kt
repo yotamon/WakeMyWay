@@ -12,6 +12,7 @@ import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalObserver
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.product.AlarmDefinitionRepository
+import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.product.ConsumerPreferencesRepository
 import com.wakemyway.app.product.history.WakeHistorySessionRecorder
 import com.wakemyway.app.product.learning.WakeLearningRepository
@@ -20,9 +21,24 @@ import com.wakemyway.app.voice.WakeRuntimeTransitionObserver
 import com.wakemyway.app.voice.WakeSessionController
 import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
+import com.wakemyway.core.alarm.AlarmDefinition
 import com.wakemyway.core.alarm.AlarmDefinitionId
 import com.wakemyway.core.personalization.WakeAllowedContext
+import com.wakemyway.core.preparation.TomorrowContract
 import com.wakemyway.core.schedule.WakeOccurrenceId
+
+internal fun resolveWakeAllowedContext(
+    preferences: ConsumerPreferences,
+    alarmDefinition: AlarmDefinition?,
+    tomorrowContract: TomorrowContract?,
+): WakeAllowedContext {
+    val consentedContract = tomorrowContract?.takeIf { it.useInVoiceCheckIn }
+    return WakeAllowedContext(
+        displayName = preferences.displayName,
+        tomorrowReason = consentedContract?.rawText,
+        firstMove = consentedContract?.firstMove ?: alarmDefinition?.firstMoveDefault,
+    )
+}
 
 typealias WakeSessionControllerFactory = (
     onUiState: (WakeVoiceUiState) -> Unit,
@@ -120,19 +136,11 @@ class WakeSessionViewModel internal constructor(
             val tomorrowContract = runCatching {
                 WakePreparationManager(appContext).snapshotFor(occurrenceId).contract
             }.getOrNull()
-            val voiceContext = tomorrowContract
-                ?.takeIf { it.useInVoiceCheckIn }
-                ?.let { contract ->
-                    WakeAllowedContext(
-                        displayName = consumerPreferences.displayName,
-                        tomorrowReason = contract.rawText,
-                        firstMove = contract.firstMove ?: alarmDefinition?.firstMoveDefault,
-                    )
-                }
-                ?: WakeAllowedContext(
-                    displayName = consumerPreferences.displayName,
-                    firstMove = alarmDefinition?.firstMoveDefault,
-                )
+            val voiceContext = resolveWakeAllowedContext(
+                preferences = consumerPreferences,
+                alarmDefinition = alarmDefinition,
+                tomorrowContract = tomorrowContract,
+            )
             val terminalActions = WakeTerminalActions(
                 context = appContext,
                 observer = historyRecorder ?: WakeTerminalObserver.NONE,

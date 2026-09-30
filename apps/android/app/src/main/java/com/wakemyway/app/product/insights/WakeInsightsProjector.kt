@@ -65,7 +65,7 @@ data class WakeInsightsSummary(
         }
 
     val pendingInterventionRating: WakeMorningInsight?
-        get() = mornings.firstOrNull {
+        get() = mornings.firstOrNull()?.takeIf {
             it.calibrationOutcome != null &&
                 it.calibrationOutcome != WakeCalibrationOutcome.SKIPPED &&
                 it.interventionRating == null

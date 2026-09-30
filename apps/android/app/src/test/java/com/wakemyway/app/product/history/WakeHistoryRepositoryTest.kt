@@ -3,6 +3,7 @@ package com.wakemyway.app.product.history
 import com.wakemyway.core.learning.WakeBehaviorObservation
 import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -166,6 +167,26 @@ class WakeHistoryRepositoryTest {
         assertEquals(original.terminalReason, calibrated.terminalReason)
         assertEquals(original.finishedAt, calibrated.finishedAt)
         assertEquals(WakeCalibrationOutcome.RETURNED_TO_BED, calibrated.calibration?.outcome)
+    }
+
+    @Test
+    fun `intervention rating updates only subjective feedback`() {
+        val repository = repository()
+        val original = entry(
+            occurrence = "rate",
+            finishedAt = "2026-09-16T06:02:00Z",
+        )
+        repository.record(original)
+
+        repository.attachInterventionRating(
+            original.occurrenceId,
+            WakeInterventionRating.TOO_INTENSE,
+        )
+
+        val rated = repository.list().single()
+        assertEquals(original.terminalReason, rated.terminalReason)
+        assertEquals(original.finishedAt, rated.finishedAt)
+        assertEquals(WakeInterventionRating.TOO_INTENSE, rated.interventionRating)
     }
 
     @Test
