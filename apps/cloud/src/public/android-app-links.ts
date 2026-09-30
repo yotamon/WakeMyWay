@@ -1,6 +1,8 @@
 import { HttpError } from '../http.js';
 
 const PACKAGE_NAME = 'com.wakemyway.app';
+const DIRECT_PRODUCTION_CERT_SHA256 =
+  '3F:32:D8:46:80:FD:22:AA:BC:F1:50:8A:A3:C6:51:9F:FC:F3:4E:B9:FB:21:C0:C0:B4:C8:86:A4:DC:F0:49:BC';
 const SHA256_HEX = /^[A-F0-9]{64}$/;
 
 export interface AndroidAppLinksConfig {
@@ -10,22 +12,23 @@ export interface AndroidAppLinksConfig {
 export function requireAndroidAppLinksConfig(
   environment: NodeJS.ProcessEnv = process.env,
 ): AndroidAppLinksConfig {
-  const raw = environment.WMW_ANDROID_APP_LINK_CERT_SHA256?.trim();
-  if (!raw) {
-    throw new HttpError(503, 'WakeMyWay Android App Link certificate fingerprints are not configured.');
+  const configured = environment.WMW_ANDROID_APP_LINK_CERT_SHA256?.trim();
+  if (!configured) {
+    return { fingerprints: [DIRECT_PRODUCTION_CERT_SHA256] };
   }
 
-  const fingerprints = [...new Set(
-    raw
-      .split(',')
-      .map(value => normalizeFingerprint(value))
-      .filter((value): value is string => value !== null),
-  )];
-
-  if (fingerprints.length === 0) {
+  const values = configured.split(',').map(value => value.trim()).filter(Boolean);
+  const normalized = values.map(normalizeFingerprint);
+  if (values.length === 0 || normalized.some(value => value === null)) {
     throw new HttpError(503, 'WakeMyWay Android App Link certificate fingerprints are invalid.');
   }
-  return { fingerprints };
+
+  return {
+    fingerprints: [
+      DIRECT_PRODUCTION_CERT_SHA256,
+      ...new Set(normalized.filter((value): value is string => value !== null)),
+    ].filter((value, index, all) => all.indexOf(value) === index),
+  };
 }
 
 export function androidAssetLinksDocument(config: AndroidAppLinksConfig): unknown[] {
