@@ -526,3 +526,57 @@ It may not move authority away from the existing systems:
 Wake Preferences remain credential-protected local product data. Tomorrow Contract content remains local by default and may enter Realtime only when the user explicitly enables that per-wake use. No personalized private text enters Direct-Boot critical state.
 
 Canonical product/implementation contract: [`44-personalized-wake-profile-product-plan.md`](44-personalized-wake-profile-product-plan.md).
+
+# WakeMyWay Plus commercial model — 2026-10-01
+
+## Free + Plus is the accepted consumer business model
+
+WakeMyWay will monetize through a **Free + WakeMyWay Plus** subscription model.
+
+Free remains a genuinely useful local-first wake product and contains the trust-critical alarm path, deterministic wake behavior, safe Stop/Snooze and enough personalization/learning to demonstrate the product promise.
+
+Plus monetizes recurring personalized wake value, especially production-quality Realtime conversational waking and richer premium personalization that has been implemented and validated.
+
+The consumer plan name is **WakeMyWay Plus**. Existing internal `PRO` commerce identifiers remain implementation details until a separate engineering change justifies renaming them.
+
+## No ads, weekly, lifetime or ordinary wake credits at launch
+
+WakeMyWay will not use advertising, a weekly subscription, a lifetime Plus purchase, or a normal per-wake consumable-credit economy at launch.
+
+The wake moment is a trust-sensitive interaction, and recurring cloud/Realtime costs make a lifetime cloud-inclusive entitlement structurally risky.
+
+## Value-before-payment Preview
+
+The intended acquisition path gives the first **three qualified premium wakes** as a no-payment-method Premium Preview.
+
+A preview is consumed only when the premium experience successfully demonstrates value. Provider/product failure does not consume a preview.
+
+After Preview, the product may present Plus only in an ordinary awake-state surface, never during Active Wake.
+
+## Annual-first price hypothesis
+
+The working launch hypothesis is:
+
+~~~text
+€7.99 / month
+€49.99 / year
+7-day store trial
+annual offer presented first
+~~~
+
+These values are not hardcoded product truth. Google Play localized ProductDetails remains price authority, and Gate 3 beta evidence may change price/trial/package before public rollout.
+
+## Commercial cost boundary
+
+The working economic guardrails are:
+
+- average Plus provider + variable cloud cost ≤ €1.25/payer/month;
+- typical live wake target ≤ €0.04 all-in provider cost;
+- high-but-normal live wake target ≤ €0.08;
+- blended contribution margin floor ≥65%, with 70%+ as the operating target;
+- no meaningful paid acquisition until retention, LTV and payback are measurable.
+
+Realtime follows **minimum effective compute**: end paid enrichment when the wake outcome no longer benefits from continued conversation. A cost limit may end Realtime enrichment but never the committed local alarm.
+
+Canonical plan: [`24-monetization.md`](24-monetization.md).
+
