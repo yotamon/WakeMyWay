@@ -6,7 +6,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
-import java.util.UUID
+import com.wakemyway.app.product.account.AccountInstallationStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -22,7 +22,9 @@ data class RealtimeDeviceCredential(
  * The token is scoped to Realtime wake enrichment and encrypted with Android Keystore.
  */
 class RealtimeAccountCredentialStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val installationStore = AccountInstallationStore(appContext)
 
     fun load(): RealtimeDeviceCredential? {
         val encrypted = prefs.getString(KEY_DEVICE_TOKEN, null).orEmpty()
@@ -50,14 +52,7 @@ class RealtimeAccountCredentialStore(context: Context) {
             .apply()
     }
 
-    fun installationId(): String {
-        prefs.getString(KEY_INSTALLATION_ID, null)?.let { existing ->
-            if (runCatching { UUID.fromString(existing) }.isSuccess) return existing
-        }
-        val created = UUID.randomUUID().toString()
-        prefs.edit().putString(KEY_INSTALLATION_ID, created).apply()
-        return created
-    }
+    fun installationId(): String = installationStore.id()
 
     fun clear() = clearCredential()
 
@@ -116,11 +111,10 @@ class RealtimeAccountCredentialStore(context: Context) {
         const val PREFS = "account-realtime-device-v1"
         const val KEY_DEVICE_TOKEN = "device-token-aes-gcm"
         const val KEY_EXPIRES_AT = "device-token-expires-at"
-        const val KEY_INSTALLATION_ID = "installation-id"
         const val KEYSTORE = "AndroidKeyStore"
         const val KEY_ALIAS = "wmw-account-realtime-device-v1"
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val MIN_TOKEN_LENGTH = 48
-        const val EXPIRY_SAFETY_WINDOW_SECONDS = 60L
+        const val EXPIRY_SAFETY_WINDOW_SECONDS = 5 * 60L
     }
 }
