@@ -70,10 +70,12 @@ Account requests use a short-lived Neon Auth JWT:
 Authorization: Bearer <neon-user-jwt>
 ```
 
-Direct Realtime uses that JWT only for invisible device provisioning. After provisioning, the
-Android app stores a 90-day scoped Realtime device credential encrypted with Android Keystore and
-uses that scoped credential, not the account JWT, to request short-lived OpenAI Realtime client
-secrets at wake time. There is no consumer access code or Realtime setup page.
+Direct Realtime uses that JWT only for invisible device provisioning. Provisioning rotates a private
+server authorization row and returns a 14-day scoped Realtime device credential encrypted with
+Android Keystore. At wake time the signed bearer must still match an active, unexpired,
+non-revoked server row before WakeMyWay mints a short-lived OpenAI Realtime client secret.
+Sign-out attempts authenticated server revocation before clearing the local credential. There is no
+consumer access code or Realtime setup page.
 
 The Wake API verifies the JWT signature through the project's public JWKS and validates issuer, `authenticated` audience, expiry, and user subject. It does not use a database or Neon management credential for authentication.
 
@@ -114,7 +116,10 @@ NEON_AUTH_COOKIE_SECRET=<server-only-random-secret-at-least-32-characters>
 DATABASE_URL=postgresql://<server-only-neon-connection>
 ```
 
-Then apply `migrations/001_consumer_backups.sql` and `migrations/003_account_roles.sql` to the WakeMyWay Neon project before serving account traffic. Grant an admin role only after the intended Neon auth user exists; do not bootstrap privileges by email address.
+Then apply `migrations/001_consumer_backups.sql`, `migrations/003_account_roles.sql`, and
+`migrations/004_account_realtime_devices.sql` to the WakeMyWay Neon project before serving the
+corresponding account capabilities. The Realtime table is private server authorization state; it has
+no client policies. Grant an admin role only after the intended Neon auth user exists; do not bootstrap privileges by email address.
 
 When Play commerce lifecycle storage is enabled, also apply
 `migrations/002_play_subscription_lifecycle.sql`. That table stores SHA-256 purchase-token
@@ -162,6 +167,8 @@ Create/configure the Vercel project with **Root Directory** `apps/cloud`. Node.j
 Runtime configuration depends on enabled capabilities:
 
 - account API: `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, and server-only `DATABASE_URL`
+- verified Android OAuth callback: `WMW_ANDROID_APP_LINK_CERT_SHA256` with the production signing
+  certificate fingerprint(s), comma-separated when Direct and Play certificates differ
 - AI Gateway authentication: Vercel OIDC or `AI_GATEWAY_API_KEY`
 - `WMW_INTERNAL_API_KEY` for internal diagnostics/spikes
 - optional model-policy overrides from `.env.example`
@@ -180,11 +187,14 @@ Do not make Android alarm readiness depend on this deployment.
 | `GET /api/health` | non-sensitive config/readiness | public | no private input |
 | `GET /privacy` | public privacy policy | public, enabled only with real support contact | static HTML; no cookies/analytics/user input |
 | `GET /support` | public support/help | public, enabled only with real support contact | static HTML; privacy-safe diagnostic guidance only |
+| `GET /.well-known/assetlinks.json` | Android verified App Links association | public, fail-closed until signing fingerprints configured | package + signing certificate association only |
+| `GET /auth/mobile` | OAuth migration fallback for non-verified/older installs | public | handoff remains URL-fragment-only; page performs no network submission |
 | `GET /api/v1/account/me` | resolve authenticated WakeMyWay account + server-owned role | Neon user JWT | identity/authorization only; missing role fails to `user` |
 | `GET /api/v1/account/mobile-google-start` | begin Google OAuth through the official Neon Auth server proxy | PKCE challenge + browser cookies | no Google/Neon token returned to Android |
 | `GET /api/v1/account/mobile-google-complete` | finalize Neon OAuth verifier and prepare app handoff | Neon challenge/session cookies | two-minute encrypted handoff only |
 | `POST /api/v1/account/mobile-google-exchange` | exchange the app handoff for the opaque Neon session token | PKCE verifier | bounded one-device handoff; token then stored encrypted on Android |
-| `POST /api/v1/account/realtime-provision` | invisibly issue a scoped Realtime device credential | Neon user JWT | account-authorized, installation-scoped, encrypted at rest on Android; no access code |
+| `POST /api/v1/account/realtime-provision` | rotate/issue a scoped Realtime device credential | Neon user JWT | creates server-revocable installation authorization; no access code |
+| `DELETE /api/v1/account/realtime-provision` | revoke this account installation's Realtime authorization | Neon user JWT | sign-out hardening; local sign-out still proceeds on network failure |
 | `POST /api/v1/account/realtime-token` | mint a short-lived OpenAI Realtime client secret | scoped Realtime device credential | billable voice boundary; pseudonymous safety id; never alarm authority |
 | `GET /api/v1/account/backup` | fetch latest explicit consumer backup | Neon user JWT | consumer intent only; no wake authority/private Tomorrow Contract text |
 | `PUT /api/v1/account/backup` | replace latest explicit consumer backup | Neon user JWT | strict bounded schema; consumer intent only |
