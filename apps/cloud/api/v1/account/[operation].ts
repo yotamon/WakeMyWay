@@ -1,6 +1,10 @@
 import { handleAccountBackupRequest } from '../../../src/account/backup-handler.js';
 import { handleAccountMeRequest } from '../../../src/account/me-handler.js';
 import {
+  handleAccountRealtimeProvisionRequest,
+  handleAccountRealtimeTokenRequest,
+} from '../../../src/account/realtime-handler.js';
+import {
   handleMobileGoogleComplete,
   handleMobileGoogleExchange,
   handleMobileGoogleStart,
@@ -13,6 +17,8 @@ const OPERATIONS = new Set([
   'mobile-google-start',
   'mobile-google-complete',
   'mobile-google-exchange',
+  'realtime-token',
+  'realtime-provision',
 ]);
 
 export default {
@@ -34,6 +40,10 @@ export default {
         return handleMobileGoogleComplete(request);
       case 'mobile-google-exchange':
         return handleMobileGoogleExchange(request);
+      case 'realtime-token':
+        return handleAccountRealtimeTokenRequest(request);
+      case 'realtime-provision':
+        return handleAccountRealtimeProvisionRequest(request);
       default: {
         const id = requestId(request);
         return json({ error: 'Account operation was not found.', requestId: id }, 404, id);

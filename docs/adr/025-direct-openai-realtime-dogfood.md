@@ -17,8 +17,9 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
 - Direct APKs include WebRTC, `INTERNET`, and `MODIFY_AUDIO_SETTINGS`.
 - Play APK/AAB builds remain local-only and do not package the Realtime adapter.
 - The normal Wake Session discovers the Direct adapter through the existing enrichment factory.
-- Pairing remains an explicit one-time private-access flow. The standard `OPENAI_API_KEY` stays
-  server-side; Android stores only the scoped expiring installation credential in Android Keystore.
+- Realtime provisioning is invisible and account-authenticated per ADR 028. The standard
+  `OPENAI_API_KEY` stays server-side; Android stores only a scoped expiring device credential in
+  Android Keystore. Direct release builds expose no private access-code setup screen.
 - Android obtains a short-lived Realtime client secret from WakeMyWay and then connects directly to
   OpenAI over WebRTC. Vercel is control plane only and never proxies live wake audio.
 - WakeRuntime remains behavioral authority and AlarmKernel remains Stop/Snooze/alarm authority.
@@ -27,8 +28,9 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
   at 120 output tokens and the conversation window uses retention-ratio truncation.
 - Stable Alfred instructions live at the session prefix. Per-turn requests contain only the current
   WakeRuntime directive and voice style, improving prompt stability and cost behavior.
-- Paired installations receive a stable pseudonymous OpenAI safety identifier derived server-side
-  from the scoped installation id. No raw account, name, or email identifier is sent.
+- Account-authorized installations receive a stable pseudonymous OpenAI safety identifier derived
+  server-side from pseudonymous account + installation data. No raw account, name, or email value is
+  sent to OpenAI as the safety identifier.
 - WakeMyWay does not persist Realtime microphone audio or raw transcripts.
 
 ## Why Direct only
@@ -52,8 +54,8 @@ WakeRuntime                         (always authoritative)
     +-- unavailable / timeout / budget / provider failure -> local alarm-only
 ```
 
-Realtime setup, network availability, OpenAI availability, and pairing state are never Wake Ready
-predicates.
+Realtime provisioning, network availability, OpenAI availability, and account state are never Wake
+Ready predicates.
 
 ## Validation
 

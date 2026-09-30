@@ -6,6 +6,7 @@ const OPENAI_CLIENT_SECRETS_URL = 'https://api.openai.com/v1/realtime/client_sec
 export const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';
 export const DIRECT_OPENAI_CONFIGURATION_ID = 'direct-openai:webrtc-ephemeral-v1';
 export const FOUNDER_WAKE_CONFIGURATION_ID = 'direct-openai:webrtc-founder-wake-v1';
+export const ACCOUNT_WAKE_CONFIGURATION_ID = 'direct-openai:webrtc-account-wake-v1';
 
 const booleanStringSchema = z.preprocess(
   value => (typeof value === 'string' ? value.trim() : value),
@@ -16,6 +17,7 @@ const environmentSchema = z.object({
   OPENAI_API_KEY: z.string().trim().min(1).optional(),
   WMW_ENABLE_DIRECT_OPENAI_REALTIME_SPIKE: booleanStringSchema,
   WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: booleanStringSchema,
+  WMW_ENABLE_ACCOUNT_REALTIME: booleanStringSchema,
   WMW_OPENAI_REALTIME_MODEL: z.string().trim().min(1).default('gpt-realtime-2.1'),
   WMW_OPENAI_REALTIME_VOICE: z.string().trim().min(1).max(128).default('marin'),
   WMW_OPENAI_SAFETY_IDENTIFIER: z.string().trim().min(8).max(256).optional(),
@@ -32,6 +34,7 @@ export interface DirectOpenAiRealtimeConfig {
   configured: boolean;
   enabled: boolean;
   founderDogfoodEnabled: boolean;
+  accountWakeEnabled: boolean;
   apiKey?: string;
   model: string;
   voice: string;
@@ -59,6 +62,11 @@ export interface FounderWakeRealtimeClientSecret extends RealtimeClientSecretBas
   privacyEligibility: 'founder-consented-default-api-retention';
 }
 
+export interface AccountWakeRealtimeClientSecret extends RealtimeClientSecretBase {
+  configurationId: typeof ACCOUNT_WAKE_CONFIGURATION_ID;
+  privacyEligibility: 'authenticated-account-default-api-retention';
+}
+
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export function parseDirectOpenAiRealtimeConfig(
@@ -70,6 +78,7 @@ export function parseDirectOpenAiRealtimeConfig(
     configured: Boolean(env.OPENAI_API_KEY),
     enabled: env.WMW_ENABLE_DIRECT_OPENAI_REALTIME_SPIKE,
     founderDogfoodEnabled: env.WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD,
+    accountWakeEnabled: env.WMW_ENABLE_ACCOUNT_REALTIME || env.WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD,
     ...(env.OPENAI_API_KEY ? { apiKey: env.OPENAI_API_KEY } : {}),
     model: env.WMW_OPENAI_REALTIME_MODEL,
     voice: env.WMW_OPENAI_REALTIME_VOICE,
@@ -99,6 +108,18 @@ export function requireFounderWakeRealtimeDogfood(
   }
   if (!config.apiKey) {
     throw new HttpError(503, 'Founder Realtime Wake dogfood is not configured.');
+  }
+  return { ...config, apiKey: config.apiKey };
+}
+
+export function requireAccountWakeRealtime(
+  config = parseDirectOpenAiRealtimeConfig(process.env),
+): DirectOpenAiRealtimeConfig & { apiKey: string } {
+  if (!config.accountWakeEnabled) {
+    throw new HttpError(503, 'Account Realtime Wake is disabled.');
+  }
+  if (!config.apiKey) {
+    throw new HttpError(503, 'Account Realtime Wake is not configured.');
   }
   return { ...config, apiKey: config.apiKey };
 }
@@ -149,6 +170,33 @@ export async function createFounderWakeRealtimeClientSecret(options: {
     ...token,
     configurationId: FOUNDER_WAKE_CONFIGURATION_ID,
     privacyEligibility: 'founder-consented-default-api-retention',
+  };
+}
+
+/**
+ * Account-authenticated consumer Realtime credential.
+ *
+ * The account JWT is verified by WakeMyWay before this function is reached. The current founder
+ * dogfood gate remains the temporary operational kill switch while the provider/privacy rollout is
+ * still limited to Direct builds; no founder pairing secret is involved in this path.
+ */
+export async function createAccountWakeRealtimeClientSecret(options: {
+  environment?: NodeJS.ProcessEnv;
+  fetchImpl?: FetchLike;
+  safetyIdentifier: string;
+}): Promise<AccountWakeRealtimeClientSecret> {
+  const config = requireAccountWakeRealtime(
+    parseDirectOpenAiRealtimeConfig(options.environment ?? process.env),
+  );
+  const token = await mintRealtimeClientSecret(
+    { ...config, safetyIdentifier: options.safetyIdentifier },
+    options.fetchImpl ?? fetch,
+  );
+
+  return {
+    ...token,
+    configurationId: ACCOUNT_WAKE_CONFIGURATION_ID,
+    privacyEligibility: 'authenticated-account-default-api-retention',
   };
 }
 

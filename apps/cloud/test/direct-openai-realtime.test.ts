@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { HttpError } from '../src/http';
 import {
+  ACCOUNT_WAKE_CONFIGURATION_ID,
+  createAccountWakeRealtimeClientSecret,
   createDirectOpenAiRealtimeClientSecret,
   createFounderWakeRealtimeClientSecret,
   DIRECT_OPENAI_CONFIGURATION_ID,
@@ -191,5 +193,39 @@ describe('founder Realtime wake client-secret broker', () => {
         fetchImpl: async () => Response.json({ value: 'should-not-be-used' }),
       }),
     ).rejects.toThrow(/safety identifier/i);
+  });
+});
+
+
+describe('account Realtime wake client-secret broker', () => {
+  it('mints only behind the account Realtime gate and uses the supplied pseudonymous safety id', async () => {
+    let requestedInit: RequestInit | undefined;
+
+    const result = await createAccountWakeRealtimeClientSecret({
+      environment: {
+        OPENAI_API_KEY: 'server-only-openai-key',
+        WMW_ENABLE_ACCOUNT_REALTIME: 'true',
+      },
+      safetyIdentifier: 'wmw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      fetchImpl: async (_input, init) => {
+        requestedInit = init;
+        return Response.json({
+          value: 'ephemeral-account-secret',
+          expires_at: 2_000_000_000,
+        });
+      },
+    });
+
+    const headers = new Headers(requestedInit?.headers);
+    expect(headers.get('openai-safety-identifier')).toBe('wmw_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    expect(result.configurationId).toBe(ACCOUNT_WAKE_CONFIGURATION_ID);
+    expect(result.privacyEligibility).toBe('authenticated-account-default-api-retention');
+  });
+
+  it('keeps the current founder gate as a temporary server-only migration fallback', () => {
+    const config = parseDirectOpenAiRealtimeConfig({
+      WMW_ENABLE_FOUNDER_REALTIME_DOGFOOD: 'true',
+    });
+    expect(config.accountWakeEnabled).toBe(true);
   });
 });

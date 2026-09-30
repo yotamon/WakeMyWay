@@ -14,10 +14,9 @@ object ConversationalAlfredState {
     private const val PREFS = "conversational-alfred-state-v1"
     private const val KEY_READY = "ready"
 
-    const val DIRECT_SETUP_ACTIVITY = "com.wakemyway.app.voice.RealtimeVoiceSetupActivity"
     const val DEBUG_SETUP_ACTIVITY = "com.wakemyway.app.voice.VoiceSpikeActivity"
 
-    private val setupActivities = listOf(DIRECT_SETUP_ACTIVITY, DEBUG_SETUP_ACTIVITY)
+    private val setupActivities = listOf(DEBUG_SETUP_ACTIVITY)
 
     fun isReady(context: Context): Boolean =
         context.applicationContext
@@ -33,13 +32,22 @@ object ConversationalAlfredState {
     }
 
     /**
-     * Pre-warms distribution-scoped Realtime credentials without linking Direct-only code into Play.
-     * Failure is intentionally silent because local waking must remain independent of cloud access.
+     * Pre-warms an invisible distribution-scoped Realtime credential after account/session startup.
+     * Direct uses account authentication; Play has no implementation and silently no-ops.
      */
     fun prewarmIfSupported(context: Context) {
         runCatching {
             val type = Class.forName("com.wakemyway.app.voice.DirectRealtimeProvisioner")
             type.getMethod("provision", Context::class.java)
+                .invoke(null, context.applicationContext)
+        }
+    }
+
+    /** Clears any distribution-scoped Realtime credential when the account signs out. */
+    fun clearProvisioningIfSupported(context: Context) {
+        runCatching {
+            val type = Class.forName("com.wakemyway.app.voice.DirectRealtimeProvisioner")
+            type.getMethod("clear", Context::class.java)
                 .invoke(null, context.applicationContext)
         }
     }

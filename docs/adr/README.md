@@ -24,9 +24,10 @@ ADRs preserve durable engineering constraints. Canonical terminology lives in [`
 | [`018`](018-controllable-wake-presentation-readiness.md) | Wake Ready requires controllable full-screen/notification presentation and modern Android BAL-safe launch |
 | [`019`](019-permission-gated-wake-scheduling.md) | Wake schedules require critical alarm/presentation readiness; voice is degradable enrichment and never scheduling authority |
 | [`020`](020-conversational-wake-enrichment.md) | Natural Realtime speech is optional non-authoritative Wake enrichment; failure degrades alarm-only |
-| [`021`](021-founder-realtime-pairing.md) | Founder Realtime uses fixed WakeMyWay backend routing plus scoped, expiring installation pairing; reusable server/OpenAI keys never enter Android |
+| [`021`](021-founder-realtime-pairing.md) | **Superseded by ADR 028:** historical founder access-code pairing hardening |
 | [`022`](022-multi-alarm-product-model.md) | Multi-alarm product state and critical execution slots are independent per alarm |
 | [`023`](023-app-update-distribution.md) | Direct distribution uses WakeMyWay-controlled signed app updates |
 | [`024`](024-update-persistence-contract.md) | App updates preserve local alarm/product state across signed upgrades |
 | [`025`](025-direct-openai-realtime-dogfood.md) | OpenAI Realtime is promoted into Direct dogfood only, with local authority and bounded fallback |
-| [`026`](026-zero-setup-direct-realtime.md) | **Superseded:** anonymous Direct Realtime bootstrap retired; founder dogfood requires explicit scoped pairing |
+| [`026`](026-zero-setup-direct-realtime.md) | **Superseded:** anonymous zero-setup bootstrap had insufficient authorization |
+| [`028`](028-account-authenticated-realtime.md) | Direct Realtime provisions invisibly from an authenticated account; no consumer access code/setup page |
