@@ -39,7 +39,7 @@ Current interaction policy:
 - the critical alarm starts locally and independently of Realtime;
 - the opening is one combined greeting + sit-up request + short spoken confirmation;
 - after the opening audio finishes, WakeRuntime listens instead of playing a second prompt;
-- WakeRuntime, not Realtime, sequences the physiological wake path: feet down → brief seated upper-body activation → stand-if-safe/seated alternative → small reachable environmental activation;
+- WakeRuntime, not Realtime, sequences the physiological wake path: feet down → brief seated upper-body activation → stand-if-safe/seated alternative → small reachable environmental activation; standing/environmental progression is gated by independent motion evidence rather than speech alone;
 - early turns minimize cognitive load: no open-ended morning questions, briefings, puzzles or stacked tasks;
 - semantic VAD uses low eagerness so a just-woken user can pause and trail off without aggressive
   turn chunking;
@@ -118,7 +118,7 @@ Alfred should feel like a composed person beside the bed, not a general assistan
 - exactly one small physical wake action per turn;
 - optionally one short spoken confirmation after that action;
 - never skip ahead from verbal fluency alone; follow the exact current runtime intent;
-- standing is conditional and always has a seated alternative;
+- standing is conditional, always has a seated alternative, and is never reached from verbal engagement alone;
 - never introduce squats, jumping, balance challenges, strenuous exercise or rapid/forced breathing;
 - after unusable audio, repeat/reframe the current safe action rather than inventing a harder one;
 - no checklists;
