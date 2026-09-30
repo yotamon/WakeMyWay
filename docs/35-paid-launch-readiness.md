@@ -2,7 +2,7 @@
 
 **Status:** Active launch program  
 **Program issue:** #89  
-**Last updated:** 2026-09-24  
+**Last updated:** 2026-10-01  
 **Target:** a trustworthy, polished, evidence-backed, supportable paid Android 1.0  
 **Scope rule:** finish and prove the existing product before adding new product capabilities
 
@@ -386,32 +386,69 @@ Make the proven core product purchasable, supportable, observable and safely rel
 
 Commercial infrastructure remains outside Alarm Kernel and WakeRuntime authority.
 
-## Packaging
+## Packaging and pricing
 
-Position paid value around user outcome, not an engineering checklist.
+The canonical commercial Shape contract is [`24-monetization.md`](24-monetization.md).
+
+The accepted model is **WakeMyWay Free + WakeMyWay Plus**.
 
 ### Free
 
-A trustworthy WakeMyWay alarm that helps the user begin moving.
+Free remains a trustworthy, genuinely useful local-first WakeMyWay product: reliable alarms, deterministic wake behavior, safe Stop/Snooze, core activation behavior, basic local personalization/learning and no ads.
 
-The free product remains a real usable alarm. Subscription failure or expiry cannot retroactively make a committed alarm unsafe.
+Free is the trust/distribution engine. It must not be intentionally weakened to force conversion.
 
-### Pro
+### Plus
 
-The wake strategy becomes meaningfully more personal/adaptive over time, with premium experiences that support that promise.
+Plus monetizes recurring personalized wake value, especially production-quality Realtime conversational waking and richer premium personalization that has actually been implemented and validated.
 
-Do not invent arbitrary feature walls merely to manufacture a subscription.
+Plus is not sold as token access, "advanced AI" or a large checklist of arbitrary feature gates.
 
-## Pricing
+### First-value monetization flow
 
-Current discovery hypothesis:
+The working launch journey is:
 
 ~~~text
-€4.99 / month
-~€39 / year
+real wake #1 — Premium Preview
+real wake #2 — Premium Preview
+real wake #3 — Premium Preview
+        ↓
+truthful value recap / learned observation
+        ↓
+Plus offer after the wake
+        ↓
+7-day store trial
+        ↓
+annual or monthly subscription
 ~~~
 
-Do not lock launch pricing until Gate 3 yields real willingness-to-pay evidence.
+The first three **qualified** Premium Preview wakes require no payment method and are consumed only when the premium experience successfully demonstrates value. A provider/product failure must not spend a preview.
+
+No paywall or purchase decision appears during Active Wake.
+
+### Working launch price hypothesis
+
+~~~text
+€7.99 / month
+€49.99 / year
+7-day trial
+annual offer presented first
+~~~
+
+There is no weekly plan, lifetime plan, ad-supported tier or ordinary wake credit economy at launch.
+
+These are shaped launch hypotheses, not hardcoded Android prices and not final evidence-backed launch claims. Google Play ProductDetails remains price authority. Gate 3 must validate the package, preview value, trial behavior, willingness to pay and provider economics before public Plus rollout.
+
+### Economic gate
+
+The working model targets:
+
+- average Plus provider + variable cloud cost **≤ €1.25 / payer / month**;
+- typical live wake all-in provider cost roughly **≤ €0.04**, with high-but-normal wakes **≤ €0.08**;
+- blended contribution margin **≥65%**, with a 70%+ operating target;
+- no meaningful paid-acquisition scaling until retention, LTV and payback can be measured.
+
+Realtime spend is governed by minimum-effective-compute principles, bounded session/turn/retry budgets and immediate local fallback. Cost control may end premium enrichment; it may never end or weaken the committed alarm.
 
 ## Billing / entitlement contract
 
