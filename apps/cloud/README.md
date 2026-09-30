@@ -167,8 +167,9 @@ Create/configure the Vercel project with **Root Directory** `apps/cloud`. Node.j
 Runtime configuration depends on enabled capabilities:
 
 - account API: `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, and server-only `DATABASE_URL`
-- verified Android OAuth callback: `WMW_ANDROID_APP_LINK_CERT_SHA256` with the production signing
-  certificate fingerprint(s), comma-separated when Direct and Play certificates differ
+- verified Android OAuth callback: the stable Direct production certificate is pinned in code;
+  `WMW_ANDROID_APP_LINK_CERT_SHA256` may add future signing identities such as Google Play App
+  Signing, comma-separated, and malformed values fail closed
 - AI Gateway authentication: Vercel OIDC or `AI_GATEWAY_API_KEY`
 - `WMW_INTERNAL_API_KEY` for internal diagnostics/spikes
 - optional model-policy overrides from `.env.example`
