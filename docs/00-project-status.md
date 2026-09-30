@@ -67,7 +67,7 @@ The accepted dogfood behavior keeps Alarm Kernel and WakeRuntime authority uncha
 
 - one brief action per early turn;
 - sit upright → feet down/safe equivalent → brief seated upper-body activation;
-- standing is conditional, has a seated alternative, and requires independent motion evidence before it may be requested;
+- standing is conditional, has a seated alternative, and requires orientation-change or sustained-movement evidence before it may be requested;
 - later activation may use one small reachable environmental cue;
 - open-ended early questions, puzzles/CAPTCHA behavior, motivational monologues and strenuous exercise are excluded;
 - Realtime renders the current typed intent but cannot choose the progression, claim posture/movement, or complete the wake.
