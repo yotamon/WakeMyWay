@@ -174,11 +174,22 @@ class WakeRuntime {
             }
 
             is WakeInput.SpeechFinished -> when (remembered.phase) {
-                WakePhase.ALERTING -> transition(
-                    remembered.copy(phase = WakePhase.ENGAGING),
-                    WakeDirective.Speak(SpeechIntent.AskToSitUp),
-                    WakeDirective.ObserveMotion,
-                )
+                WakePhase.ALERTING -> {
+                    val directives = buildList {
+                        if (remembered.capabilities.voiceInputAvailable) {
+                            // Conversational wakes have already asked for sit-up + a reply in the
+                            // opening turn. Listen now instead of speaking two prompts back-to-back.
+                            add(WakeDirective.ListenForVoiceResponse)
+                        } else {
+                            add(WakeDirective.Speak(SpeechIntent.AskToSitUp))
+                        }
+                        add(WakeDirective.ObserveMotion)
+                    }
+                    transition(
+                        remembered.copy(phase = WakePhase.ENGAGING),
+                        *directives.toTypedArray(),
+                    )
+                }
 
                 WakePhase.ENGAGING -> {
                     if (remembered.capabilities.voiceInputAvailable) {
