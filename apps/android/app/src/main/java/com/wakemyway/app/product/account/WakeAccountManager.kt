@@ -174,6 +174,16 @@ class WakeAccountManager private constructor(
         }
     }
 
+    /**
+     * Returns a fresh Neon JWT for optional authenticated product capabilities such as Realtime.
+     * Failure is deliberately represented as null so cloud enrichment can degrade without touching
+     * local alarm authority.
+     */
+    internal suspend fun currentAccessTokenForRealtime(): String? {
+        val auth = authClient ?: return null
+        return runCatching { auth.currentSession()?.accessToken }.getOrNull()
+    }
+
     suspend fun signOut() {
         val auth = requireAuth() ?: return
         runAction {
