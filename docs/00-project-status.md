@@ -395,7 +395,7 @@ Run a qualified target-user beta with habitual snoozers. Measure reliability, Ac
 
 ### SELL — #88
 
-After/alongside sufficient evidence, complete the commercial/release layer: safe billing/entitlement lifecycle, outcome-led Free/Pro packaging, Play listing and testing tracks, public privacy/legal/Data Safety/support, privacy-safe production observability, signed public release/update verification and staged rollout/rollback operations.
+After/alongside sufficient evidence, complete the commercial/release layer: safe billing/entitlement lifecycle, outcome-led Free + WakeMyWay Plus packaging, Play listing and testing tracks, public privacy/legal/Data Safety/support, privacy-safe production observability, signed public release/update verification and staged rollout/rollback operations.
 
 Gate 4 repository preparation is now substantially complete. The commercial package is shaped, while public price/trial enablement still waits for Gate 3 evidence:
 
