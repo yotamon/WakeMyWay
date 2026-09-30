@@ -38,10 +38,17 @@ class CommerceModelsTest {
             purchaseState = CommercePurchaseState.PURCHASED,
             entitlement = EntitlementState.UNKNOWN,
         )
+        val suspended = pending.copy(
+            purchaseState = CommercePurchaseState.SUSPENDED,
+            entitlement = EntitlementState.ON_HOLD,
+        )
 
         assertFalse(pending.hasPaidEntitlement)
         assertFalse(pending.canStartPurchase)
         assertFalse(purchasedButUnverified.hasPaidEntitlement)
+        assertFalse(purchasedButUnverified.canStartPurchase)
+        assertFalse(suspended.hasPaidEntitlement)
+        assertFalse(suspended.canStartPurchase)
     }
 
     @Test

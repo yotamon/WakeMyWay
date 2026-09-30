@@ -35,6 +35,8 @@ data class CommerceOffer(
     val offerToken: String,
     val formattedPrice: String,
     val billingPeriod: String?,
+    val title: String? = null,
+    val description: String? = null,
 )
 
 /**
@@ -44,6 +46,7 @@ data class CommerceOffer(
  */
 data class CommerceSnapshot(
     val availability: CommerceAvailability,
+    val subscriptionProductId: String? = null,
     val offers: List<CommerceOffer> = emptyList(),
     val purchaseState: CommercePurchaseState = CommercePurchaseState.NONE,
     val entitlement: EntitlementState = EntitlementState.FREE,
@@ -62,7 +65,7 @@ data class CommerceSnapshot(
             offers.isNotEmpty() &&
             verificationAvailable &&
             !hasPaidEntitlement &&
-            purchaseState != CommercePurchaseState.PENDING
+            purchaseState == CommercePurchaseState.NONE
 }
 
 enum class CommerceLaunchResult {

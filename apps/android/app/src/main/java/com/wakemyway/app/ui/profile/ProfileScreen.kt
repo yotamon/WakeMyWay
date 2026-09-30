@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.product.ConsumerPreferences
+import com.wakemyway.app.product.LocalWakeDataResetResult
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwSectionLabel
@@ -58,6 +60,9 @@ fun ProfileScreen(
     onPreferencesChanged: (ConsumerPreferences) -> Unit,
     showAccount: Boolean = false,
     onOpenAccount: () -> Unit = {},
+    showSubscription: Boolean = false,
+    subscriptionDetail: String = "Plans and billing through Google Play",
+    onOpenSubscription: () -> Unit = {},
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenAppearance: () -> Unit,
@@ -123,6 +128,16 @@ fun ProfileScreen(
                         title = "WakeMyWay account",
                         detail = "Optional sign-in for secure backup, account access and future Pro features",
                         onClick = onOpenAccount,
+                    )
+                }
+            }
+
+            if (showSubscription) {
+                ProfileSection("Plan", Modifier.padding(top = WmwSpacing.Lg)) {
+                    ProfileLink(
+                        title = "WakeMyWay Pro",
+                        detail = subscriptionDetail,
+                        onClick = onOpenSubscription,
                     )
                 }
             }
@@ -256,9 +271,14 @@ fun ProfileScreen(
 
 @Composable
 fun PrivacyScreen(
+    onEraseLocalWakeData: () -> LocalWakeDataResetResult,
+    onLocalWakeDataErased: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var confirmErase by remember { mutableStateOf(false) }
+    var eraseMessage by remember { mutableStateOf<String?>(null) }
+
     WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
         Column(
             modifier = Modifier
@@ -277,7 +297,7 @@ fun PrivacyScreen(
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "Critical waking stays local and does not depend on an account, network, or cloud model.",
+                text = "Critical waking stays local and does not depend on an account, network, billing service, or cloud model.",
                 modifier = Modifier.padding(top = WmwSpacing.Sm),
                 style = MaterialTheme.typography.bodyLarge,
                 color = WmwColors.LightQuietText,
@@ -289,7 +309,7 @@ fun PrivacyScreen(
             )
             PrivacyFact(
                 title = "Voice replies",
-                body = "Voice Check-In uses OpenAI Realtime only during the active conversation. WakeMyWay automatically obtains a short-lived credential and does not persist raw microphone audio or transcripts. If Realtime is unavailable, the selected alarm sound continues without a lower-quality TTS substitute, and Stop/Snooze remain local.",
+                body = "Voice Check-In is optional. When conversational voice is available, audio is used only for the active conversation and WakeMyWay does not persist raw microphone audio or transcripts. If voice is unavailable, the selected alarm sound continues and Stop/Snooze remain local.",
             )
             PrivacyFact(
                 title = "Alarm delivery",
@@ -299,7 +319,68 @@ fun PrivacyScreen(
                 title = "No account required",
                 body = "Core alarms, preferences, history and local learning work on this phone without signing in.",
             )
+
+            WmwCard(
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                onLightSurface = true,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                    Text(
+                        text = "Erase local wake data",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = WmwColors.Midnight,
+                    )
+                    Text(
+                        text = "Deletes alarms, wake history, learning, private preparation, preferences and local reliability diagnostics from this phone. Account sign-in is managed separately.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.LightQuietText,
+                    )
+                    TextButton(onClick = { confirmErase = true }) {
+                        Text("Erase local wake data", color = MaterialTheme.colorScheme.error)
+                    }
+                    eraseMessage?.let { message ->
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    if (confirmErase) {
+        AlertDialog(
+            onDismissRequest = { confirmErase = false },
+            title = { Text("Erase local wake data?") },
+            text = {
+                Text("Future WakeMyWay alarms on this phone will be cancelled before local data is deleted. This cannot run during an active wake.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmErase = false
+                        when (val result = onEraseLocalWakeData()) {
+                            LocalWakeDataResetResult.Completed -> onLocalWakeDataErased()
+                            LocalWakeDataResetResult.ActiveWakeInProgress -> {
+                                eraseMessage = "Finish or stop the active wake before erasing local data."
+                            }
+                            is LocalWakeDataResetResult.Failed -> {
+                                eraseMessage = result.detail
+                            }
+                        }
+                    },
+                ) {
+                    Text("Erase", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmErase = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -544,7 +625,7 @@ private fun ProfileLink(
 }
 
 @Composable
-private fun BackHeader(title: String, onBack: () -> Unit) {
+internal fun BackHeader(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
