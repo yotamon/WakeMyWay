@@ -118,10 +118,18 @@ class WakeRuntime {
                     val nextSpeech = if (!wasAlreadyActivating) {
                         SpeechIntent.AskToMove
                     } else {
-                        when (next.activationEvidence.coherentVoiceResponses) {
-                            2 -> SpeechIntent.ActivateUpperBody
-                            3 -> SpeechIntent.StandIfSafe
-                            else -> SpeechIntent.KeepEngaging
+                        val physicalEvidenceObserved =
+                            next.activationEvidence.devicePickups > 0 ||
+                                next.activationEvidence.orientationChanges > 0 ||
+                                next.activationEvidence.sustainedMovements > 0
+                        when {
+                            next.activationEvidence.coherentVoiceResponses == 2 ->
+                                SpeechIntent.ActivateUpperBody
+                            next.activationEvidence.coherentVoiceResponses == 3 && physicalEvidenceObserved ->
+                                SpeechIntent.StandIfSafe
+                            next.activationEvidence.coherentVoiceResponses >= 4 && physicalEvidenceObserved ->
+                                SpeechIntent.KeepEngaging
+                            else -> SpeechIntent.ActivateUpperBody
                         }
                     }
                     advanceOr(
