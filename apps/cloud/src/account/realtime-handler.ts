@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { errorResponse, json, methodNotAllowed, parseJson, requestId } from '../http.js';
+import { errorResponse, HttpError, json, methodNotAllowed, parseJson, requestId } from '../http.js';
 import {
   createAccountWakeRealtimeClientSecret,
   type AccountWakeRealtimeClientSecret,
@@ -62,7 +62,7 @@ export async function handleAccountRealtimeTokenRequest(
 
   try {
     const authorization = request.headers.get('authorization')?.trim().match(/^Bearer\s+([^\s]+)$/i)?.[1];
-    if (!authorization) throw new Error('Missing Realtime device credential.');
+    if (!authorization) throw new HttpError(401, 'Unauthorized.');
     const credential = (options.verifyCredential ?? verifyAccountRealtimeCredential)(authorization);
     const safetyIdentifier = accountRealtimeSafetyIdentifier(credential);
     const secret = await (options.mintSecret ?? createAccountWakeRealtimeClientSecret)({
