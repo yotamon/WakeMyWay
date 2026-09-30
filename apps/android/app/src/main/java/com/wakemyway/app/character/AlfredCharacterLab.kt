@@ -118,7 +118,7 @@ fun AlfredCharacterLab(modifier: Modifier = Modifier) {
         )
         Text(
             modifier = Modifier.padding(top = 6.dp),
-            text = "Local Alfred remains the deterministic fallback when conversational enrichment is unavailable.",
+            text = "Local Alfred is a diagnostic preview renderer. Consumer Active Wake still degrades to alarm-only when Realtime is unavailable.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
@@ -140,6 +140,8 @@ private fun SpeechIntent.label(): String = when (this) {
     SpeechIntent.InitialWake -> "INITIAL_WAKE"
     SpeechIntent.AskToSitUp -> "ASK_TO_SIT_UP"
     SpeechIntent.AskToMove -> "ASK_TO_MOVE"
+    SpeechIntent.ActivateUpperBody -> "ACTIVATE_UPPER_BODY"
+    SpeechIntent.StandIfSafe -> "STAND_IF_SAFE"
     SpeechIntent.KeepEngaging -> "KEEP_ENGAGING"
     is SpeechIntent.ReEngage -> "RE_ENGAGE_$escalationLevel"
     SpeechIntent.SnoozeConfirmation -> "SNOOZE_CONFIRMATION"
@@ -151,6 +153,8 @@ private val PREVIEW_INTENTS = listOf(
     SpeechIntent.InitialWake,
     SpeechIntent.AskToSitUp,
     SpeechIntent.AskToMove,
+    SpeechIntent.ActivateUpperBody,
+    SpeechIntent.StandIfSafe,
     SpeechIntent.KeepEngaging,
     SpeechIntent.ReEngage(1),
     SpeechIntent.ReEngage(3),

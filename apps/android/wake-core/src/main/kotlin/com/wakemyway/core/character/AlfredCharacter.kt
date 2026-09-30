@@ -6,7 +6,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 6,
+        version = 7,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -45,6 +45,8 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> INITIAL_WAKE
         SpeechIntent.AskToSitUp -> ASK_TO_SIT_UP
         SpeechIntent.AskToMove -> ASK_TO_MOVE
+        SpeechIntent.ActivateUpperBody -> ACTIVATE_UPPER_BODY
+        SpeechIntent.StandIfSafe -> STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> KEEP_ENGAGING
         is SpeechIntent.ReEngage -> RE_ENGAGE[intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)]
         SpeechIntent.SnoozeConfirmation -> SNOOZE_CONFIRMATION
@@ -56,6 +58,8 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> MOTIVATIONAL_INITIAL_WAKE
         SpeechIntent.AskToSitUp -> MOTIVATIONAL_ASK_TO_SIT_UP
         SpeechIntent.AskToMove -> MOTIVATIONAL_ASK_TO_MOVE
+        SpeechIntent.ActivateUpperBody -> MOTIVATIONAL_ACTIVATE_UPPER_BODY
+        SpeechIntent.StandIfSafe -> MOTIVATIONAL_STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> MOTIVATIONAL_KEEP_ENGAGING
         is SpeechIntent.ReEngage -> MOTIVATIONAL_RE_ENGAGE[
             intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
@@ -69,6 +73,8 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> MINIMAL_INITIAL_WAKE
         SpeechIntent.AskToSitUp -> MINIMAL_ASK_TO_SIT_UP
         SpeechIntent.AskToMove -> MINIMAL_ASK_TO_MOVE
+        SpeechIntent.ActivateUpperBody -> MINIMAL_ACTIVATE_UPPER_BODY
+        SpeechIntent.StandIfSafe -> MINIMAL_STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> MINIMAL_KEEP_ENGAGING
         is SpeechIntent.ReEngage -> MINIMAL_RE_ENGAGE[
             intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
@@ -82,6 +88,8 @@ object AlfredCharacter {
         SpeechIntent.InitialWake -> "initial-wake"
         SpeechIntent.AskToSitUp -> "ask-to-sit-up"
         SpeechIntent.AskToMove -> "ask-to-move"
+        SpeechIntent.ActivateUpperBody -> "activate-upper-body"
+        SpeechIntent.StandIfSafe -> "stand-if-safe"
         SpeechIntent.KeepEngaging -> "keep-engaging"
         is SpeechIntent.ReEngage -> "re-engage-${escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)}"
         SpeechIntent.SnoozeConfirmation -> "snooze-confirmation"
@@ -126,37 +134,51 @@ object AlfredCharacter {
         "Let us introduce gravity. Feet down, then tell me.",
     )
 
+    private val ACTIVATE_UPPER_BODY = listOf(
+        "Roll your shoulders twice, slowly. Then answer me.",
+        "Two slow shoulder rolls, then give me a quick answer.",
+        "Stay seated. Two slow shoulder rolls, then tell me.",
+        "Shoulders twice, slowly. Then tell me you're with me.",
+    )
+
+    private val STAND_IF_SAFE = listOf(
+        "If it's safe, stand beside the bed. Otherwise sit tall. Then answer me.",
+        "Stand beside the bed if that feels safe. Otherwise stay seated and answer.",
+        "If standing is safe, stand now. If not, sit tall and answer.",
+        "Stand only if safe. Otherwise stay seated. Then tell me you're here.",
+    )
+
     private val KEEP_ENGAGING = listOf(
-        "Good. Stay with me. One more clear move, then tell me.",
-        "That's it. Keep moving, and tell me when you've done one more thing.",
-        "Good. Keep the momentum. One more small move, then answer me.",
-        "Still with you. Move once more, then tell me you're there.",
+        "Switch on a reachable light, or open reachable curtains. Then answer me.",
+        "One easy environment change: light or curtains within reach. Then answer.",
+        "Bring in some light if it's within reach, then tell me.",
+        "Reachable light or curtains next. Then give me a short answer.",
     )
 
     private val RE_ENGAGE = listOf(
         listOf(
-            "Still with me? Sit up and answer me, please.",
-            "A small reminder: we are waking now. Tell me you're here.",
-            "Back with me, please. Make one movement and answer.",
-            "Let us continue. Sit up, then tell me you're there.",
+            "Still with me? Give me one short answer.",
+            "Stay with me a moment. Tell me you're here.",
+            "I didn't catch words there. Give me a quick yes.",
+            "Back with me, please. One short reply.",
         ),
         listOf(
-            "We are not quite done. Sit up and answer me.",
-            "A firmer nudge now. Feet down, then tell me.",
-            "Still here. Get upright, then tell me you're with me.",
-            "Time to continue. One clear movement, then answer me.",
+            "Stay with me. Answer me out loud.",
+            "A clearer reply this time, please.",
+            "I need one short answer from you.",
+            "Give me a clear yes when you hear me.",
         ),
         listOf(
-            "We need a proper movement now. Feet down, then answer.",
-            "No more drifting for the moment. Sit up and answer me.",
-            "Let us be decisive. Upright now, then tell me.",
-            "The next move is yours. Feet down, then answer me.",
+            "I need a clear reply now. Answer me.",
+            "Stay with me. One clear answer now.",
+            "Answer out loud now, please.",
+            "One deliberate reply now. Tell me you're here.",
         ),
         listOf(
-            "We are past gentle reminders. Feet down, then answer me.",
-            "This is the firm version: upright now, then tell me.",
-            "Feet on the floor now, please. Then answer me.",
-            "We need action now. Make one clear movement, then answer.",
+            "Answer me now, please. One short reply.",
+            "One clear answer now. Stay with me.",
+            "I need your voice now. Give me one reply.",
+            "Give me one clear spoken answer now.",
         ),
     )
 
@@ -199,32 +221,44 @@ object AlfredCharacter {
         "Good. Give me feet on the floor, then tell me when it's done.",
     )
 
+    private val MOTIVATIONAL_ACTIVATE_UPPER_BODY = listOf(
+        "Keep it simple. Two slow shoulder rolls, then answer me.",
+        "Two slow shoulder rolls now, then give me a quick reply.",
+        "Stay seated and roll your shoulders twice. Then answer.",
+    )
+
+    private val MOTIVATIONAL_STAND_IF_SAFE = listOf(
+        "If standing feels safe, stand beside the bed. Otherwise sit tall and answer.",
+        "Stand only if it's safe. Otherwise stay seated and give me a quick reply.",
+        "If safe, stand beside the bed. If not, sit tall. Then answer.",
+    )
+
     private val MOTIVATIONAL_KEEP_ENGAGING = listOf(
-        "That's it. Keep the momentum. One more clear move, then answer me.",
-        "That'll do. One more small action, then tell me you're there.",
-        "Keep it going. One more deliberate move, then answer me.",
+        "Bring in some reachable light, then give me a quick answer.",
+        "Light or curtains within reach next. Then answer me.",
+        "One easy environment change now: reachable light or curtains. Then answer.",
     )
 
     private val MOTIVATIONAL_RE_ENGAGE = listOf(
         listOf(
-            "Come back to me. One small move, then answer.",
-            "We're still on track. Sit up and tell me you're here.",
-            "Stay with it. Make one movement, then answer me.",
+            "Stay with me. Give me one quick answer.",
+            "Come back to my voice. One short reply.",
+            "Still here. Give me a clear yes.",
         ),
         listOf(
-            "Keep going. Feet down, then tell me you're with me.",
-            "Let's not negotiate with the mattress. Get upright, then answer me.",
-            "Let's keep the start alive. One clear move, then answer.",
+            "Keep the thread. Answer me out loud.",
+            "One clear reply now. Stay with me.",
+            "Give me your voice for one short answer.",
         ),
         listOf(
-            "Time for a decisive move. Feet down, then answer me.",
-            "Stay with the morning. Sit up now, then answer.",
-            "One strong move now. Get upright, then tell me.",
+            "Stay with the morning. One clear answer now.",
+            "I need one deliberate reply now.",
+            "Answer me clearly now, please.",
         ),
         listOf(
-            "Let's finish the wake. Feet down now, then answer me.",
-            "This is the firm nudge. Upright now, then tell me.",
-            "One clear action now. Feet on the floor, then answer.",
+            "One clear spoken answer now. Stay with me.",
+            "Give me one reply now, please.",
+            "Your voice now. One clear answer.",
         ),
     )
 
@@ -264,32 +298,44 @@ object AlfredCharacter {
         "Move now. Feet down.",
     )
 
+    private val MINIMAL_ACTIVATE_UPPER_BODY = listOf(
+        "Two shoulder rolls. Then answer.",
+        "Roll shoulders twice. Answer me.",
+        "Shoulders twice, slowly. Then answer.",
+    )
+
+    private val MINIMAL_STAND_IF_SAFE = listOf(
+        "If safe, stand. Otherwise sit tall. Answer.",
+        "Stand if safe. Otherwise stay seated. Answer.",
+        "Stand only if safe. If not, sit tall.",
+    )
+
     private val MINIMAL_KEEP_ENGAGING = listOf(
-        "One more move. Then answer.",
-        "Keep moving. Then tell me.",
-        "Another move. Stay with me.",
+        "Reachable light or curtains. Then answer.",
+        "Light within reach. Then answer.",
+        "Open reachable curtains. Then answer.",
     )
 
     private val MINIMAL_RE_ENGAGE = listOf(
         listOf(
-            "Still here. Sit up.",
+            "Still here? Answer me.",
             "Come back. Then answer.",
-            "One move. Answer me.",
+            "One short reply, please.",
         ),
         listOf(
-            "Sit up now. Answer.",
-            "Feet down. Stay with me.",
-            "Get upright. Then answer.",
+            "Answer me out loud.",
+            "One clear reply now.",
+            "Stay with me. Answer.",
         ),
         listOf(
-            "Feet down now. Answer.",
-            "Sit up. No drifting.",
-            "Upright now. Then answer.",
+            "Clear answer now, please.",
+            "Answer me clearly now.",
+            "One deliberate reply now.",
         ),
         listOf(
-            "Feet down. Answer now.",
-            "Upright now. Tell me.",
-            "Move now. Then answer.",
+            "Answer now. One short reply.",
+            "Your voice now. Answer me.",
+            "One clear spoken answer now.",
         ),
     )
 

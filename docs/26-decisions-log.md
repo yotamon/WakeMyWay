@@ -479,3 +479,23 @@ Canonical procedure: [`42-android-release-operations.md`](42-android-release-ope
 
 Consumer wake speech is now intentionally binary in production: use the approved Realtime conversation when it is ready, otherwise keep the selected local alarm sound with Stop/Snooze. Do not substitute generic/local Android TTS when Realtime is unavailable, late, or fails during a wake. This preserves the quality bar of the conversational product while keeping alarm reliability fully local.
 
+# Physiological-first conversational wake — 2026-09-30
+
+## Conversation conducts the wake intervention
+
+WakeMyWay does not treat Realtime conversation as the primary intervention or optimize for chat length. Early conversation exists to conduct a low-cognitive-load physical transition through sleep inertia.
+
+The default dogfood progression is intentionally bounded: sit upright → feet down/safe equivalent → brief seated upper-body activation → stand only if safe and only after orientation-change or sustained-movement evidence → small reachable environmental activation.
+
+## Wake Runtime owns progression
+
+The language model does not choose the next physical step. Wake Runtime emits a typed speech intent and Realtime may only render that intent naturally.
+
+A usable spoken turn remains engagement evidence, not proof that the requested physical action occurred. Verbal engagement or device pickup alone cannot escalate the protocol to standing.
+
+## Safety beats forced compliance
+
+Standing always has a seated alternative. The default protocol excludes strenuous exercise, squats, jumping, balance challenges, rapid/forced breathing and CAPTCHA-style cognitive tasks.
+
+The sequence is a versioned product hypothesis grounded in current sleep-inertia evidence, not a medical prescription or claim of a universally optimal way to wake. Dogfood/beta outcomes, return-to-bed calibration, annoyance and agency may change it.
+

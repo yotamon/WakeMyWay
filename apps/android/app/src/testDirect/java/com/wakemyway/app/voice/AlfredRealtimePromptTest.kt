@@ -50,6 +50,38 @@ class AlfredRealtimePromptTest {
     }
 
     @Test
+    fun `early wake protocol keeps cognitive load low and physical progression explicit`() {
+        val system = AlfredRealtimePrompt.SYSTEM.lowercase()
+
+        assertTrue(system.contains("cognition is temporarily reduced"))
+        assertTrue(system.contains("never ask open-ended questions"))
+        assertTrue(system.contains("sit upright -> feet down -> brief upper-body movement -> stand only if safe"))
+        assertTrue(system.contains("never ask the user to prove wakefulness with arithmetic"))
+    }
+
+    @Test
+    fun `physiological intents stay bounded and safe`() {
+        val upperBody = AlfredRealtimePrompt.turn(
+            SpeechIntent.ActivateUpperBody,
+            VoiceStyle.DEFAULT,
+        )
+        val standing = AlfredRealtimePrompt.turn(
+            SpeechIntent.StandIfSafe,
+            VoiceStyle.DEFAULT,
+        )
+        val reengage = AlfredRealtimePrompt.turn(
+            SpeechIntent.ReEngage(2),
+            VoiceStyle.DEFAULT,
+        )
+
+        assertTrue(upperBody.contains("two slow shoulder rolls"))
+        assertTrue(upperBody.contains("Do not add breathing drills"))
+        assertTrue(standing.contains("only if standing is safe"))
+        assertTrue(standing.contains("seated alternative"))
+        assertTrue(reengage.contains("do not introduce a new or harder action"))
+    }
+
+    @Test
     fun `motivational style stays Alfred instead of becoming a coach`() {
         val prompt = AlfredRealtimePrompt.turn(
             SpeechIntent.KeepEngaging,

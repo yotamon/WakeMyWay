@@ -13,6 +13,9 @@ These are intentionally unresolved. Do not silently choose durable answers witho
 - What is the safest/useful default Wake Policy for a new user?
 - When should Tomorrow Contract/context be mentioned relative to first engagement/movement?
 - Should a user configure a hard maximum snooze count or only choose a wake-difficulty mode?
+- Does the default sit → feet-down → upper-body → stand-if-safe sequence outperform a shorter or differently ordered sequence in real overnight use?
+- What independent motion evidence is sufficient before a standing cue is useful rather than premature?
+- When should environmental activation enter the wake, and which actions remain broadly accessible without smart-home dependencies?
 
 ## Wake Learning v0
 

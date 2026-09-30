@@ -104,6 +104,14 @@ Prefer:
 - simple physical request
 - deliberate pauses
 
+Early conversation is **control flow for waking, not content to consume**. The default pattern is:
+
+```text
+one safe action -> one short spoken reply -> next safe action
+```
+
+Do not ask open-ended questions such as "How do you feel?" or "What are your plans?" while the user is still Emerging/early Engaged. Do not use arithmetic, trivia, memory tests or CAPTCHA-like puzzles as the default wake mechanism. Conversation becomes richer only after behavioral evidence increases.
+
 ## Snooze psychology
 
 WMW does not adopt the simplistic rule "snooze is always bad."
@@ -197,6 +205,26 @@ The first attacks the person. The second infantilizes them.
 
 WMW prefers movement because the product goal is not merely consciousness. It is behavioral transition.
 
+A 2026 exploratory randomized study found that five minutes of respiratory/muscular physiological activation after waking improved several sleep-inertia measures more consistently than cognitive stimulation after severe sleep restriction. That is promising evidence for **physiological-first** wake assistance, not proof of one universal exercise sequence.
+
+The default conversational dogfood progression is deliberately conservative:
+
+1. sit upright;
+2. feet down, or an equivalent safe shift out of sleep posture;
+3. one brief seated upper-body activation;
+4. stand beside the bed only if safe and normal for the user, otherwise use a seated alternative;
+5. one reachable environmental activation such as light or curtains.
+
+Rules:
+
+- one physical request per turn;
+- the runtime chooses the progression; the language model only renders the approved current intent;
+- verbal fluency alone never gives the model permission to skip ahead;
+- no squats, jumping, balance challenges, strenuous exercise, or rapid/forced breathing;
+- standing is conditional, never a compliance requirement, and is not requested from verbal engagement or device pickup alone; orientation-change or sustained-movement evidence must already exist;
+- after unclear audio/silence, re-engage around the current safe action instead of inventing a harder one;
+- a spoken "done" is engagement evidence, not proof that a physical action occurred.
+
 V1 uses low-permission signals:
 
 - device pickup
@@ -206,6 +234,8 @@ V1 uses low-permission signals:
 - touch interaction
 
 Step counting is intentionally excluded initially because it requires `ACTIVITY_RECOGNITION` and is not yet necessary.
+
+The exact progression and thresholds remain dogfood hypotheses. Physical overnight evidence, return-to-bed calibration, annoyance and perceived agency decide whether they should change.
 
 ## Perceived agency
 
