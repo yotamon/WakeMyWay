@@ -20,9 +20,22 @@ export interface AccountRoleTable {
   updated_at: ColumnType<Date, Date | undefined, Date>;
 }
 
+export interface AccountRealtimeDeviceTable {
+  credential_id: string;
+  account_id: string;
+  account_pseudonym: string;
+  installation_id: string;
+  expires_at: ColumnType<Date, Date, Date>;
+  revoked_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  last_used_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  created_at: ColumnType<Date, Date | undefined, never>;
+  updated_at: ColumnType<Date, Date | undefined, Date>;
+}
+
 export interface AccountDatabase {
   consumer_backups: ConsumerBackupTable;
   account_roles: AccountRoleTable;
+  account_realtime_devices: AccountRealtimeDeviceTable;
 }
 
 let cachedConnectionString: string | undefined;
