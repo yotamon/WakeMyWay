@@ -98,6 +98,15 @@ class WakeRuntimeVoiceTurnTest {
         snapshot = second.snapshot
         assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in second.directives)
 
+        snapshot = runtime.reduce(
+            snapshot,
+            WakeInput.MotionObserved(
+                id("movement"),
+                MotionEvidenceKind.DEVICE_PICKUP,
+            ),
+            conversationalPolicy,
+        ).snapshot
+
         val third = runtime.reduce(
             snapshot,
             WakeInput.VoiceResponseObserved(id("third"), coherent = true),
@@ -113,6 +122,34 @@ class WakeRuntimeVoiceTurnTest {
         )
         assertTrue(WakeDirective.Speak(SpeechIntent.KeepEngaging) in fourth.directives)
         assertEquals(4, fourth.snapshot.activationEvidence.coherentVoiceResponses)
+    }
+
+    @Test
+    fun `verbal engagement alone never escalates to standing`() {
+        val conversationalPolicy = WakePolicy(activationThreshold = 20)
+        var snapshot = runtime.initial(
+            sessionId = WakeSessionId("no-motion-standing-guard"),
+            policy = conversationalPolicy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+
+        repeat(4) { index ->
+            val transition = runtime.reduce(
+                snapshot,
+                WakeInput.VoiceResponseObserved(id("reply-$index"), coherent = true),
+                conversationalPolicy,
+            )
+            snapshot = transition.snapshot
+            assertFalse(WakeDirective.Speak(SpeechIntent.StandIfSafe) in transition.directives)
+        }
+
+        assertEquals(0, snapshot.activationEvidence.devicePickups)
+        assertEquals(0, snapshot.activationEvidence.orientationChanges)
+        assertEquals(0, snapshot.activationEvidence.sustainedMovements)
     }
 
     @Test
