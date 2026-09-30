@@ -10,7 +10,7 @@ class WakeRuntimeVoiceTurnTest {
     private val policy = WakePolicy()
 
     @Test
-    fun `sit-up prompt waits for a voice response when local input is available`() {
+    fun `conversational opening listens after one prompt instead of speaking twice`() {
         var snapshot = runtime.initial(
             sessionId = WakeSessionId("voice-turn"),
             policy = policy,
@@ -22,17 +22,11 @@ class WakeRuntimeVoiceTurnTest {
         )
         snapshot = runtime.reduce(snapshot, WakeInput.AlarmFired(id("alarm")), policy).snapshot
 
-        val askToSit = runtime.reduce(snapshot, WakeInput.SpeechFinished(id("initial-done")), policy)
-        assertEquals(WakePhase.ENGAGING, askToSit.snapshot.phase)
-        assertTrue(WakeDirective.Speak(SpeechIntent.AskToSitUp) in askToSit.directives)
-
-        val listen = runtime.reduce(
-            askToSit.snapshot,
-            WakeInput.SpeechFinished(id("sit-prompt-done")),
-            policy,
-        )
+        val listen = runtime.reduce(snapshot, WakeInput.SpeechFinished(id("initial-done")), policy)
         assertEquals(WakePhase.ENGAGING, listen.snapshot.phase)
         assertTrue(WakeDirective.ListenForVoiceResponse in listen.directives)
+        assertTrue(WakeDirective.ObserveMotion in listen.directives)
+        assertFalse(listen.directives.any { it is WakeDirective.Speak })
 
         val replied = runtime.reduce(
             listen.snapshot,
@@ -104,17 +98,14 @@ class WakeRuntimeVoiceTurnTest {
         assertEquals(WakePhase.ACTIVATING, snapshot.phase)
         assertEquals(0, snapshot.activationEvidence.coherentVoiceResponses)
 
-        val promptFinished = runtime.reduce(
+        assertFalse(WakeDirective.PresentOrientation in runtime.reduce(
             snapshot,
-            WakeInput.SpeechFinished(id("sit-prompt-done")),
+            WakeInput.WakeSurfacePresented(id("still-waiting-for-voice")),
             policy,
-        )
-        assertEquals(WakePhase.ACTIVATING, promptFinished.snapshot.phase)
-        assertTrue(WakeDirective.ListenForVoiceResponse in promptFinished.directives)
-        assertFalse(WakeDirective.PresentOrientation in promptFinished.directives)
+        ).directives)
 
         val replied = runtime.reduce(
-            promptFinished.snapshot,
+            snapshot,
             WakeInput.VoiceResponseObserved(id("required-reply"), coherent = true),
             policy,
         )
