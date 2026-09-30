@@ -1,15 +1,16 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { HttpError } from '../http.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const TOKEN_VERSION = 1;
+const TOKEN_VERSION = 2;
 const TOKEN_SCOPE = 'account-realtime-wake';
-const TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60;
+export const ACCOUNT_REALTIME_DEVICE_TTL_SECONDS = 14 * 24 * 60 * 60;
 const SIGNING_KEY_MIN_LENGTH = 32;
 
 interface AccountRealtimeTokenPayload {
   v: number;
+  jti: string;
   sub: string;
   account: string;
   scope: typeof TOKEN_SCOPE;
@@ -19,10 +20,12 @@ interface AccountRealtimeTokenPayload {
 
 export interface AccountRealtimeCredential {
   deviceToken: string;
+  credentialId: string;
   expiresAt: number;
 }
 
 export interface VerifiedAccountRealtimeCredential {
+  credentialId: string;
   installationId: string;
   accountPseudonym: string;
   expiresAt: number;
@@ -31,6 +34,7 @@ export interface VerifiedAccountRealtimeCredential {
 interface CredentialOptions {
   environment?: NodeJS.ProcessEnv;
   nowSeconds?: number;
+  credentialId?: string;
 }
 
 export function issueAccountRealtimeCredential(
@@ -41,19 +45,26 @@ export function issueAccountRealtimeCredential(
   if (!UUID_PATTERN.test(userId) || !UUID_PATTERN.test(installationId)) {
     throw new HttpError(400, 'Realtime provisioning request is invalid.');
   }
+  const credentialId = options.credentialId ?? randomUUID();
+  if (!UUID_PATTERN.test(credentialId)) {
+    throw new HttpError(500, 'Realtime credential id is invalid.');
+  }
+
   const now = options.nowSeconds ?? Math.floor(Date.now() / 1000);
   const payload: AccountRealtimeTokenPayload = {
     v: TOKEN_VERSION,
+    jti: credentialId,
     sub: installationId,
-    account: accountPseudonym(userId),
+    account: accountRealtimePseudonym(userId),
     scope: TOKEN_SCOPE,
     iat: now,
-    exp: now + TOKEN_TTL_SECONDS,
+    exp: now + ACCOUNT_REALTIME_DEVICE_TTL_SECONDS,
   };
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
   const signature = sign(encoded, options.environment ?? process.env);
   return {
     deviceToken: `${encoded}.${signature}`,
+    credentialId,
     expiresAt: payload.exp,
   };
 }
@@ -86,17 +97,20 @@ export function verifyAccountRealtimeCredential(
   if (
     payload.v !== TOKEN_VERSION ||
     payload.scope !== TOKEN_SCOPE ||
+    !UUID_PATTERN.test(payload.jti) ||
     !UUID_PATTERN.test(payload.sub) ||
     !/^[a-f0-9]{40}$/.test(payload.account) ||
     !Number.isInteger(payload.iat) ||
     !Number.isInteger(payload.exp) ||
     payload.exp <= now ||
+    payload.exp - payload.iat > ACCOUNT_REALTIME_DEVICE_TTL_SECONDS ||
     payload.iat > now + 60
   ) {
     throw new HttpError(401, 'Unauthorized.');
   }
 
   return {
+    credentialId: payload.jti,
     installationId: payload.sub,
     accountPseudonym: payload.account,
     expiresAt: payload.exp,
@@ -115,7 +129,7 @@ export function accountRealtimeSafetyIdentifier(
   return `wmw_${digest.slice(0, 60)}`;
 }
 
-function accountPseudonym(userId: string): string {
+export function accountRealtimePseudonym(userId: string): string {
   return createHash('sha256')
     .update('wakemyway-account-v1:')
     .update(userId)
@@ -124,9 +138,6 @@ function accountPseudonym(userId: string): string {
 }
 
 function sign(encodedPayload: string, environment: NodeJS.ProcessEnv): string {
-  // WMW_REALTIME_TOKEN_SIGNING_KEY is the production name. The founder signing key is accepted as
-  // a temporary deployment-compatible fallback so this migration does not require embedding or
-  // reintroducing any founder secret on Android.
   const key = environment.WMW_REALTIME_TOKEN_SIGNING_KEY?.trim()
     || environment.WMW_FOUNDER_TOKEN_SIGNING_KEY?.trim();
   if (!key || key.length < SIGNING_KEY_MIN_LENGTH) {
