@@ -41,6 +41,7 @@ Current interaction policy:
 - after the opening audio finishes, WakeRuntime listens instead of playing a second prompt;
 - semantic VAD uses low eagerness so a just-woken user can pause and trail off without aggressive
   turn chunking;
+- Realtime reasoning effort is low because wake turns are latency-sensitive and intentionally simple;
 - provider auto-response creation stays disabled;
 - interruption/barge-in stays enabled;
 - Alfred speaks slightly below normal speed for wake-state intelligibility;
