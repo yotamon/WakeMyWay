@@ -6,7 +6,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 4,
+        version = 5,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -106,10 +106,10 @@ object AlfredCharacter {
     private const val FNV_PRIME: UInt = 16777619u
 
     private val INITIAL_WAKE = listOf(
-        "Good morning. It is time to begin.",
-        "Morning. We have arrived at the waking part.",
-        "Good morning. The day is, regrettably, on schedule.",
-        "Morning. Shall we begin?",
+        "Good morning. Sit up, then tell me when you're there.",
+        "Morning. Let's begin with sitting up. Tell me when you're there.",
+        "Good morning. Up to sitting, then give me a quick hello.",
+        "Morning. First move: sit up, then tell me you're with me.",
     )
 
     private val ASK_TO_SIT_UP = listOf(
@@ -182,9 +182,9 @@ object AlfredCharacter {
     )
 
     private val MOTIVATIONAL_INITIAL_WAKE = listOf(
-        "Morning. Let's make a clean start together.",
-        "Good morning. One small win first, then the day can follow.",
-        "Morning. You've got this. Let's begin with one clear move.",
+        "Morning. You've got this. Sit up, then tell me you're there.",
+        "Good morning. One clear first move: sit up, then answer me.",
+        "Morning. Let's start strong and simple. Sit up, then tell me.",
     )
 
     private val MOTIVATIONAL_ASK_TO_SIT_UP = listOf(
@@ -247,9 +247,9 @@ object AlfredCharacter {
     )
 
     private val MINIMAL_INITIAL_WAKE = listOf(
-        "Morning. Time to begin.",
-        "Morning. Let's start.",
-        "Good morning. Begin now.",
+        "Morning. Sit up, then answer.",
+        "Good morning. Sit up. Tell me.",
+        "Morning. Up to sitting. Answer.",
     )
 
     private val MINIMAL_ASK_TO_SIT_UP = listOf(

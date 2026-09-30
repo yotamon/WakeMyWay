@@ -5,7 +5,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RealtimeTurnCommitGateTest {
-    private val gate = RealtimeTurnCommitGate(minimumDurationMs = 320L)
+    private val gate = RealtimeTurnCommitGate(minimumDurationMs = 160L)
 
     @Test
     fun `qualifying speech is exposed only after commit`() {
@@ -17,9 +17,17 @@ class RealtimeTurnCommitGateTest {
     }
 
     @Test
-    fun `short noise is not promoted to a user turn`() {
+    fun `short one-word reply is allowed through to semantic validation`() {
         gate.onSpeechStarted(1_000L)
         gate.onSpeechStopped(1_200L)
+
+        assertTrue(gate.onCommitted())
+    }
+
+    @Test
+    fun `very short noise is not promoted to semantic validation`() {
+        gate.onSpeechStarted(1_000L)
+        gate.onSpeechStopped(1_080L)
 
         assertFalse(gate.onCommitted())
     }

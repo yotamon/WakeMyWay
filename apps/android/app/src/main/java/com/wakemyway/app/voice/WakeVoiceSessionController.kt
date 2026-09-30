@@ -121,9 +121,12 @@ class WakeVoiceSessionController(
                 }
             }
 
-            override fun onUserTurnObserved() {
+            override fun onUserTurnObserved(coherent: Boolean) {
                 mainHandler.post {
                     if (closed || alarmOnly || !started || !surfaceVisible) return@post
+                    // A late classifier result from an already-consumed audio item must not create
+                    // another Wake Runtime input after the conversation has moved on.
+                    if (!listening && !realtimeTurnInFlight) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
                     voiceResponseRequested = false
                     listening = false
@@ -132,8 +135,10 @@ class WakeVoiceSessionController(
                     realtimeIntent = null
                     dispatch(
                         WakeInput.VoiceResponseObserved(
-                            id = nextInputId("realtime-voice-response"),
-                            coherent = true,
+                            id = nextInputId(
+                                if (coherent) "realtime-voice-response" else "realtime-voice-unclear",
+                            ),
+                            coherent = coherent,
                         ),
                     )
                 }

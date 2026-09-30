@@ -1,88 +1,155 @@
 # Conversational Wake
 
-**Status:** founder dogfood implementation  
-**Branch:** `feature/conversational-wake`  
-**Date:** 2026-09-10
+**Status:** Direct account-authenticated dogfood implementation  
+**Updated:** 2026-09-30
 
 ## Goal
 
-Turn the real Wake Session into a natural two-way conversation without moving alarm delivery, activation authority, Stop/Snooze, or completion into a cloud model.
+Turn the real Wake Session into a natural two-way wake conversation without moving alarm delivery,
+activation authority, Stop/Snooze, or completion into a cloud model.
 
-## Architecture
+The experience target is not “chat with an assistant.” It is:
 
-```text
-Alarm Kernel
-   ↓
-WakeRuntime
-   ↓ typed SpeechIntent / activation evidence
-WakeConversationEnrichment
-   ├─ founder Realtime WebRTC enrichment (debug)
-   └─ Realtime unavailable/failed ? alarm-only
-```
+> one short wake prompt → one sleepy reply → one small next action → repeat only as needed.
 
-The Realtime provider owns wording/audio quality only. WakeRuntime remains authoritative for session progression and completion.
+The product succeeds when the user becomes meaningfully engaged with minimum effective friction.
 
-## Conversational loop
-
-WakeRuntime now emits `KeepEngaging` after a coherent voice response whenever activation is still below threshold. This creates an explicit loop:
+## Authority
 
 ```text
-Alfred speaks
+Alarm Kernel                         always local
    ↓
-user replies
-   ↓
-VoiceResponseObserved
-   ↓
-WakeRuntime
-   ├─ threshold not met → Speak(KeepEngaging)
-   │                     ↓
-   │                  listen again
-   └─ threshold met → orientation
+WakeRuntime                          deterministic wake authority
+   ↓ SpeechIntent / typed evidence
+WakeConversationEnrichment           language + live audio only
+   ↓ observation
+usable/unusable spoken turn          never direct completion authority
 ```
 
-## Realtime founder path
+Realtime may render language and observe whether a committed audio turn contains usable spoken
+engagement. It cannot decide that a physical action happened, mark the user awake, mutate WakePolicy,
+stop an alarm, schedule snooze, or finish a Wake Session.
 
-The debug build can optionally connect to OpenAI Realtime over WebRTC using a short-lived token from the WMW cloud broker.
+## Direct Realtime path
 
-Properties:
+The Direct build uses account-authenticated OpenAI Realtime over WebRTC with short-lived credentials.
 
-- audio-to-audio WebRTC conversation;
-- server VAD observes speech turn boundaries;
-- automatic provider response creation is disabled so the model cannot advance the wake autonomously;
-- interruption/barge-in is enabled;
-- WakeRuntime explicitly requests each assistant turn;
-- transcripts/model payloads are not persisted by WMW;
-- Tomorrow Contract, calendar and other private wake context are not sent in this founder slice;
-- failure or unavailable configuration degrades to alarm-only without delaying critical alarm behavior.
+Current interaction policy:
 
-## Founder configuration
+- the critical alarm starts locally and independently of Realtime;
+- the opening is one combined greeting + sit-up request + short spoken confirmation;
+- after the opening audio finishes, WakeRuntime listens instead of playing a second prompt;
+- semantic VAD uses low eagerness so a just-woken user can pause and trail off without aggressive
+  turn chunking;
+- Realtime reasoning effort is low because wake turns are latency-sensitive and intentionally simple;
+- provider auto-response creation stays disabled;
+- interruption/barge-in stays enabled;
+- Alfred speaks slightly below normal speed for wake-state intelligibility;
+- the alarm melody is ducked, never surrendered, during voice/listening windows;
+- provider/network/session failure degrades to alarm-only rather than substituting generic TTS.
 
-Debug builds expose one-time configuration through the voice spike/founder lab. The broker URL and operator token are stored locally; the token is encrypted with a non-exportable Android Keystore AES-GCM key.
+## Usable spoken-turn gate
 
-This is founder dogfood authentication only and must not be promoted as consumer authentication.
+A VAD event is not Activation Evidence.
 
-## Safety boundary
+After Realtime commits an audio item, WakeMyWay performs a hidden out-of-band classification of only
+that audio item. The classifier produces the smallest possible signal:
 
-Realtime cannot:
+```text
+USABLE
+UNUSABLE
+```
 
-- schedule or cancel alarms;
-- stop or snooze an alarm;
-- mutate WakePolicy;
-- directly write activation evidence;
-- decide that the user is awake;
-- finish a Wake Session.
+Examples treated as **usable** when intelligible and intentional:
 
-If Realtime fails, production stops requesting conversational turns and keeps the selected local alarm audible with local Stop/Snooze. Motion/orientation behavior remains local; production does not substitute Android TTS.
+- yes / no / yeah / done;
+- a complaint;
+- bargaining such as “five more minutes”;
+- a joke;
+- refusal or profanity.
 
-## Validation
+Examples treated as **unusable**:
 
-Before promoting Realtime beyond founder/debug dogfood, validate on a physical phone:
+- silence / breathing;
+- coughs or groans without speech;
+- humming;
+- accidental noise;
+- background media or side conversation;
+- speech too unclear or mumbled to confidently treat as a reply.
 
-1. locked-screen alarm presentation still works;
-2. Realtime joins without delaying initial alarm audio;
-3. user can interrupt Alfred naturally;
-4. multiple `you → Alfred → you` turns occur before activation completion;
-5. network loss degrades to alarm-only without silence/deadlock;
-6. Stop and Snooze remain immediate and local;
-7. audio route restoration is correct after completion/interruption;
-8. no transcript/private wake context appears in WMW persistence or diagnostics.
+Classification never decides whether the requested physical action happened. It only decides whether
+the user produced usable spoken engagement.
+
+The parser fails closed: malformed output, missing item ids, classification timeout, and very short
+noise-like commits produce `coherent = false`, which WakeRuntime handles through bounded
+re-engagement. They never manufacture activation evidence.
+
+Raw audio and classifier text are not persisted by WakeMyWay.
+
+## Wake conversation loop
+
+```text
+Alfred: one short action
+        ↓
+user audio
+        ↓
+Realtime VAD commits audio item
+        ↓
+hidden usable-turn classification
+        ↓
+VoiceResponseObserved(coherent = true/false)
+        ↓
+WakeRuntime
+   ├─ unusable → bounded ReEngage
+   ├─ usable + more evidence needed → next one-action prompt
+   └─ activation gate satisfied → Orientation
+```
+
+Motion remains independent typed evidence. When two-way voice is available, movement alone cannot
+silently bypass the required spoken engagement gate.
+
+## Alfred interaction contract
+
+Alfred should feel like a composed person beside the bed, not a general assistant.
+
+- one or two short sentences;
+- exactly one small physical wake action per turn;
+- optionally one short spoken confirmation after that action;
+- no checklists;
+- no long motivational monologues;
+- acknowledge the user's actual words briefly, then move forward;
+- complaints, bargaining and jokes are engagement, not a reason to argue;
+- never fill silence with chatter;
+- immediately yield when interrupted;
+- never pretend unclear audio was understood;
+- never claim unsupported posture, sensor state, biological wakefulness, snooze success or alarm
+  completion.
+
+## Failure behavior
+
+Any Realtime failure returns to the honest baseline:
+
+```text
+local alarm audio + haptics + local Stop/Snooze
+```
+
+Realtime availability is never a Wake Ready predicate.
+
+## What still requires physical evidence
+
+Repository tests can prove state-machine and parser behavior. They cannot prove the final morning
+experience. Before broader launch, overnight physical-device dogfood must validate:
+
+- locked-screen cold start;
+- first audible voice latency;
+- soft / slow / one-word sleepy replies;
+- long pauses inside an utterance;
+- cough / groan / TV false-positive resistance;
+- interruption while Alfred is speaking;
+- speaker and Bluetooth routing;
+- Wi-Fi ↔ cellular / provider failure;
+- Stop/Snooze during any live turn;
+- alarm ducking and restoration;
+- no listening deadlock after a rejected short turn.
+
+See [conversational-wake-testing.md](conversational-wake-testing.md).

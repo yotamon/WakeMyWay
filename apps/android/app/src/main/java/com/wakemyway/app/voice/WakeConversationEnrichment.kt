@@ -17,7 +17,8 @@ interface WakeConversationEnrichment : AutoCloseable {
         fun onAssistantSpeechStarted()
         fun onAssistantSpeechFinished(interrupted: Boolean)
         fun onUserSpeechStarted()
-        fun onUserTurnObserved()
+        /** Reports whether the detected audio turn contained usable, intentional spoken engagement. */
+        fun onUserTurnObserved(coherent: Boolean = true)
         fun onConversationFailure(stage: String)
     }
 

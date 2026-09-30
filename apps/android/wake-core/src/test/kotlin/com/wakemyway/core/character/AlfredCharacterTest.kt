@@ -27,7 +27,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(4, spec.version)
+        assertEquals(5, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)
@@ -101,6 +101,19 @@ class AlfredCharacterTest {
                 assertTrue(
                     line.wordCount() <= MAX_MINIMAL_WORDS,
                     "Minimal line is too long for $intent: $line",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `opening turn asks for one sit-up action and a spoken reply`() {
+        VoiceStyle.entries.forEach { style ->
+            renderedTexts(SpeechIntent.InitialWake, style).forEach { line ->
+                assertTrue("sit" in line, "Opening line must contain the first physical action: $line")
+                assertTrue(
+                    listOf("tell", "answer", "hello").any { cue -> cue in line },
+                    "Opening line must invite a short spoken reply: $line",
                 )
             }
         }
