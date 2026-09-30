@@ -3,14 +3,14 @@ package com.wakemyway.app.product.account
 import android.content.Context
 import android.content.Intent
 import com.wakemyway.app.BuildConfig
+import com.wakemyway.app.network.WakeHttpClient
 import com.wakemyway.app.voice.ConversationalAlfredState
-import java.net.HttpURLConnection
 import java.net.URL
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 enum class WakeAccountRole {
@@ -48,6 +48,7 @@ class WakeAccountManager private constructor(
     private val neonAuthUrl = BuildConfig.NEON_AUTH_URL.trim().trimEnd('/')
     private val accountApiBaseUrl = BuildConfig.ACCOUNT_API_BASE_URL.trim().trimEnd('/')
     private val accountRequestOrigin = accountApiBaseUrl.toHttpOriginOrNull()
+    private val installationStore = AccountInstallationStore(appContext)
     private val authClient = neonAuthUrl.takeIf { it.isNotBlank() }?.let {
         NeonAuthClient(
             context = appContext,
@@ -191,6 +192,13 @@ class WakeAccountManager private constructor(
         val auth = requireAuth() ?: return
         runAction {
             try {
+                val session = runCatching { auth.currentSession() }.getOrNull()
+                if (session != null) {
+                    // Revoke the server-side Realtime device authorization before destroying the
+                    // account session. Failure must not trap the user in a signed-in state; the
+                    // local bearer is still cleared and its server lifetime is tightly bounded.
+                    runCatching { revokeRealtimeAuthorization(session.accessToken) }
+                }
                 auth.signOut()
             } finally {
                 ConversationalAlfredState.clearProvisioningIfSupported(appContext)
@@ -237,9 +245,7 @@ class WakeAccountManager private constructor(
         }
 
         return runCatching {
-            withContext(Dispatchers.IO) {
-                fetchAccountProfile(session.accessToken)
-            }
+            fetchAccountProfile(session.accessToken)
         }.fold(
             onSuccess = { profile ->
                 WakeAccountState(configured = true, account = profile)
@@ -259,34 +265,48 @@ class WakeAccountManager private constructor(
         )
     }
 
-    private fun fetchAccountProfile(accessToken: String): WakeAccount {
-        val connection = (URL("$accountApiBaseUrl/api/v1/account/me").openConnection() as HttpURLConnection).apply {
-            requestMethod = "GET"
-            connectTimeout = NETWORK_TIMEOUT_MS
-            readTimeout = NETWORK_TIMEOUT_MS
-            useCaches = false
-            doInput = true
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Authorization", "Bearer $accessToken")
-        }
+    private suspend fun fetchAccountProfile(accessToken: String): WakeAccount {
+        val response = WakeHttpClient.execute(
+            Request.Builder()
+                .url("$accountApiBaseUrl/api/v1/account/me")
+                .get()
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer $accessToken")
+                .build(),
+            MAX_RESPONSE_BYTES,
+        )
+        if (response.status !in 200..299) error("Wake API returned HTTP ${response.status}")
 
-        try {
-            val status = connection.responseCode
-            if (status !in 200..299) error("Wake API returned HTTP $status")
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
-            if (body.length > MAX_RESPONSE_CHARS) error("Wake API response was too large")
-            val account = JSONObject(body).getJSONObject("account")
-            return WakeAccount(
-                id = account.getString("id"),
-                email = account.optString("email").takeIf { it.isNotBlank() && it != "null" },
-                role = when (account.getString("role")) {
-                    "admin" -> WakeAccountRole.ADMIN
-                    else -> WakeAccountRole.USER
-                },
-                roleVerified = true,
-            )
-        } finally {
-            connection.disconnect()
+        val account = JSONObject(response.body).getJSONObject("account")
+        return WakeAccount(
+            id = account.getString("id"),
+            email = account.optString("email").takeIf { it.isNotBlank() && it != "null" },
+            role = when (account.getString("role")) {
+                "admin" -> WakeAccountRole.ADMIN
+                else -> WakeAccountRole.USER
+            },
+            roleVerified = true,
+        )
+    }
+
+    private suspend fun revokeRealtimeAuthorization(accessToken: String) {
+        if (BuildConfig.DISTRIBUTION_CHANNEL != "direct" || accountApiBaseUrl.isBlank()) return
+
+        val body = JSONObject()
+            .put("installationId", installationStore.id())
+            .toString()
+            .toRequestBody(WakeHttpClient.jsonMediaType)
+        val response = WakeHttpClient.execute(
+            Request.Builder()
+                .url("$accountApiBaseUrl/api/v1/account/realtime-provision")
+                .delete(body)
+                .header("Accept", "application/json")
+                .header("Authorization", "Bearer $accessToken")
+                .build(),
+            MAX_REVOKE_RESPONSE_BYTES,
+        )
+        if (response.status !in 200..299) {
+            error("Wake API could not revoke Realtime authorization.")
         }
     }
 
@@ -356,8 +376,8 @@ class WakeAccountManager private constructor(
 
     companion object {
         private const val MIN_PASSWORD_LENGTH = 8
-        private const val NETWORK_TIMEOUT_MS = 10_000
-        private const val MAX_RESPONSE_CHARS = 32_000
+        private const val MAX_RESPONSE_BYTES = 32L * 1024
+        private const val MAX_REVOKE_RESPONSE_BYTES = 8L * 1024
         private const val MAX_ERROR_LENGTH = 180
 
         @Volatile
