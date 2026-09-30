@@ -90,7 +90,7 @@ Guardrails:
 - one action per turn;
 - no squats, jumping, balance tasks or strenuous exercise;
 - no rapid/forced breathing protocol;
-- standing is never required when unsafe or inappropriate and is not requested from verbal engagement alone; independent motion evidence must already exist;
+- standing is never required when unsafe or inappropriate and is not requested from verbal engagement or device pickup alone; orientation-change or sustained-movement evidence must already exist;
 - AI cannot claim an action happened; WakeRuntime owns progression and activation evidence.
 
 Reference:
