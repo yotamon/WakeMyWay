@@ -38,8 +38,12 @@ class DirectRealtimeWakeConversation(
     private val listener: WakeConversationEnrichment.Listener,
 ) : WakeConversationEnrichment {
     private data class BrokerSecret(val token: String, val callsUrl: String, val voice: String)
+    private class BrokerCredentialRejected : Exception()
+
     private val appContext = context.applicationContext
     private val accountManager = WakeAccountManager.get(appContext)
+    private val credentialStore = RealtimeAccountCredentialStore(appContext)
+    private val provisioningClient = AccountRealtimeProvisioningClient()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "wmw-account-realtime").apply { isDaemon = true }
@@ -367,24 +371,43 @@ class DirectRealtimeWakeConversation(
     }
 
     private fun requestBrokerSecretWithAccount(): BrokerSecret {
-        val accessToken = runBlocking { accountManager.currentAccessTokenForRealtime() }
-            ?: error("WakeMyWay account session is unavailable")
-        return requestBrokerSecret(accessToken)
+        val credential = credentialStore.load() ?: provisionDeviceCredential()
+        return try {
+            requestBrokerSecret(credential.deviceToken)
+        } catch (_: BrokerCredentialRejected) {
+            // Account-authorized credentials may expire or be rotated. Clear and re-provision once;
+            // any further failure degrades immediately to the local alarm-only path.
+            credentialStore.clear()
+            requestBrokerSecret(provisionDeviceCredential().deviceToken)
+        }
     }
 
-    private fun requestBrokerSecret(accessToken: String): BrokerSecret {
-        val connection = (URL(ACCOUNT_REALTIME_TOKEN_URL).openConnection() as HttpURLConnection).apply {
+    private fun provisionDeviceCredential(): RealtimeDeviceCredential {
+        val accessToken = runBlocking { accountManager.currentAccessTokenForRealtime() }
+            ?: error("WakeMyWay account session is unavailable")
+        val credential = provisioningClient.provision(
+            accessToken = accessToken,
+            installationId = credentialStore.installationId(),
+        )
+        credentialStore.save(credential)
+        ConversationalAlfredState.setReady(appContext, true)
+        return credential
+    }
+
+    private fun requestBrokerSecret(deviceToken: String): BrokerSecret {
+        val connection = (URL(AccountRealtimeProvisioningClient.TOKEN_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = NETWORK_TIMEOUT_MS
             readTimeout = NETWORK_TIMEOUT_MS
             useCaches = false
             doInput = true
-            setRequestProperty("Authorization", "Bearer $accessToken")
+            setRequestProperty("Authorization", "Bearer $deviceToken")
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Content-Length", "0")
         }
         try {
             val status = connection.responseCode
+            if (status == 401 || status == 403) throw BrokerCredentialRejected()
             if (status !in 200..299) error("Realtime credential request failed")
             val json = JSONObject(readBounded(connection.inputStream, MAX_BROKER_RESPONSE_BYTES))
             check(json.optString("candidate") == "direct-openai")
@@ -561,7 +584,6 @@ class DirectRealtimeWakeConversation(
         const val MAX_OUTPUT_TOKENS = 120
         const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
-        const val ACCOUNT_REALTIME_TOKEN_URL = "https://wakemyway.vercel.app/api/v1/account/realtime-token"
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
         const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-account-wake-v1"
         const val EXPECTED_PRIVACY_CLASSIFICATION = "authenticated-account-default-api-retention"
