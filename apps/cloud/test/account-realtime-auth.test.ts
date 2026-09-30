@@ -57,7 +57,7 @@ describe('account Realtime device credentials', () => {
       nowSeconds: 1_800_000_000,
       credentialId: CREDENTIAL_ID,
     });
-    const [encoded] = issued.deviceToken.split('.');
+    const encoded = issued.deviceToken.split('.')[0]!;
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as Record<string, unknown>;
     payload.exp = Number(payload.exp) + 1;
     const modified = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
