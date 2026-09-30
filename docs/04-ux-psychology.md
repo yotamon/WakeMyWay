@@ -221,7 +221,7 @@ Rules:
 - the runtime chooses the progression; the language model only renders the approved current intent;
 - verbal fluency alone never gives the model permission to skip ahead;
 - no squats, jumping, balance challenges, strenuous exercise, or rapid/forced breathing;
-- standing is conditional, never a compliance requirement, and is not requested from verbal engagement alone; independent motion evidence must already exist;
+- standing is conditional, never a compliance requirement, and is not requested from verbal engagement or device pickup alone; orientation-change or sustained-movement evidence must already exist;
 - after unclear audio/silence, re-engage around the current safe action instead of inventing a harder one;
 - a spoken "done" is engagement evidence, not proof that a physical action occurred.
 
