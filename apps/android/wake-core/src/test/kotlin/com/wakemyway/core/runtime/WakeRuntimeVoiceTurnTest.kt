@@ -39,7 +39,7 @@ class WakeRuntimeVoiceTurnTest {
     }
 
     @Test
-    fun `an activating voice reply continues the conversation until activation is complete`() {
+    fun `second activating voice reply advances to upper body activation`() {
         val conversationalPolicy = WakePolicy(activationThreshold = 8)
         var snapshot = runtime.initial(
             sessionId = WakeSessionId("conversation-loop"),
@@ -65,8 +65,54 @@ class WakeRuntimeVoiceTurnTest {
 
         assertEquals(WakePhase.ACTIVATING, continued.snapshot.phase)
         assertEquals(2, continued.snapshot.activationEvidence.coherentVoiceResponses)
-        assertTrue(WakeDirective.Speak(SpeechIntent.KeepEngaging) in continued.directives)
+        assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in continued.directives)
         assertTrue(WakeDirective.ObserveMotion in continued.directives)
+    }
+
+    @Test
+    fun `later conversational turns follow safe physiological progression`() {
+        val conversationalPolicy = WakePolicy(activationThreshold = 20)
+        var snapshot = runtime.initial(
+            sessionId = WakeSessionId("physiological-progression"),
+            policy = conversationalPolicy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+
+        val first = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("first"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = first.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.AskToMove) in first.directives)
+
+        val second = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("second"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = second.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in second.directives)
+
+        val third = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("third"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = third.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.StandIfSafe) in third.directives)
+
+        val fourth = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("fourth"), coherent = true),
+            conversationalPolicy,
+        )
+        assertTrue(WakeDirective.Speak(SpeechIntent.KeepEngaging) in fourth.directives)
+        assertEquals(4, fourth.snapshot.activationEvidence.coherentVoiceResponses)
     }
 
     @Test
