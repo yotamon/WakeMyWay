@@ -63,6 +63,7 @@ class DirectRealtimeWakeConversation(
     private var inputEnabled = false
     private var responseAudible = false
     private val turnCommitGate = RealtimeTurnCommitGate(MIN_USER_TURN_MS)
+    private var pendingTurnClassificationItemId: String? = null
     private var assistantTurnCount = 0
 
     private val sessionConfigurationTimeout = Runnable {
@@ -70,6 +71,14 @@ class DirectRealtimeWakeConversation(
     }
     private val sessionBudgetTimeout = Runnable {
         if (!closed && readyState.get()) emitFailure("session-budget")
+    }
+    private val turnClassificationTimeout = Runnable {
+        val itemId = pendingTurnClassificationItemId ?: return@Runnable
+        pendingTurnClassificationItemId = null
+        Log.w(LOG_TAG, "turn-classification-timeout item=${itemId.take(32)}")
+        if (!closed && readyState.get() && inputEnabled) {
+            listener.onUserTurnObserved(coherent = false)
+        }
     }
 
     @Volatile private var closed = false
@@ -122,7 +131,10 @@ class DirectRealtimeWakeConversation(
 
     override fun setInputEnabled(enabled: Boolean) {
         inputEnabled = enabled
-        if (!enabled) turnCommitGate.reset()
+        if (!enabled) {
+            turnCommitGate.reset()
+            clearPendingTurnClassification()
+        }
         audioTrack?.setEnabled(enabled)
     }
 
@@ -253,9 +265,16 @@ class DirectRealtimeWakeConversation(
 
             "input_audio_buffer.committed" -> {
                 if (!inputEnabled || !turnCommitGate.onCommitted()) return
-                mainHandler.post {
-                    if (isCurrent(current)) listener.onUserTurnObserved()
+                val itemId = event.optString("item_id").trim()
+                if (itemId.isBlank() || !ITEM_ID_PATTERN.matches(itemId)) {
+                    mainHandler.post {
+                        if (isCurrent(current) && inputEnabled) {
+                            listener.onUserTurnObserved(coherent = false)
+                        }
+                    }
+                    return
                 }
+                requestTurnQualityClassification(itemId, current)
             }
 
             "output_audio_buffer.started" -> if (!responseAudible) {
@@ -269,6 +288,7 @@ class DirectRealtimeWakeConversation(
             "output_audio_buffer.cleared" -> finishAssistantAudio(current, true)
             "response.done" -> {
                 val response = event.optJSONObject("response")
+                if (handleTurnQualityClassification(response, current)) return
                 val status = response?.optString("status").orEmpty()
                 val reason = response
                     ?.optJSONObject("status_details")
@@ -295,6 +315,112 @@ class DirectRealtimeWakeConversation(
         }
     }
 
+    private fun requestTurnQualityClassification(itemId: String, current: Long) {
+        if (!isCurrent(current) || !inputEnabled) return
+        // One wake response is enough to advance the deterministic runtime. If semantic VAD
+        // splits a sleepy utterance while classification is running, keep the later item in the
+        // conversation context but do not create duplicate activation evidence.
+        if (pendingTurnClassificationItemId != null) return
+
+        val channel = dataChannel
+        if (channel == null || channel.state() != DataChannel.State.OPEN) {
+            mainHandler.post {
+                if (isCurrent(current) && inputEnabled) {
+                    listener.onUserTurnObserved(coherent = false)
+                }
+            }
+            return
+        }
+
+        val classification = JSONObject()
+            .put("type", "response.create")
+            .put(
+                "response",
+                JSONObject()
+                    .put("conversation", "none")
+                    .put(
+                        "metadata",
+                        JSONObject()
+                            .put("topic", TURN_CLASSIFICATION_TOPIC)
+                            .put("wake_item_id", itemId),
+                    )
+                    .put("output_modalities", JSONArray().put("text"))
+                    .put("max_output_tokens", TURN_CLASSIFICATION_MAX_OUTPUT_TOKENS)
+                    .put(
+                        "input",
+                        JSONArray().put(
+                            JSONObject()
+                                .put("type", "item_reference")
+                                .put("id", itemId),
+                        ),
+                    )
+                    .put("instructions", AlfredRealtimePrompt.TURN_QUALITY_CLASSIFIER),
+            )
+
+        pendingTurnClassificationItemId = itemId
+        if (!sendEvent(channel, classification)) {
+            pendingTurnClassificationItemId = null
+            mainHandler.post {
+                if (isCurrent(current) && inputEnabled) {
+                    listener.onUserTurnObserved(coherent = false)
+                }
+            }
+            return
+        }
+
+        mainHandler.removeCallbacks(turnClassificationTimeout)
+        mainHandler.postDelayed(turnClassificationTimeout, TURN_CLASSIFICATION_TIMEOUT_MS)
+    }
+
+    /**
+     * Converts a hidden out-of-band classifier result into a typed observation only.
+     * Wake Runtime remains the sole owner of behavioral state transitions and completion.
+     */
+    private fun handleTurnQualityClassification(response: JSONObject?, current: Long): Boolean {
+        val metadata = response?.optJSONObject("metadata") ?: return false
+        if (metadata.optString("topic") != TURN_CLASSIFICATION_TOPIC) return false
+
+        val itemId = metadata.optString("wake_item_id").trim()
+        if (itemId.isBlank() || itemId != pendingTurnClassificationItemId) return true
+
+        mainHandler.removeCallbacks(turnClassificationTimeout)
+        pendingTurnClassificationItemId = null
+
+        val status = response.optString("status")
+        val coherent = if (status == "completed") {
+            RealtimeTurnQualityDecision.fromModelOutput(extractResponseText(response))
+        } else {
+            false
+        }
+        Log.i(
+            LOG_TAG,
+            "turn-quality coherent=$coherent status=${status.take(24)} item=${itemId.take(32)}",
+        )
+        mainHandler.post {
+            if (isCurrent(current) && inputEnabled) {
+                listener.onUserTurnObserved(coherent = coherent)
+            }
+        }
+        return true
+    }
+
+    private fun extractResponseText(response: JSONObject): String {
+        val output = response.optJSONArray("output") ?: return ""
+        for (outputIndex in 0 until output.length()) {
+            val item = output.optJSONObject(outputIndex) ?: continue
+            val content = item.optJSONArray("content") ?: continue
+            for (contentIndex in 0 until content.length()) {
+                val part = content.optJSONObject(contentIndex) ?: continue
+                if (part.optString("type") == "output_text") return part.optString("text")
+            }
+        }
+        return ""
+    }
+
+    private fun clearPendingTurnClassification() {
+        pendingTurnClassificationItemId = null
+        mainHandler.removeCallbacks(turnClassificationTimeout)
+    }
     private fun markSessionReady(current: Long) {
         if (!isCurrent(current) || readyState.getAndSet(true)) return
         Log.i(LOG_TAG, "session-ready generation=$current")
@@ -318,7 +444,9 @@ class DirectRealtimeWakeConversation(
     private fun sendSessionConfiguration(channel: DataChannel, voice: String): Boolean {
         val turnDetection = JSONObject()
             .put("type", "semantic_vad")
-            .put("eagerness", "high")
+            // A just-woken user pauses, trails off and speaks softly. Low eagerness gives the
+            // semantic end-of-turn detector more room before it chunks the utterance.
+            .put("eagerness", "low")
             .put("create_response", false)
             .put("interrupt_response", true)
         val session = JSONObject()
@@ -342,7 +470,7 @@ class DirectRealtimeWakeConversation(
                             .put("noise_reduction", JSONObject().put("type", "far_field"))
                             .put("turn_detection", turnDetection),
                     )
-                    .put("output", JSONObject().put("voice", voice).put("speed", 1.04)),
+                    .put("output", JSONObject().put("voice", voice).put("speed", 0.96)),
             )
         return sendEvent(
             channel,
@@ -501,6 +629,7 @@ class DirectRealtimeWakeConversation(
         responseAudible = false
         assistantTurnCount = 0
         turnCommitGate.reset()
+        clearPendingTurnClassification()
         runCatching { dataChannel?.unregisterObserver() }
         runCatching { dataChannel?.close() }
         runCatching { dataChannel?.dispose() }
@@ -556,7 +685,47 @@ class DirectRealtimeWakeConversation(
     }
 
     private object AlfredRealtimePrompt {
-        const val SYSTEM = """You are Alfred, Wake My Way's calm British morning wake companion. Your only job is helping a sleepy person move from sleep inertia into being physically upright and engaged. Sound warm, intelligent, dryly witty, concise and human. Speak in one or two short sentences. React naturally to what the user just said. Never shame, threaten, diagnose, make medical claims, or pretend to know sensor/context facts you were not given. Never claim the alarm stopped, wake completed, or snooze succeeded. If the user bargains, complains or jokes, engage naturally but keep steering toward one small wake action. Yield immediately if interrupted. Never ask 'How can I help?'."""
+        const val SYSTEM = """# Role and objective
+You are Alfred, Wake My Way's calm British morning wake companion. Your only job is helping a sleepy person move from sleep inertia into active morning engagement. Wake Runtime, not you, owns wake state, completion, snooze, motion and alarm state.
+
+# Voice and pacing
+- Sound warm, intelligent, lightly dry and unmistakably human.
+- Speak slowly enough for someone who has just woken up. Use natural prosody, not announcer energy.
+- Use one or two short sentences only. Prefer roughly 5-18 spoken words.
+- Give exactly one small action or question per turn. Never stack a checklist.
+- Leave room for the user to answer. Do not fill silence with chatter.
+- Do not use sound effects, humming, singing, stage directions or verbal filler.
+
+# Conversation
+- React briefly to the user's actual words, then steer toward the current Wake Runtime directive.
+- Sleepy complaints, bargaining, jokes, refusal and profanity are still meaningful engagement. Acknowledge without arguing, then continue with one small action.
+- Never ask broad questions such as 'How can I help?' or 'What would you like to do?'
+- Do not repeat the same greeting, encouragement or sentence shape across adjacent turns.
+- Keep acknowledgements specific and tiny: usually a few words before the next action.
+
+# Unclear audio
+- Only act as though you understood the user when their audio was clear.
+- If the runtime says engagement was unusable, do not invent what they said. Ask for one short spoken reply while requesting one safe small action.
+- Never pretend a cough, groan, background audio, silence or unintelligible speech was a meaningful answer.
+
+# Interruption
+- Yield immediately when the user starts speaking.
+- After an interruption, respond to what the user actually said rather than restarting your previous sentence.
+
+# Safety and authority
+- Never shame, threaten, scold, diagnose or make medical claims.
+- Never claim to know posture, movement, wakefulness, sensor state or context you were not explicitly given.
+- Never claim the alarm stopped, wake completed or snooze succeeded.
+- Never tell the user to perform unsafe, strenuous or complex physical actions while just waking."""
+
+        const val TURN_QUALITY_CLASSIFIER = """This is a hidden wake-turn quality check, not a user-facing reply.
+Classify only the referenced user audio item. Output exactly USABLE or UNUSABLE with no punctuation or explanation.
+
+USABLE means the audio contains intentional, intelligible spoken engagement addressed as a reply to the wake companion. Short replies count, including yes/no, 'yeah', 'done', complaints, bargaining, jokes, refusal or profanity.
+
+UNUSABLE means the item is only silence, breathing, a cough, a groan, humming, background media, side conversation, accidental noise, or speech too unclear or mumbled to confidently treat as a reply.
+
+Do not judge whether the requested physical action was completed. Do not infer wakefulness or posture. This classification is only whether there was usable spoken engagement."""
 
         fun turn(intent: SpeechIntent, style: VoiceStyle): String = buildString {
             append("Follow the standing Alfred instructions. Voice style: ")
@@ -570,11 +739,11 @@ class DirectRealtimeWakeConversation(
             append("\nCurrent Wake Runtime directive: ")
             append(
                 when (intent) {
-                    SpeechIntent.InitialWake -> "Open naturally with a brief greeting."
+                    SpeechIntent.InitialWake -> "Open naturally with a brief greeting, ask them to sit upright, and ask for one short spoken reply when they are there. This is the entire opening turn; do not add a second task."
                     SpeechIntent.AskToSitUp -> "Ask them to sit upright and answer out loud when they are sitting."
                     SpeechIntent.AskToMove -> "React to their reply, then ask for feet on the floor or one similarly safe small movement and ask them to tell you when done."
                     SpeechIntent.KeepEngaging -> "React genuinely to their latest reply. Continue the thread, request one safe tiny wake action, and end with a natural prompt so they answer again. Avoid repeating wording."
-                    is SpeechIntent.ReEngage -> "They did not give usable engagement. Re-engage at firmness ${intent.escalationLevel} of 3, respectfully requesting one spoken reply and one small physical action."
+                    is SpeechIntent.ReEngage -> "The prior audio was not usable engagement. Do not pretend you understood words. Re-engage at firmness ${intent.escalationLevel} of 3 with one concise prompt: request one safe small physical action and one very short spoken confirmation."
                     SpeechIntent.SnoozeConfirmation -> "Briefly ask them to confirm snooze. Never say it succeeded."
                     SpeechIntent.SnoozeFailed -> "Say snooze did not schedule and gently continue the wake."
                     SpeechIntent.Orientation -> "Wake Runtime has enough evidence. Give one brief satisfying closing line without claiming biological wakefulness."
@@ -590,6 +759,8 @@ class DirectRealtimeWakeConversation(
         const val MAX_EVENT_BYTES = 64 * 1024
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
         const val MIN_USER_TURN_MS = 320L
+        const val TURN_CLASSIFICATION_TIMEOUT_MS = 2_500L
+        const val TURN_CLASSIFICATION_MAX_OUTPUT_TOKENS = 16
         const val MAX_ASSISTANT_TURNS = 8
         // Realtime audio output consumes many more output tokens than equivalent text. Keep a
         // bounded but generous ceiling so a normal one- or two-sentence wake prompt is not clipped.
@@ -600,7 +771,9 @@ class DirectRealtimeWakeConversation(
         const val EXPECTED_CONFIGURATION_ID = "direct-openai:webrtc-account-wake-v1"
         const val EXPECTED_PRIVACY_CLASSIFICATION = "authenticated-account-default-api-retention"
         const val LOG_TAG = "WmwRealtime"
+        const val TURN_CLASSIFICATION_TOPIC = "wake-turn-quality"
         val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
+        val ITEM_ID_PATTERN = Regex("^[A-Za-z0-9._:-]{1,160}$")
 
         @Volatile
         var webRtcInitialized = false
