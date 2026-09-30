@@ -3,6 +3,7 @@ package com.wakemyway.app.product.account
 import android.content.Context
 import android.content.Intent
 import com.wakemyway.app.BuildConfig
+import com.wakemyway.app.voice.ConversationalAlfredState
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
@@ -43,12 +44,13 @@ data class WakeAccountState(
 class WakeAccountManager private constructor(
     context: Context,
 ) {
+    private val appContext = context.applicationContext
     private val neonAuthUrl = BuildConfig.NEON_AUTH_URL.trim().trimEnd('/')
     private val accountApiBaseUrl = BuildConfig.ACCOUNT_API_BASE_URL.trim().trimEnd('/')
     private val accountRequestOrigin = accountApiBaseUrl.toHttpOriginOrNull()
     private val authClient = neonAuthUrl.takeIf { it.isNotBlank() }?.let {
         NeonAuthClient(
-            context = context.applicationContext,
+            context = appContext,
             baseUrl = it,
             requestOrigin = accountRequestOrigin,
         )
@@ -74,6 +76,7 @@ class WakeAccountManager private constructor(
         runCatching { auth.currentSession() }
             .onSuccess { session ->
                 _state.value = if (session == null) {
+                    ConversationalAlfredState.clearProvisioningIfSupported(appContext)
                     WakeAccountState(configured = true)
                 } else {
                     loadAccount(session)
@@ -187,7 +190,11 @@ class WakeAccountManager private constructor(
     suspend fun signOut() {
         val auth = requireAuth() ?: return
         runAction {
-            auth.signOut()
+            try {
+                auth.signOut()
+            } finally {
+                ConversationalAlfredState.clearProvisioningIfSupported(appContext)
+            }
             WakeAccountState(configured = true)
         }
     }
@@ -214,6 +221,9 @@ class WakeAccountManager private constructor(
     }
 
     private suspend fun loadAccount(session: NeonAuthSession): WakeAccountState {
+        // Realtime provisioning is invisible and non-authoritative. A failed prewarm never changes
+        // account state or local alarm behavior.
+        ConversationalAlfredState.prewarmIfSupported(appContext)
         if (accountApiBaseUrl.isBlank()) {
             return WakeAccountState(
                 configured = true,
