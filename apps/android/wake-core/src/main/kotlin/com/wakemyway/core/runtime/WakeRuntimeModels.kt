@@ -219,6 +219,7 @@ sealed interface SpeechIntent {
     data object ActivateUpperBody : SpeechIntent
     data object StandIfSafe : SpeechIntent
     data object KeepEngaging : SpeechIntent
+    data object HoldEngagement : SpeechIntent
     data class ReEngage(val escalationLevel: Int) : SpeechIntent
     data object SnoozeConfirmation : SpeechIntent
     data object SnoozeFailed : SpeechIntent

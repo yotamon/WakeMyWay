@@ -15,6 +15,7 @@ class AlfredCharacterTest {
         SpeechIntent.ActivateUpperBody,
         SpeechIntent.StandIfSafe,
         SpeechIntent.KeepEngaging,
+        SpeechIntent.HoldEngagement,
         SpeechIntent.ReEngage(0),
         SpeechIntent.ReEngage(1),
         SpeechIntent.ReEngage(2),
@@ -29,7 +30,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(7, spec.version)
+        assertEquals(8, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)
@@ -147,6 +148,20 @@ class AlfredCharacterTest {
                     listOf("sit", "seated").any { seated -> seated in line },
                     "Standing cue must preserve a seated alternative: $line",
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `hold engagement never repeats a physical wake instruction`() {
+        VoiceStyle.entries.forEach { style ->
+            renderedTexts(SpeechIntent.HoldEngagement, style).forEach { line ->
+                listOf("sit up", "feet", "shoulder", "stand", "curtain", "light").forEach { forbidden ->
+                    assertTrue(
+                        forbidden !in line,
+                        "Hold engagement repeated physical instruction '$forbidden': $line",
+                    )
+                }
             }
         }
     }

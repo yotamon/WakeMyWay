@@ -120,8 +120,17 @@ class WakeRuntimeVoiceTurnTest {
             WakeInput.VoiceResponseObserved(id("fourth"), coherent = true),
             conversationalPolicy,
         )
+        snapshot = fourth.snapshot
         assertTrue(WakeDirective.Speak(SpeechIntent.KeepEngaging) in fourth.directives)
         assertEquals(4, fourth.snapshot.activationEvidence.coherentVoiceResponses)
+
+        val fifth = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("fifth"), coherent = true),
+            conversationalPolicy,
+        )
+        assertTrue(WakeDirective.Speak(SpeechIntent.HoldEngagement) in fifth.directives)
+        assertFalse(WakeDirective.Speak(SpeechIntent.KeepEngaging) in fifth.directives)
     }
 
     @Test
@@ -185,7 +194,59 @@ class WakeRuntimeVoiceTurnTest {
         )
 
         assertFalse(WakeDirective.Speak(SpeechIntent.StandIfSafe) in third.directives)
-        assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in third.directives)
+        assertTrue(WakeDirective.Speak(SpeechIntent.HoldEngagement) in third.directives)
+        assertFalse(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in third.directives)
+    }
+
+    @Test
+    fun `usable replies without phone motion never loop the same physical action`() {
+        val conversationalPolicy = WakePolicy(activationThreshold = 20)
+        var snapshot = runtime.initial(
+            sessionId = WakeSessionId("no-physical-loop"),
+            policy = conversationalPolicy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+
+        val first = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("first"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = first.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.AskToMove) in first.directives)
+
+        val second = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("second"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = second.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.ActivateUpperBody) in second.directives)
+
+        val third = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("third"), coherent = true),
+            conversationalPolicy,
+        )
+        snapshot = third.snapshot
+        assertTrue(WakeDirective.Speak(SpeechIntent.HoldEngagement) in third.directives)
+        assertFalse(third.directives.any {
+            it == WakeDirective.Speak(SpeechIntent.AskToSitUp) ||
+                it == WakeDirective.Speak(SpeechIntent.AskToMove) ||
+                it == WakeDirective.Speak(SpeechIntent.ActivateUpperBody) ||
+                it == WakeDirective.Speak(SpeechIntent.StandIfSafe)
+        })
+
+        val fourth = runtime.reduce(
+            snapshot,
+            WakeInput.VoiceResponseObserved(id("fourth"), coherent = true),
+            conversationalPolicy,
+        )
+        assertTrue(WakeDirective.Speak(SpeechIntent.HoldEngagement) in fourth.directives)
     }
 
     @Test

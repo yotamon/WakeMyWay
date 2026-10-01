@@ -143,6 +143,7 @@ private fun SpeechIntent.label(): String = when (this) {
     SpeechIntent.ActivateUpperBody -> "ACTIVATE_UPPER_BODY"
     SpeechIntent.StandIfSafe -> "STAND_IF_SAFE"
     SpeechIntent.KeepEngaging -> "KEEP_ENGAGING"
+    SpeechIntent.HoldEngagement -> "HOLD_ENGAGEMENT"
     is SpeechIntent.ReEngage -> "RE_ENGAGE_$escalationLevel"
     SpeechIntent.SnoozeConfirmation -> "SNOOZE_CONFIRMATION"
     SpeechIntent.SnoozeFailed -> "SNOOZE_FAILED"
@@ -156,6 +157,7 @@ private val PREVIEW_INTENTS = listOf(
     SpeechIntent.ActivateUpperBody,
     SpeechIntent.StandIfSafe,
     SpeechIntent.KeepEngaging,
+    SpeechIntent.HoldEngagement,
     SpeechIntent.ReEngage(1),
     SpeechIntent.ReEngage(3),
     SpeechIntent.SnoozeConfirmation,
