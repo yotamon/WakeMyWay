@@ -1,5 +1,6 @@
 package com.wakemyway.app
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -113,18 +114,18 @@ class AccessibilitySemanticsInstrumentedTest {
         composeRule.setContent {
             WakeMyWayTheme {
                 WmwConsumerScaffold(
-                    selectedTab = ConsumerTab.INSIGHTS,
+                    selectedTab = ConsumerTab.HOME,
                     onTabSelected = {},
                 ) { }
             }
         }
 
-        composeRule.onNodeWithText("Home").assertHasClickAction()
-        composeRule.onNodeWithText("Alarms").assertHasClickAction()
-        composeRule.onNodeWithText("Insights")
+        composeRule.onNodeWithText("Today")
             .assertHasClickAction()
             .assertIsSelected()
-        composeRule.onNodeWithText("Profile").assertHasClickAction()
+        composeRule.onNodeWithText("Alarms").assertHasClickAction()
+        composeRule.onNodeWithText("You").assertHasClickAction()
+        composeRule.onNodeWithText("Insights").assertDoesNotExist()
     }
 
     @Test
