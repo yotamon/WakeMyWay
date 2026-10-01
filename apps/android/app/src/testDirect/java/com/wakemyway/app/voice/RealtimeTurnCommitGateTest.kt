@@ -90,7 +90,7 @@ class RealtimeTurnCommitGateTest {
     @Test
     fun `mismatched stop cannot alter active turn qualification`() {
         gate.onSpeechStarted("item-new", 1_000L)
-        gate.onSpeechStopped("item-old", 2_000L)
+        assertFalse(gate.onSpeechStopped("item-old", 2_000L))
 
         assertEquals(
             RealtimeTurnCommitGate.CommitDecision.UNQUALIFIED,
