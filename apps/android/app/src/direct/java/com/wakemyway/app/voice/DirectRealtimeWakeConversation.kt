@@ -452,10 +452,15 @@ class DirectRealtimeWakeConversation(
             .trim()
             .takeIf(ITEM_ID_PATTERN::matches)
 
-    private fun eventResponseId(event: JSONObject): String? =
-        event.optString("response_id")
-            .trim()
-            .takeIf(RESPONSE_ID_PATTERN::matches)
+    private fun eventResponseId(event: JSONObject): String? {
+        val direct = event.optString("response_id").trim()
+        if (RESPONSE_ID_PATTERN.matches(direct)) return direct
+
+        return event.optJSONObject("response")
+            ?.optString("id")
+            ?.trim()
+            ?.takeIf(RESPONSE_ID_PATTERN::matches)
+    }
 
     private fun isTurnQualityResponse(response: JSONObject): Boolean =
         response.optJSONObject("metadata")
