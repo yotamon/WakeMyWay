@@ -105,6 +105,19 @@ class AlfredRealtimePromptTest {
     }
 
     @Test
+    fun `response instructions preserve full persona while applying current runtime directive`() {
+        val prompt = AlfredRealtimePrompt.response(
+            request(SpeechIntent.AskToMove),
+        )
+
+        assertTrue(prompt.contains("You are Alfred"))
+        assertTrue(prompt.contains("SAME PERSON"))
+        assertTrue(prompt.contains("Anti-AI mannerisms"))
+        assertTrue(prompt.contains("Current Wake Runtime directive"))
+        assertTrue(prompt.contains("feet on the floor"))
+    }
+
+    @Test
     fun `early wake protocol keeps cognitive load low and physical progression explicit`() {
         val system = AlfredRealtimePrompt.SYSTEM.lowercase()
 
