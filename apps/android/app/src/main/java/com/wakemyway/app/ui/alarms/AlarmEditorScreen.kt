@@ -314,14 +314,19 @@ fun AlarmEditorScreen(
                 color = WmwColors.LightQuietText,
             )
 
-            EditorSection("Basic", Modifier.padding(top = WmwSpacing.Xl)) {
+            EditorSection("Wake", Modifier.padding(top = WmwSpacing.Xl)) {
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it.take(AlarmDefinition.MAX_LABEL_CHARACTERS) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Label") },
-                    placeholder = { Text("Morning wake") },
+                    label = { Text("Why this wake?") },
+                    placeholder = { Text("Gym before work") },
                     singleLine = true,
+                )
+                Text(
+                    text = "Keep it short and human. This becomes the wake’s reason when tomorrow has no more specific context.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
                 )
                 TimeRow(time = time, onClick = ::chooseTime)
                 ChoiceRow(
@@ -395,7 +400,7 @@ fun AlarmEditorScreen(
                     )
                     Text(
                         text = listOfNotNull(
-                            if (voiceCheckIn) "Alfred voice" else "Sound only",
+                            if (voiceCheckIn) "Alfred conversation" else "Sound only",
                             if (snoozeEnabled) "$snoozeMinutes min Snooze" else "No Snooze",
                             when (contractMode) {
                                 TomorrowContractMode.OPTIONAL -> "Morning intention optional"
@@ -457,9 +462,14 @@ fun AlarmEditorScreen(
                 }
 
                 Text(
-                    text = "Tomorrow Contract",
+                    text = "Morning context",
                     style = MaterialTheme.typography.titleSmall,
                     color = WmwColors.Midnight,
+                )
+                Text(
+                    text = "For an upcoming wake, Today can hold a more specific private reason. This setting controls whether WakeMyWay offers that step.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
                 )
                 ChoiceRow(
                     options = TomorrowContractMode.entries,
