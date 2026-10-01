@@ -131,6 +131,17 @@ UNUSABLE means the item is only silence, breathing, a cough, a groan, humming, b
 
 Do not judge whether the requested physical action was completed. Do not infer wakefulness or posture. This classification is only whether there was usable spoken engagement."""
 
+    /**
+     * Response-level instructions override the Realtime session instructions for that response.
+     * Always carry the complete stable Alfred contract alongside the narrow runtime directive so
+     * character, safety and turn-shape rules cannot disappear between turns.
+     */
+    fun response(request: WakeSpeechRequest): String = buildString {
+        append(SYSTEM)
+        append("\n\n")
+        append(turn(request))
+    }
+
     fun turn(request: WakeSpeechRequest): String {
         val intent = request.intent
         val plan = request.sessionPlan
