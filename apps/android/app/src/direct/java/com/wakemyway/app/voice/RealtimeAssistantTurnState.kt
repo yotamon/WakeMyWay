@@ -60,7 +60,7 @@ internal class RealtimeAssistantTurnState {
     fun onTerminalGraceExpired(): Signal? {
         if (!inFlight || audioStarted || terminalStatus == null) return null
         return finish(
-            if (terminalStatus == "cancelled") Signal.INTERRUPTED else Signal.FINISHED,
+            if (terminalStatus == "completed") Signal.FINISHED else Signal.INTERRUPTED,
         )
     }
 
