@@ -33,10 +33,11 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
   presentation preferences. This is intentional because response-level instructions can replace
   session-level response configuration for that turn; classifier responses stay isolated and
   out-of-band.
-- Assistant playback has an explicit exactly-once lifecycle across response terminal events,
-  output-buffer start/stop/clear ordering and barge-in. User speech commit and transport disconnect
-  paths are also watchdog-bounded so a missing provider event cannot trap the UI in Speaking or
-  Listening.
+- Assistant playback has an explicit exactly-once lifecycle across response-created/terminal events,
+  output-buffer start/stop/clear ordering and barge-in, correlated by provider response id so a late
+  terminal event from an older cancelled turn cannot corrupt the next turn. A completed response
+  that never starts audio fails safe to alarm-only. User speech commit and transport disconnect paths
+  are also watchdog-bounded so a missing provider event cannot trap the UI in Speaking or Listening.
 - Android 12+ Realtime audio selects the built-in speaker through the communication-device routing
   API when available and restores the prior route during teardown, with a legacy speakerphone
   fallback only when necessary.
