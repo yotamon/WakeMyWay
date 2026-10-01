@@ -91,9 +91,13 @@ class DirectRealtimeWakeConversation(
         }
     }
     private val userTurnCommitTimeout = Runnable {
-        if (!closed && readyState.get() && inputEnabled) {
+        if (
+            !closed &&
+            readyState.get() &&
+            inputEnabled &&
+            turnCommitGate.onTimedOut()
+        ) {
             Log.w(LOG_TAG, "user-turn-commit-timeout generation=${generation.get()}")
-            turnCommitGate.reset()
             listener.onUserTurnObserved(coherent = false)
         }
     }
@@ -324,7 +328,9 @@ class DirectRealtimeWakeConversation(
 
             "input_audio_buffer.speech_started" -> {
                 if (!inputEnabled) return
+                val itemId = eventUserItemId(event) ?: return
                 turnCommitGate.onSpeechStarted(
+                    itemId,
                     event.optLong("audio_start_ms", -1L).takeIf { it >= 0L },
                 )
                 mainHandler.removeCallbacks(userTurnCommitTimeout)
@@ -336,7 +342,9 @@ class DirectRealtimeWakeConversation(
 
             "input_audio_buffer.speech_stopped" -> {
                 if (!inputEnabled) return
+                val itemId = eventUserItemId(event) ?: return
                 turnCommitGate.onSpeechStopped(
+                    itemId,
                     event.optLong("audio_end_ms", -1L).takeIf { it >= 0L },
                 )
                 mainHandler.removeCallbacks(userTurnCommitTimeout)
@@ -345,27 +353,26 @@ class DirectRealtimeWakeConversation(
 
             "input_audio_buffer.committed" -> {
                 if (!inputEnabled) return
-                mainHandler.removeCallbacks(userTurnCommitTimeout)
-                if (!turnCommitGate.onCommitted()) {
-                    // speech_started cancelled the listening timeout already. Never leave a
-                    // too-short/noisy commit in a permanent listening state.
-                    mainHandler.post {
-                        if (isCurrent(current) && inputEnabled) {
-                            listener.onUserTurnObserved(coherent = false)
+                val itemId = eventUserItemId(event) ?: return
+                when (turnCommitGate.onCommitted(itemId)) {
+                    RealtimeTurnCommitGate.CommitDecision.STALE -> return
+
+                    RealtimeTurnCommitGate.CommitDecision.UNQUALIFIED -> {
+                        mainHandler.removeCallbacks(userTurnCommitTimeout)
+                        // speech_started cancelled the listening timeout already. Never leave a
+                        // too-short/noisy committed item in a permanent listening state.
+                        mainHandler.post {
+                            if (isCurrent(current) && inputEnabled) {
+                                listener.onUserTurnObserved(coherent = false)
+                            }
                         }
                     }
-                    return
-                }
-                val itemId = event.optString("item_id").trim()
-                if (itemId.isBlank() || !ITEM_ID_PATTERN.matches(itemId)) {
-                    mainHandler.post {
-                        if (isCurrent(current) && inputEnabled) {
-                            listener.onUserTurnObserved(coherent = false)
-                        }
+
+                    RealtimeTurnCommitGate.CommitDecision.QUALIFIED -> {
+                        mainHandler.removeCallbacks(userTurnCommitTimeout)
+                        requestTurnQualityClassification(itemId, current)
                     }
-                    return
                 }
-                requestTurnQualityClassification(itemId, current)
             }
 
             "output_audio_buffer.started" -> {
@@ -428,6 +435,11 @@ class DirectRealtimeWakeConversation(
             }
         }
     }
+
+    private fun eventUserItemId(event: JSONObject): String? =
+        event.optString("item_id")
+            .trim()
+            .takeIf(ITEM_ID_PATTERN::matches)
 
     private fun eventResponseId(event: JSONObject): String? =
         event.optString("response_id")
