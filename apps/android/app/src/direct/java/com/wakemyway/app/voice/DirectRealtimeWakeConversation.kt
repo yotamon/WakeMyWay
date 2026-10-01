@@ -850,10 +850,11 @@ class DirectRealtimeWakeConversation(
         const val ASSISTANT_TERMINAL_GRACE_MS = 500L
         const val ASSISTANT_RESPONSE_TIMEOUT_MS = 15_000L
         const val TRANSPORT_DISCONNECT_GRACE_MS = 4_000L
-        // Realtime audio consumes more output tokens than equivalent text, but wake turns are
-        // intentionally 4-16 spoken words. Keep the hard ceiling below the alarm duck/response
-        // watchdog windows so a prompt bug cannot become a long monologue.
-        const val MAX_OUTPUT_TOKENS = 128
+        // Realtime audio consumes substantially more output tokens than equivalent text.
+        // PR #174 established that ~120 tokens can clip a normal spoken wake turn after the first
+        // phrase, so keep a generous per-response ceiling and bound behavior with the prompt,
+        // assistant-turn budget, response watchdog, and three-minute session budget instead.
+        const val MAX_OUTPUT_TOKENS = 1_024
         const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
