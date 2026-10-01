@@ -155,7 +155,7 @@ class DirectRealtimeWakeConversation(
                     .put("conversation", "auto")
                     .put("output_modalities", JSONArray().put("audio"))
                     .put("max_output_tokens", MAX_OUTPUT_TOKENS)
-                    .put("instructions", AlfredRealtimePrompt.turn(request)),
+                    .put("instructions", AlfredRealtimePrompt.response(request)),
             ),
         )
         if (!sent) {
