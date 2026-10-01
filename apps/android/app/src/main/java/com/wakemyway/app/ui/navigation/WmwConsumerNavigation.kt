@@ -56,7 +56,7 @@ fun WmwConsumerScaffold(
     ) {
         content(Modifier.padding(bottom = WmwSizes.ConsumerNavigationInset))
         WmwBottomBar(
-            selectedTab = selectedTab,
+            selectedTab = if (selectedTab == ConsumerTab.INSIGHTS) ConsumerTab.HOME else selectedTab,
             onTabSelected = onTabSelected,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
