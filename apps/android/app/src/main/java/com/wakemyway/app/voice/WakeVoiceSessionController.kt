@@ -111,9 +111,23 @@ class WakeVoiceSessionController(
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
+                    val userSpeechAlreadyStarted = listening
                     speaking = false
                     if (interrupted) {
+                        // Barge-in means the assistant turn is still waiting for the user's reply.
+                        // Make that an actual bounded listening state. If speech_started arrived
+                        // first, its commit watchdog owns the turn; otherwise arm the normal
+                        // listening timeout so a lost/delayed VAD start event cannot hang forever.
+                        voiceResponseRequested = true
+                        listening = true
                         mode = WakeVoiceMode.LISTENING
+                        if (!userSpeechAlreadyStarted) {
+                            mainHandler.removeCallbacks(realtimeSilenceTimeout)
+                            mainHandler.postDelayed(
+                                realtimeSilenceTimeout,
+                                sessionPlan.conversationPacing.listenTimeout.toMillis(),
+                            )
+                        }
                         publish()
                         return@post
                     }

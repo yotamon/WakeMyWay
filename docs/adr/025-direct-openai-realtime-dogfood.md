@@ -24,10 +24,23 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
   OpenAI over WebRTC. Vercel is control plane only and never proxies live wake audio.
 - WakeRuntime remains behavioral authority and AlarmKernel remains Stop/Snooze/alarm authority.
   Realtime failure immediately degrades to the normal selected local alarm sound and Stop/Snooze controls. Production does not substitute local TTS for a failed Realtime conversation.
-- A Realtime session is bounded to eight assistant turns and three minutes. Each response is capped
-  at 120 output tokens and the conversation window uses retention-ratio truncation.
-- Stable Alfred instructions live at the session prefix. Per-turn requests contain only the current
-  WakeRuntime directive and voice style, improving prompt stability and cost behavior.
+- A Realtime session is bounded to a policy-derived 8-12 assistant turns and three minutes. Each
+  user-facing response is capped at 1,024 output tokens and the conversation window uses
+  retention-ratio
+  truncation. A separate response timeout prevents a user-facing turn from hanging indefinitely.
+- Stable Alfred instructions remain at the session prefix, and each user-facing response.create
+  also carries the complete Alfred contract plus only the current WakeRuntime directive and bounded
+  presentation preferences. This is intentional because response-level instructions can replace
+  session-level response configuration for that turn; classifier responses stay isolated and
+  out-of-band.
+- Assistant playback has an explicit exactly-once lifecycle across response-created/terminal events,
+  output-buffer start/stop/clear ordering and barge-in, correlated by provider response id so a late
+  terminal event from an older cancelled turn cannot corrupt the next turn. A completed response
+  that never starts audio fails safe to alarm-only. User speech commit and transport disconnect paths
+  are also watchdog-bounded and VAD-item correlated, so a missing provider event cannot trap the UI in Speaking or Listening and a delayed commit from an expired older utterance cannot become a duplicate WakeRuntime input.
+- Android 12+ Realtime audio selects the built-in speaker through the communication-device routing
+  API when available and restores the prior route during teardown, with a legacy speakerphone
+  fallback only when necessary.
 - Account-authorized installations receive a stable pseudonymous OpenAI safety identifier derived
   server-side from pseudonymous account + installation data. No raw account, name, or email value is
   sent to OpenAI as the safety identifier.

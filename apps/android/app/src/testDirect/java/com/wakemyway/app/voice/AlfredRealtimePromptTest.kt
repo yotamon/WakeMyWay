@@ -28,6 +28,9 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("not scripts or universal next steps"))
         assertTrue(prompt.contains("Runtime directive: HoldEngagement"))
         assertTrue(prompt.contains("I'm already standing"))
+        assertTrue(prompt.contains("# Instruction priority"))
+        assertTrue(prompt.contains("current Wake Runtime directive controls"))
+        assertTrue(prompt.contains("preferences modify presentation only"))
     }
 
     @Test
@@ -102,6 +105,19 @@ class AlfredRealtimePromptTest {
             assertTrue(prompt.contains("feet on the floor"))
             assertFalse(prompt.contains("You are Wake My Way's morning wake companion"))
         }
+    }
+
+    @Test
+    fun `response instructions preserve full persona while applying current runtime directive`() {
+        val prompt = AlfredRealtimePrompt.response(
+            request(SpeechIntent.AskToMove),
+        )
+
+        assertTrue(prompt.contains("You are Alfred"))
+        assertTrue(prompt.contains("SAME PERSON"))
+        assertTrue(prompt.contains("Anti-AI mannerisms"))
+        assertTrue(prompt.contains("Current Wake Runtime directive"))
+        assertTrue(prompt.contains("feet on the floor"))
     }
 
     @Test
