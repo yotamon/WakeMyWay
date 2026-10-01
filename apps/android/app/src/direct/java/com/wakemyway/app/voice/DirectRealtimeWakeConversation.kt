@@ -33,6 +33,13 @@ import org.webrtc.PeerConnectionFactory
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
+/**
+ * Regression guard for PR #174: Realtime audio token accounting is much denser than equivalent
+ * text, and a ~120-token ceiling clipped normal spoken wake turns after roughly the first phrase.
+ * Keep behavior short through the prompt and runtime/session watchdogs, not by starving audio.
+ */
+internal const val REALTIME_USER_RESPONSE_MAX_OUTPUT_TOKENS = 1_024
+
 /** Distribution-scoped conversational enrichment. Alarm Kernel and Wake Runtime remain authoritative. */
 class DirectRealtimeWakeConversation(
     context: Context,
@@ -154,7 +161,7 @@ class DirectRealtimeWakeConversation(
                 JSONObject()
                     .put("conversation", "auto")
                     .put("output_modalities", JSONArray().put("audio"))
-                    .put("max_output_tokens", MAX_OUTPUT_TOKENS)
+                    .put("max_output_tokens", REALTIME_USER_RESPONSE_MAX_OUTPUT_TOKENS)
                     .put("instructions", AlfredRealtimePrompt.response(request)),
             ),
         )
@@ -560,7 +567,7 @@ class DirectRealtimeWakeConversation(
             .put("reasoning", JSONObject().put("effort", "low"))
             .put("instructions", AlfredRealtimePrompt.SYSTEM)
             .put("output_modalities", JSONArray().put("audio"))
-            .put("max_output_tokens", MAX_OUTPUT_TOKENS)
+            .put("max_output_tokens", REALTIME_USER_RESPONSE_MAX_OUTPUT_TOKENS)
             .put(
                 "truncation",
                 JSONObject()
@@ -850,11 +857,6 @@ class DirectRealtimeWakeConversation(
         const val ASSISTANT_TERMINAL_GRACE_MS = 500L
         const val ASSISTANT_RESPONSE_TIMEOUT_MS = 15_000L
         const val TRANSPORT_DISCONNECT_GRACE_MS = 4_000L
-        // Realtime audio consumes substantially more output tokens than equivalent text.
-        // PR #174 established that ~120 tokens can clip a normal spoken wake turn after the first
-        // phrase, so keep a generous per-response ceiling and bound behavior with the prompt,
-        // assistant-turn budget, response watchdog, and three-minute session budget instead.
-        const val MAX_OUTPUT_TOKENS = 1_024
         const val SESSION_CONFIGURATION_TIMEOUT_MS = 4_000L
         const val MAX_SESSION_DURATION_MS = 180_000L
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
