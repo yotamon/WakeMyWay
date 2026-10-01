@@ -81,10 +81,19 @@ These are intentionally unresolved. Do not silently choose durable answers witho
 
 ## Business/legal
 
-- pricing / free realtime allowance
-- whether billing launches with closed beta or later
-- trademark clearance
-- `wakemyway.com` registration confirmation
+The Free + WakeMyWay Plus model, no-ads/no-weekly/no-lifetime launch posture, three-wake Premium Preview and €7.99/month + €49.99/year + 7-day-trial launch hypothesis are now shaped in [`24-monetization.md`](24-monetization.md).
+
+Still unresolved by evidence:
+
+- exact semantic event that qualifies/consumes one Premium Preview wake;
+- whether Gate 3 evidence supports the 7-day trial or warrants a longer trial;
+- whether €49.99/year is the best annual price after real checkout/trial behavior;
+- localized Play price points outside the initial EUR hypothesis;
+- measured provider/session budget that achieves the target wake outcome while keeping average Plus variable cost ≤ €1.25/payer/month;
+- final Plus-only feature boundary beyond production Realtime/premium personalization;
+- whether billing launches in closed paid testing immediately after Gate 3 evidence or later;
+- trademark clearance;
+- `wakemyway.com` registration confirmation.
 
 ## Future
 

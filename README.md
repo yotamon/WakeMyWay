@@ -227,6 +227,7 @@ The project intentionally keeps the trust-critical Android path local. Cloud cap
 | --- | --- |
 | What is actually implemented today | [`docs/00-project-status.md`](docs/00-project-status.md) |
 | Product thesis and scope | [`docs/01-product-vision.md`](docs/01-product-vision.md) |
+| Business model and WakeMyWay Plus economics | [`docs/24-monetization.md`](docs/24-monetization.md) |
 | UX and behavioral rationale | [`docs/04-ux-psychology.md`](docs/04-ux-psychology.md) |
 | Android architecture | [`docs/08-android-architecture.md`](docs/08-android-architecture.md) |
 | Critical alarm reliability | [`docs/10-alarm-kernel.md`](docs/10-alarm-kernel.md) |
