@@ -37,7 +37,7 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
   output-buffer start/stop/clear ordering and barge-in, correlated by provider response id so a late
   terminal event from an older cancelled turn cannot corrupt the next turn. A completed response
   that never starts audio fails safe to alarm-only. User speech commit and transport disconnect paths
-  are also watchdog-bounded so a missing provider event cannot trap the UI in Speaking or Listening.
+  are also watchdog-bounded and VAD-item correlated, so a missing provider event cannot trap the UI in Speaking or Listening and a delayed commit from an expired older utterance cannot become a duplicate WakeRuntime input.
 - Android 12+ Realtime audio selects the built-in speaker through the communication-device routing
   API when available and restores the prior route during teardown, with a legacy speakerphone
   fallback only when necessary.
