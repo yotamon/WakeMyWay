@@ -18,6 +18,21 @@
 
 Direct Realtime is now an all-or-nothing conversational enhancement for the active wake. The selected local Wake Sound starts independently and remains the baseline surface while Realtime readiness is unresolved. If the Direct adapter is absent, misses its bounded startup window, rejects a turn, or fails after the conversation has started, the current wake becomes alarm-only for the rest of that occurrence: full local alarm volume plus Stop/Snooze, with no Android/local TTS substitution and no late mid-wake upgrade. Local TTS/STT components remain available for diagnostics/preview work but are no longer the consumer production fallback.
 
+### Realtime lifecycle and persona hardening
+
+The Direct adapter now treats Realtime as an explicitly bounded state machine rather than assuming provider events always arrive in one ideal order.
+
+- User-facing assistant responses have an exactly-once lifecycle across response.done, output-buffer start/stop/clear and interruption ordering. Silent terminal responses close after a short grace instead of leaving the wake stuck in Speaking.
+- Every user-facing response carries the complete stable Alfred contract plus the current typed WakeRuntime directive. This prevents response-level instructions from accidentally replacing the session persona and producing character drift.
+- Alfred prompt priority is explicit: the current WakeRuntime directive controls the action, safety/authority limits remain mandatory, preferences modify presentation only, and character/examples only shape wording.
+- A started user turn has bounded speech/commit watchdogs. Missing or malformed VAD commit events become unusable engagement rather than an indefinite Listening state.
+- Data-channel closure fails explicitly. ICE/peer disconnection gets a short recovery grace, then degrades to the local alarm instead of leaving a dead conversational surface.
+- User-facing response generation is bounded by its own timeout so a provider turn cannot hang forever.
+- Android 12+ voice output uses the communication-device routing API with the built-in speaker when available and restores the previous route on teardown; older/failed routes retain the legacy speaker fallback.
+- These safeguards remain transport/presentation concerns only. WakeRuntime still owns progression and completion, and AlarmKernel still owns the actual wake and terminal actions.
+
+Linux CI remains authoritative for the complete Direct unit/lint/assembly matrix. Physical acceptance still requires real-device interruption, route-change, locked-screen, network-transition and forced-provider-failure runs before Realtime can be described as fully proven.
+
 WakeMyWay is a local-first Android wake system built around reliable alarms, a deterministic behavioral runtime and optional conversational/cloud enrichment.
 
 ```text
