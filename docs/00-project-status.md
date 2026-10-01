@@ -22,7 +22,7 @@ Direct Realtime is now an all-or-nothing conversational enhancement for the acti
 
 The Direct adapter now treats Realtime as an explicitly bounded state machine rather than assuming provider events always arrive in one ideal order.
 
-- User-facing assistant responses have an exactly-once lifecycle across response.done, output-buffer start/stop/clear and interruption ordering. Silent terminal responses close after a short grace instead of leaving the wake stuck in Speaking.
+- User-facing assistant responses have an exactly-once lifecycle across response.created/response.done, output-buffer start/stop/clear and interruption ordering, correlated by provider response id. A completed response that never starts audible output fails safe to alarm-only; cancelled/incomplete turns close as interrupted instead of leaving the wake stuck in Speaking.
 - Every user-facing response carries the complete stable Alfred contract plus the current typed WakeRuntime directive. This prevents response-level instructions from accidentally replacing the session persona and producing character drift.
 - Alfred prompt priority is explicit: the current WakeRuntime directive controls the action, safety/authority limits remain mandatory, preferences modify presentation only, and character/examples only shape wording.
 - A started user turn has bounded speech/commit watchdogs. Missing or malformed VAD commit events become unusable engagement rather than an indefinite Listening state.
