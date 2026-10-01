@@ -611,8 +611,21 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
             style = MaterialTheme.typography.labelMedium,
             color = WmwColors.LightQuietText,
         )
-        Text(
-            text = preparedPlan?.reminderLine ?: stringResource(R.string.wake_oriented_ready),
+        preparedPlan?.reminderLine?.takeIf { it.isNotBlank() }?.let { reminder ->
+            Text(
+                text = stringResource(R.string.wake_reason_label).uppercase(),
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnText,
+            )
+            Text(
+                text = reminder,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.bodyLarge,
+                color = WmwColors.Midnight.copy(alpha = 0.82f),
+            )
+        } ?: Text(
+            text = stringResource(R.string.wake_oriented_ready),
             modifier = Modifier.padding(top = WmwSpacing.Lg),
             style = MaterialTheme.typography.bodyLarge,
             color = WmwColors.Midnight.copy(alpha = 0.78f),
