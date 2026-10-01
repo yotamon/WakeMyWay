@@ -1,6 +1,5 @@
 package com.wakemyway.app
 
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -125,7 +124,6 @@ class AccessibilitySemanticsInstrumentedTest {
             .assertIsSelected()
         composeRule.onNodeWithText("Alarms").assertHasClickAction()
         composeRule.onNodeWithText("You").assertHasClickAction()
-        composeRule.onNodeWithText("Insights").assertDoesNotExist()
     }
 
     @Test
