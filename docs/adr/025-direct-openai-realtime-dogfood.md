@@ -25,7 +25,8 @@ Promote the existing OpenAI Realtime adapter into the **Direct distribution only
 - WakeRuntime remains behavioral authority and AlarmKernel remains Stop/Snooze/alarm authority.
   Realtime failure immediately degrades to the normal selected local alarm sound and Stop/Snooze controls. Production does not substitute local TTS for a failed Realtime conversation.
 - A Realtime session is bounded to a policy-derived 8-12 assistant turns and three minutes. Each
-  response is capped at 1,024 output tokens and the conversation window uses retention-ratio
+  user-facing response is capped at 128 output tokens and the conversation window uses
+  retention-ratio
   truncation. A separate response timeout prevents a user-facing turn from hanging indefinitely.
 - Stable Alfred instructions remain at the session prefix, and each user-facing response.create
   also carries the complete Alfred contract plus only the current WakeRuntime directive and bounded
