@@ -42,6 +42,7 @@ import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwPrimaryAction
 import com.wakemyway.app.ui.components.WmwSunriseMark
+import com.wakemyway.app.ui.components.WmwWakeHorizon
 import com.wakemyway.app.ui.profile.conversationAmountLabel
 import com.wakemyway.app.ui.profile.interventionStyleLabel
 import com.wakemyway.app.ui.profile.morningBarrierLabel
@@ -121,7 +122,7 @@ fun OnboardingScreen(
                         modifier = Modifier.padding(top = WmwSpacing.Md),
                     )
                 } else {
-                    WmwSunriseMark(modifier = Modifier.size(width = 190.dp, height = 108.dp))
+                    WmwWakeHorizon(modifier = Modifier.fillMaxWidth().padding(horizontal = WmwSpacing.Xl), progress = step / 7f)
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -233,9 +234,15 @@ private fun IntroContent(page: IntroPage) {
         color = WmwColors.LightQuietText,
         textAlign = TextAlign.Center,
     )
-    WmwCard(modifier = Modifier.padding(top = WmwSpacing.Xl), onLightSurface = true) {
-        Text(page.detail, style = MaterialTheme.typography.bodyMedium, color = WmwColors.Midnight)
-    }
+    Text(
+        page.detail,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = WmwSpacing.Xl, start = WmwSpacing.Sm, end = WmwSpacing.Sm),
+        style = MaterialTheme.typography.bodyMedium,
+        color = WmwColors.Midnight.copy(alpha = 0.78f),
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
