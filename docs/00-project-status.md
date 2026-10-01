@@ -28,6 +28,7 @@ The Direct adapter now treats Realtime as an explicitly bounded state machine ra
 - A started user turn has bounded speech/commit watchdogs. Missing or malformed VAD commit events become unusable engagement rather than an indefinite Listening state.
 - Data-channel closure fails explicitly. ICE/peer disconnection gets a short recovery grace, then degrades to the local alarm instead of leaving a dead conversational surface.
 - User-facing response generation is bounded by its own timeout so a provider turn cannot hang forever.
+- User-facing speech is capped at 128 output tokens, matching the deliberately short turn contract and keeping generated speech inside the wake audio window.
 - Android 12+ voice output uses the communication-device routing API with the built-in speaker when available and restores the previous route on teardown; older/failed routes retain the legacy speaker fallback.
 - These safeguards remain transport/presentation concerns only. WakeRuntime still owns progression and completion, and AlarmKernel still owns the actual wake and terminal actions.
 
