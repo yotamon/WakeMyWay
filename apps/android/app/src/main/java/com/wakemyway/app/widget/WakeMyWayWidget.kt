@@ -539,7 +539,7 @@ private fun WakeLine() {
         contentDescription = null,
         modifier = GlanceModifier
             .fillMaxWidth()
-            .height(8.dp),
+            .height(18.dp),
         contentScale = ContentScale.FillBounds,
     )
 }
