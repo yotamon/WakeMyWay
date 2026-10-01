@@ -268,7 +268,7 @@ The repository now includes a deliberately guarded consumer subscription surface
 - it links active/existing subscriptions to the official Google Play subscription-management surface for cancellation/management;
 - it never appears during Active Wake and does not gate a committed alarm.
 
-There is intentionally still no invented Pro-only feature wall or fixed launch price in product copy. Gate 3 (#87) must establish which premium outcome users value and what price/package is credible before final Play merchandising is locked.
+The consumer commercial Shape is now defined in [`24-monetization.md`](24-monetization.md): Free + WakeMyWay Plus, a three-qualified-wake Premium Preview, annual-first €7.99/month + €49.99/year + 7-day-trial launch hypothesis, and explicit provider-cost guardrails. These remain evidence-gated hypotheses rather than hardcoded Android price copy. Gate 3 (#87) must still validate the premium outcome, localized price/package, Preview behavior and trial economics before final Play merchandising is enabled.
 
 The implementation order is now:
 
@@ -280,7 +280,9 @@ guarded purchase/restore/manage  ✅
         ↓
 external Play license proof
         ↓
-Gate 3 package/price evidence
+Gate 3 package/price/Preview evidence
+        ↓
+Play Console Plus offers + trial configuration
         ↓
 closed paid test
         ↓
