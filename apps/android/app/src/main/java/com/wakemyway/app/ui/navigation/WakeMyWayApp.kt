@@ -722,6 +722,10 @@ private fun AlarmHealth.toTonightUiState(
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
         tomorrowContractText = preparation?.contract?.rawText,
+        wakeReason = preparation?.contract?.rawText
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: alarm?.label?.trim()?.takeIf { it.isNotBlank() },
         firstMove = preparation?.contract?.firstMove ?: alarm?.firstMoveDefault,
         voiceCheckInEnabled = occurrence != null && alarm?.voiceCheckInEnabled == true,
         tomorrowContractAvailable = occurrence != null && contractMode != TomorrowContractMode.DISABLED,
