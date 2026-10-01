@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.alarm.WakeSoundPreviewPlayer
 import com.wakemyway.app.ui.components.WmwActionTone
-import com.wakemyway.app.ui.components.WmwBrandLockup
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
@@ -300,7 +299,6 @@ fun AlarmEditorScreen(
                         color = WmwColors.Midnight,
                     )
                 }
-                WmwBrandLockup(modifier = Modifier.padding(start = 2.dp))
             }
 
             Spacer(Modifier.height(WmwSpacing.Xl))
@@ -310,7 +308,7 @@ fun AlarmEditorScreen(
                 color = WmwColors.Midnight,
             )
             Text(
-                text = "Shape the whole wake, not just the time.",
+                text = "Set the moment first. Personalize only as much as you want.",
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
                 style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
@@ -558,39 +556,53 @@ private fun EditorSection(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
         WmwSectionLabel(
             text = title,
             modifier = Modifier.padding(start = 2.dp, bottom = WmwSpacing.Sm),
         )
-        WmwCard(onLightSurface = true) {
-            Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md), content = content)
-        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = WmwSpacing.Xs),
+            verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
+            content = content,
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Lg)
+                .height(1.dp),
+            color = WmwColors.DarkHairline,
+        ) {}
     }
 }
 
 @Composable
 private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = WmwColors.MorningPaper,
-        border = BorderStroke(1.dp, WmwColors.DarkHairline),
+            .heightIn(min = 72.dp)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = WmwSpacing.Xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Wake time", style = MaterialTheme.typography.titleSmall, color = WmwColors.Midnight)
+        Column {
+            Text("Wake time", style = MaterialTheme.typography.labelSmall, color = WmwColors.LightQuietText)
             Text(
-                time.format(DateTimeFormatter.ofPattern("HH:mm")),
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Medium),
-                color = WmwColors.Midnight,
+                "Tap to change",
+                modifier = Modifier.padding(top = 2.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.LightQuietText,
             )
         }
+        Text(
+            time.format(DateTimeFormatter.ofPattern("HH:mm")),
+            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Light),
+            color = WmwColors.Midnight,
+        )
     }
 }
 

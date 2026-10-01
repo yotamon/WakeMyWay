@@ -92,15 +92,16 @@ fun ProfileScreen(
                 .padding(top = WmwSpacing.Lg, bottom = WmwSpacing.Xl),
         ) {
             WmwPageHeader(
-                title = preferences.displayName
+                title = "You",
+                intro = preferences.displayName
                     ?.takeIf { it.isNotBlank() }
                     ?.trim()
                     ?.let { "Good to see you, $it." }
                     ?: "Make mornings yours.",
-                subtitle = "Defaults shape new alarms. Existing alarms stay exactly as you configured them.",
+                subtitle = "Teach WakeMyWay how to wake you. These defaults shape new alarms without changing the ones you already trust.",
             )
 
-            ProfileSection("You", Modifier.padding(top = WmwSpacing.Xl)) {
+            ProfileSection("Your wake", Modifier.padding(top = WmwSpacing.Xl)) {
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { value ->
@@ -122,8 +123,8 @@ fun ProfileScreen(
                     color = WmwColors.LightQuietText,
                 )
                 ProfileLink(
-                    title = "Wake preferences",
-                    detail = "How persistent, conversational and playful the morning voice should be",
+                    title = "How WakeMyWay wakes you",
+                    detail = "Persistence, conversation style, humour and how quickly the voice pushes you into action",
                     onClick = onOpenWakePreferences,
                 )
             }
@@ -148,7 +149,7 @@ fun ProfileScreen(
                 }
             }
 
-            ProfileSection("New alarm defaults", Modifier.padding(top = WmwSpacing.Lg)) {
+            ProfileSection("Wake defaults", Modifier.padding(top = WmwSpacing.Lg)) {
                 Text(
                     text = "Wake sound",
                     style = MaterialTheme.typography.titleSmall,
@@ -212,7 +213,7 @@ fun ProfileScreen(
                 )
             }
 
-            ProfileSection("Morning routine", Modifier.padding(top = WmwSpacing.Lg)) {
+            ProfileSection("Your mornings", Modifier.padding(top = WmwSpacing.Lg)) {
                 Text(
                     text = "Reusable First Move",
                     style = MaterialTheme.typography.titleSmall,
@@ -238,7 +239,7 @@ fun ProfileScreen(
                 )
             }
 
-            ProfileSection("App", Modifier.padding(top = WmwSpacing.Lg)) {
+            ProfileSection("WakeMyWay", Modifier.padding(top = WmwSpacing.Lg)) {
                 if (ConversationalAlfredState.setupAvailable(context)) {
                     ProfileLink(
                         title = "Realtime voice",

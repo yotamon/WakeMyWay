@@ -40,6 +40,7 @@ import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
 import com.wakemyway.app.ui.components.WmwStatusPill
+import com.wakemyway.app.ui.components.WmwInlineStatus
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.ui.theme.WmwSpacing
 import com.wakemyway.core.alarm.AlarmDefinition
@@ -110,69 +111,76 @@ private fun AlarmCard(
 ) {
     val accessibleLabel = alarm.label.ifBlank { "Wake up" }
 
-    WmwCard(
-        modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
-        onLightSurface = true,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = WmwSpacing.Md),
     ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = alarm.schedule.time.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Medium),
-                        color = if (alarm.enabled) WmwColors.Midnight else WmwColors.LightFaintText,
-                    )
-                    Text(
-                        text = alarm.label.ifBlank { "Wake up" },
-                        modifier = Modifier.padding(top = 2.dp),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = WmwColors.Midnight,
-                    )
-                }
-                Switch(
-                    checked = alarm.enabled,
-                    modifier = Modifier.semantics {
-                        contentDescription = "Enable $accessibleLabel alarm"
-                    },
-                    onCheckedChange = onSetEnabled,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = WmwColors.Midnight,
-                        checkedTrackColor = WmwColors.Sunrise,
-                        uncheckedThumbColor = WmwColors.LightQuietText,
-                        uncheckedTrackColor = WmwColors.LightSurfaceMuted,
-                    ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = alarm.schedule.time.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Light),
+                    color = if (alarm.enabled) WmwColors.Midnight else WmwColors.LightFaintText,
+                )
+                Text(
+                    text = alarm.label.ifBlank { "Wake up" },
+                    modifier = Modifier.padding(top = 1.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = WmwColors.Midnight,
+                )
+                Text(
+                    text = scheduleSummary(alarm.schedule, locale),
+                    modifier = Modifier.padding(top = WmwSpacing.Xxs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
                 )
             }
+            Switch(
+                checked = alarm.enabled,
+                modifier = Modifier.semantics {
+                    contentDescription = "Enable $accessibleLabel alarm"
+                },
+                onCheckedChange = onSetEnabled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = WmwColors.Midnight,
+                    checkedTrackColor = WmwColors.Sunrise,
+                    uncheckedThumbColor = WmwColors.LightQuietText,
+                    uncheckedTrackColor = WmwColors.LightSurfaceMuted,
+                ),
+            )
+        }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Sm),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = scheduleSummary(alarm.schedule, locale),
-                modifier = Modifier.padding(top = WmwSpacing.Sm),
-                style = MaterialTheme.typography.bodyMedium,
+                text = if (alarm.voiceCheckInEnabled) "Alfred · voice wake" else "Alarm sound",
+                style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.LightQuietText,
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = WmwSpacing.Md),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (alarm.voiceCheckInEnabled) {
-                    MetadataChip("Alfred voice")
-                } else {
-                    Spacer(Modifier.size(1.dp))
-                }
-                when {
-                    !alarm.enabled -> WmwStatusPill("Off", positive = false, onLightSurface = true)
-                    health?.ready == true -> WmwStatusPill("Wake Ready", positive = true, onLightSurface = true)
-                    else -> WmwStatusPill("Needs attention", positive = false, onLightSurface = true)
-                }
+            when {
+                !alarm.enabled -> WmwInlineStatus("Off", positive = false)
+                health?.ready == true -> WmwInlineStatus("Ready", positive = true)
+                else -> WmwInlineStatus("Needs attention", positive = false)
             }
         }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Md)
+                .height(1.dp),
+            color = WmwColors.DarkHairline,
+        ) {}
     }
 }
 

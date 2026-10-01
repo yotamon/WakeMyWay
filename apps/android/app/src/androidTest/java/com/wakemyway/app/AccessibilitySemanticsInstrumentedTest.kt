@@ -119,12 +119,11 @@ class AccessibilitySemanticsInstrumentedTest {
             }
         }
 
-        composeRule.onNodeWithText("Home").assertHasClickAction()
-        composeRule.onNodeWithText("Alarms").assertHasClickAction()
-        composeRule.onNodeWithText("Insights")
+        composeRule.onNodeWithText("Today")
             .assertHasClickAction()
             .assertIsSelected()
-        composeRule.onNodeWithText("Profile").assertHasClickAction()
+        composeRule.onNodeWithText("Alarms").assertHasClickAction()
+        composeRule.onNodeWithText("You").assertHasClickAction()
     }
 
     @Test
