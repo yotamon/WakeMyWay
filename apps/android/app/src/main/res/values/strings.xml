@@ -14,6 +14,9 @@
     <string name="tonight_section_wake_system">Wake system</string>
     <string name="tonight_section_contract">Tomorrow Contract</string>
     <string name="tonight_tomorrow_matters">Tomorrow matters because</string>
+    <string name="tonight_reason_label">Why you’re waking</string>
+    <string name="tonight_morning_plan_title">Morning plan</string>
+    <string name="tonight_morning_plan_ready">Your reason is ready for tomorrow. Add or refine the first move if it helps.</string>
     <string name="tonight_first_move">First move · %1$s</string>
     <string name="tonight_alfred_descriptor">Dry. Polite. Persistent.</string>
     <string name="tonight_alfred_quote">“%1$s means %1$s.”</string>
@@ -131,6 +134,7 @@
     <string name="wake_live_unavailable_detail">Live Voice Check-In is unavailable. The alarm will keep ringing.</string>
     <string name="wake_oriented_greeting">Good morning.</string>
     <string name="wake_oriented_ready">You’re up. Let’s make the first move easy.</string>
+    <string name="wake_reason_label">Why you’re up</string>
     <string name="wake_whats_first">What’s first?</string>
     <string name="wake_first_move_fallback">Get moving</string>
     <string name="wake_keep_moving">Keep moving</string>
