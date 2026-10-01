@@ -66,6 +66,7 @@ data class TonightUiState(
     val hasTomorrowContract: Boolean,
     val tomorrowContractPrepared: Boolean,
     val tomorrowContractText: String? = null,
+    val wakeReason: String? = null,
     val firstMove: String? = null,
     val voiceCheckInEnabled: Boolean = true,
     val tomorrowContractAvailable: Boolean = true,
@@ -291,6 +292,25 @@ private fun NextWakeCard(
             textAlign = TextAlign.Center,
         )
 
+        state.wakeReason?.takeIf { it.isNotBlank() }?.let { reason ->
+            Text(
+                text = stringResource(R.string.tonight_reason_label).uppercase(),
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnText,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = reason,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Xs),
+                style = MaterialTheme.typography.titleMedium,
+                color = WmwColors.Midnight,
+                textAlign = TextAlign.Center,
+            )
+        }
+
         WmwWakeHorizon(
             modifier = Modifier.padding(horizontal = WmwSpacing.Md),
             progress = if (state.hasOccurrence) 0.54f else 0.18f,
@@ -355,19 +375,28 @@ private fun TomorrowContractPreview(
             )
         }
         Text(
-            text = stringResource(R.string.tonight_tomorrow_matters),
+            text = stringResource(
+                if (state.hasTomorrowContract) {
+                    R.string.tonight_morning_plan_title
+                } else {
+                    R.string.tonight_tomorrow_matters
+                },
+            ),
             style = MaterialTheme.typography.titleLarge,
             color = WmwColors.Midnight,
         )
         Text(
-            text = state.tomorrowContractText?.takeIf { it.isNotBlank() }
-                ?: stringResource(
+            text = if (state.hasTomorrowContract) {
+                stringResource(R.string.tonight_morning_plan_ready)
+            } else {
+                stringResource(
                     if (state.tomorrowContractPromptRequired) {
                         R.string.tonight_contract_prompt_empty
                     } else {
                         R.string.tonight_contract_empty
                     },
-                ),
+                )
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = WmwColors.LightQuietText,
         )
@@ -530,6 +559,7 @@ private fun TonightReadyPreview() {
                 hasTomorrowContract = true,
                 tomorrowContractPrepared = true,
                 tomorrowContractText = "Design review at 10:00. You wanted time to shower and eat.",
+                wakeReason = "Design review at 10:00. You wanted time to shower and eat.",
                 firstMove = "Shower",
             ),
             onOpenWakeSetup = {},
