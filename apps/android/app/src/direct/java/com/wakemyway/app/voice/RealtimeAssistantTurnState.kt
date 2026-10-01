@@ -22,8 +22,10 @@ internal class RealtimeAssistantTurnState {
     private var audioStarted = false
     private var terminalStatus: String? = null
 
-    val active: Boolean get() = inFlight
+    val active: Boolean
+        @Synchronized get() = inFlight
 
+    @Synchronized
     fun begin(): Boolean {
         if (inFlight) return false
         inFlight = true
@@ -32,17 +34,20 @@ internal class RealtimeAssistantTurnState {
         return true
     }
 
+    @Synchronized
     fun onAudioStarted(): Signal? {
         if (!inFlight || audioStarted) return null
         audioStarted = true
         return Signal.STARTED
     }
 
+    @Synchronized
     fun onAudioStopped(interrupted: Boolean): Signal? {
         if (!inFlight) return null
         return finish(if (interrupted) Signal.INTERRUPTED else Signal.FINISHED)
     }
 
+    @Synchronized
     fun onResponseDone(status: String): Signal? {
         if (!inFlight) return null
         if (status == "failed") return finish(Signal.FAILED)
@@ -51,6 +56,7 @@ internal class RealtimeAssistantTurnState {
         return if (audioStarted) null else Signal.NEEDS_TERMINAL_GRACE
     }
 
+    @Synchronized
     fun onTerminalGraceExpired(): Signal? {
         if (!inFlight || audioStarted || terminalStatus == null) return null
         return finish(
@@ -58,6 +64,7 @@ internal class RealtimeAssistantTurnState {
         )
     }
 
+    @Synchronized
     fun reset() {
         inFlight = false
         audioStarted = false
