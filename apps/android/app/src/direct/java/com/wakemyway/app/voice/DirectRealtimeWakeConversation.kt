@@ -318,11 +318,20 @@ class DirectRealtimeWakeConversation(
                     if (assistantTurnState.active) emitFailure("response-id", current)
                     return
                 }
-                if (!assistantTurnState.onResponseCreated(responseId) && assistantTurnState.active) {
+                if (!assistantTurnState.active) {
                     Log.w(
                         LOG_TAG,
-                        "unexpected-response-created id=${responseId.take(32)} generation=$current",
+                        "unsolicited-response-created id=${responseId.take(32)} generation=$current",
                     )
+                    emitFailure("unsolicited-response", current)
+                    return
+                }
+                if (!assistantTurnState.onResponseCreated(responseId)) {
+                    Log.w(
+                        LOG_TAG,
+                        "overlapping-response-created id=${responseId.take(32)} generation=$current",
+                    )
+                    emitFailure("overlapping-response", current)
                 }
             }
 
@@ -343,12 +352,14 @@ class DirectRealtimeWakeConversation(
             "input_audio_buffer.speech_stopped" -> {
                 if (!inputEnabled) return
                 val itemId = eventUserItemId(event) ?: return
-                turnCommitGate.onSpeechStopped(
+                val matchedActiveTurn = turnCommitGate.onSpeechStopped(
                     itemId,
                     event.optLong("audio_end_ms", -1L).takeIf { it >= 0L },
                 )
-                mainHandler.removeCallbacks(userTurnCommitTimeout)
-                mainHandler.postDelayed(userTurnCommitTimeout, USER_TURN_COMMIT_GRACE_MS)
+                if (matchedActiveTurn) {
+                    mainHandler.removeCallbacks(userTurnCommitTimeout)
+                    mainHandler.postDelayed(userTurnCommitTimeout, USER_TURN_COMMIT_GRACE_MS)
+                }
             }
 
             "input_audio_buffer.committed" -> {
