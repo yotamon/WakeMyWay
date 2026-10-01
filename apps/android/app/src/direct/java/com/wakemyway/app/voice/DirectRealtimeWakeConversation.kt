@@ -1,7 +1,9 @@
 package com.wakemyway.app.voice
 
 import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -57,11 +59,15 @@ class DirectRealtimeWakeConversation(
     private var audioManager: AudioManager? = null
     private var previousAudioMode: Int? = null
     private var previousSpeakerphone: Boolean? = null
+    private var previousCommunicationDeviceId: Int? = null
+    private var usedLegacySpeakerphoneRoute = false
     private var inputEnabled = false
-    private var responseAudible = false
+    private val assistantTurnState = RealtimeAssistantTurnState()
     private val turnCommitGate = RealtimeTurnCommitGate(MIN_USER_TURN_MS)
     private var pendingTurnClassificationItemId: String? = null
     private var assistantTurnCount = 0
+    private var iceDisconnected = false
+    private var peerDisconnected = false
 
     private val sessionConfigurationTimeout = Runnable {
         if (!closed && connectingState.get() && !readyState.get()) emitFailure("session-config-timeout")
@@ -75,6 +81,33 @@ class DirectRealtimeWakeConversation(
         Log.w(LOG_TAG, "turn-classification-timeout item=${itemId.take(32)}")
         if (!closed && readyState.get() && inputEnabled) {
             listener.onUserTurnObserved(coherent = false)
+        }
+    }
+    private val userTurnCommitTimeout = Runnable {
+        if (!closed && readyState.get() && inputEnabled) {
+            Log.w(LOG_TAG, "user-turn-commit-timeout generation=${generation.get()}")
+            turnCommitGate.reset()
+            listener.onUserTurnObserved(coherent = false)
+        }
+    }
+    private val assistantTerminalGraceTimeout = Runnable {
+        dispatchAssistantTurnSignal(
+            assistantTurnState.onTerminalGraceExpired(),
+            generation.get(),
+        )
+    }
+    private val assistantResponseTimeout = Runnable {
+        val current = generation.get()
+        if (!closed && readyState.get() && assistantTurnState.active) {
+            Log.w(LOG_TAG, "assistant-response-timeout generation=$current")
+            emitFailure("response-timeout", current)
+        }
+    }
+    private val transportDisconnectTimeout = Runnable {
+        val current = generation.get()
+        if (!closed && readyState.get() && (iceDisconnected || peerDisconnected)) {
+            Log.w(LOG_TAG, "transport-disconnect-timeout generation=$current")
+            emitFailure("transport-disconnected", current)
         }
     }
 
@@ -109,6 +142,11 @@ class DirectRealtimeWakeConversation(
         }
         val channel = dataChannel ?: return false
         if (channel.state() != DataChannel.State.OPEN) return false
+        if (!assistantTurnState.begin()) {
+            Log.w(LOG_TAG, "overlapping-assistant-response generation=${generation.get()}")
+            return false
+        }
+
         val sent = sendEvent(
             channel,
             JSONObject().put("type", "response.create").put(
@@ -120,8 +158,16 @@ class DirectRealtimeWakeConversation(
                     .put("instructions", AlfredRealtimePrompt.turn(request)),
             ),
         )
-        if (sent) assistantTurnCount += 1
-        return sent
+        if (!sent) {
+            assistantTurnState.reset()
+            return false
+        }
+
+        assistantTurnCount += 1
+        mainHandler.removeCallbacks(assistantTerminalGraceTimeout)
+        mainHandler.removeCallbacks(assistantResponseTimeout)
+        mainHandler.postDelayed(assistantResponseTimeout, ASSISTANT_RESPONSE_TIMEOUT_MS)
+        return true
     }
 
     override fun setInputEnabled(enabled: Boolean) {
@@ -129,6 +175,7 @@ class DirectRealtimeWakeConversation(
         if (!enabled) {
             turnCommitGate.reset()
             clearPendingTurnClassification()
+            mainHandler.removeCallbacks(userTurnCommitTimeout)
         }
         audioTrack?.setEnabled(enabled)
     }
@@ -214,14 +261,25 @@ class DirectRealtimeWakeConversation(
         override fun onBufferedAmountChange(previousAmount: Long) = Unit
 
         override fun onStateChange() {
-            if (!isCurrent(current) || channel.state() != DataChannel.State.OPEN) return
-            Log.i(LOG_TAG, "data-channel-open generation=$current")
-            if (!sendSessionConfiguration(channel, secret.voice)) {
-                emitFailure("session-config", current)
-                return
+            if (!isCurrent(current)) return
+            when (channel.state()) {
+                DataChannel.State.OPEN -> {
+                    Log.i(LOG_TAG, "data-channel-open generation=$current")
+                    if (!sendSessionConfiguration(channel, secret.voice)) {
+                        emitFailure("session-config", current)
+                        return
+                    }
+                    mainHandler.removeCallbacks(sessionConfigurationTimeout)
+                    mainHandler.postDelayed(sessionConfigurationTimeout, SESSION_CONFIGURATION_TIMEOUT_MS)
+                }
+
+                DataChannel.State.CLOSED -> {
+                    Log.w(LOG_TAG, "data-channel-closed generation=$current")
+                    emitFailure("data-channel-closed", current)
+                }
+
+                else -> Unit
             }
-            mainHandler.removeCallbacks(sessionConfigurationTimeout)
-            mainHandler.postDelayed(sessionConfigurationTimeout, SESSION_CONFIGURATION_TIMEOUT_MS)
         }
 
         override fun onMessage(buffer: DataChannel.Buffer?) {
@@ -246,6 +304,8 @@ class DirectRealtimeWakeConversation(
                 turnCommitGate.onSpeechStarted(
                     event.optLong("audio_start_ms", -1L).takeIf { it >= 0L },
                 )
+                mainHandler.removeCallbacks(userTurnCommitTimeout)
+                mainHandler.postDelayed(userTurnCommitTimeout, MAX_USER_TURN_OPEN_MS)
                 mainHandler.post {
                     if (isCurrent(current)) listener.onUserSpeechStarted()
                 }
@@ -256,10 +316,13 @@ class DirectRealtimeWakeConversation(
                 turnCommitGate.onSpeechStopped(
                     event.optLong("audio_end_ms", -1L).takeIf { it >= 0L },
                 )
+                mainHandler.removeCallbacks(userTurnCommitTimeout)
+                mainHandler.postDelayed(userTurnCommitTimeout, USER_TURN_COMMIT_GRACE_MS)
             }
 
             "input_audio_buffer.committed" -> {
                 if (!inputEnabled) return
+                mainHandler.removeCallbacks(userTurnCommitTimeout)
                 if (!turnCommitGate.onCommitted()) {
                     // speech_started cancelled the listening timeout already. Never leave a
                     // too-short/noisy commit in a permanent listening state.
@@ -282,12 +345,8 @@ class DirectRealtimeWakeConversation(
                 requestTurnQualityClassification(itemId, current)
             }
 
-            "output_audio_buffer.started" -> if (!responseAudible) {
-                responseAudible = true
-                mainHandler.post {
-                    if (isCurrent(current)) listener.onAssistantSpeechStarted()
-                }
-            }
+            "output_audio_buffer.started" ->
+                dispatchAssistantTurnSignal(assistantTurnState.onAudioStarted(), current)
 
             "output_audio_buffer.stopped" -> finishAssistantAudio(current, false)
             "output_audio_buffer.cleared" -> finishAssistantAudio(current, true)
@@ -307,8 +366,13 @@ class DirectRealtimeWakeConversation(
                 }
                 if (RealtimeResponseTerminalPolicy.shouldFailSession(status)) {
                     emitFailure("response", current)
+                    return
                 }
+                dispatchAssistantTurnSignal(assistantTurnState.onResponseDone(status), current)
             }
+
+            "response.cancelled" ->
+                dispatchAssistantTurnSignal(assistantTurnState.onResponseDone("cancelled"), current)
 
             "error" -> {
                 val providerError = event.optJSONObject("error")
@@ -440,10 +504,46 @@ class DirectRealtimeWakeConversation(
     }
 
     private fun finishAssistantAudio(current: Long, interrupted: Boolean) {
-        if (!responseAudible) return
-        responseAudible = false
-        mainHandler.post {
-            if (isCurrent(current)) listener.onAssistantSpeechFinished(interrupted)
+        dispatchAssistantTurnSignal(
+            assistantTurnState.onAudioStopped(interrupted),
+            current,
+        )
+    }
+
+    private fun dispatchAssistantTurnSignal(
+        signal: RealtimeAssistantTurnState.Signal?,
+        current: Long,
+    ) {
+        when (signal) {
+            null -> Unit
+
+            RealtimeAssistantTurnState.Signal.STARTED -> {
+                mainHandler.removeCallbacks(assistantTerminalGraceTimeout)
+                mainHandler.post {
+                    if (isCurrent(current)) listener.onAssistantSpeechStarted()
+                }
+            }
+
+            RealtimeAssistantTurnState.Signal.NEEDS_TERMINAL_GRACE -> {
+                mainHandler.removeCallbacks(assistantTerminalGraceTimeout)
+                mainHandler.postDelayed(
+                    assistantTerminalGraceTimeout,
+                    ASSISTANT_TERMINAL_GRACE_MS,
+                )
+            }
+
+            RealtimeAssistantTurnState.Signal.FINISHED,
+            RealtimeAssistantTurnState.Signal.INTERRUPTED,
+            -> {
+                mainHandler.removeCallbacks(assistantTerminalGraceTimeout)
+                mainHandler.removeCallbacks(assistantResponseTimeout)
+                val interrupted = signal == RealtimeAssistantTurnState.Signal.INTERRUPTED
+                mainHandler.post {
+                    if (isCurrent(current)) listener.onAssistantSpeechFinished(interrupted)
+                }
+            }
+
+            RealtimeAssistantTurnState.Signal.FAILED -> emitFailure("response", current)
         }
     }
 
@@ -503,14 +603,46 @@ class DirectRealtimeWakeConversation(
         override fun onRenegotiationNeeded() = Unit
 
         override fun onIceConnectionChange(newState: PeerConnection.IceConnectionState?) {
-            if (isCurrent(current) && newState == PeerConnection.IceConnectionState.FAILED) {
-                emitFailure("ice", current)
+            if (!isCurrent(current)) return
+            when (newState) {
+                PeerConnection.IceConnectionState.FAILED -> emitFailure("ice", current)
+                PeerConnection.IceConnectionState.DISCONNECTED ->
+                    updateTransportDisconnectState(current, ice = true)
+                PeerConnection.IceConnectionState.CONNECTED,
+                PeerConnection.IceConnectionState.COMPLETED,
+                -> updateTransportDisconnectState(current, ice = false)
+                else -> Unit
             }
         }
 
         override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
-            if (isCurrent(current) && newState == PeerConnection.PeerConnectionState.FAILED) {
-                emitFailure("peer", current)
+            if (!isCurrent(current)) return
+            when (newState) {
+                PeerConnection.PeerConnectionState.FAILED -> emitFailure("peer", current)
+                PeerConnection.PeerConnectionState.DISCONNECTED ->
+                    updateTransportDisconnectState(current, peer = true)
+                PeerConnection.PeerConnectionState.CONNECTED ->
+                    updateTransportDisconnectState(current, peer = false)
+                else -> Unit
+            }
+        }
+    }
+
+    private fun updateTransportDisconnectState(
+        current: Long,
+        ice: Boolean? = null,
+        peer: Boolean? = null,
+    ) {
+        mainHandler.post {
+            if (!isCurrent(current)) return@post
+            ice?.let { iceDisconnected = it }
+            peer?.let { peerDisconnected = it }
+            mainHandler.removeCallbacks(transportDisconnectTimeout)
+            if (iceDisconnected || peerDisconnected) {
+                mainHandler.postDelayed(
+                    transportDisconnectTimeout,
+                    TRANSPORT_DISCONNECT_GRACE_MS,
+                )
             }
         }
     }
@@ -593,21 +725,60 @@ class DirectRealtimeWakeConversation(
         previousAudioMode = manager.mode
         @Suppress("DEPRECATION")
         previousSpeakerphone = manager.isSpeakerphoneOn
+        previousCommunicationDeviceId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            manager.communicationDevice?.id
+        } else {
+            null
+        }
+
         manager.mode = AudioManager.MODE_IN_COMMUNICATION
-        @Suppress("DEPRECATION")
-        runCatching { manager.isSpeakerphoneOn = true }
+        usedLegacySpeakerphoneRoute = false
+
+        val modernRouteApplied = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val speaker = manager.availableCommunicationDevices.firstOrNull {
+                it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+            }
+            speaker != null && runCatching {
+                manager.setCommunicationDevice(speaker)
+            }.getOrDefault(false)
+        } else {
+            false
+        }
+
+        if (!modernRouteApplied) {
+            usedLegacySpeakerphoneRoute = true
+            @Suppress("DEPRECATION")
+            runCatching { manager.isSpeakerphoneOn = true }
+        }
     }
 
     private fun restoreAudioRoute() {
         val manager = audioManager ?: return
-        previousAudioMode?.let { runCatching { manager.mode = it } }
-        previousSpeakerphone?.let { enabled ->
-            @Suppress("DEPRECATION")
-            runCatching { manager.isSpeakerphoneOn = enabled }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !usedLegacySpeakerphoneRoute) {
+            val previous = previousCommunicationDeviceId?.let { previousId ->
+                manager.availableCommunicationDevices.firstOrNull { it.id == previousId }
+            }
+            runCatching {
+                if (previous != null) {
+                    manager.setCommunicationDevice(previous)
+                } else {
+                    manager.clearCommunicationDevice()
+                }
+            }
+        } else {
+            previousSpeakerphone?.let { enabled ->
+                @Suppress("DEPRECATION")
+                runCatching { manager.isSpeakerphoneOn = enabled }
+            }
         }
+
+        previousAudioMode?.let { runCatching { manager.mode = it } }
         audioManager = null
         previousAudioMode = null
         previousSpeakerphone = null
+        previousCommunicationDeviceId = null
+        usedLegacySpeakerphoneRoute = false
     }
 
     private fun disconnectResources(resetConnecting: Boolean = true) {
@@ -615,11 +786,17 @@ class DirectRealtimeWakeConversation(
         if (resetConnecting) connectingState.set(false)
         mainHandler.removeCallbacks(sessionConfigurationTimeout)
         mainHandler.removeCallbacks(sessionBudgetTimeout)
+        mainHandler.removeCallbacks(userTurnCommitTimeout)
+        mainHandler.removeCallbacks(assistantTerminalGraceTimeout)
+        mainHandler.removeCallbacks(assistantResponseTimeout)
+        mainHandler.removeCallbacks(transportDisconnectTimeout)
         inputEnabled = false
-        responseAudible = false
+        assistantTurnState.reset()
         assistantTurnCount = 0
         turnCommitGate.reset()
         clearPendingTurnClassification()
+        iceDisconnected = false
+        peerDisconnected = false
         runCatching { dataChannel?.unregisterObserver() }
         runCatching { dataChannel?.close() }
         runCatching { dataChannel?.dispose() }
@@ -666,8 +843,13 @@ class DirectRealtimeWakeConversation(
         const val MAX_EVENT_BYTES = 64 * 1024
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
         const val MIN_USER_TURN_MS = 160L
-        const val TURN_CLASSIFICATION_TIMEOUT_MS = 2_500L
+        const val TURN_CLASSIFICATION_TIMEOUT_MS = 3_500L
         const val TURN_CLASSIFICATION_MAX_OUTPUT_TOKENS = 16
+        const val MAX_USER_TURN_OPEN_MS = 20_000L
+        const val USER_TURN_COMMIT_GRACE_MS = 2_500L
+        const val ASSISTANT_TERMINAL_GRACE_MS = 500L
+        const val ASSISTANT_RESPONSE_TIMEOUT_MS = 15_000L
+        const val TRANSPORT_DISCONNECT_GRACE_MS = 4_000L
         // Realtime audio output consumes many more output tokens than equivalent text. Keep a
         // bounded but generous ceiling so a normal one- or two-sentence wake prompt is not clipped.
         const val MAX_OUTPUT_TOKENS = 1_024
