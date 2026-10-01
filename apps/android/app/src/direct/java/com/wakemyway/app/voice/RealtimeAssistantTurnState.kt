@@ -1,24 +1,25 @@
 package com.wakemyway.app.voice
 
 /**
- * Tracks one user-facing Realtime response independently from the provider's audio-buffer events.
+ * Tracks one user-facing Realtime response independently from provider event ordering.
  *
- * Realtime response generation and physical playback do not have identical lifetimes: response.done
- * may arrive while buffered audio is still playing, while a cancelled/incomplete response may end
- * before output_audio_buffer.started is ever observed. This state machine keeps those cases
- * exactly-once and lets the transport apply a short terminal grace before declaring a silent turn
- * finished.
+ * A requested response starts unbound. Only response.created may bind it to a provider response id;
+ * output-buffer and terminal events must then match that id. This prevents a delayed clear/stop from
+ * an interrupted older response from terminating a newer turn after the newer response.create was
+ * already sent.
  */
 internal class RealtimeAssistantTurnState {
     enum class Signal {
         STARTED,
         FINISHED,
         INTERRUPTED,
+        SILENT,
         FAILED,
         NEEDS_TERMINAL_GRACE,
     }
 
     private var inFlight = false
+    private var responseId: String? = null
     private var audioStarted = false
     private var terminalStatus: String? = null
 
@@ -29,27 +30,43 @@ internal class RealtimeAssistantTurnState {
     fun begin(): Boolean {
         if (inFlight) return false
         inFlight = true
+        responseId = null
         audioStarted = false
         terminalStatus = null
         return true
     }
 
+    /**
+     * response.created is the authoritative correlation point. A second different response id
+     * cannot take ownership of an already-bound user-facing turn.
+     */
     @Synchronized
-    fun onAudioStarted(): Signal? {
-        if (!inFlight || audioStarted) return null
+    fun onResponseCreated(id: String): Boolean {
+        if (!inFlight || id.isBlank()) return false
+        val current = responseId
+        if (current == null) {
+            responseId = id
+            return true
+        }
+        return current == id
+    }
+
+    @Synchronized
+    fun onAudioStarted(id: String): Signal? {
+        if (!matches(id) || audioStarted) return null
         audioStarted = true
         return Signal.STARTED
     }
 
     @Synchronized
-    fun onAudioStopped(interrupted: Boolean): Signal? {
-        if (!inFlight) return null
+    fun onAudioStopped(id: String, interrupted: Boolean): Signal? {
+        if (!matches(id)) return null
         return finish(if (interrupted) Signal.INTERRUPTED else Signal.FINISHED)
     }
 
     @Synchronized
-    fun onResponseDone(status: String): Signal? {
-        if (!inFlight) return null
+    fun onResponseDone(id: String, status: String): Signal? {
+        if (!matches(id)) return null
         if (status == "failed") return finish(Signal.FAILED)
 
         terminalStatus = status.ifBlank { "completed" }
@@ -58,21 +75,28 @@ internal class RealtimeAssistantTurnState {
 
     @Synchronized
     fun onTerminalGraceExpired(): Signal? {
-        if (!inFlight || terminalStatus == null) return null
+        if (!inFlight || responseId == null || terminalStatus == null) return null
         if (audioStarted) {
             return if (terminalStatus == "cancelled") finish(Signal.INTERRUPTED) else null
         }
         return finish(
-            if (terminalStatus == "completed") Signal.FINISHED else Signal.INTERRUPTED,
+            when (terminalStatus) {
+                "completed" -> Signal.SILENT
+                else -> Signal.INTERRUPTED
+            },
         )
     }
 
     @Synchronized
     fun reset() {
         inFlight = false
+        responseId = null
         audioStarted = false
         terminalStatus = null
     }
+
+    private fun matches(id: String): Boolean =
+        inFlight && id.isNotBlank() && responseId == id
 
     private fun finish(signal: Signal): Signal {
         reset()
