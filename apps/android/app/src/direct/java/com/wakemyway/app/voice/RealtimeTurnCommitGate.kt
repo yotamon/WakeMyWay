@@ -32,14 +32,15 @@ internal class RealtimeTurnCommitGate(
     }
 
     @Synchronized
-    fun onSpeechStopped(itemId: String, audioEndMs: Long?) {
-        if (itemId != activeItemId) return
+    fun onSpeechStopped(itemId: String, audioEndMs: Long?): Boolean {
+        if (itemId != activeItemId) return false
         val start = speechStartedAtMs
         pendingQualifiedTurn =
             start != null && audioEndMs != null &&
                 audioEndMs >= start &&
                 audioEndMs - start >= minimumDurationMs
         speechStartedAtMs = null
+        return true
     }
 
     @Synchronized
