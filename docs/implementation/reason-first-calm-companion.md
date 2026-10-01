@@ -41,7 +41,7 @@ The next wake is not merely a time. When a meaningful reason exists, it belongs 
 
 Reason precedence on Today:
 
-1. current Tomorrow Contract text;
+1. current Tomorrow Contract text, normalized into a truthful preview capped at 180 characters;
 2. alarm label;
 3. no invented fallback reason.
 
@@ -190,7 +190,8 @@ The row should communicate:
 
 - preserve minimum 48dp interaction targets;
 - dynamic font scaling must not overlap time/reason/controls;
-- reason text may wrap naturally and must not be visually truncated into ambiguity;
+- Today normalizes long Tomorrow Contract text into a truthful preview capped at 180 characters; the full contract remains available in Morning plan;
+- reason text may wrap naturally rather than relying on hard line truncation;
 - important readiness meaning cannot rely on color alone;
 - reason copy remains real text, not text baked into graphics;
 - RTL layout behavior must remain safe.
@@ -236,7 +237,8 @@ This work does **not** add:
 - Alarm Kernel / Wake Runtime / Stop / Snooze behavior is unchanged.
 - no migration is required;
 - no new permissions are required;
-- relevant accessibility checks remain green;
+- relevant accessibility checks remain green, including compact large-text Oriented wake rendering;
+- First Move content grows with font scale rather than clipping inside a fixed-height tile;
 - Android compile/tests/lint remain green;
 - visual-regression artifacts are reviewed before hash approval.
 
