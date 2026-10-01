@@ -28,6 +28,9 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("not scripts or universal next steps"))
         assertTrue(prompt.contains("Runtime directive: HoldEngagement"))
         assertTrue(prompt.contains("I'm already standing"))
+        assertTrue(prompt.contains("# Instruction priority"))
+        assertTrue(prompt.contains("current Wake Runtime directive controls"))
+        assertTrue(prompt.contains("preferences modify presentation only"))
     }
 
     @Test
