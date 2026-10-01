@@ -58,6 +58,22 @@ class RealtimeAssistantTurnStateTest {
     }
 
     @Test
+    fun `incomplete response without audible output reports interruption`() {
+        val state = RealtimeAssistantTurnState()
+
+        assertTrue(state.begin())
+        assertEquals(
+            RealtimeAssistantTurnState.Signal.NEEDS_TERMINAL_GRACE,
+            state.onResponseDone("incomplete"),
+        )
+        assertEquals(
+            RealtimeAssistantTurnState.Signal.INTERRUPTED,
+            state.onTerminalGraceExpired(),
+        )
+        assertFalse(state.active)
+    }
+
+    @Test
     fun `cleared output reports interruption and ignores later response terminal event`() {
         val state = RealtimeAssistantTurnState()
 
