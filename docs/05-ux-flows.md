@@ -185,25 +185,42 @@ Whether this reaches public V1 is evidence-driven. It may remain dogfood-only.
 ## 9. Ready screen
 
 ```text
+NEXT WAKE
+
               08:00
+         Tomorrow · Thursday
 
-            Tomorrow
+WHY YOU'RE WAKING
+Interview at 10:00.
+You want time to shower and eat.
 
-             Alfred
-
---------------------------------
-Interview at 10:00
-Shower first.
---------------------------------
+         [ Wake Horizon ]
 
            Wake Ready ✓
 
-             [ Edit ]
+Morning plan
+First move · Shower
+
+Alfred
+"Eight means eight."
+
+          [ Edit tomorrow ]
 ```
+
+Reason precedence is: current Tomorrow Contract, then the alarm label, then nothing. Do not invent a motivational reason just to fill the composition.
 
 If a Safety Backup is enabled during dogfood, show it quietly as secondary reassurance rather than a second primary schedule.
 
-This is the primary home state.
+This is the primary home state. It should read in the order **when → why → readiness → first move**, while still feeling like one calm planning surface rather than a dashboard.
+
+## Reason presentation during the wake
+
+The private reason is useful only after enough wake progression exists to process it.
+
+- **Emerging / early Engaged:** do not add reason text. Keep the interaction to one short action or reply.
+- **Active:** continue prioritizing movement and the current Wake Runtime intent.
+- **Oriented:** if a prepared reminder exists, explicitly label it as **Why you’re up**, then show the First Move.
+- **No prepared reminder:** use the generic oriented handoff rather than inventing context.
 
 # Morning runtime
 
