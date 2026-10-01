@@ -114,7 +114,7 @@ class AccessibilitySemanticsInstrumentedTest {
         composeRule.setContent {
             WakeMyWayTheme {
                 WmwConsumerScaffold(
-                    selectedTab = ConsumerTab.HOME,
+                    selectedTab = ConsumerTab.INSIGHTS,
                     onTabSelected = {},
                 ) { }
             }
