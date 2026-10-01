@@ -306,6 +306,22 @@ class DirectRealtimeWakeConversation(
         when (event.optString("type").takeIf(EVENT_TYPE_PATTERN::matches) ?: return) {
             "session.updated" -> markSessionReady(current)
 
+            "response.created" -> {
+                val response = event.optJSONObject("response") ?: return
+                if (isTurnQualityResponse(response)) return
+                val responseId = response.optString("id").trim()
+                if (!RESPONSE_ID_PATTERN.matches(responseId)) {
+                    if (assistantTurnState.active) emitFailure("response-id", current)
+                    return
+                }
+                if (!assistantTurnState.onResponseCreated(responseId) && assistantTurnState.active) {
+                    Log.w(
+                        LOG_TAG,
+                        "unexpected-response-created id=${responseId.take(32)} generation=$current",
+                    )
+                }
+            }
+
             "input_audio_buffer.speech_started" -> {
                 if (!inputEnabled) return
                 turnCommitGate.onSpeechStarted(
@@ -352,14 +368,32 @@ class DirectRealtimeWakeConversation(
                 requestTurnQualityClassification(itemId, current)
             }
 
-            "output_audio_buffer.started" ->
-                dispatchAssistantTurnSignal(assistantTurnState.onAudioStarted(), current)
+            "output_audio_buffer.started" -> {
+                val responseId = eventResponseId(event) ?: return
+                dispatchAssistantTurnSignal(
+                    assistantTurnState.onAudioStarted(responseId),
+                    current,
+                )
+            }
 
-            "output_audio_buffer.stopped" -> finishAssistantAudio(current, false)
-            "output_audio_buffer.cleared" -> finishAssistantAudio(current, true)
+            "output_audio_buffer.stopped" -> {
+                val responseId = eventResponseId(event) ?: return
+                finishAssistantAudio(responseId, current, interrupted = false)
+            }
+
+            "output_audio_buffer.cleared" -> {
+                val responseId = eventResponseId(event) ?: return
+                finishAssistantAudio(responseId, current, interrupted = true)
+            }
+
             "response.done" -> {
                 val response = event.optJSONObject("response")
                 if (handleTurnQualityClassification(response, current)) return
+                val responseId = response?.optString("id").orEmpty().trim()
+                if (!RESPONSE_ID_PATTERN.matches(responseId)) {
+                    if (assistantTurnState.active) emitFailure("response-id", current)
+                    return
+                }
                 val status = response?.optString("status").orEmpty()
                 val reason = response
                     ?.optJSONObject("status_details")
@@ -371,15 +405,19 @@ class DirectRealtimeWakeConversation(
                         "response-done status=${status.take(32)} reason=${reason.take(48)} generation=$current",
                     )
                 }
-                if (RealtimeResponseTerminalPolicy.shouldFailSession(status)) {
-                    emitFailure("response", current)
-                    return
-                }
-                dispatchAssistantTurnSignal(assistantTurnState.onResponseDone(status), current)
+                dispatchAssistantTurnSignal(
+                    assistantTurnState.onResponseDone(responseId, status),
+                    current,
+                )
             }
 
-            "response.cancelled" ->
-                dispatchAssistantTurnSignal(assistantTurnState.onResponseDone("cancelled"), current)
+            "response.cancelled" -> {
+                val responseId = eventResponseId(event) ?: return
+                dispatchAssistantTurnSignal(
+                    assistantTurnState.onResponseDone(responseId, "cancelled"),
+                    current,
+                )
+            }
 
             "error" -> {
                 val providerError = event.optJSONObject("error")
@@ -390,6 +428,15 @@ class DirectRealtimeWakeConversation(
             }
         }
     }
+
+    private fun eventResponseId(event: JSONObject): String? =
+        event.optString("response_id")
+            .trim()
+            .takeIf(RESPONSE_ID_PATTERN::matches)
+
+    private fun isTurnQualityResponse(response: JSONObject): Boolean =
+        response.optJSONObject("metadata")
+            ?.optString("topic") == TURN_CLASSIFICATION_TOPIC
 
     private fun requestTurnQualityClassification(itemId: String, current: Long) {
         if (!isCurrent(current) || !inputEnabled) return
@@ -510,9 +557,13 @@ class DirectRealtimeWakeConversation(
         }
     }
 
-    private fun finishAssistantAudio(current: Long, interrupted: Boolean) {
+    private fun finishAssistantAudio(
+        responseId: String,
+        current: Long,
+        interrupted: Boolean,
+    ) {
         dispatchAssistantTurnSignal(
-            assistantTurnState.onAudioStopped(interrupted),
+            assistantTurnState.onAudioStopped(responseId, interrupted),
             current,
         )
     }
@@ -550,7 +601,11 @@ class DirectRealtimeWakeConversation(
                 }
             }
 
-            RealtimeAssistantTurnState.Signal.FAILED -> emitFailure("response", current)
+            RealtimeAssistantTurnState.Signal.SILENT ->
+                emitFailure("silent-response", current)
+
+            RealtimeAssistantTurnState.Signal.FAILED ->
+                emitFailure("response", current)
         }
     }
 
@@ -866,6 +921,7 @@ class DirectRealtimeWakeConversation(
         const val TURN_CLASSIFICATION_TOPIC = "wake-turn-quality"
         val EVENT_TYPE_PATTERN = Regex("^[A-Za-z0-9._:-]{1,128}$")
         val ITEM_ID_PATTERN = Regex("^[A-Za-z0-9._:-]{1,160}$")
+        val RESPONSE_ID_PATTERN = Regex("^[A-Za-z0-9._:-]{1,160}$")
         val EMPTY_REQUEST_BODY = ByteArray(0).toRequestBody(null)
 
         @Volatile
