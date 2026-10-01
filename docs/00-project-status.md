@@ -26,6 +26,7 @@ The Direct adapter now treats Realtime as an explicitly bounded state machine ra
 - Every user-facing response carries the complete stable Alfred contract plus the current typed WakeRuntime directive. This prevents response-level instructions from accidentally replacing the session persona and producing character drift.
 - Alfred prompt priority is explicit: the current WakeRuntime directive controls the action, safety/authority limits remain mandatory, preferences modify presentation only, and character/examples only shape wording.
 - A started user turn has bounded speech/commit watchdogs. Missing or malformed VAD commit events become unusable engagement rather than an indefinite Listening state.
+- Assistant interruption now enters a real bounded listening state; if the matching user VAD start event is delayed or lost, the normal listen timeout re-engages instead of leaving the UI parked in Listening.
 - Data-channel closure fails explicitly. ICE/peer disconnection gets a short recovery grace, then degrades to the local alarm instead of leaving a dead conversational surface.
 - User-facing response generation is bounded by its own timeout so a provider turn cannot hang forever.
 - User-facing speech is capped at 128 output tokens, matching the deliberately short turn contract and keeping generated speech inside the wake audio window.
