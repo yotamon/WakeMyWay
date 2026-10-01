@@ -53,12 +53,15 @@ internal class RealtimeAssistantTurnState {
         if (status == "failed") return finish(Signal.FAILED)
 
         terminalStatus = status.ifBlank { "completed" }
-        return if (audioStarted) null else Signal.NEEDS_TERMINAL_GRACE
+        return Signal.NEEDS_TERMINAL_GRACE
     }
 
     @Synchronized
     fun onTerminalGraceExpired(): Signal? {
-        if (!inFlight || audioStarted || terminalStatus == null) return null
+        if (!inFlight || terminalStatus == null) return null
+        if (audioStarted) {
+            return if (terminalStatus == "cancelled") finish(Signal.INTERRUPTED) else null
+        }
         return finish(
             if (terminalStatus == "completed") Signal.FINISHED else Signal.INTERRUPTED,
         )
