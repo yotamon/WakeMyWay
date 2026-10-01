@@ -30,7 +30,10 @@ class RealtimeAssistantTurnStateTest {
 
         assertTrue(state.begin())
         assertEquals(RealtimeAssistantTurnState.Signal.STARTED, state.onAudioStarted())
-        assertNull(state.onResponseDone("completed"))
+        assertEquals(
+            RealtimeAssistantTurnState.Signal.NEEDS_TERMINAL_GRACE,
+            state.onResponseDone("completed"),
+        )
         assertTrue(state.active)
         assertNull(state.onTerminalGraceExpired())
         assertEquals(
@@ -65,6 +68,23 @@ class RealtimeAssistantTurnStateTest {
         assertEquals(
             RealtimeAssistantTurnState.Signal.NEEDS_TERMINAL_GRACE,
             state.onResponseDone("incomplete"),
+        )
+        assertEquals(
+            RealtimeAssistantTurnState.Signal.INTERRUPTED,
+            state.onTerminalGraceExpired(),
+        )
+        assertFalse(state.active)
+    }
+
+    @Test
+    fun `cancelled audible response closes after grace when buffer clear is missing`() {
+        val state = RealtimeAssistantTurnState()
+
+        assertTrue(state.begin())
+        assertEquals(RealtimeAssistantTurnState.Signal.STARTED, state.onAudioStarted())
+        assertEquals(
+            RealtimeAssistantTurnState.Signal.NEEDS_TERMINAL_GRACE,
+            state.onResponseDone("cancelled"),
         )
         assertEquals(
             RealtimeAssistantTurnState.Signal.INTERRUPTED,
