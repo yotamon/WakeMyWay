@@ -63,7 +63,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`02-market-and-positioning.md`](02-market-and-positioning.md) | Competition/opportunity/positioning |
 | [`03-product-principles.md`](03-product-principles.md) | Non-negotiable product constraints |
 | [`22-product-metrics-experiments.md`](22-product-metrics-experiments.md) | Activation Completion vs Confirmed Wake Success, friction, experiments |
-| [`24-monetization.md`](24-monetization.md) | Outcome-led Free/Pro packaging, pricing hypothesis and monetization guardrails |
+| [`24-monetization.md`](24-monetization.md) | **Canonical Free + WakeMyWay Plus packaging, Premium Preview, pricing hypothesis, unit economics and provider-cost guardrails** |
 | [`35-paid-launch-readiness.md`](35-paid-launch-readiness.md) | Paid-launch gates, beta evidence, rollout ladder and 1.0 acceptance |
 | [`36-beta-validation-runbook.md`](36-beta-validation-runbook.md) | Gate 3 beta execution protocol and evidence definitions |
 | [`38-play-launch-operations.md`](38-play-launch-operations.md) | Consumer-first Play launch, support and staged-rollout operations |
