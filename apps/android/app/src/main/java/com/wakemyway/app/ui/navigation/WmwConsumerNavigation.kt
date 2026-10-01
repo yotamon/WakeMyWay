@@ -35,10 +35,10 @@ import com.wakemyway.app.ui.theme.WmwSizes
 import com.wakemyway.app.ui.theme.WmwSpacing
 
 enum class ConsumerTab(val label: String) {
-    HOME("Home"),
+    HOME("Today"),
     ALARMS("Alarms"),
     INSIGHTS("Insights"),
-    PROFILE("Profile"),
+    PROFILE("You"),
 }
 
 /** Consumer shell navigation exposes only destinations backed by real product behavior. */
@@ -72,20 +72,19 @@ private fun WmwBottomBar(
     Surface(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(horizontal = WmwSpacing.Md)
-            .padding(bottom = WmwSpacing.Sm)
+            .padding(bottom = WmwSpacing.Xxs)
             .fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = WmwColors.PaperCard.copy(alpha = 0.97f),
-        border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
-        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = WmwColors.PaperCard.copy(alpha = 0.96f),
+        border = BorderStroke(0.75.dp, WmwColors.DarkHairline.copy(alpha = 0.55f)),
+        shadowElevation = 0.dp,
         tonalElevation = 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = WmwSpacing.Xs, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xxs),
         ) {
-            ConsumerTab.entries.forEach { tab ->
+            ConsumerTab.entries.filter { it != ConsumerTab.INSIGHTS }.forEach { tab ->
                 val selected = tab == selectedTab
                 Column(
                     modifier = Modifier
@@ -99,15 +98,8 @@ private fun WmwBottomBar(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = 38.dp, height = 28.dp)
-                            .background(
-                                color = if (selected) {
-                                    WmwColors.Sunrise.copy(alpha = 0.18f)
-                                } else {
-                                    Color.Transparent
-                                },
-                                shape = RoundedCornerShape(16.dp),
-                            ),
+                            .size(width = 34.dp, height = 26.dp)
+                            .background(Color.Transparent),
                         contentAlignment = Alignment.Center,
                     ) {
                         ConsumerNavGlyph(tab = tab, selected = selected)
@@ -119,6 +111,15 @@ private fun WmwBottomBar(
                         color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText,
                         maxLines = 1,
                     )
+                    if (selected) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(top = 3.dp)
+                                .size(width = 18.dp, height = 2.dp),
+                            shape = RoundedCornerShape(100.dp),
+                            color = WmwColors.Sunrise,
+                        ) {}
+                    }
                 }
             }
         }
