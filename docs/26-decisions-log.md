@@ -526,3 +526,32 @@ It may not move authority away from the existing systems:
 Wake Preferences remain credential-protected local product data. Tomorrow Contract content remains local by default and may enter Realtime only when the user explicitly enables that per-wake use. No personalized private text enters Direct-Boot critical state.
 
 Canonical product/implementation contract: [`44-personalized-wake-profile-product-plan.md`](44-personalized-wake-profile-product-plan.md).
+
+# Conversational wake anti-loop rule — 2026-10-01
+
+## Dogfood finding
+
+Founder dogfood exposed a failure mode in the physiological-first wake: after the user had already responded, the conversation could continue issuing sit / movement / stand-style instructions when phone-motion evidence was insufficient or when a spoken turn was classified as unusable. The result felt repetitive and command-driven rather than conversational.
+
+## A usable reply closes the previous physical request
+
+A coherent spoken reply now ends the previous physical instruction for conversational sequencing. Wake Runtime still owns activation evidence and completion, but it must not repeatedly issue the same physical step merely to accumulate score.
+
+After the bounded early sequence, a new typed `HoldEngagement` intent keeps the user engaged conversationally without another physical command. It may acknowledge the user's actual words and request a short spoken reply, but it may not reintroduce sit-up, feet-down, shoulder-roll, stand-up, light or curtain instructions.
+
+## Re-engagement is bounded
+
+An unusable/silent turn may restate the current safe action once at low escalation. Later retries ask only for a clear spoken reply rather than replaying the physical command. This preserves conservative evidence handling without trapping the user in a command loop.
+
+## Realtime turn budget follows Wake Policy
+
+The previous fixed eight-assistant-turn ceiling could be lower than the number of turns required by a legitimately learned activation threshold. Realtime now derives its bounded turn budget from `activationThreshold + maxEscalationLevel + 1`, with the existing eight-turn floor and a twelve-turn hard ceiling. A maximum Wake Learning v0 threshold can therefore still reach Orientation instead of exhausting the provider budget first.
+## Safety boundary remains unchanged
+
+- Wake Runtime remains the sole owner of progression and completion.
+- Verbal fluency still does not fabricate motion evidence.
+- Standing remains conditional on safe runtime evidence.
+- HoldEngagement does not lower the activation threshold or mark the user awake.
+- Alarm Kernel authority, Stop/Snooze and alarm-only fallback are unchanged.
+
+This is a dogfood-driven correction to the interaction design: physical activation is the early backbone, not a checklist that must be recited until sensors agree.

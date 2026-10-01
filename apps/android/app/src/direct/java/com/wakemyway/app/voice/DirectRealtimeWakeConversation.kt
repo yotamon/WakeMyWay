@@ -102,7 +102,8 @@ class DirectRealtimeWakeConversation(
 
     override fun respond(request: WakeSpeechRequest): Boolean {
         if (!ready) return false
-        if (assistantTurnCount >= MAX_ASSISTANT_TURNS) {
+        val turnBudget = WakeRealtimeTurnBudget.resolve(request.sessionPlan.wakePolicy)
+        if (assistantTurnCount >= turnBudget) {
             emitFailure("turn-budget")
             return false
         }
@@ -667,7 +668,6 @@ class DirectRealtimeWakeConversation(
         const val MIN_USER_TURN_MS = 160L
         const val TURN_CLASSIFICATION_TIMEOUT_MS = 2_500L
         const val TURN_CLASSIFICATION_MAX_OUTPUT_TOKENS = 16
-        const val MAX_ASSISTANT_TURNS = 8
         // Realtime audio output consumes many more output tokens than equivalent text. Keep a
         // bounded but generous ceiling so a normal one- or two-sentence wake prompt is not clipped.
         const val MAX_OUTPUT_TOKENS = 1_024

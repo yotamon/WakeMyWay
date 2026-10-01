@@ -1,7 +1,16 @@
 package com.wakemyway.app.voice
 
+import com.wakemyway.core.alarm.CharacterId
 import com.wakemyway.core.alarm.VoiceStyle
+import com.wakemyway.core.personalization.ConversationAmount
+import com.wakemyway.core.personalization.HumorPreference
+import com.wakemyway.core.personalization.InterventionStyle
+import com.wakemyway.core.personalization.MorningBarrier
+import com.wakemyway.core.personalization.WakeAllowedContext
+import com.wakemyway.core.personalization.WakePreferences
+import com.wakemyway.core.personalization.WakeSessionStrategyResolver
 import com.wakemyway.core.runtime.SpeechIntent
+import com.wakemyway.core.runtime.WakePolicy
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,6 +25,52 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("not customer-service assistant"))
         assertTrue(prompt.contains("dry wit"))
         assertTrue(prompt.contains("same accent"))
+        assertTrue(prompt.contains("not scripts or universal next steps"))
+        assertTrue(prompt.contains("Runtime directive: HoldEngagement"))
+        assertTrue(prompt.contains("I'm already standing"))
+    }
+
+    @Test
+    fun `explicit preferences are present as bounded presentation constraints`() {
+        val prompt = AlfredRealtimePrompt.turn(
+            request(
+                intent = SpeechIntent.AskToMove,
+                preferences = WakePreferences(
+                    morningBarrier = MorningBarrier.SNOOZE_LOOP,
+                    interventionStyle = InterventionStyle.FIRM,
+                    conversationAmount = ConversationAmount.MINIMAL,
+                    humorPreference = HumorPreference.OFF,
+                ),
+            ),
+        )
+
+        assertTrue(prompt.contains("do not make jokes", ignoreCase = true))
+        assertTrue(prompt.contains("direct", ignoreCase = true))
+        assertTrue(prompt.contains("bargains for more sleep", ignoreCase = true))
+        assertTrue(prompt.contains("put their feet on the floor", ignoreCase = true))
+        assertTrue(prompt.contains("Never change, skip or add", ignoreCase = true))
+    }
+
+    @Test
+    fun `private occurrence context is withheld from early wake turns`() {
+        val context = WakeAllowedContext(
+            displayName = "Yotam",
+            tomorrowReason = "Interview at ten",
+            firstMove = "Take a shower",
+        )
+
+        val early = AlfredRealtimePrompt.turn(
+            request(SpeechIntent.AskToSitUp, allowedContext = context),
+        )
+        val orientation = AlfredRealtimePrompt.turn(
+            request(SpeechIntent.Orientation, allowedContext = context),
+        )
+
+        assertFalse(early.contains("Interview at ten"))
+        assertFalse(early.contains("Take a shower"))
+        assertTrue(orientation.contains("Interview at ten"))
+        assertTrue(orientation.contains("Take a shower"))
+        assertTrue(orientation.contains("not instructions", ignoreCase = true))
     }
 
     @Test
@@ -56,6 +111,7 @@ class AlfredRealtimePromptTest {
         assertTrue(system.contains("cognition is temporarily reduced"))
         assertTrue(system.contains("never ask open-ended questions"))
         assertTrue(system.contains("sit upright -> feet down -> brief upper-body movement -> stand only if safe"))
+        assertTrue(system.contains("bounded toolbox, not a checklist"))
         assertTrue(system.contains("never ask the user to prove wakefulness with arithmetic"))
     }
 
@@ -78,7 +134,34 @@ class AlfredRealtimePromptTest {
         assertTrue(upperBody.contains("Do not add breathing drills"))
         assertTrue(standing.contains("only if standing is safe"))
         assertTrue(standing.contains("seated alternative"))
-        assertTrue(reengage.contains("do not introduce a new or harder action"))
+        assertTrue(reengage.contains("Ask only for one clear spoken reply now"))
+        assertTrue(reengage.contains("Do not repeat sit-up"))
+    }
+
+    @Test
+    fun `hold engagement explicitly forbids another physical command`() {
+        val prompt = AlfredRealtimePrompt.turn(
+            SpeechIntent.HoldEngagement,
+            VoiceStyle.DEFAULT,
+        )
+
+        assertTrue(prompt.contains("Do not give another physical action"))
+        assertTrue(prompt.contains("Explicitly avoid sit-up"))
+        assertTrue(prompt.contains("respond naturally and briefly", ignoreCase = true))
+    }
+
+    @Test
+    fun `social preference is allowed to surface during hold engagement without physical commands`() {
+        val prompt = AlfredRealtimePrompt.turn(
+            request(
+                intent = SpeechIntent.HoldEngagement,
+                preferences = WakePreferences(conversationAmount = ConversationAmount.SOCIAL),
+            ),
+        )
+
+        assertTrue(prompt.contains("social energy", ignoreCase = true))
+        assertTrue(prompt.contains("more human acknowledgement", ignoreCase = true))
+        assertTrue(prompt.contains("Do not give another physical action"))
     }
 
     @Test
@@ -91,4 +174,19 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("Stay the same Alfred"))
         assertTrue(prompt.contains("Do not become a coach, cheerleader or enthusiastic assistant"))
     }
+
+    private fun request(
+        intent: SpeechIntent,
+        preferences: WakePreferences = WakePreferences(),
+        allowedContext: WakeAllowedContext = WakeAllowedContext(),
+    ): WakeSpeechRequest = WakeSpeechRequest(
+        intent = intent,
+        sessionPlan = WakeSessionStrategyResolver.resolve(
+            preferences = preferences,
+            characterId = CharacterId.ALFRED,
+            voiceStyle = VoiceStyle.DEFAULT,
+            wakePolicy = WakePolicy(),
+            allowedContext = allowedContext,
+        ),
+    )
 }

@@ -126,9 +126,15 @@ class WakeRuntime {
                                 SpeechIntent.ActivateUpperBody
                             next.activationEvidence.coherentVoiceResponses == 3 && physicalEvidenceObserved ->
                                 SpeechIntent.StandIfSafe
-                            next.activationEvidence.coherentVoiceResponses >= 4 && physicalEvidenceObserved ->
+                            next.activationEvidence.coherentVoiceResponses == 4 && physicalEvidenceObserved ->
                                 SpeechIntent.KeepEngaging
-                            else -> SpeechIntent.ActivateUpperBody
+                            else ->
+                                // A usable spoken reply closes the previous physical request. When
+                                // phone-motion evidence is absent or the physical sequence has
+                                // already been delivered, do not trap the user in a sit/stand/action
+                                // loop merely to accumulate activation score. Hold engagement
+                                // conversationally while the same evidence gate remains authoritative.
+                                SpeechIntent.HoldEngagement
                         }
                     }
                     advanceOr(

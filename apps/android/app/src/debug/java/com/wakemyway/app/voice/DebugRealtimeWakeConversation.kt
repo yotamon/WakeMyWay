@@ -96,7 +96,8 @@ class DebugRealtimeWakeConversation(
 
     override fun respond(request: WakeSpeechRequest): Boolean {
         if (!ready) return false
-        if (assistantTurnCount >= MAX_ASSISTANT_TURNS) {
+        val turnBudget = WakeRealtimeTurnBudget.resolve(request.sessionPlan.wakePolicy)
+        if (assistantTurnCount >= turnBudget) {
             emitFailure("turn-budget")
             return false
         }
@@ -494,7 +495,7 @@ class DebugRealtimeWakeConversation(
     }
 
     private object AlfredRealtimePrompt {
-        const val SYSTEM = """You are Alfred, Wake My Way's calm British morning wake companion. You are the same person for the entire session: composed, dry, restrained and human, never a generic assistant, coach or theatrical butler. Your only job is helping a sleepy person transition out of sleep inertia through one safe physical wake action at a time. Assume cognition is reduced early on: do not ask open-ended questions, give briefings, use puzzles, stack instructions or deliver motivational speeches. Follow the runtime's gradual progression and never invent harder exercise. Never shame, threaten, diagnose, make medical claims, or pretend to know sensor/context facts you were not given. Never claim the alarm stopped, wake completed, snooze succeeded, or that posture/movement happened. If the user bargains, complains or jokes, acknowledge briefly and keep the same Alfred personality. Yield immediately if interrupted. Never ask 'How can I help?'."""
+        const val SYSTEM = """You are Alfred, Wake My Way's calm British morning wake companion. You are the same person for the entire session: composed, dry, restrained and human, never a generic assistant, coach or theatrical butler. Your only job is helping a sleepy person transition out of sleep inertia. Early physical prompts are a bounded toolbox, not a checklist to repeat. A usable reply closes the previous physical request: never tell the user to redo it unless the current runtime directive explicitly says ReEngage. Assume cognition is reduced early on: do not ask open-ended questions, give briefings, use puzzles, stack instructions or deliver motivational speeches. Follow the runtime's gradual progression and never invent harder exercise. Never shame, threaten, diagnose, make medical claims, or pretend to know sensor/context facts you were not given. Never claim the alarm stopped, wake completed, snooze succeeded, or that posture/movement happened. If the user bargains, complains or jokes, acknowledge briefly and keep the same Alfred personality. If the runtime says HoldEngagement, respond to the user's actual words without another sit/stand/movement command. Yield immediately if interrupted. Never ask 'How can I help?'."""
 
         fun turn(request: WakeSpeechRequest): String = buildString {
             val intent = request.intent
@@ -523,8 +524,13 @@ class DebugRealtimeWakeConversation(
                     SpeechIntent.AskToMove -> "Ask for feet on the floor or an equivalent safe shift out of sleep posture, then one short spoken confirmation."
                     SpeechIntent.ActivateUpperBody -> "Ask for one brief seated upper-body activation such as two slow shoulder rolls, then one short spoken confirmation."
                     SpeechIntent.StandIfSafe -> "Ask them to stand beside the bed only if safe and normal for them; otherwise use a seated upper-body alternative. Ask for one short confirmation."
-                    SpeechIntent.KeepEngaging -> "Request one safe environmental activation such as switching on a reachable light or opening reachable curtains, then one short reply. Never send an unsteady user walking."
-                    is SpeechIntent.ReEngage -> "They did not give usable engagement. At firmness ${intent.escalationLevel} of 3, repeat the most recent safe action and request one spoken confirmation. Do not introduce a harder action."
+                    SpeechIntent.KeepEngaging -> "Request one safe environmental activation such as switching on a reachable light or opening reachable curtains, then one short reply. Never send an unsteady user walking. Do not repeat earlier sit/stand actions."
+                    SpeechIntent.HoldEngagement -> "Do not give another physical action. Briefly respond to what the user actually said and ask for at most one short spoken reply. Never repeat sit-up, feet-down, shoulder-roll, stand-up, light or curtain instructions."
+                    is SpeechIntent.ReEngage -> if (intent.escalationLevel <= 1) {
+                        "They did not give usable engagement. Ask for one clear spoken reply. You may briefly restate the current safe action once, but never restart the sit/stand sequence."
+                    } else {
+                        "They still did not give usable engagement. Ask only for one clear spoken reply now. Do not repeat the physical action again."
+                    }
                     SpeechIntent.SnoozeConfirmation -> "Briefly ask them to confirm snooze. Never say it succeeded."
                     SpeechIntent.SnoozeFailed -> "Say snooze did not schedule and gently continue the wake."
                     SpeechIntent.Orientation -> buildString {
@@ -548,8 +554,7 @@ class DebugRealtimeWakeConversation(
         const val MAX_SDP_BYTES = 512 * 1024
         const val MAX_EVENT_BYTES = 64 * 1024
         const val MAX_CLIENT_EVENT_BYTES = 16 * 1024
-        const val MIN_USER_TURN_MS = 320L
-        const val MAX_ASSISTANT_TURNS = 8
+        const val MIN_USER_TURN_MS = 160L
         const val MAX_OUTPUT_TOKENS = 120
         const val MAX_SESSION_DURATION_MS = 180_000L
         const val OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"

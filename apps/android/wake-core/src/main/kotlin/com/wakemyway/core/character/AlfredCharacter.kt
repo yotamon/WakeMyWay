@@ -6,7 +6,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 7,
+        version = 8,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -48,6 +48,7 @@ object AlfredCharacter {
         SpeechIntent.ActivateUpperBody -> ACTIVATE_UPPER_BODY
         SpeechIntent.StandIfSafe -> STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> KEEP_ENGAGING
+        SpeechIntent.HoldEngagement -> HOLD_ENGAGEMENT
         is SpeechIntent.ReEngage -> RE_ENGAGE[intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)]
         SpeechIntent.SnoozeConfirmation -> SNOOZE_CONFIRMATION
         SpeechIntent.SnoozeFailed -> SNOOZE_FAILED
@@ -61,6 +62,7 @@ object AlfredCharacter {
         SpeechIntent.ActivateUpperBody -> MOTIVATIONAL_ACTIVATE_UPPER_BODY
         SpeechIntent.StandIfSafe -> MOTIVATIONAL_STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> MOTIVATIONAL_KEEP_ENGAGING
+        SpeechIntent.HoldEngagement -> MOTIVATIONAL_HOLD_ENGAGEMENT
         is SpeechIntent.ReEngage -> MOTIVATIONAL_RE_ENGAGE[
             intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
         ]
@@ -76,6 +78,7 @@ object AlfredCharacter {
         SpeechIntent.ActivateUpperBody -> MINIMAL_ACTIVATE_UPPER_BODY
         SpeechIntent.StandIfSafe -> MINIMAL_STAND_IF_SAFE
         SpeechIntent.KeepEngaging -> MINIMAL_KEEP_ENGAGING
+        SpeechIntent.HoldEngagement -> MINIMAL_HOLD_ENGAGEMENT
         is SpeechIntent.ReEngage -> MINIMAL_RE_ENGAGE[
             intent.escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)
         ]
@@ -91,6 +94,7 @@ object AlfredCharacter {
         SpeechIntent.ActivateUpperBody -> "activate-upper-body"
         SpeechIntent.StandIfSafe -> "stand-if-safe"
         SpeechIntent.KeepEngaging -> "keep-engaging"
+        SpeechIntent.HoldEngagement -> "hold-engagement"
         is SpeechIntent.ReEngage -> "re-engage-${escalationLevel.coerceIn(0, MAX_RE_ENGAGE_LEVEL)}"
         SpeechIntent.SnoozeConfirmation -> "snooze-confirmation"
         SpeechIntent.SnoozeFailed -> "snooze-failed"
@@ -153,6 +157,13 @@ object AlfredCharacter {
         "One easy environment change: light or curtains within reach. Then answer.",
         "Bring in some light if it's within reach, then tell me.",
         "Reachable light or curtains next. Then give me a short answer.",
+    )
+
+    private val HOLD_ENGAGEMENT = listOf(
+        "All right. Stay with me a moment and give me one short reply.",
+        "I'm with you. One more clear reply, no extra gymnastics.",
+        "Fair enough. Keep talking to me for one more beat.",
+        "No need to repeat the movement. Just give me one clear reply.",
     )
 
     private val RE_ENGAGE = listOf(
@@ -239,6 +250,12 @@ object AlfredCharacter {
         "One easy environment change now: reachable light or curtains. Then answer.",
     )
 
+    private val MOTIVATIONAL_HOLD_ENGAGEMENT = listOf(
+        "Keep the thread. One more clear reply, no repeated movement.",
+        "Good, stay with me for one more short answer.",
+        "Keep talking to me. No need to redo the last action.",
+    )
+
     private val MOTIVATIONAL_RE_ENGAGE = listOf(
         listOf(
             "Stay with me. Give me one quick answer.",
@@ -314,6 +331,12 @@ object AlfredCharacter {
         "Reachable light or curtains. Then answer.",
         "Light within reach. Then answer.",
         "Open reachable curtains. Then answer.",
+    )
+
+    private val MINIMAL_HOLD_ENGAGEMENT = listOf(
+        "Stay with me. One reply.",
+        "No repeat. Just answer.",
+        "One more clear reply.",
     )
 
     private val MINIMAL_RE_ENGAGE = listOf(
