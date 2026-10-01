@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -726,7 +727,7 @@ private fun FirstMoveTile(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.height(adaptiveWakeSpace(124)),
+        modifier = modifier.heightIn(min = adaptiveWakeSpace(124)),
         shape = MaterialTheme.shapes.medium,
         color = WmwColors.PaperCard.copy(alpha = 0.92f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
