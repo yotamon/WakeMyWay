@@ -26,35 +26,37 @@ It cannot truthfully guarantee alarm delivery/execution when Android/hardware in
 
 The product must make the recoverable parts of this envelope visible through Wake Ready rather than over-promising.
 
-## Graceful richness degradation
+## Realtime enrichment degradation
+
+The selected local WakeMyWay alarm is the baseline for every committed wake. Realtime is optional enrichment layered on top of that local alarm, never a lower rung the product must pass through before it can wake the user.
 
 ```text
-LEVEL 0  Full realtime conversational wake
+LOCAL ALARM BASELINE
    |
-LEVEL 1  Prepared/local personalized speech
+   +-- Realtime configured and ready -> conversational WakeRuntime rendering
    |
-LEVEL 2  Prepared scripted character plan
+   +-- adapter absent / startup timeout / turn failure / session failure
+          -> alarm-only for the rest of this Wake Occurrence
+          -> local alarm audio + Stop/Snooze remain authoritative
+
+LOCAL MEDIA FAILURE
    |
-LEVEL 3  Deterministic local Wake Runtime
-   |
-LEVEL 4  Standard branded alarm + basic interaction
-   |
-LEVEL 5  Bundled emergency alarm
+   +-- bundled emergency alarm / haptic controllable fallback
 ```
 
-Fallback level is not a Wake Phase. Every reachable level continues the wake attempt.
+There is no consumer local-TTS/STT substitution after Direct Realtime failure and no late mid-wake upgrade after an occurrence has degraded. Realtime degradation is presentation state, not a Wake Phase; WakeRuntime and Alarm Kernel authority remain unchanged.
 
 ## Failure matrix
 
 | Failure | Expected behavior |
 |---|---|
-| No internet | local plan/runtime |
-| Backend down | local plan/runtime |
-| Realtime voice unavailable/slow | prepared/scripted speech; no spinner on critical path |
+| No internet | local alarm remains active; Direct Realtime degrades alarm-only for that occurrence |
+| Backend down | local alarm remains active; cloud/Realtime enrichment is omitted or degrades alarm-only |
+| Realtime voice unavailable/slow | alarm-only for the rest of the occurrence; no local speech substitution or late upgrade |
 | Weather unavailable | omit weather |
 | Calendar unavailable/denied | omit calendar |
-| Prepared personalized content unavailable | deterministic local script |
-| All prepared audio unavailable | bundled emergency alarm |
+| Prepared personalized content unavailable | omit private context and continue the local alarm/wake surface |
+| Selected local media unavailable | bundled emergency alarm / haptic controllable fallback |
 | Normal database initialization fails at trigger | device-protected Critical Wake Snapshot + generic safe alarm path |
 | Device rebooted and not yet unlocked | Direct-Boot reschedule + generic bundled/brand alarm; no sensitive personalized context |
 | `WakeActivity` destroyed/recreated while sounding | critical playback continues; new UI attaches to active occurrence |

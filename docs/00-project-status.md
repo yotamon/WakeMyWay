@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -26,6 +26,19 @@ This is visual/content convergence under the 1.0 polish allowance, not a capabil
 
 The changed canonical visual states and compact/large-text smoke renders were manually inspected before approving new golden hashes. Final PR acceptance still requires the repository Android CI and device-reliability gates.
 
+## End-to-end behavior polish
+
+The current 1.0 polish pass converges existing functionality rather than adding product scope:
+
+- interactive wake presentation starts truthfully in a connecting state instead of briefly claiming alarm-only before Realtime startup is resolved;
+- Direct Realtime failure carries a bounded degradation reason and remains alarm-only for the rest of that occurrence, with no local speech substitution or late upgrade;
+- failed Stop/Snooze acknowledgements keep the current wake visible and actionable and expose concise failure feedback instead of silently dismissing the surface;
+- Today and Alarms share one per-alarm readiness projection, including one-tap local reconciliation when the schedule slot drifts while Android capabilities are already healthy;
+- alarm enable/disable mutations return acknowledged results to Compose so failed commits stay visibly failed while AlarmProductController remains rollback authority;
+- Wake Lab `lab-*` sessions exercise the real Alarm Kernel/playback/WakeActivity/WakeRuntime path but are excluded from user Wake History, Wake Learning evidence and Morning Safety Check scheduling;
+- Wake Lab now shows a read-only Resolved Wake Plan and a bounded privacy-safe Wake Session Inspector timeline for delivery, Realtime lifecycle and WakeRuntime phase changes.
+
+Canonical contract and execution plan: `docs/implementation/end-to-end-product-behavior-polish.md` and `docs/superpowers/plans/2026-10-02-end-to-end-product-behavior-polish.md`.
 
 ## Realtime voice degradation policy
 
@@ -261,7 +274,7 @@ Founder/debug OpenAI Realtime over WebRTC is optional enrichment. Production Fou
 - decide Wake completion;
 - become a Wake Ready dependency.
 
-Local Alfred remains the fallback when cloud/network/provider setup fails.
+If Direct Realtime cannot start or fails during the occurrence, that wake remains alarm-only for the rest of the occurrence. Production does not substitute local Alfred TTS/STT and does not late-upgrade the same wake after degradation.
 
 Founder installation pairing uses a one-time high-entropy access code and returns a scoped installation credential stored through Android Keystore. Server credential roles remain separated between internal API authorization, founder-token signing and one-time pairing.
 
