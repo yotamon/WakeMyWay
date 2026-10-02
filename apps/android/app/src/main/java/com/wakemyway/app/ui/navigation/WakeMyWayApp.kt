@@ -682,6 +682,13 @@ private fun reconcilePreparationAfterScheduleChange(
     if (!rebound) runCatching { preparationManager.clear() }
 }
 
+private fun String.toWakeReasonPreview(maxCharacters: Int = 180): String? {
+    val normalized = trim().replace(Regex("\\s+"), " ")
+    if (normalized.isBlank()) return null
+    if (normalized.length <= maxCharacters) return normalized
+    return normalized.take(maxCharacters - 1).trimEnd() + "…"
+}
+
 private fun AlarmHealth.toTonightUiState(
     context: Context,
     preparation: WakePreparationSnapshot?,
@@ -722,6 +729,9 @@ private fun AlarmHealth.toTonightUiState(
         hasTomorrowContract = preparation?.contract != null,
         tomorrowContractPrepared = preparation?.status == WakePreparationStatus.READY,
         tomorrowContractText = preparation?.contract?.rawText,
+        wakeReason = preparation?.contract?.rawText
+            ?.toWakeReasonPreview()
+            ?: alarm?.label?.trim()?.takeIf { it.isNotBlank() },
         firstMove = preparation?.contract?.firstMove ?: alarm?.firstMoveDefault,
         voiceCheckInEnabled = occurrence != null && alarm?.voiceCheckInEnabled == true,
         tomorrowContractAvailable = occurrence != null && contractMode != TomorrowContractMode.DISABLED,

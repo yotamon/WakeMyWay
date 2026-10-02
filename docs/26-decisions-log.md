@@ -609,3 +609,29 @@ Realtime follows **minimum effective compute**: end paid enrichment when the wak
 
 Canonical plan: [`24-monetization.md`](24-monetization.md).
 
+# Reason-first calm companion visual convergence — 2026-10-02
+
+## The wake reason belongs in the primary hierarchy
+
+For an upcoming wake, the consumer planning surface should communicate **when → why → readiness → morning plan** rather than presenting the alarm as a time plus settings.
+
+Reason precedence is deterministic and truthful: the current Tomorrow Contract is the most specific source, represented on Today as a normalized bounded preview; the existing alarm label is the fallback; no generic motivational reason is fabricated.
+
+The alarm label remains the persisted field. Product copy presents it as **Why this wake?**, so this convergence requires no new alarm schema or migration.
+
+## Context density follows wakefulness
+
+Private morning context is not added to Emerging, early Engaged or Active merely because it exists. The Oriented phase may explicitly show prepared context as **Why you’re up** before First Move.
+
+This preserves the established consciousness/information-density model and keeps the first seconds of the alarm low-cognition.
+
+## Companion identity remains WakeMyWay-specific
+
+The current visual reference is inspiration, not a product template. WakeMyWay keeps the Sunrise + Wake Line / Wake Horizon as its living visual object and Alfred as a language/sound/timing character.
+
+Robot mascots, generic AI orbs, decorative microphone heroes, reminders, timer/stopwatch, calendar tabs and a general-purpose voice-assistant surface are explicitly not introduced by this work.
+
+This is visual/content convergence permitted by the 1.0 polish scope. Alarm Kernel, Wake Runtime, Direct-Boot privacy and optional Realtime boundaries are unchanged.
+
+Canonical implementation contract: [`implementation/reason-first-calm-companion.md`](implementation/reason-first-calm-companion.md).
+

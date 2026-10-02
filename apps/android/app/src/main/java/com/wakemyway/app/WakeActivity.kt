@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -611,8 +612,21 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
             style = MaterialTheme.typography.labelMedium,
             color = WmwColors.LightQuietText,
         )
-        Text(
-            text = preparedPlan?.reminderLine ?: stringResource(R.string.wake_oriented_ready),
+        preparedPlan?.reminderLine?.takeIf { it.isNotBlank() }?.let { reminder ->
+            Text(
+                text = stringResource(R.string.wake_reason_label).uppercase(),
+                modifier = Modifier.padding(top = WmwSpacing.Lg),
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.DawnText,
+            )
+            Text(
+                text = reminder,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.bodyLarge,
+                color = WmwColors.Midnight.copy(alpha = 0.82f),
+            )
+        } ?: Text(
+            text = stringResource(R.string.wake_oriented_ready),
             modifier = Modifier.padding(top = WmwSpacing.Lg),
             style = MaterialTheme.typography.bodyLarge,
             color = WmwColors.Midnight.copy(alpha = 0.78f),
@@ -713,7 +727,7 @@ private fun FirstMoveTile(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.height(adaptiveWakeSpace(124)),
+        modifier = modifier.heightIn(min = adaptiveWakeSpace(124)),
         shape = MaterialTheme.shapes.medium,
         color = WmwColors.PaperCard.copy(alpha = 0.92f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline),

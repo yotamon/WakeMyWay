@@ -150,16 +150,18 @@ Tonight is a branded planning surface, not a dashboard.
 
 Primary hierarchy:
 
-1. WakeMyWay lockup;
-2. human evening headline / context;
-3. dark next-wake hero object;
-4. sunrise-wave identity inside the wake object;
+1. WakeMyWay lockup and human evening context;
+2. oversized next-wake time and date on an open canvas;
+3. the wake reason when one truthfully exists;
+4. Wake Horizon / sunrise-wave identity;
 5. Wake Ready truth;
-6. Tomorrow Contract;
-7. character/voice readiness;
+6. a compact Morning plan surface for Tomorrow Contract / First Move editing;
+7. restrained character/voice presence;
 8. one clear warm primary action.
 
-Healthy technical status should not compete visually with the user’s wake intention. Readiness repair becomes prominent only when something is wrong.
+Reason precedence is deliberately simple: the current Tomorrow Contract is most specific; the alarm label is the fallback; the UI never invents a reason. The reason belongs in the hero because it is part of the wake’s meaning, not another settings card.
+
+Healthy technical status should not compete visually with the user’s wake intention. Readiness repair becomes prominent only when something is wrong. Do not add a robot mascot, AI orb, decorative microphone hero, or general-assistant affordance to make the companion feel present; character comes from language, sound, timing, and Wake Horizon behavior.
 
 ### Schedule
 

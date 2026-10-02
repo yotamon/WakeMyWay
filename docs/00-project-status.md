@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-02
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -13,6 +13,19 @@
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
 ## Current product shape
+
+## Reason-first calm companion convergence
+
+The accepted visual-convergence direction keeps WakeMyWay focused on its existing wake promise while borrowing the strongest interaction lesson from the current reference set: the next wake should make its **reason** immediately understandable.
+
+PR #188 makes the Today hierarchy **when → why → readiness → morning plan**. A current Tomorrow Contract supplies the most specific reason, normalized into a bounded 180-character preview; the existing alarm label is the fallback; the UI never fabricates motivation. Alarm setup presents the existing label as **Why this wake?** without adding a new persistence field or migration.
+
+The active wake stays intentionally sparse through Emerging, Engaged and Active. Prepared private context becomes explicit only in Oriented as **Why you’re up**, immediately before First Move. Wake Horizon / Wake Line remains the living visual signature; robot mascots, generic AI orbs and a general-assistant surface remain out of scope.
+
+This is visual/content convergence under the 1.0 polish allowance, not a capability expansion. Alarm Kernel, Wake Runtime, Direct-Boot privacy, Stop/Snooze authority and Realtime degradation behavior are unchanged. Canonical Shape/Build detail: `docs/implementation/reason-first-calm-companion.md`.
+
+The changed canonical visual states and compact/large-text smoke renders were manually inspected before approving new golden hashes. Final PR acceptance still requires the repository Android CI and device-reliability gates.
+
 
 ## Realtime voice degradation policy
 
