@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.wakemyway.app.alarm.AlarmHealth
+import com.wakemyway.app.ui.alarms.AlarmMutationResult
 import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.navigation.ConsumerTab
 import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
@@ -180,9 +182,20 @@ class AccessibilitySemanticsInstrumentedTest {
                 AlarmsScreen(
                     alarms = listOf(alarm),
                     healthFor = { null },
+                    systemHealth = AlarmHealth(
+                        ready = true,
+                        exactAlarmAllowed = true,
+                        notificationsAllowed = true,
+                        notificationChannelHighImportance = true,
+                        fullScreenIntentAllowed = true,
+                        nextOccurrence = null,
+                        activeOccurrence = null,
+                        detail = "accessibility fixture",
+                    ),
                     onAddAlarm = {},
                     onEditAlarm = {},
-                    onSetEnabled = { _, _ -> },
+                    onSetEnabled = { _, _ -> AlarmMutationResult(succeeded = true) },
+                    onRepairWakeSystem = {},
                 )
             }
         }
