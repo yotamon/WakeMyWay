@@ -111,6 +111,16 @@ class WakeTimingTrace(
         }
     }
 
+    /** Records a bounded semantic interactive event. No arbitrary detail is accepted here. */
+    fun interactive(
+        occurrenceId: WakeOccurrenceId,
+        event: WakeInteractiveDiagnosticEvent,
+    ) = safelyMutate { sessions ->
+        sessions.findSession(occurrenceId)?.let { session ->
+            appendEvent(session, diagnosticStorageType(event))
+        }
+    }
+
     fun stopped(occurrenceId: WakeOccurrenceId) = terminal(occurrenceId, TerminalAction.STOPPED)
 
     fun snoozed(occurrenceId: WakeOccurrenceId) = terminal(occurrenceId, TerminalAction.SNOOZED)
@@ -312,6 +322,7 @@ class WakeTimingTrace(
     }
 
     companion object {
+        const val SCENARIO_INSTANT_FUNCTIONAL_TEST = "INSTANT_FUNCTIONAL_TEST"
         const val SCENARIO_NORMAL_T_PLUS_2M = "NORMAL_T_PLUS_2M"
         const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
         const val SCENARIO_STOP_RECREATION = "STOP_RECREATION"
@@ -369,6 +380,21 @@ class WakeTimingTrace(
     }
 }
 
+internal fun diagnosticStorageType(event: WakeInteractiveDiagnosticEvent): String = event.name
+
+enum class WakeInteractiveDiagnosticEvent {
+    REALTIME_CONNECTING,
+    REALTIME_READY,
+    REALTIME_SPEAKING,
+    REALTIME_LISTENING,
+    REALTIME_DEGRADED,
+    RUNTIME_ALERTING,
+    RUNTIME_ENGAGING,
+    RUNTIME_ACTIVATING,
+    RUNTIME_ORIENTING,
+    RUNTIME_FINISHED,
+}
+
 data class TimingEventSnapshot(
     val type: String,
     val wallMillis: Long,
@@ -413,6 +439,8 @@ data class TimingSnapshot(
         terminalAction == "STOPPED" -> ReliabilityState.STOPPED
         terminalAction == "SNOOZED" -> ReliabilityState.SNOOZED
         terminalAction == "INVALIDATED" -> ReliabilityState.INVALIDATED
+        scenario == WakeTimingTrace.SCENARIO_INSTANT_FUNCTIONAL_TEST && audioWallMillis != null ->
+            ReliabilityState.ACTIVE
         receiverWallMillis == null && nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
         receiverWallMillis == null -> ReliabilityState.EXPECTED
         audioWallMillis == null && nowWallMillis > receiverWallMillis + deliveryStageGraceMillis -> ReliabilityState.AUDIO_TIMEOUT

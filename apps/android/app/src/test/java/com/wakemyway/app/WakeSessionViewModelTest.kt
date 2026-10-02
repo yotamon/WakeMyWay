@@ -14,6 +14,13 @@ import org.junit.Test
 
 class WakeSessionViewModelTest {
     @Test
+    fun `new interactive session starts as connecting rather than false alarm only`() {
+        val viewModel = WakeSessionViewModel({ _, _ -> FakeWakeSessionController() })
+
+        assertEquals(WakeVoiceMode.STARTING, viewModel.voiceState.mode)
+    }
+
+    @Test
     fun `ViewModelStore retains one controller and closes it when the session owner clears`() {
         val fake = FakeWakeSessionController()
         var creations = 0
@@ -150,6 +157,7 @@ class WakeSessionViewModelTest {
 
         assertEquals(1, snoozeCalls)
         assertFalse(viewModel.completed)
+        assertEquals(WakeTerminalUiState.SNOOZE_FAILED, viewModel.terminalUiState)
         assertEquals(0, fake.terminalCloseCalls)
         assertEquals(1, fake.hiddenCalls)
     }
@@ -167,8 +175,24 @@ class WakeSessionViewModelTest {
         viewModel.onSurfaceHidden()
 
         assertFalse(viewModel.completed)
+        assertEquals(WakeTerminalUiState.SNOOZE_FAILED, viewModel.terminalUiState)
         assertEquals(0, fake.terminalCloseCalls)
         assertEquals(1, fake.hiddenCalls)
+    }
+
+    @Test
+    fun `rejected stop remains active and reports stop failure`() {
+        val fake = FakeWakeSessionController()
+        val viewModel = WakeSessionViewModel(
+            controllerFactory = { _, _ -> fake },
+            requestStopExecution = { false },
+        )
+
+        assertFalse(viewModel.requestStop())
+
+        assertFalse(viewModel.completed)
+        assertEquals(WakeTerminalUiState.STOP_FAILED, viewModel.terminalUiState)
+        assertEquals(0, fake.terminalCloseCalls)
     }
 
     private class FakeWakeSessionController : WakeSessionController {

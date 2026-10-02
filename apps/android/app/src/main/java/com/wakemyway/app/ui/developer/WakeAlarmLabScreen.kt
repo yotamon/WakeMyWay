@@ -35,12 +35,16 @@ import com.wakemyway.app.alarm.TimingSnapshot
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.character.AlfredCharacterLab
 import com.wakemyway.app.preparation.TomorrowContractLab
+import com.wakemyway.app.product.ConsumerPreferencesRepository
 import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.product.learning.WakeLearningState
 import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.home.VoiceWakeReadiness
 import com.wakemyway.app.ui.theme.WmwColors
 import com.wakemyway.app.wakeSchedulingBlocker
+import com.wakemyway.core.personalization.WakeAllowedContext
+import com.wakemyway.core.personalization.WakeSessionPlan
+import com.wakemyway.core.personalization.WakeSessionStrategyResolver
 import com.wakemyway.core.schedule.WakeCompletionPolicy
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeSchedule
@@ -143,6 +147,8 @@ fun WakeAlarmLabScreen(
     val kernel = remember { AlarmKernel(context) }
     val timingTrace = remember { WakeTimingTrace(context) }
     val learningRepository = remember { WakeLearningRepository(context) }
+    val consumerPreferencesRepository = remember { ConsumerPreferencesRepository(context) }
+    val consumerPreferences = remember { consumerPreferencesRepository.get() }
     var health by remember { mutableStateOf(kernel.health()) }
     var learningState by remember { mutableStateOf(learningRepository.state()) }
     var history by remember { mutableStateOf(timingTrace.history(HISTORY_LIMIT)) }
@@ -162,6 +168,18 @@ fun WakeAlarmLabScreen(
         voiceReadiness = voiceWakeReadiness,
         requiresVoiceReplies = false,
     )
+    val criticalPolicy = health.nextOccurrence
+        ?.let { occurrence -> kernel.policy(occurrence.wakeScheduleId) }
+        ?: CriticalWakePolicy.DEFAULT
+    val resolvedWakePlan = remember(health, learningState, consumerPreferences) {
+        WakeSessionStrategyResolver.resolve(
+            preferences = consumerPreferences.wakePreferences,
+            characterId = criticalPolicy.characterId,
+            voiceStyle = criticalPolicy.voiceStyle,
+            wakePolicy = learningState.policy,
+            allowedContext = WakeAllowedContext(),
+        )
+    }
 
     Column(
         modifier = modifier
@@ -204,6 +222,11 @@ fun WakeAlarmLabScreen(
             style = MaterialTheme.typography.headlineSmall,
         )
         HealthFacts(health, voiceWakeReadiness)
+        ResolvedWakePlanFacts(
+            plan = resolvedWakePlan,
+            voiceCheckInEnabled = criticalPolicy.voiceCheckInEnabled,
+            modifier = Modifier.padding(top = 24.dp),
+        )
 
         Text(
             modifier = Modifier.padding(top = 24.dp),
@@ -449,8 +472,14 @@ fun WakeAlarmLabScreen(
 
         Text(
             modifier = Modifier.padding(top = 30.dp),
-            text = "Recent wake evidence",
+            text = "Wake Session Inspector",
             style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = "Local semantic timeline only. No microphone audio, transcripts, prompts or private morning context are stored here.",
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
         )
 
         if (history.isEmpty()) {
@@ -465,6 +494,46 @@ fun WakeAlarmLabScreen(
                 TimingFacts(index + 1, timing)
             }
         }
+    }
+}
+
+@Composable
+private fun ResolvedWakePlanFacts(
+    plan: WakeSessionPlan,
+    voiceCheckInEnabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Resolved Wake Plan",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            modifier = Modifier.padding(top = 6.dp),
+            text = "Read-only projection of the immutable strategy this wake would use. Private morning context is intentionally withheld.",
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.QuietText,
+        )
+        Text(
+            modifier = Modifier.padding(top = 8.dp),
+            text = "Character ${plan.characterId.value} · style ${plan.voiceStyle.name.lowercase()} · voice ${yesNo(voiceCheckInEnabled)}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = "Directness ${plan.expressionProfile.directness.name.lowercase()} · verbosity ${plan.expressionProfile.verbosity.name.lowercase()} · social ${plan.expressionProfile.socialEnergy.name.lowercase()}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = "Motivation ${plan.expressionProfile.motivationFrame.name.lowercase()} · humor ${plan.expressionProfile.humorLevel.name.lowercase()} · pacing ${plan.expressionProfile.responsePacing.name.lowercase()}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            modifier = Modifier.padding(top = 4.dp),
+            text = "Listen ${plan.conversationPacing.listenTimeout.seconds}s · re-engage ${plan.conversationPacing.idleReengageDelay.seconds}s · turn ${plan.conversationPacing.preferredTurnLength.name.lowercase()} · activation ${plan.wakePolicy.activationThreshold}",
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -582,12 +651,21 @@ private fun TimingFacts(number: Int, timing: TimingSnapshot) {
         color = MaterialTheme.colorScheme.secondary,
     )
     if (timing.events.isNotEmpty()) {
-        Text(
-            modifier = Modifier.padding(top = 3.dp),
-            text = timing.events.takeLast(5).joinToString(" → ") { it.type },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
+        timing.events.takeLast(12).forEach { event ->
+            Text(
+                modifier = Modifier.padding(top = 3.dp),
+                text = buildString {
+                    append("• ")
+                    append(event.type)
+                    event.detail?.takeIf { it.isNotBlank() }?.let { detail ->
+                        append(" · ")
+                        append(detail)
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
     }
 }
 
@@ -610,6 +688,12 @@ private fun startImmediateWakeTest(
     val occurrence = requireNotNull(kernel.health(schedule.id)?.nextOccurrence) {
         "Immediate test occurrence was not created"
     }
+
+    WakeTimingTrace(context).expected(
+        occurrence = occurrence,
+        scenario = WakeTimingTrace.SCENARIO_INSTANT_FUNCTIONAL_TEST,
+        expectFullScreen = false,
+    )
 
     // The temporary schedule only seeds the same durable state consumed by the real wake runtime.
     // Its future AlarmManager registration is removed before activation so the test cannot ring

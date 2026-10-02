@@ -19,6 +19,7 @@ import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.voice.AlarmOnlyWakeSessionController
 import com.wakemyway.app.voice.WakeRuntimeTransitionObserver
 import com.wakemyway.app.voice.WakeSessionController
+import com.wakemyway.app.voice.WakeVoiceMode
 import com.wakemyway.app.voice.WakeVoiceSessionController
 import com.wakemyway.app.voice.WakeVoiceUiState
 import com.wakemyway.core.alarm.AlarmDefinition
@@ -45,6 +46,18 @@ typealias WakeSessionControllerFactory = (
     onCompleted: () -> Unit,
 ) -> WakeSessionController
 
+enum class WakeTerminalUiState {
+    IDLE,
+    COMMITTING,
+    STOP_FAILED,
+    SNOOZE_FAILED,
+}
+
+private enum class WakeTerminalRequest {
+    STOP,
+    SNOOZE,
+}
+
 /**
  * Retained owner for one behavioral Wake Session.
  *
@@ -58,13 +71,17 @@ class WakeSessionViewModel internal constructor(
     private val requestStopExecution: () -> Boolean = { false },
     private val requestSnoozeExecution: () -> Boolean = { false },
 ) : ViewModel() {
-    var voiceState by mutableStateOf(WakeVoiceUiState())
+    var voiceState by mutableStateOf(WakeVoiceUiState(mode = WakeVoiceMode.STARTING))
         private set
 
     var completed by mutableStateOf(false)
         private set
 
+    var terminalUiState by mutableStateOf(WakeTerminalUiState.IDLE)
+        private set
+
     private var terminal = false
+    private var terminalRequestInFlight = false
     private val controller = controllerFactory(
         { state -> voiceState = state },
         {
@@ -85,9 +102,9 @@ class WakeSessionViewModel internal constructor(
         if (!terminal) controller.confirmOrientation()
     }
 
-    fun requestStop(): Boolean = requestTerminal(requestStopExecution)
+    fun requestStop(): Boolean = requestTerminal(WakeTerminalRequest.STOP, requestStopExecution)
 
-    fun requestSnooze(): Boolean = requestTerminal(requestSnoozeExecution)
+    fun requestSnooze(): Boolean = requestTerminal(WakeTerminalRequest.SNOOZE, requestSnoozeExecution)
 
     /** Kept for lifecycle tests and non-UI terminal hand-offs. Prefer requestStop/requestSnooze. */
     fun closeForTerminalAction() {
@@ -96,15 +113,28 @@ class WakeSessionViewModel internal constructor(
         controller.closeForTerminalAction()
     }
 
-    private fun requestTerminal(command: () -> Boolean): Boolean {
-        if (terminal) return false
+    private fun requestTerminal(
+        request: WakeTerminalRequest,
+        command: () -> Boolean,
+    ): Boolean {
+        if (terminal || terminalRequestInFlight) return false
 
         // Do not release the Wake Surface merely because a command was queued. Stop/Snooze is
         // terminal only after AlarmKernel has committed the durable transition. A failed Snooze
         // replacement therefore leaves the current audible/controllable wake intact.
+        terminalRequestInFlight = true
+        terminalUiState = WakeTerminalUiState.COMMITTING
         val committed = runCatching(command).getOrDefault(false)
-        if (!committed) return false
+        terminalRequestInFlight = false
+        if (!committed) {
+            terminalUiState = when (request) {
+                WakeTerminalRequest.STOP -> WakeTerminalUiState.STOP_FAILED
+                WakeTerminalRequest.SNOOZE -> WakeTerminalUiState.SNOOZE_FAILED
+            }
+            return false
+        }
 
+        terminalUiState = WakeTerminalUiState.IDLE
         terminal = true
         controller.closeForTerminalAction()
         completed = true
@@ -125,9 +155,12 @@ class WakeSessionViewModel internal constructor(
             val kernel = AlarmKernel(appContext)
             val policy = kernel.activePolicy(occurrenceId) ?: CriticalWakePolicy.DEFAULT
             val activeOccurrence = kernel.activeOccurrence()?.takeIf { it.id == occurrenceId }
-            val historyRecorder = activeOccurrence?.let { occurrence ->
-                WakeHistorySessionRecorder(appContext, occurrence)
-            }
+            val sessionMode = activeOccurrence
+                ?.let { occurrence -> wakeSessionMode(occurrence.wakeScheduleId) }
+                ?: WakeSessionMode.NORMAL
+            val historyRecorder = activeOccurrence
+                ?.takeIf { shouldRecordWakeHistory(sessionMode) }
+                ?.let { occurrence -> WakeHistorySessionRecorder(appContext, occurrence) }
             val learnedPolicy = WakeLearningRepository(appContext).resolvePolicy()
             val consumerPreferences = ConsumerPreferencesRepository(appContext).get()
             val alarmDefinition = activeOccurrence
