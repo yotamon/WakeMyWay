@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmScheduleHealth
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.product.AppAppearance
@@ -13,6 +14,7 @@ import com.wakemyway.app.product.ConsumerPreferences
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.alarms.AlarmMutationResult
 import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.home.TonightScreen
 import com.wakemyway.app.ui.home.TonightUiState
@@ -173,9 +175,11 @@ class ProductVisualRegressionTest {
                 AlarmsScreen(
                     alarms = listOf(ready, attention, disabled),
                     healthFor = { alarm -> health[alarm.id] },
+                    systemHealth = visualSystemHealth(),
                     onAddAlarm = {},
                     onEditAlarm = {},
-                    onSetEnabled = { _, _ -> },
+                    onSetEnabled = { _, _ -> AlarmMutationResult(succeeded = true) },
+                    onRepairWakeSystem = {},
                 )
             }
         }
@@ -209,9 +213,11 @@ class ProductVisualRegressionTest {
                         AlarmsScreen(
                             alarms = listOf(ready, disabled),
                             healthFor = { alarm -> visualHealth(alarm, ready = alarm.enabled) },
+                            systemHealth = visualSystemHealth(),
                             onAddAlarm = {},
                             onEditAlarm = {},
-                            onSetEnabled = { _, _ -> },
+                            onSetEnabled = { _, _ -> AlarmMutationResult(succeeded = true) },
+                            onRepairWakeSystem = {},
                             modifier = contentModifier,
                         )
                     }
@@ -517,6 +523,17 @@ class ProductVisualRegressionTest {
         revision = 3,
         createdAt = VISUAL_INSTANT,
         updatedAt = VISUAL_INSTANT,
+    )
+
+    private fun visualSystemHealth() = AlarmHealth(
+        ready = true,
+        exactAlarmAllowed = true,
+        notificationsAllowed = true,
+        notificationChannelHighImportance = true,
+        fullScreenIntentAllowed = true,
+        nextOccurrence = null,
+        activeOccurrence = null,
+        detail = "visual",
     )
 
     private fun visualHealth(

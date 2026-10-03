@@ -10,7 +10,7 @@
 
 ## Why this exists
 
-Wake My Way already has a strong single-character implementation: Alfred can render every Wake Runtime speech intent locally, Android TTS provides an offline fallback, and Direct builds can enrich the same deterministic wake flow with OpenAI Realtime.
+Wake My Way already has a strong single-character implementation: Alfred has a deterministic curated renderer for diagnostics/history, while current consumer wake behavior uses Direct Realtime as optional enrichment over the local alarm and degrades to alarm-only on Realtime failure.
 
 The next product opportunity is not a generic voice picker. It is a small cast of clearly differentiated wake companions so a user can choose **who they want waking them up**, while preserving the product's core promise:
 
@@ -25,7 +25,7 @@ Today:
 - `AlarmDefinition` already persists a `characterId` per alarm.
 - The only supported product character is Alfred.
 - `AlfredCharacter` is a deterministic curated renderer in `:wake-core`.
-- `WakeVoiceSessionController` is still hard-wired to `AlfredCharacter` for local rendering, local voice locale and speaker configuration.
+- Alfred's local curated/TTS path remains available for diagnostics and historical implementation coverage, but it is not the current consumer production fallback after Realtime failure.
 - Direct Realtime is also hard-wired to an Alfred system prompt.
 - `VoiceStyle` is already separate from Character and supports `DEFAULT`, `MOTIVATIONAL` and `MINIMAL`.
 - Critical alarm delivery remains independent of Character, local TTS and Realtime.
@@ -83,8 +83,8 @@ The smallest coherent experience is:
    - a selected state.
 5. Selecting a character updates only that Alarm Definition.
 6. The chosen character is resolved once at Wake Session start and remains immutable for that session.
-7. If cloud Realtime is unavailable, the same character continues through its local curated renderer when local TTS is available.
-8. If all voice capabilities fail, the critical alarm remains fully functional.
+7. If cloud Realtime is unavailable or fails, that occurrence continues alarm-only; character continuity does not override the production degradation policy.
+8. If all voice capabilities fail, the critical local alarm remains fully functional.
 
 Character selection should not be mandatory during first-run onboarding. New alarms continue to default to Alfred. This keeps first-alarm creation simple and avoids forcing a personality decision before the user has experienced the product.
 

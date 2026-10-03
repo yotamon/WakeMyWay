@@ -229,7 +229,13 @@ Timeline should use canonical phases/inputs/directives, for example:
 later          — calibration: ReturnedToBed / GotUp / skipped
 ```
 
-Replay stored typed session timelines through Wake Runtime.
+Wake Lab's **Test Wake Now** path should exercise the real Alarm Kernel, playback service, WakeActivity, WakeRuntime and optional Realtime adapters without becoming user evidence. Schedules with the reserved `lab-` prefix are TEST sessions: they remain fully diagnostic but must not create Wake History, trigger Wake Learning refresh or schedule a Morning Safety Check.
+
+The lab also exposes the read-only **Resolved Wake Plan** so developers can verify how current preferences, learned policy and alarm policy resolve before a wake. It must never render private Tomorrow Contract text.
+
+The local Wake Session Inspector extends the delivery timeline with bounded semantic events such as Realtime connecting/ready/speaking/listening/degraded and WakeRuntime phase changes. Event storage accepts typed categories only, never transcript text, prompts, labels or user-entered wake context.
+
+Replay stored typed session timelines through Wake Runtime where replay support exists; physical timing evidence remains separate from behavioral replay.
 
 ## Wake Learning v0 tests
 

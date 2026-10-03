@@ -22,7 +22,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -34,7 +39,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.wakemyway.app.alarm.AlarmHealth
+import com.wakemyway.app.alarm.AlarmReadinessState
+import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.AlarmScheduleHealth
+import com.wakemyway.app.alarm.projectAlarmReadiness
+import com.wakemyway.app.alarm.shouldOfferRepair
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwPageHeader
 import com.wakemyway.app.ui.components.WmwCircadianStage
@@ -50,13 +60,20 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
+data class AlarmMutationResult(
+    val succeeded: Boolean,
+    val detail: String? = null,
+)
+
 @Composable
 fun AlarmsScreen(
     alarms: List<AlarmDefinition>,
     healthFor: (AlarmDefinition) -> AlarmScheduleHealth?,
+    systemHealth: AlarmHealth,
     onAddAlarm: () -> Unit,
     onEditAlarm: (AlarmDefinition) -> Unit,
-    onSetEnabled: (AlarmDefinition, Boolean) -> Unit,
+    onSetEnabled: (AlarmDefinition, Boolean) -> AlarmMutationResult,
+    onRepairWakeSystem: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val configuration = LocalConfiguration.current
@@ -90,9 +107,11 @@ fun AlarmsScreen(
                         AlarmCard(
                             alarm = alarm,
                             health = healthFor(alarm),
+                            systemHealth = systemHealth,
                             locale = locale,
                             onClick = { onEditAlarm(alarm) },
                             onSetEnabled = { enabled -> onSetEnabled(alarm, enabled) },
+                            onRepairWakeSystem = onRepairWakeSystem,
                         )
                     }
                 }
@@ -105,11 +124,15 @@ fun AlarmsScreen(
 private fun AlarmCard(
     alarm: AlarmDefinition,
     health: AlarmScheduleHealth?,
+    systemHealth: AlarmHealth,
     locale: Locale,
     onClick: () -> Unit,
-    onSetEnabled: (Boolean) -> Unit,
+    onSetEnabled: (Boolean) -> AlarmMutationResult,
+    onRepairWakeSystem: () -> Unit,
 ) {
     val accessibleLabel = alarm.label.ifBlank { "Wake up" }
+    val readiness = projectAlarmReadiness(alarm.enabled, health, systemHealth)
+    var mutationError by remember(alarm.id, alarm.revision) { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -145,7 +168,13 @@ private fun AlarmCard(
                 modifier = Modifier.semantics {
                     contentDescription = "Enable $accessibleLabel alarm"
                 },
-                onCheckedChange = onSetEnabled,
+                onCheckedChange = { enabled ->
+                    mutationError = null
+                    val result = onSetEnabled(enabled)
+                    if (!result.succeeded) {
+                        mutationError = result.detail ?: "Could not update this alarm."
+                    }
+                },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = WmwColors.Midnight,
                     checkedTrackColor = WmwColors.Sunrise,
@@ -167,11 +196,37 @@ private fun AlarmCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = WmwColors.LightQuietText,
             )
-            when {
-                !alarm.enabled -> WmwInlineStatus("Off", positive = false)
-                health?.ready == true -> WmwInlineStatus("Ready", positive = true)
-                else -> WmwInlineStatus("Needs attention", positive = false)
+            when (readiness.state) {
+                AlarmReadinessState.OFF -> WmwInlineStatus("Off", positive = false)
+                AlarmReadinessState.READY -> WmwInlineStatus("Ready", positive = true)
+                AlarmReadinessState.NEEDS_ATTENTION -> WmwInlineStatus("Needs attention", positive = false)
             }
+        }
+
+        if (readiness.state == AlarmReadinessState.NEEDS_ATTENTION) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = readiness.repairTarget.consumerDetail(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.LightQuietText,
+                )
+                if (readiness.shouldOfferRepair()) {
+                    TextButton(onClick = onRepairWakeSystem) { Text("Fix") }
+                }
+            }
+        }
+
+        mutationError?.let { detail ->
+            Text(
+                text = detail,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.DangerText,
+            )
         }
 
         Surface(
@@ -265,6 +320,14 @@ private fun EmptyAlarmState(onAddAlarm: () -> Unit) {
             }
         }
     }
+}
+
+private fun AlarmRepairTarget.consumerDetail(): String = when (this) {
+    AlarmRepairTarget.EXACT_ALARM -> "Exact alarm access is off."
+    AlarmRepairTarget.NOTIFICATIONS -> "Notifications are off."
+    AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> "The alarm notification channel needs attention."
+    AlarmRepairTarget.FULL_SCREEN_INTENT -> "Full-screen alarm access is off."
+    AlarmRepairTarget.NONE -> "WakeMyWay needs to repair this schedule."
 }
 
 private fun scheduleSummary(

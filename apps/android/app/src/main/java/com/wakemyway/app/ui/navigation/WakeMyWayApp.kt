@@ -24,6 +24,9 @@ import com.wakemyway.app.R
 import com.wakemyway.app.WakeSchedulingBlocker
 import com.wakemyway.app.alarm.AlarmHealth
 import com.wakemyway.app.alarm.AlarmKernel
+import com.wakemyway.app.alarm.AlarmReadinessState
+import com.wakemyway.app.alarm.AlarmScheduleHealth
+import com.wakemyway.app.alarm.projectAlarmReadiness
 import com.wakemyway.app.alarm.AlarmRepairTarget
 import com.wakemyway.app.alarm.futureSchedulingRepairTarget
 import com.wakemyway.app.alarm.repairTarget
@@ -49,6 +52,7 @@ import com.wakemyway.app.product.learning.WakeLearningRepository
 import com.wakemyway.app.ui.alarms.AlarmEditorDefaults
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.alarms.AlarmMutationResult
 import com.wakemyway.app.ui.alarms.AlarmsScreen
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
@@ -194,6 +198,15 @@ fun WakeMyWayApp(
         alarms = alarmController.list()
     }
 
+    fun repairWakeSystemOrReconcile() {
+        val currentHealth = alarmKernel.health()
+        if (currentHealth.futureSchedulingRepairTarget() == AlarmRepairTarget.NONE) {
+            refreshProductState(reconcile = true)
+        } else {
+            onRepairWakeSystem()
+        }
+    }
+
     fun refreshWakeHistory() {
         wakeHistory = historyRepository.list()
         wakeLearning = learningRepository.state()
@@ -321,9 +334,7 @@ fun WakeMyWayApp(
                     val nextAlarm = occurrence?.let { next ->
                         alarms.firstOrNull { it.id.value == next.wakeScheduleId.value }
                     }
-                    val nextAlarmReady = nextAlarm
-                        ?.let { alarmController.health(it.id)?.ready }
-                        ?: alarmHealth.ready
+                    val nextAlarmHealth = nextAlarm?.let { alarmController.health(it.id) }
                     val hasMorningCheckIn = remember(wakeHistory) {
                         WakeInsightsProjector.project(
                             entries = wakeHistory,
@@ -340,7 +351,7 @@ fun WakeMyWayApp(
                                 context = context,
                                 preparation = preparation,
                                 alarm = nextAlarm,
-                                nextAlarmReady = nextAlarmReady,
+                                nextAlarmHealth = nextAlarmHealth,
                             ),
                             onOpenWakeSetup = {
                                 backStack.add(AlarmEditorRoute(nextAlarm?.id?.value))
@@ -360,7 +371,7 @@ fun WakeMyWayApp(
                             showWakeLab = showWakeLab,
                             voiceWakeReadiness = voiceWakeReadiness,
                             onEnableVoiceReplies = onEnableVoiceReplies,
-                            onRepairWakeSystem = onRepairWakeSystem,
+                            onRepairWakeSystem = ::repairWakeSystemOrReconcile,
                             hasMorningCheckIn = hasMorningCheckIn,
                             onOpenMorningCheckIn = { navigateTop(ConsumerTab.INSIGHTS) },
                         )
@@ -375,6 +386,7 @@ fun WakeMyWayApp(
                         AlarmsScreen(
                             alarms = alarms,
                             healthFor = { alarm -> alarmController.health(alarm.id) },
+                            systemHealth = alarmHealth,
                             onAddAlarm = { backStack.add(AlarmEditorRoute()) },
                             onEditAlarm = { alarm -> backStack.add(AlarmEditorRoute(alarm.id.value)) },
                             onSetEnabled = { alarm, enabled ->
@@ -384,21 +396,33 @@ fun WakeMyWayApp(
                                     updatedAt = java.time.Instant.now(),
                                 )
                                 val blocked = if (enabled) preflight(target) else null
-                                if (blocked == null) {
+                                if (blocked != null) {
+                                    AlarmMutationResult(succeeded = false, detail = blocked.detail)
+                                } else {
                                     val previous = alarmController.health(alarm.id)?.nextOccurrence
                                     runCatching { alarmController.setEnabled(alarm.id, enabled) }
-                                        .onSuccess {
-                                            if (!enabled && previous != null) {
-                                                runCatching {
-                                                    if (preparationManager.snapshotFor(previous.id)?.contract != null) {
-                                                        preparationManager.clear()
+                                        .fold(
+                                            onSuccess = {
+                                                if (!enabled && previous != null) {
+                                                    runCatching {
+                                                        if (preparationManager.snapshotFor(previous.id).contract != null) {
+                                                            preparationManager.clear()
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            refreshProductState(reconcile = false)
-                                        }
+                                                refreshProductState(reconcile = false)
+                                                AlarmMutationResult(succeeded = true)
+                                            },
+                                            onFailure = { error ->
+                                                AlarmMutationResult(
+                                                    succeeded = false,
+                                                    detail = error.message ?: "Could not update this alarm.",
+                                                )
+                                            },
+                                        )
                                 }
                             },
+                            onRepairWakeSystem = ::repairWakeSystemOrReconcile,
                             modifier = contentModifier,
                         )
                     }
@@ -571,7 +595,7 @@ fun WakeMyWayApp(
                                             if (definition.tomorrowContractMode == TomorrowContractMode.DISABLED) {
                                                 runCatching {
                                                     if (newOccurrence != null &&
-                                                        preparationManager.snapshotFor(newOccurrence.id)?.contract != null
+                                                        preparationManager.snapshotFor(newOccurrence.id).contract != null
                                                     ) {
                                                         preparationManager.clear()
                                                     }
@@ -594,7 +618,7 @@ fun WakeMyWayApp(
                                         onSuccess = {
                                             if (previousOccurrence != null) {
                                                 runCatching {
-                                                    if (preparationManager.snapshotFor(previousOccurrence.id)?.contract != null) {
+                                                    if (preparationManager.snapshotFor(previousOccurrence.id).contract != null) {
                                                         preparationManager.clear()
                                                     }
                                                 }
@@ -693,13 +717,19 @@ private fun AlarmHealth.toTonightUiState(
     context: Context,
     preparation: WakePreparationSnapshot?,
     alarm: AlarmDefinition?,
-    nextAlarmReady: Boolean,
+    nextAlarmHealth: AlarmScheduleHealth?,
 ): TonightUiState {
     val occurrence = nextOccurrence
     val locale = Locale.getDefault()
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMM", locale)
-    val target = if (occurrence != null && !nextAlarmReady) repairTarget() else AlarmRepairTarget.NONE
+    val readiness = projectAlarmReadiness(
+        enabled = alarm?.enabled ?: (occurrence != null),
+        scheduleHealth = nextAlarmHealth,
+        systemHealth = this,
+    )
+    val nextAlarmReady = readiness.state == AlarmReadinessState.READY
+    val target = if (occurrence != null) readiness.repairTarget else AlarmRepairTarget.NONE
     val readinessCopy = when {
         occurrence == null -> context.getString(R.string.tonight_readiness_empty)
         nextAlarmReady -> context.getString(R.string.tonight_readiness_ready)
@@ -714,7 +744,11 @@ private fun AlarmHealth.toTonightUiState(
         AlarmRepairTarget.NOTIFICATIONS -> context.getString(R.string.tonight_repair_notifications)
         AlarmRepairTarget.ACTIVE_WAKE_CHANNEL -> context.getString(R.string.tonight_repair_channel)
         AlarmRepairTarget.FULL_SCREEN_INTENT -> context.getString(R.string.tonight_repair_full_screen)
-        AlarmRepairTarget.NONE -> null
+        AlarmRepairTarget.NONE -> if (occurrence != null && !nextAlarmReady) {
+            context.getString(R.string.tonight_repair_schedule)
+        } else {
+            null
+        }
     }
     val contractMode = alarm?.tomorrowContractMode ?: TomorrowContractMode.DISABLED
 

@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -109,6 +110,7 @@ class WakeActivity : ComponentActivity() {
 
         setContent {
             val voiceState = viewModel.voiceState
+            val terminalUiState = viewModel.terminalUiState
             val completed = viewModel.completed
 
             LaunchedEffect(completed) {
@@ -116,20 +118,29 @@ class WakeActivity : ComponentActivity() {
             }
 
             WakeMyWayTheme {
-                WakeSurface(
-                    preparedPlan = preparedPlan,
-                    defaultFirstMove = defaultFirstMove,
-                    onSnooze = if (wakePolicy.snoozeEnabled) {
-                        { viewModel.requestSnooze() }
-                    } else {
-                        null
-                    },
-                    onStop = { viewModel.requestStop() },
-                    onFirstMoveConfirmed = { viewModel.confirmFirstMove() },
-                    voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
-                    snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
-                    voiceState = voiceState,
-                )
+                Box(Modifier.fillMaxSize()) {
+                    WakeSurface(
+                        preparedPlan = preparedPlan,
+                        defaultFirstMove = defaultFirstMove,
+                        onSnooze = if (wakePolicy.snoozeEnabled) {
+                            { viewModel.requestSnooze() }
+                        } else {
+                            null
+                        },
+                        onStop = { viewModel.requestStop() },
+                        onFirstMoveConfirmed = { viewModel.confirmFirstMove() },
+                        voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
+                        snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
+                        voiceState = voiceState,
+                    )
+                    WakeTerminalFeedback(
+                        state = terminalUiState,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
+                    )
+                }
             }
         }
 
@@ -272,7 +283,6 @@ internal fun WakeSurface(
         null,
         WakeVoiceMode.STARTING,
         WakeVoiceMode.SPEAKING,
-        WakeVoiceMode.DEGRADED,
         -> EmergingWakeSurface(
             preparedPlan = preparedPlan,
             spokenLine = voiceState?.spokenLine,
@@ -319,6 +329,35 @@ internal fun WakeSurface(
             displayTime = displayTime,
             onStop = onStop,
             modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun WakeTerminalFeedback(
+    state: WakeTerminalUiState,
+    modifier: Modifier = Modifier,
+) {
+    val message = when (state) {
+        WakeTerminalUiState.STOP_FAILED -> "Could not stop safely. Your alarm is still active."
+        WakeTerminalUiState.SNOOZE_FAILED -> "Snooze could not be scheduled. Your alarm is still active."
+        WakeTerminalUiState.IDLE,
+        WakeTerminalUiState.COMMITTING,
+        -> null
+    } ?: return
+
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = WmwColors.Midnight,
+        shadowElevation = 4.dp,
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
+            style = MaterialTheme.typography.bodyMedium,
+            color = WmwColors.WarmLight,
+            textAlign = TextAlign.Center,
         )
     }
 }

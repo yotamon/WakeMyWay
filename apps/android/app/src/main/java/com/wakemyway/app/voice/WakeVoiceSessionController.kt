@@ -5,6 +5,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.wakemyway.app.alarm.AlarmPlaybackService
+import com.wakemyway.app.alarm.WakeInteractiveDiagnosticEvent
+import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalReason
 import com.wakemyway.app.motion.AndroidMotionObserver
@@ -49,6 +51,7 @@ class WakeVoiceSessionController(
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
+    private val timingTrace = WakeTimingTrace(appContext)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val sessionPlan: WakeSessionPlan = WakeSessionStrategyResolver.resolve(
         preferences = wakePreferences,
@@ -83,6 +86,7 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed) return@post
                     if (alarmOnly) return@post
+                    timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_READY)
                     conversationLive = true
                     mainHandler.removeCallbacks(startFallback)
                     when {
@@ -96,6 +100,7 @@ class WakeVoiceSessionController(
             override fun onAssistantSpeechStarted() {
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight) return@post
+                    timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING)
                     speaking = true
                     listening = false
                     mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
@@ -142,6 +147,7 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed || alarmOnly || !started || !surfaceVisible) return@post
                     mainHandler.removeCallbacks(realtimeSilenceTimeout)
+                    timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_LISTENING)
                     listening = true
                     mode = WakeVoiceMode.LISTENING
                     AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
@@ -175,7 +181,7 @@ class WakeVoiceSessionController(
             override fun onConversationFailure(stage: String) {
                 mainHandler.post {
                     if (closed || alarmOnly) return@post
-                    enterAlarmOnly()
+                    enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
                 }
             }
         },
@@ -196,12 +202,13 @@ class WakeVoiceSessionController(
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
     private var alarmOnly = false
+    private var degradationReason: WakeVoiceDegradationReason? = null
     private var realtimeTurnInFlight = false
     private var realtimeIntent: SpeechIntent? = null
 
     private val startFallback = Runnable {
         if (!started && startRequested && !closed && !alarmOnly) {
-            enterAlarmOnly()
+            enterAlarmOnly(WakeVoiceDegradationReason.STARTUP_TIMEOUT)
         }
     }
     private val silenceWatchdog = Runnable {
@@ -242,12 +249,13 @@ class WakeVoiceSessionController(
 
         if (!startRequested) {
             startRequested = true
+            timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_CONNECTING)
             publish()
             if (conversation != null) {
                 conversation.connect()
                 mainHandler.postDelayed(startFallback, REALTIME_START_BUDGET_MILLIS)
             } else {
-                enterAlarmOnly()
+                enterAlarmOnly(WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE)
             }
         } else if (!alarmOnly) {
             conversation?.connect()
@@ -323,6 +331,9 @@ class WakeVoiceSessionController(
 
         val transition = runtimeObservation.reduce(snapshot, input)
         if (!transition.inputApplied) return
+        if (transition.snapshot.phase != snapshot.phase) {
+            timingTrace.interactive(occurrenceId, transition.snapshot.phase.toDiagnosticEvent())
+        }
         snapshot = transition.snapshot
         updateModeFromSnapshot()
         publish()
@@ -377,7 +388,7 @@ class WakeVoiceSessionController(
         stopListening()
         val liveConversation = conversation?.takeIf { conversationLive && it.ready }
         if (liveConversation == null) {
-            enterAlarmOnly()
+            enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
             return
         }
 
@@ -396,7 +407,7 @@ class WakeVoiceSessionController(
         publish()
 
         if (!liveConversation.respond(WakeSpeechRequest(intent, sessionPlan))) {
-            enterAlarmOnly()
+            enterAlarmOnly(WakeVoiceDegradationReason.TURN_FAILURE)
         }
     }
 
@@ -435,7 +446,7 @@ class WakeVoiceSessionController(
             return
         }
 
-        enterAlarmOnly()
+        enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
     }
 
     private fun stopListening() {
@@ -513,14 +524,11 @@ class WakeVoiceSessionController(
     private fun publish() {
         if (alarmOnly || !started) {
             onUiState(
-                WakeVoiceUiState(
-                    mode = WakeVoiceMode.ALARM_ONLY,
-                    phase = WakePhase.ALERTING,
-                    activationScore = 0,
+                projectPreRuntimeWakeVoiceState(
+                    startRequested = startRequested,
+                    alarmOnly = alarmOnly,
+                    degradationReason = degradationReason,
                     activationThreshold = policy.activationThreshold,
-                    speechAvailable = false,
-                    voiceInputAvailable = false,
-                    conversational = false,
                 ),
             )
             return
@@ -560,9 +568,11 @@ class WakeVoiceSessionController(
         }
     }
 
-    private fun enterAlarmOnly() {
+    private fun enterAlarmOnly(reason: WakeVoiceDegradationReason) {
         if (closed || alarmOnly) return
         alarmOnly = true
+        degradationReason = reason
+        timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_DEGRADED)
         conversationLive = false
         voiceResponseRequested = false
         motionObservationRequested = false
@@ -592,6 +602,14 @@ class WakeVoiceSessionController(
     }
 }
 
+private fun WakePhase.toDiagnosticEvent(): WakeInteractiveDiagnosticEvent = when (this) {
+    WakePhase.ALERTING -> WakeInteractiveDiagnosticEvent.RUNTIME_ALERTING
+    WakePhase.ENGAGING -> WakeInteractiveDiagnosticEvent.RUNTIME_ENGAGING
+    WakePhase.ACTIVATING -> WakeInteractiveDiagnosticEvent.RUNTIME_ACTIVATING
+    WakePhase.ORIENTING -> WakeInteractiveDiagnosticEvent.RUNTIME_ORIENTING
+    WakePhase.FINISHED -> WakeInteractiveDiagnosticEvent.RUNTIME_FINISHED
+}
+
 enum class WakeVoiceMode {
     ALARM_ONLY,
     STARTING,
@@ -599,7 +617,6 @@ enum class WakeVoiceMode {
     LISTENING,
     MOVING,
     ORIENTING,
-    DEGRADED,
     COMPLETE,
 }
 
@@ -612,4 +629,5 @@ data class WakeVoiceUiState(
     val speechAvailable: Boolean = false,
     val voiceInputAvailable: Boolean = false,
     val conversational: Boolean = false,
+    val degradationReason: WakeVoiceDegradationReason? = null,
 )

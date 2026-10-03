@@ -32,6 +32,33 @@ enum class AlarmRepairTarget {
     NONE,
 }
 
+enum class AlarmReadinessState {
+    OFF,
+    READY,
+    NEEDS_ATTENTION,
+}
+
+data class AlarmReadinessProjection(
+    val state: AlarmReadinessState,
+    val repairTarget: AlarmRepairTarget,
+)
+
+fun AlarmReadinessProjection.shouldOfferRepair(): Boolean =
+    state == AlarmReadinessState.NEEDS_ATTENTION
+
+fun projectAlarmReadiness(
+    enabled: Boolean,
+    scheduleHealth: AlarmScheduleHealth?,
+    systemHealth: AlarmHealth,
+): AlarmReadinessProjection = when {
+    !enabled -> AlarmReadinessProjection(AlarmReadinessState.OFF, AlarmRepairTarget.NONE)
+    scheduleHealth?.ready == true -> AlarmReadinessProjection(AlarmReadinessState.READY, AlarmRepairTarget.NONE)
+    else -> AlarmReadinessProjection(
+        state = AlarmReadinessState.NEEDS_ATTENTION,
+        repairTarget = systemHealth.futureSchedulingRepairTarget(),
+    )
+}
+
 fun AlarmHealth.repairTarget(): AlarmRepairTarget = when {
     activeOccurrence != null -> activeWakeRepairTarget()
     !exactAlarmAllowed -> AlarmRepairTarget.EXACT_ALARM

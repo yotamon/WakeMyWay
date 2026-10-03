@@ -37,11 +37,12 @@
     <string name="tonight_readiness_notifications">Allow alarm notifications so an active wake always exposes visible Stop and Snooze controls.</string>
     <string name="tonight_readiness_channel">Active wake alerts are not high priority. Android requires a high-priority alarm channel for the wake screen to appear reliably.</string>
     <string name="tonight_readiness_full_screen">Allow full-screen alarms so WakeMyWay can open the wake screen when your phone is locked.</string>
-    <string name="tonight_readiness_reconcile">The wake schedule needs repair before tomorrow. Reopen WakeMyWay to reconcile it.</string>
+    <string name="tonight_readiness_reconcile">The wake schedule needs repair before tomorrow. WakeMyWay can reconcile it locally.</string>
     <string name="tonight_repair_alarm_access">Review alarm access</string>
     <string name="tonight_repair_notifications">Allow alarm notifications</string>
     <string name="tonight_repair_channel">Enable high-priority alerts</string>
     <string name="tonight_repair_full_screen">Allow full-screen alarms</string>
+    <string name="tonight_repair_schedule">Repair wake schedule</string>
     <string name="tonight_set_wake">Set wake time</string>
     <string name="tonight_edit_wake">Edit tomorrow</string>
     <string name="tonight_open_lab">Open Wake Lab</string>
