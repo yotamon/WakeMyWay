@@ -9,6 +9,26 @@ enum class WakeVoiceDegradationReason {
     TURN_FAILURE,
 }
 
+internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDegradationReason =
+    when (stage) {
+        "credential",
+        "webrtc-init",
+        "offer",
+        "local-sdp",
+        "sdp-exchange",
+        "remote-sdp",
+        "ice",
+        "peer",
+        "transport-disconnected",
+        "data-channel-closed",
+        -> WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE
+
+        "turn-budget",
+        -> WakeVoiceDegradationReason.TURN_FAILURE
+
+        else -> WakeVoiceDegradationReason.SESSION_FAILURE
+    }
+
 internal fun projectPreRuntimeWakeVoiceState(
     startRequested: Boolean,
     alarmOnly: Boolean,
