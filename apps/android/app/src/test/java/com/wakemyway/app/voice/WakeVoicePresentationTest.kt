@@ -34,4 +34,36 @@ class WakeVoicePresentationTest {
         assertEquals(WakeVoiceDegradationReason.STARTUP_TIMEOUT, state.degradationReason)
         assertEquals(4, state.activationThreshold)
     }
+    @Test
+    fun `transport failures stay distinguishable from session failures`() {
+        assertEquals(
+            WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE,
+            degradationReasonForConversationFailure("sdp-exchange"),
+        )
+        assertEquals(
+            WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE,
+            degradationReasonForConversationFailure("transport-disconnected"),
+        )
+    }
+
+    @Test
+    fun `provider and response failures remain session failures`() {
+        assertEquals(
+            WakeVoiceDegradationReason.SESSION_FAILURE,
+            degradationReasonForConversationFailure("provider"),
+        )
+        assertEquals(
+            WakeVoiceDegradationReason.SESSION_FAILURE,
+            degradationReasonForConversationFailure("response-timeout"),
+        )
+    }
+
+    @Test
+    fun `turn budget failures map to turn failure`() {
+        assertEquals(
+            WakeVoiceDegradationReason.TURN_FAILURE,
+            degradationReasonForConversationFailure("turn-budget"),
+        )
+    }
+
 }
