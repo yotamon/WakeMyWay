@@ -166,6 +166,10 @@ class WakeTimingTrace(
                         "ui=${formatMillis(session.triggerToUiMillis)}",
                 )
                 appendLine("terminal=${session.terminalAction ?: "NONE"}; serviceRecoveries=${session.serviceRecoveryCount}")
+                appendLine(
+                    "realtime connectToReady=${formatMillis(session.realtimeConnectToReadyMillis)} " +
+                        "readyToFirstSpeech=${formatMillis(session.realtimeReadyToFirstSpeakingMillis)}",
+                )
                 appendLine("events:")
                 session.events.forEach { event ->
                     val detail = event.detail?.let { " [$it]" }.orEmpty()
@@ -436,6 +440,14 @@ data class TimingSnapshot(
     val triggerToAudioMillis: Long? = elapsedDelta(audioElapsedMillis)
     val triggerToUiMillis: Long? = elapsedDelta(uiElapsedMillis)
     val triggerToTerminalMillis: Long? = elapsedDelta(terminalElapsedMillis)
+    val realtimeConnectToReadyMillis: Long? = eventDelta(
+        WakeInteractiveDiagnosticEvent.REALTIME_CONNECTING,
+        WakeInteractiveDiagnosticEvent.REALTIME_READY,
+    )
+    val realtimeReadyToFirstSpeakingMillis: Long? = eventDelta(
+        WakeInteractiveDiagnosticEvent.REALTIME_READY,
+        WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING,
+    )
 
     fun state(
         nowWallMillis: Long = System.currentTimeMillis(),
@@ -458,6 +470,21 @@ data class TimingSnapshot(
 
     private fun elapsedDelta(stageElapsedMillis: Long?): Long? =
         receiverElapsedMillis?.let { receiver -> stageElapsedMillis?.minus(receiver) }
+
+    private fun eventDelta(
+        start: WakeInteractiveDiagnosticEvent,
+        end: WakeInteractiveDiagnosticEvent,
+    ): Long? {
+        val startIndex = events.indexOfFirst { it.type == diagnosticStorageType(start) }
+        if (startIndex < 0) return null
+        val startElapsed = events[startIndex].elapsedMillis ?: return null
+        val endElapsed = events
+            .drop(startIndex + 1)
+            .firstOrNull { it.type == diagnosticStorageType(end) }
+            ?.elapsedMillis
+            ?: return null
+        return (endElapsed - startElapsed).takeIf { it >= 0L }
+    }
 }
 
 enum class ReliabilityState {
