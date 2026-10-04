@@ -37,6 +37,40 @@ class WakeTimingTraceTest {
     }
 
     @Test
+    fun `realtime startup latencies derive from monotonic semantic events`() {
+        val snapshot = TimingSnapshot(
+            occurrenceId = "voice",
+            scheduleId = "voice-schedule",
+            occurrenceKind = "PRIMARY",
+            scenario = null,
+            expectFullScreen = false,
+            targetWallMillis = 0L,
+            expectedWallMillis = null,
+            receiverWallMillis = null,
+            receiverElapsedMillis = null,
+            foregroundWallMillis = null,
+            foregroundElapsedMillis = null,
+            audioWallMillis = null,
+            audioElapsedMillis = null,
+            uiWallMillis = null,
+            uiElapsedMillis = null,
+            terminalAction = null,
+            terminalWallMillis = null,
+            terminalElapsedMillis = null,
+            serviceRecoveryCount = 0,
+            lastRecoveryWallMillis = null,
+            events = listOf(
+                TimingEventSnapshot("REALTIME_CONNECTING", 10L, 1_000L, null),
+                TimingEventSnapshot("REALTIME_READY", 20L, 2_250L, null),
+                TimingEventSnapshot("REALTIME_SPEAKING", 30L, 2_600L, null),
+            ),
+        )
+
+        assertEquals(1_250L, snapshot.realtimeConnectToReadyMillis)
+        assertEquals(350L, snapshot.realtimeReadyToFirstSpeakingMillis)
+    }
+
+    @Test
     fun `interactive diagnostics expose only bounded semantic storage types`() {
         val stored = WakeInteractiveDiagnosticEvent.entries.map(::diagnosticStorageType)
 
@@ -47,6 +81,12 @@ class WakeTimingTraceTest {
                 "REALTIME_SPEAKING",
                 "REALTIME_LISTENING",
                 "REALTIME_DEGRADED",
+                "REALTIME_FAILURE_STARTUP_TIMEOUT",
+                "REALTIME_FAILURE_CREDENTIAL",
+                "REALTIME_FAILURE_NEGOTIATION",
+                "REALTIME_FAILURE_TRANSPORT",
+                "REALTIME_FAILURE_SESSION",
+                "REALTIME_FAILURE_TURN",
                 "RUNTIME_ALERTING",
                 "RUNTIME_ENGAGING",
                 "RUNTIME_ACTIVATING",
