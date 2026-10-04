@@ -1,5 +1,6 @@
 package com.wakemyway.app.voice
 
+import com.wakemyway.app.alarm.WakeInteractiveDiagnosticEvent
 import com.wakemyway.core.runtime.WakePhase
 import com.wakemyway.core.runtime.WakePolicy
 import org.junit.Assert.assertEquals
@@ -63,6 +64,30 @@ class WakeVoicePresentationTest {
         assertEquals(
             WakeVoiceDegradationReason.TURN_FAILURE,
             degradationReasonForConversationFailure("turn-budget"),
+        )
+    }
+
+    @Test
+    fun `realtime failure diagnostics preserve the actionable failure layer`() {
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_CREDENTIAL,
+            diagnosticEventForConversationFailure("credential"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_NEGOTIATION,
+            diagnosticEventForConversationFailure("sdp-exchange"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT,
+            diagnosticEventForConversationFailure("transport-disconnected"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_SESSION,
+            diagnosticEventForConversationFailure("response-timeout"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("turn-budget"),
         )
     }
 

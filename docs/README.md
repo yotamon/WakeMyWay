@@ -51,6 +51,7 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`42-android-release-operations.md`](42-android-release-operations.md) | **Canonical one-click Android production release procedure and failure semantics** |
 | [`43-character-system-product-plan.md`](43-character-system-product-plan.md) | **Shape-stage multi-character product, UX, architecture, compatibility and rollout plan** |
 | [`44-personalized-wake-profile-product-plan.md`](44-personalized-wake-profile-product-plan.md) | **Shape-stage explicit Wake Preferences, onboarding, session strategy composition, Realtime personalization and learning integration plan** |
+| [`45-core-experience-quality-reset.md`](45-core-experience-quality-reset.md) | **Active 1.0 core-experience reset: golden path, P0/P1 priorities, simplification rules and release stop conditions** |
 | [`31-pre-implementation-architecture-review.md`](31-pre-implementation-architecture-review.md) | Historical pre-M0 deep-module simplification review; later decisions may supersede details |
 | [`32-testing-and-deployment-topology.md`](32-testing-and-deployment-topology.md) | Canonical Wake Lab → device matrix → Play dogfood path and Vercel cloud boundary |
 | [`33-plan-hardening-review.md`](33-plan-hardening-review.md) | Historical final pre-M0 risk review; later accepted ADRs and current context supersede changed assumptions |

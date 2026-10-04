@@ -1,5 +1,6 @@
 package com.wakemyway.app.voice
 
+import com.wakemyway.app.alarm.WakeInteractiveDiagnosticEvent
 import com.wakemyway.core.runtime.WakePhase
 
 enum class WakeVoiceDegradationReason {
@@ -27,6 +28,27 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         -> WakeVoiceDegradationReason.TURN_FAILURE
 
         else -> WakeVoiceDegradationReason.SESSION_FAILURE
+    }
+
+internal fun diagnosticEventForConversationFailure(stage: String): WakeInteractiveDiagnosticEvent =
+    when (stage) {
+        "credential" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_CREDENTIAL
+
+        "webrtc-init",
+        "offer",
+        "local-sdp",
+        "sdp-exchange",
+        "remote-sdp",
+        "ice",
+        "peer",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_NEGOTIATION
+
+        "transport-disconnected",
+        "data-channel-closed",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT
+
+        "turn-budget" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
+        else -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_SESSION
     }
 
 internal fun projectPreRuntimeWakeVoiceState(

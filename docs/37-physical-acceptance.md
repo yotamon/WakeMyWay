@@ -137,7 +137,65 @@ Acceptance for the hardened fallback layers requires observing, on at least one 
 - notification Stop ends the wake and the vibration stops with it;
 - Snooze still schedules its durable replacement before the current wake ends.
 
-## 6. Evidence collection
+## 6. Realtime voice acceptance
+
+Realtime is optional enrichment, but when it is enabled the successful path must be physically convincing rather than merely connected.
+
+Use the Direct founder build with microphone permission granted and Voice readiness reporting READY. Exercise both **Test Wake Now** for fast iteration and at least one normal locked-screen scheduled wake so app-start timing is represented.
+
+For each run, retain the Wake Lab reliability report and note the observed audio route. The semantic timeline must make the startup path diagnosable:
+
+```text
+REALTIME_CONNECTING
+  ↓
+REALTIME_READY
+  ↓
+REALTIME_SPEAKING / REALTIME_LISTENING
+```
+
+If the path degrades, the report must contain a bounded failure-layer event before or alongside `REALTIME_DEGRADED`:
+
+- `REALTIME_FAILURE_STARTUP_TIMEOUT`;
+- `REALTIME_FAILURE_CREDENTIAL`;
+- `REALTIME_FAILURE_NEGOTIATION`;
+- `REALTIME_FAILURE_TRANSPORT`;
+- `REALTIME_FAILURE_SESSION`;
+- `REALTIME_FAILURE_TURN`.
+
+Do not retain provider payloads, transcripts, prompts, tokens or private Tomorrow Contract text as evidence.
+
+### Required physical observations
+
+Retain representative evidence for:
+
+1. normal phone speaker, stable network;
+2. locked-screen scheduled wake from a cold/background app state;
+3. Bluetooth route active before the wake;
+4. Bluetooth route changed during the wake;
+5. network unavailable before Realtime startup;
+6. network interrupted after the first successful turn;
+7. Activity background/foreground re-entry during a live session;
+8. several consecutive conversational turns.
+
+For successful conversational runs, record from the report:
+
+- alarm target → receiver/audio/UI timing;
+- `REALTIME_CONNECTING` → `REALTIME_READY` latency;
+- `REALTIME_READY` → first `REALTIME_SPEAKING` latency;
+- whether speaking/listening states alternate coherently;
+- whether Wake Runtime phases advance without contradictory screen/audio state.
+
+Also record the human observation that cannot be inferred from telemetry:
+
+- Alfred sounds like one stable character across turns;
+- no unexplained voice/accent/personality switch;
+- interruption feels respected;
+- the same physical instruction is not repeated after a usable reply unless the runtime intentionally re-engages;
+- the alarm remains safely audible/controllable when Realtime degrades.
+
+A failed run is not replaced by a later green run. Keep both and use the failure category to decide whether the next action is credential/broker work, WebRTC/audio-route work, session/prompt work or deterministic wake behavior work.
+
+## 7. Evidence collection
 
 After each meaningful run:
 

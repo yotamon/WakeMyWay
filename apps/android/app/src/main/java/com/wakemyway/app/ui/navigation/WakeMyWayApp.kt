@@ -250,7 +250,10 @@ fun WakeMyWayApp(
     fun completeOnboarding() {
         preferences = preferencesRepository.update { it.copy(onboardingCompleted = true) }
         backStack.clear()
+        // First value is a committed wake, not an empty dashboard. Keep Home underneath so
+        // saving or backing out of first-alarm creation lands in the normal consumer shell.
         backStack.add(HomeRoute)
+        backStack.add(AlarmEditorRoute())
     }
 
     fun navigateTop(tab: ConsumerTab) {
