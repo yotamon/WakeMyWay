@@ -211,6 +211,7 @@ This reset begins with the smallest high-confidence correction:
 
 - onboarding completion/skip now opens a new Alarm Editor immediately;
 - Home stays underneath so Back/Save returns to the normal shell;
+- Realtime degradation evidence now distinguishes startup timeout, credential, negotiation, transport, session and turn failure layers while retaining the existing consumer degradation policy;
 - no persistence, scheduling, alarm-authority or visual-regression contract changes.
 
 The next implementation slice should be selected from physical evidence, not from the size of the existing feature backlog.
