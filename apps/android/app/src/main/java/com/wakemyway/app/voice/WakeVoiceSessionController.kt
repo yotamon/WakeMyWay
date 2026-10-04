@@ -181,7 +181,7 @@ class WakeVoiceSessionController(
             override fun onConversationFailure(stage: String) {
                 mainHandler.post {
                     if (closed || alarmOnly) return@post
-                    enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
+                    enterAlarmOnly(degradationReasonForConversationFailure(stage))
                 }
             }
         },
@@ -595,10 +595,11 @@ class WakeVoiceSessionController(
         WakeInputId("${occurrenceId.value}:${inputSequence++}:$kind")
 
     private companion object {
-        // A cold Direct wake may need installation bootstrap, broker token minting and WebRTC
-        // negotiation before the first session.updated event. The alarm remains audible throughout,
-        // so give Realtime enough room to connect instead of cancelling a healthy cold start.
-        const val REALTIME_START_BUDGET_MILLIS = 8_000L
+        // A cold Direct wake may need broker token minting plus WebRTC negotiation before the
+        // first session.updated event. Each bounded network call may legitimately take up to 15s,
+        // so an 8s global budget could cancel a healthy connection before its own timeout. The
+        // alarm remains audible throughout while Realtime gets a realistic startup window.
+        const val REALTIME_START_BUDGET_MILLIS = 20_000L
     }
 }
 
