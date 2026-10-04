@@ -181,6 +181,10 @@ class WakeVoiceSessionController(
             override fun onConversationFailure(stage: String) {
                 mainHandler.post {
                     if (closed || alarmOnly) return@post
+                    timingTrace.interactive(
+                        occurrenceId,
+                        diagnosticEventForConversationFailure(stage),
+                    )
                     enterAlarmOnly(degradationReasonForConversationFailure(stage))
                 }
             }
@@ -208,6 +212,10 @@ class WakeVoiceSessionController(
 
     private val startFallback = Runnable {
         if (!started && startRequested && !closed && !alarmOnly) {
+            timingTrace.interactive(
+                occurrenceId,
+                WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT,
+            )
             enterAlarmOnly(WakeVoiceDegradationReason.STARTUP_TIMEOUT)
         }
     }
