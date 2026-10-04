@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-04
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -11,6 +11,14 @@
 **Reliability rule:** future scheduling readiness, active execution safety, voice readiness and Snooze readiness are separate predicates  
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
+
+## Core-experience quality reset
+
+WakeMyWay is now under an explicit core-experience quality reset within the existing 1.0 feature freeze. The canonical contract is `docs/45-core-experience-quality-reset.md`.
+
+The product is judged first by the complete golden path: install → understand → commit the first wake → Wake Ready → reliable alarm → coherent optional voice wake → meaningful activation → orientation → clean end. Existing peripheral capability does not outrank defects or friction in that path.
+
+The first implementation correction routes onboarding completion/skip directly into creation of the first alarm, with Home underneath for normal Back/Save behavior. PR #190's Realtime startup hardening is part of the baseline. Realtime degradation semantics remain unchanged until physical evidence justifies a separately shaped product decision.
 
 ## Current product shape
 
