@@ -150,8 +150,28 @@ class AlfredRealtimePromptTest {
         assertTrue(upperBody.contains("Do not add breathing drills"))
         assertTrue(standing.contains("only if standing is safe"))
         assertTrue(standing.contains("seated alternative"))
-        assertTrue(reengage.contains("Ask only for one clear spoken reply now"))
-        assertTrue(reengage.contains("Do not repeat sit-up"))
+        assertTrue(reengage.contains("slightly more direct", ignoreCase = true))
+        assertTrue(reengage.contains("do not use 'answer me'", ignoreCase = true))
+    }
+
+    @Test
+    fun `normal realtime turns do not demand verbal compliance`() {
+        val system = AlfredRealtimePrompt.SYSTEM.lowercase()
+        assertTrue(system.contains("user does not owe you a response"))
+        assertTrue(system.contains("normal wake turn does not need a verbal confirmation request"))
+
+        listOf(
+            SpeechIntent.InitialWake,
+            SpeechIntent.AskToSitUp,
+            SpeechIntent.AskToMove,
+            SpeechIntent.ActivateUpperBody,
+            SpeechIntent.StandIfSafe,
+            SpeechIntent.KeepEngaging,
+        ).forEach { intent ->
+            val prompt = AlfredRealtimePrompt.turn(intent, VoiceStyle.DEFAULT).lowercase()
+            assertTrue(prompt.contains("do not ask") || prompt.contains("do not demand"))
+            assertFalse(prompt.contains("ask for one short confirmation"))
+        }
     }
 
     @Test
