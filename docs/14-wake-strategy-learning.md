@@ -158,6 +158,7 @@ Keep the first adaptation surface intentionally narrow. Candidates include:
 Do **not** let v0 freely rewrite:
 
 - safety rules
+- the bounded verbal re-engagement allowance; increasing intervention depth must not create more spoken nagging
 - stop/dismiss availability
 - alarm delivery/audio behavior
 - maximum provider cost

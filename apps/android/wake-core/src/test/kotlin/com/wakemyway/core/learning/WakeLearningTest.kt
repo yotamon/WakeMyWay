@@ -293,6 +293,29 @@ class WakeLearningTest {
     }
 
     @Test
+    fun `persisted policy cannot widen the verbal re-engagement allowance`() {
+        val altered = policy.copy(maxVerbalReengagementPrompts = 3)
+
+        val rejected = learner.resolveLearnedPolicy(selfSnapshot(altered), policy)
+
+        assertFalse(rejected.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.INVALID_LEARNING_BOUNDS, rejected.reason)
+        assertEquals(policy, rejected.policy)
+    }
+
+    @Test
+    fun `learned snapshot cannot mutate the frozen verbal retry allowance`() {
+        assertFailsWith<IllegalArgumentException> {
+            WakePolicySnapshot(
+                sourcePolicy = policy,
+                policy = policy.copy(maxVerbalReengagementPrompts = 3),
+                sourceSessionIds = emptyList(),
+                changes = emptyList(),
+            )
+        }
+    }
+
+    @Test
     fun `persisted state learned on an older baseline is rejected`() {
         val newerDefault = policy.copy(version = policy.version + 1)
 

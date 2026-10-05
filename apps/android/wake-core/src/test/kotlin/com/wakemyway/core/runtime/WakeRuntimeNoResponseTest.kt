@@ -37,6 +37,38 @@ class WakeRuntimeNoResponseTest {
     }
 
     @Test
+    fun `second silence backs off instead of speaking again`() {
+        var snapshot = runtime.initial(
+            WakeSessionId("bounded-verbal-reengagement"),
+            policy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+        snapshot = runtime.reduce(snapshot, WakeInput.AlarmFired(id("alarm")), policy).snapshot
+        snapshot = runtime.reduce(snapshot, WakeInput.SpeechFinished(id("initial-finished")), policy).snapshot
+
+        val firstSilence = runtime.reduce(
+            snapshot,
+            WakeInput.SilenceElapsed(id("silence-1"), Duration.ofSeconds(15)),
+            policy,
+        )
+        assertTrue(firstSilence.directives.any { it is WakeDirective.Speak })
+        assertEquals(1, firstSilence.snapshot.verbalReengagementPrompts)
+
+        val secondSilence = runtime.reduce(
+            firstSilence.snapshot,
+            WakeInput.SilenceElapsed(id("silence-2"), Duration.ofSeconds(15)),
+            policy,
+        )
+        assertTrue(secondSilence.directives.none { it is WakeDirective.Speak })
+        assertEquals(1, secondSilence.snapshot.verbalReengagementPrompts)
+        assertTrue(WakeDirective.ObserveMotion in secondSilence.directives)
+    }
+
+    @Test
     fun `speech-unavailable session still progresses through silence without user response`() {
         var snapshot = runtime.initial(
             WakeSessionId("no-response-no-speech"),

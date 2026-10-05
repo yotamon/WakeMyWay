@@ -556,6 +556,50 @@ The previous fixed eight-assistant-turn ceiling could be lower than the number o
 
 This is a dogfood-driven correction to the interaction design: physical activation is the early backbone, not a checklist that must be recited until sensors agree.
 
+# Conversational wake agency correction — 2026-10-05
+
+## Dogfood finding
+
+Further founder dogfood showed that the 2026-10-01 anti-loop correction did not go far enough. Even without repeating the same physical action, the wake still felt like a sequence of commands because normal turns repeatedly required a spoken confirmation and usable replies automatically unlocked more physical tasks.
+
+The failure was experiential, not merely copy-level: the product was implicitly asking the user to prove compliance.
+
+## Spoken engagement is optional evidence, not a gate
+
+When two-way voice is available, WakeRuntime no longer requires at least one coherent spoken response before Activation Completion. A coherent response remains bounded Activation Evidence, but sufficient touch/motion evidence may reach Orienting without the user saying anything.
+
+Microphone availability must never create an obligation to speak.
+
+## Default conversation is intentionally shallow
+
+The normal conversational path now uses:
+
+```text
+gentle sit-up invitation
+    ↓
+first coherent reply → one small feet-down / safe-equivalent invitation
+    ↓
+later coherent replies → HoldEngagement
+```
+
+The upper-body, conditional-standing and environmental-activation intents remain available as a safe runtime toolbox, but they are not automatically chained merely because the user keeps responding.
+
+## Language is invitational, not compliance-driven
+
+Normal wake turns must not mechanically append phrases such as "answer me", "tell me when", "give me a clear yes" or equivalent verbal-proof requests.
+
+Silence is absence of evidence, not refusal or disobedience. The default Wake Policy permits one spoken re-engagement across silence/unusable-audio events; after that WakeMyWay backs off to the alarm and motion observation rather than continuing to solicit speech. Realtime's assistant-turn budget follows this bounded verbal-retry allowance rather than the full escalation ceiling.
+
+## Authority and safety remain unchanged
+
+- WakeRuntime still owns behavioral progression and Activation Completion.
+- Realtime still only renders typed intents.
+- spoken claims do not fabricate physical evidence;
+- physical actions remain bounded and safety-aware;
+- Alarm Kernel, Stop/Snooze and alarm-only fallback authority are unchanged.
+
+This is a product-quality correction under the 1.0 polish scope. The success criterion is not more conversation; it is effective waking with lower annoyance and higher perceived agency.
+
 # WakeMyWay Plus commercial model — 2026-10-01
 
 ## Free + Plus is the accepted consumer business model

@@ -249,6 +249,7 @@ class WakeLearning(
         if (
             candidate.sourcePolicy.version < defaultPolicy.version ||
             !baselineCompatible(candidate.sourcePolicy, defaultPolicy) ||
+            !baselineCompatible(candidate.policy, defaultPolicy) ||
             !withinLearningBounds(candidate.sourcePolicy) ||
             !withinLearningBounds(candidate.policy) ||
             !hasBoundedDeclaredChange(candidate)
@@ -294,7 +295,8 @@ class WakeLearning(
             policy.orientationChangeWeight == defaultPolicy.orientationChangeWeight &&
             policy.sustainedMovementWeight == defaultPolicy.sustainedMovementWeight &&
             policy.defaultSnoozeDuration == defaultPolicy.defaultSnoozeDuration &&
-            policy.rememberedInputLimit == defaultPolicy.rememberedInputLimit
+            policy.rememberedInputLimit == defaultPolicy.rememberedInputLimit &&
+            policy.maxVerbalReengagementPrompts == defaultPolicy.maxVerbalReengagementPrompts
 
     private fun hasBoundedDeclaredChange(snapshot: WakePolicySnapshot): Boolean {
         // `singleOrNull` alone would conflate "no declared change" with malformed multi-change

@@ -566,6 +566,7 @@ class WakeVoiceSessionController(
             surfaceVisible &&
             snapshot.phase != WakePhase.FINISHED &&
             snapshot.phase != WakePhase.ORIENTING &&
+            snapshot.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts &&
             !speaking &&
             !listening
         ) {

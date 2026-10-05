@@ -30,7 +30,7 @@ class AlfredCharacterTest {
         val spec = AlfredCharacter.spec
 
         assertEquals(CharacterId("alfred"), spec.id)
-        assertEquals(8, spec.version)
+        assertEquals(9, spec.version)
         assertEquals("Alfred", spec.displayName)
         assertEquals("en-GB", spec.voiceLocaleTag)
         assertTrue(spec.speechRate < 1f)
@@ -110,14 +110,48 @@ class AlfredCharacterTest {
     }
 
     @Test
-    fun `opening turn asks for one sit-up action and a spoken reply`() {
+    fun `opening turn offers one sit-up action without demanding spoken proof`() {
         VoiceStyle.entries.forEach { style ->
             renderedTexts(SpeechIntent.InitialWake, style).forEach { line ->
                 assertTrue("sit" in line, "Opening line must contain the first physical action: $line")
-                assertTrue(
-                    listOf("tell", "answer", "hello").any { cue -> cue in line },
-                    "Opening line must invite a short spoken reply: $line",
-                )
+                listOf("answer me", "tell me", "say yes", "confirm when").forEach { forbidden ->
+                    assertTrue(
+                        forbidden !in line,
+                        "Opening line must not demand verbal compliance with '$forbidden': $line",
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `normal wake catalog avoids compliance language`() {
+        val normalIntents = listOf(
+            SpeechIntent.InitialWake,
+            SpeechIntent.AskToSitUp,
+            SpeechIntent.AskToMove,
+            SpeechIntent.ActivateUpperBody,
+            SpeechIntent.StandIfSafe,
+            SpeechIntent.KeepEngaging,
+            SpeechIntent.HoldEngagement,
+        )
+
+        VoiceStyle.entries.forEach { style ->
+            normalIntents.forEach { intent ->
+                renderedTexts(intent, style).forEach { line ->
+                    listOf(
+                        "answer me",
+                        "tell me",
+                        "give me a clear",
+                        "one clear answer",
+                        "your voice now",
+                    ).forEach { forbidden ->
+                        assertTrue(
+                            forbidden !in line,
+                            "Normal wake line became compliance-driven with '$forbidden': $line",
+                        )
+                    }
+                }
             }
         }
     }

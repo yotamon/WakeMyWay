@@ -153,20 +153,26 @@ References:
 ## Conversation psychology
 
 The voice agent talks to a person whose cognitive capacity may be temporarily impaired. The useful
-conversation pattern is therefore:
+conversation pattern should preserve agency while keeping cognitive load low:
 
 ```text
-contact -> one simple action -> short reply -> next action -> repeat only as needed
+contact -> one small invitation -> observe / listen -> intervene again only when useful
 ```
+
+Speech is one possible engagement signal, not a required response channel. A person who is already
+moving should not have to prove participation by saying "yes", "done", or another confirmation simply
+because the microphone is available.
 
 Early-turn rules:
 
-- yes/no or one-short-reply prompts;
-- no "How are you feeling?" or "What are your plans?";
+- one short invitation or cue at a time;
+- do not append a demand for verbal confirmation to every physical cue;
+- no "How are you feeling?" or "What are your plans?" while cognition is still low;
 - no long motivational framing;
 - no praise for routine compliance;
-- acknowledge bargaining/complaints without arguing;
-- repeat the current action after unclear audio instead of escalating to a new one;
+- acknowledge bargaining/complaints without arguing or immediately piling on another task;
+- treat silence as absence of evidence, not disobedience;
+- after unclear audio, make calm contact or restate one safe invitation rather than escalating into demands;
 - increase personality and context only as behavioral evidence accumulates.
 
 The goal is cooperative persistence:

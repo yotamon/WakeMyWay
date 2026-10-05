@@ -90,6 +90,7 @@ data class WakePolicy(
     val maxEscalationLevel: Int = 3,
     val defaultSnoozeDuration: Duration = Duration.ofMinutes(5),
     val rememberedInputLimit: Int = 128,
+    val maxVerbalReengagementPrompts: Int = 1,
 ) {
     init {
         require(version > 0) { "Wake policy version must be positive" }
@@ -102,6 +103,9 @@ data class WakePolicy(
                 sustainedMovementWeight >= 0,
         ) { "Evidence weights must be non-negative" }
         require(maxEscalationLevel >= 0) { "Max escalation level must be non-negative" }
+        require(maxVerbalReengagementPrompts >= 0) {
+            "Max verbal re-engagement prompts must be non-negative"
+        }
         require(!defaultSnoozeDuration.isNegative && !defaultSnoozeDuration.isZero) {
             "Default snooze duration must be positive"
         }
@@ -116,6 +120,7 @@ data class WakeSessionSnapshot(
     val outcome: WakeOutcome? = null,
     val activationEvidence: ActivationEvidence = ActivationEvidence(),
     val escalationLevel: Int = 0,
+    val verbalReengagementPrompts: Int = 0,
     val snoozeState: SnoozeState = SnoozeState.NONE,
     val stopState: StopState = StopState.NONE,
     val capabilities: WakeCapabilities = WakeCapabilities(),
@@ -124,6 +129,9 @@ data class WakeSessionSnapshot(
     init {
         require(policyVersion > 0) { "Wake session policy version must be positive" }
         require(escalationLevel >= 0) { "Escalation level must be non-negative" }
+        require(verbalReengagementPrompts >= 0) {
+            "Verbal re-engagement prompt count must be non-negative"
+        }
         require(processedInputIds.distinct().size == processedInputIds.size) {
             "Processed wake input ids must be unique"
         }

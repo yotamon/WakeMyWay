@@ -88,6 +88,9 @@ class WakeRuntime {
                 if (!input.coherent) {
                     val escalation = (remembered.escalationLevel + 1)
                         .coerceAtMost(policy.maxEscalationLevel)
+                    val canVerballyReengage =
+                        remembered.capabilities.speechAvailable &&
+                            remembered.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts
                     val next = remembered.copy(
                         phase = if (remembered.phase == WakePhase.ALERTING) {
                             WakePhase.ENGAGING
@@ -95,13 +98,17 @@ class WakeRuntime {
                             remembered.phase
                         },
                         escalationLevel = escalation,
+                        verbalReengagementPrompts = remembered.verbalReengagementPrompts +
+                            if (canVerballyReengage) 1 else 0,
                     )
-                    transition(
-                        next,
-                        WakeDirective.EnsureAlarmAudible,
-                        WakeDirective.Speak(SpeechIntent.ReEngage(escalation)),
-                        WakeDirective.ObserveMotion,
-                    )
+                    val directives = buildList {
+                        add(WakeDirective.EnsureAlarmAudible)
+                        if (canVerballyReengage) {
+                            add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                        }
+                        add(WakeDirective.ObserveMotion)
+                    }
+                    transition(next, *directives.toTypedArray())
                 } else {
                     val wasAlreadyActivating = remembered.phase == WakePhase.ACTIVATING
                     val next = remembered.copy(
@@ -116,26 +123,12 @@ class WakeRuntime {
                         ),
                     )
                     val nextSpeech = if (!wasAlreadyActivating) {
+                        // One concrete follow-up movement cue is enough for the default
+                        // conversational path. After that, usable speech is treated as human
+                        // engagement rather than permission to issue another physical task.
                         SpeechIntent.AskToMove
                     } else {
-                        val physicalEvidenceObserved =
-                            next.activationEvidence.orientationChanges > 0 ||
-                                next.activationEvidence.sustainedMovements > 0
-                        when {
-                            next.activationEvidence.coherentVoiceResponses == 2 ->
-                                SpeechIntent.ActivateUpperBody
-                            next.activationEvidence.coherentVoiceResponses == 3 && physicalEvidenceObserved ->
-                                SpeechIntent.StandIfSafe
-                            next.activationEvidence.coherentVoiceResponses == 4 && physicalEvidenceObserved ->
-                                SpeechIntent.KeepEngaging
-                            else ->
-                                // A usable spoken reply closes the previous physical request. When
-                                // phone-motion evidence is absent or the physical sequence has
-                                // already been delivered, do not trap the user in a sit/stand/action
-                                // loop merely to accumulate activation score. Hold engagement
-                                // conversationally while the same evidence gate remains authoritative.
-                                SpeechIntent.HoldEngagement
-                        }
+                        SpeechIntent.HoldEngagement
                     }
                     advanceOr(
                         next,
@@ -172,6 +165,9 @@ class WakeRuntime {
 
             is WakeInput.SilenceElapsed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
+                val canVerballyReengage =
+                    remembered.capabilities.speechAvailable &&
+                        remembered.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts
                 val next = remembered.copy(
                     phase = when (remembered.phase) {
                         WakePhase.ALERTING -> WakePhase.ENGAGING
@@ -179,10 +175,14 @@ class WakeRuntime {
                         else -> remembered.phase
                     },
                     escalationLevel = escalation,
+                    verbalReengagementPrompts = remembered.verbalReengagementPrompts +
+                        if (canVerballyReengage) 1 else 0,
                 )
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
-                    add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                    if (canVerballyReengage) {
+                        add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                    }
                     if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
                         add(WakeDirective.ObserveMotion)
                     }
@@ -194,8 +194,9 @@ class WakeRuntime {
                 WakePhase.ALERTING -> {
                     val directives = buildList {
                         if (remembered.capabilities.voiceInputAvailable) {
-                            // Conversational wakes have already asked for sit-up + a reply in the
-                            // opening turn. Listen now instead of speaking two prompts back-to-back.
+                            // Conversational wakes have already offered the first sit-up cue.
+                            // Listen now instead of speaking two prompts back-to-back; a reply is
+                            // welcome but is not a compliance requirement.
                             add(WakeDirective.ListenForVoiceResponse)
                         } else {
                             add(WakeDirective.Speak(SpeechIntent.AskToSitUp))
@@ -408,18 +409,11 @@ class WakeRuntime {
     private fun activationGateSatisfied(
         snapshot: WakeSessionSnapshot,
         policy: WakePolicy,
-    ): Boolean {
-        if (snapshot.activationEvidence.score(policy) < policy.activationThreshold) return false
-
-        val twoWayVoiceAvailable =
-            snapshot.capabilities.speechAvailable && snapshot.capabilities.voiceInputAvailable
-        if (!twoWayVoiceAvailable) return true
-
-        // When WMW can both speak and listen, a real spoken reply is part of the wake contract.
-        // Motion may contribute heavily to activation, but it cannot silently bypass the user's
-        // required conversational turn. Capability degradation removes this gate fail-safely.
-        return snapshot.activationEvidence.coherentVoiceResponses > 0
-    }
+    ): Boolean =
+        // Conversation is an enrichment/evidence channel, not a compliance gate. If motion or
+        // other bounded behavioral evidence already satisfies the configured activation threshold,
+        // the user must not be forced to speak merely because a microphone is available.
+        snapshot.activationEvidence.score(policy) >= policy.activationThreshold
 
     private fun finish(snapshot: WakeSessionSnapshot, outcome: WakeOutcome): WakeTransition = transition(
         snapshot.copy(

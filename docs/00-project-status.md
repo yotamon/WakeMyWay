@@ -1,6 +1,6 @@
 # Project status
 
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  
@@ -110,20 +110,24 @@ Optional account backup/migration
 
 The sunrise-wave identity from PR #51 remains the canonical visual system. Planning and configuration use the selected local planning atmosphere, while Active Wake intentionally follows the fixed authored midnight-to-daylight progression. The same sunrise-wave geometry is used by the launcher identity, system launch treatment, Wake Line and first-run experience.
 
-## Physiological-first conversational wake hardening
+## Calm conversational wake hardening
 
-The current Direct conversational wake is being hardened around a science-informed, low-cognitive-load wake protocol rather than generic free-form morning chat.
+Founder dogfood on 2026-10-05 exposed that the physiological-first implementation still felt command-driven: normal turns repeatedly asked for spoken confirmation, and each usable reply could unlock another physical instruction. That made the companion feel like it was supervising compliance rather than helping the user wake.
 
-The accepted dogfood behavior keeps Alarm Kernel and WakeRuntime authority unchanged while making intervention sequencing explicit:
+The current correction preserves WakeRuntime authority while reducing interaction pressure:
 
-- one brief action per early turn;
-- sit upright → feet down/safe equivalent → brief seated upper-body activation;
-- standing is conditional, has a seated alternative, and requires orientation-change or sustained-movement evidence before it may be requested;
-- later activation may use one small reachable environmental cue;
-- open-ended early questions, puzzles/CAPTCHA behavior, motivational monologues and strenuous exercise are excluded;
-- Realtime renders the current typed intent but cannot choose the progression, claim posture/movement, or complete the wake.
+- opening speech gently invites sitting instead of requiring a spoken confirmation;
+- the first coherent reply may produce one small feet-down / safe-equivalent invitation;
+- later coherent replies default to `HoldEngagement` rather than automatically chaining shoulder-roll, standing and environmental tasks;
+- coherent speech remains useful Activation Evidence but is no longer mandatory when touch/motion evidence already satisfies the activation threshold;
+- normal Alfred language explicitly avoids "answer me", "tell me when", "give me a clear yes" and equivalent proof-of-compliance framing;
+- silence/unusable audio is treated as missing evidence rather than disobedience; the default session permits one spoken re-engagement, then backs off to alarm + motion observation instead of repeatedly soliciting speech;
+- Realtime's turn budget is now derived from the bounded verbal-retry allowance rather than three escalation retries, reducing the maximum learned-policy budget from 12 assistant turns to 10;
+- bounded upper-body, conditional-standing and environmental intents remain available as safe strategy tools rather than a mandatory checklist.
 
-The research basis and uncertainty are documented in `docs/research/wake-psychology.md`. The exact sequence remains a dogfood hypothesis under the existing PROVE gate; overnight physical evidence, return-to-bed calibration, annoyance and agency remain required before treating it as a tuned default.
+Alarm Kernel, Stop/Snooze, Realtime rendering authority and alarm-only fallback are unchanged. The correction directly serves the existing 1.0 quality goal: minimum effective friction, lower annoyance and stronger perceived agency.
+
+The research/UX/runtime contracts are synchronized in `docs/research/wake-psychology.md`, `docs/04-ux-psychology.md` and `docs/11-wake-runtime-state-machine.md`. Overnight dogfood still needs to verify that the calmer interaction remains effective at preventing return-to-bed.
 
 ## Android home widget
 

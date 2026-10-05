@@ -50,7 +50,7 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("do not make jokes", ignoreCase = true))
         assertTrue(prompt.contains("direct", ignoreCase = true))
         assertTrue(prompt.contains("bargains for more sleep", ignoreCase = true))
-        assertTrue(prompt.contains("put their feet on the floor", ignoreCase = true))
+        assertTrue(prompt.contains("feet toward the floor", ignoreCase = true))
         assertTrue(prompt.contains("Never change, skip or add", ignoreCase = true))
     }
 
@@ -102,7 +102,7 @@ class AlfredRealtimePromptTest {
             assertTrue(prompt.contains("Remain the exact Alfred"))
             assertTrue(prompt.contains("Do not adopt a new persona"))
             assertTrue(prompt.contains("Current Wake Runtime directive"))
-            assertTrue(prompt.contains("feet on the floor"))
+            assertTrue(prompt.contains("feet toward the floor"))
             assertFalse(prompt.contains("You are Wake My Way's morning wake companion"))
         }
     }
@@ -117,7 +117,7 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("SAME PERSON"))
         assertTrue(prompt.contains("Anti-AI mannerisms"))
         assertTrue(prompt.contains("Current Wake Runtime directive"))
-        assertTrue(prompt.contains("feet on the floor"))
+        assertTrue(prompt.contains("feet toward the floor"))
     }
 
     @Test
@@ -125,9 +125,9 @@ class AlfredRealtimePromptTest {
         val system = AlfredRealtimePrompt.SYSTEM.lowercase()
 
         assertTrue(system.contains("cognition is temporarily reduced"))
-        assertTrue(system.contains("never ask open-ended questions"))
-        assertTrue(system.contains("sit upright -> feet down -> brief upper-body movement -> stand only if safe"))
-        assertTrue(system.contains("bounded toolbox, not a checklist"))
+        assertTrue(system.contains("never ask open-ended planning questions"))
+        assertTrue(system.contains("physical toolbox is not a routine"))
+        assertTrue(system.contains("should not chain sit -> feet -> shoulders -> stand -> light"))
         assertTrue(system.contains("never ask the user to prove wakefulness with arithmetic"))
     }
 
@@ -147,11 +147,32 @@ class AlfredRealtimePromptTest {
         )
 
         assertTrue(upperBody.contains("two slow shoulder rolls"))
-        assertTrue(upperBody.contains("Do not add breathing drills"))
+        assertTrue(upperBody.contains("breathing drills"))
+        assertTrue(upperBody.contains("Do not ask for confirmation"))
         assertTrue(standing.contains("only if standing is safe"))
         assertTrue(standing.contains("seated alternative"))
-        assertTrue(reengage.contains("Ask only for one clear spoken reply now"))
-        assertTrue(reengage.contains("Do not repeat sit-up"))
+        assertTrue(reengage.contains("slightly more direct", ignoreCase = true))
+        assertTrue(reengage.contains("do not use 'answer me'", ignoreCase = true))
+    }
+
+    @Test
+    fun `normal realtime turns do not demand verbal compliance`() {
+        val system = AlfredRealtimePrompt.SYSTEM.lowercase()
+        assertTrue(system.contains("user does not owe you a response"))
+        assertTrue(system.contains("normal wake turn does not need a verbal confirmation request"))
+
+        listOf(
+            SpeechIntent.InitialWake,
+            SpeechIntent.AskToSitUp,
+            SpeechIntent.AskToMove,
+            SpeechIntent.ActivateUpperBody,
+            SpeechIntent.StandIfSafe,
+            SpeechIntent.KeepEngaging,
+        ).forEach { intent ->
+            val prompt = AlfredRealtimePrompt.turn(intent, VoiceStyle.DEFAULT).lowercase()
+            assertTrue(prompt.contains("do not ask") || prompt.contains("do not demand"))
+            assertFalse(prompt.contains("ask for one short confirmation"))
+        }
     }
 
     @Test
@@ -178,6 +199,26 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("social energy", ignoreCase = true))
         assertTrue(prompt.contains("more human acknowledgement", ignoreCase = true))
         assertTrue(prompt.contains("Do not give another physical action"))
+    }
+
+    @Test
+    fun `presentation preferences cannot invent a task during hold engagement`() {
+        val prompt = AlfredRealtimePrompt.turn(
+            request(
+                intent = SpeechIntent.HoldEngagement,
+                preferences = WakePreferences(
+                    morningBarrier = MorningBarrier.MORNING_OVERWHELM,
+                    motivationStyle = com.wakemyway.core.personalization.MotivationStyle.CONCRETE_ACTION,
+                    conversationAmount = ConversationAmount.SOCIAL,
+                    humorPreference = HumorPreference.WELCOME,
+                ),
+            ),
+        ).lowercase()
+
+        assertTrue(prompt.contains("if the current directive contains no action"))
+        assertTrue(prompt.contains("must not invent one"))
+        assertTrue(prompt.contains("otherwise stay conversational"))
+        assertTrue(prompt.contains("do not give another physical action"))
     }
 
     @Test
