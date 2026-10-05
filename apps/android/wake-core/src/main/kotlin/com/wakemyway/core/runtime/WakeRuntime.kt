@@ -88,6 +88,9 @@ class WakeRuntime {
                 if (!input.coherent) {
                     val escalation = (remembered.escalationLevel + 1)
                         .coerceAtMost(policy.maxEscalationLevel)
+                    val canVerballyReengage =
+                        remembered.capabilities.speechAvailable &&
+                            remembered.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts
                     val next = remembered.copy(
                         phase = if (remembered.phase == WakePhase.ALERTING) {
                             WakePhase.ENGAGING
@@ -95,13 +98,17 @@ class WakeRuntime {
                             remembered.phase
                         },
                         escalationLevel = escalation,
+                        verbalReengagementPrompts = remembered.verbalReengagementPrompts +
+                            if (canVerballyReengage) 1 else 0,
                     )
-                    transition(
-                        next,
-                        WakeDirective.EnsureAlarmAudible,
-                        WakeDirective.Speak(SpeechIntent.ReEngage(escalation)),
-                        WakeDirective.ObserveMotion,
-                    )
+                    val directives = buildList {
+                        add(WakeDirective.EnsureAlarmAudible)
+                        if (canVerballyReengage) {
+                            add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                        }
+                        add(WakeDirective.ObserveMotion)
+                    }
+                    transition(next, *directives.toTypedArray())
                 } else {
                     val wasAlreadyActivating = remembered.phase == WakePhase.ACTIVATING
                     val next = remembered.copy(
@@ -158,6 +165,9 @@ class WakeRuntime {
 
             is WakeInput.SilenceElapsed -> {
                 val escalation = (remembered.escalationLevel + 1).coerceAtMost(policy.maxEscalationLevel)
+                val canVerballyReengage =
+                    remembered.capabilities.speechAvailable &&
+                        remembered.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts
                 val next = remembered.copy(
                     phase = when (remembered.phase) {
                         WakePhase.ALERTING -> WakePhase.ENGAGING
@@ -165,10 +175,14 @@ class WakeRuntime {
                         else -> remembered.phase
                     },
                     escalationLevel = escalation,
+                    verbalReengagementPrompts = remembered.verbalReengagementPrompts +
+                        if (canVerballyReengage) 1 else 0,
                 )
                 val directives = buildList {
                     add(WakeDirective.EnsureAlarmAudible)
-                    add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                    if (canVerballyReengage) {
+                        add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
+                    }
                     if (next.phase in setOf(WakePhase.ENGAGING, WakePhase.ACTIVATING)) {
                         add(WakeDirective.ObserveMotion)
                     }
