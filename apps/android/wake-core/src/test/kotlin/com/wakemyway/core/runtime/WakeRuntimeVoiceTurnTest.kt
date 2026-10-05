@@ -312,9 +312,9 @@ class WakeRuntimeVoiceTurnTest {
     }
 
     @Test
-    fun `dropping voice input releases an already-satisfied score without another motion event`() {
+    fun `motion completion does not wait for voice capability degradation`() {
         var snapshot = runtime.initial(
-            sessionId = WakeSessionId("voice-drop"),
+            sessionId = WakeSessionId("voice-not-required"),
             policy = policy,
             capabilities = WakeCapabilities(
                 speechAvailable = true,
@@ -332,7 +332,9 @@ class WakeRuntimeVoiceTurnTest {
                 policy,
             ).snapshot
         }
-        assertEquals(WakePhase.ACTIVATING, snapshot.phase)
+
+        assertEquals(WakePhase.ORIENTING, snapshot.phase)
+        assertEquals(0, snapshot.activationEvidence.coherentVoiceResponses)
 
         val degraded = runtime.reduce(
             snapshot,
@@ -344,7 +346,7 @@ class WakeRuntimeVoiceTurnTest {
         )
 
         assertEquals(WakePhase.ORIENTING, degraded.snapshot.phase)
-        assertTrue(WakeDirective.PresentOrientation in degraded.directives)
+        assertFalse(WakeDirective.PresentOrientation in degraded.directives)
     }
 
     @Test
