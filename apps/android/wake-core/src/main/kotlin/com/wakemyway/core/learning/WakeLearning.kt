@@ -249,6 +249,7 @@ class WakeLearning(
         if (
             candidate.sourcePolicy.version < defaultPolicy.version ||
             !baselineCompatible(candidate.sourcePolicy, defaultPolicy) ||
+            !baselineCompatible(candidate.policy, defaultPolicy) ||
             !withinLearningBounds(candidate.sourcePolicy) ||
             !withinLearningBounds(candidate.policy) ||
             !hasBoundedDeclaredChange(candidate)
