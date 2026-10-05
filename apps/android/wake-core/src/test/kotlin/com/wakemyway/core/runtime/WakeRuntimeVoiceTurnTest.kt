@@ -282,7 +282,19 @@ class WakeRuntimeVoiceTurnTest {
 
         assertEquals(0, unclear.snapshot.activationEvidence.coherentVoiceResponses)
         assertEquals(1, unclear.snapshot.escalationLevel)
+        assertEquals(1, unclear.snapshot.verbalReengagementPrompts)
         assertTrue(WakeDirective.Speak(SpeechIntent.ReEngage(1)) in unclear.directives)
+
+        val repeatedUnclear = runtime.reduce(
+            unclear.snapshot,
+            WakeInput.VoiceResponseObserved(id("unclear-again"), coherent = false),
+            policy,
+        )
+
+        assertEquals(2, repeatedUnclear.snapshot.escalationLevel)
+        assertEquals(1, repeatedUnclear.snapshot.verbalReengagementPrompts)
+        assertFalse(repeatedUnclear.directives.any { it is WakeDirective.Speak })
+        assertTrue(WakeDirective.ObserveMotion in repeatedUnclear.directives)
     }
 
     @Test
