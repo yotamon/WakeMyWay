@@ -50,7 +50,7 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("do not make jokes", ignoreCase = true))
         assertTrue(prompt.contains("direct", ignoreCase = true))
         assertTrue(prompt.contains("bargains for more sleep", ignoreCase = true))
-        assertTrue(prompt.contains("put their feet on the floor", ignoreCase = true))
+        assertTrue(prompt.contains("feet toward the floor", ignoreCase = true))
         assertTrue(prompt.contains("Never change, skip or add", ignoreCase = true))
     }
 
@@ -102,7 +102,7 @@ class AlfredRealtimePromptTest {
             assertTrue(prompt.contains("Remain the exact Alfred"))
             assertTrue(prompt.contains("Do not adopt a new persona"))
             assertTrue(prompt.contains("Current Wake Runtime directive"))
-            assertTrue(prompt.contains("feet on the floor"))
+            assertTrue(prompt.contains("feet toward the floor"))
             assertFalse(prompt.contains("You are Wake My Way's morning wake companion"))
         }
     }
@@ -117,7 +117,7 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("SAME PERSON"))
         assertTrue(prompt.contains("Anti-AI mannerisms"))
         assertTrue(prompt.contains("Current Wake Runtime directive"))
-        assertTrue(prompt.contains("feet on the floor"))
+        assertTrue(prompt.contains("feet toward the floor"))
     }
 
     @Test
@@ -126,8 +126,8 @@ class AlfredRealtimePromptTest {
 
         assertTrue(system.contains("cognition is temporarily reduced"))
         assertTrue(system.contains("never ask open-ended questions"))
-        assertTrue(system.contains("sit upright -> feet down -> brief upper-body movement -> stand only if safe"))
-        assertTrue(system.contains("bounded toolbox, not a checklist"))
+        assertTrue(system.contains("physical toolbox is not a routine"))
+        assertTrue(system.contains("should not chain sit -> feet -> shoulders -> stand -> light"))
         assertTrue(system.contains("never ask the user to prove wakefulness with arithmetic"))
     }
 
