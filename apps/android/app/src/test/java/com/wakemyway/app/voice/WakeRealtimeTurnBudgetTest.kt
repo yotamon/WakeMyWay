@@ -11,13 +11,14 @@ class WakeRealtimeTurnBudgetTest {
     }
 
     @Test
-    fun `maximum learned activation threshold has enough room to reach orientation`() {
+    fun `maximum learned activation threshold has enough room without escalation chatter`() {
         val policy = WakePolicy(
             activationThreshold = 8,
             maxEscalationLevel = 3,
+            maxVerbalReengagementPrompts = 1,
         )
 
-        assertEquals(12, WakeRealtimeTurnBudget.resolve(policy))
+        assertEquals(10, WakeRealtimeTurnBudget.resolve(policy))
     }
 
     @Test
@@ -27,6 +28,6 @@ class WakeRealtimeTurnBudgetTest {
             maxEscalationLevel = 100,
         )
 
-        assertEquals(12, WakeRealtimeTurnBudget.resolve(policy))
+        assertEquals(10, WakeRealtimeTurnBudget.resolve(policy))
     }
 }
