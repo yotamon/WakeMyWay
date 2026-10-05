@@ -588,7 +588,7 @@ The upper-body, conditional-standing and environmental-activation intents remain
 
 Normal wake turns must not mechanically append phrases such as "answer me", "tell me when", "give me a clear yes" or equivalent verbal-proof requests.
 
-Silence is absence of evidence, not refusal or disobedience. Re-engagement may make calm contact or offer a low-pressure invitation to respond when ready, but escalation must not become increasingly forceful demands for speech.
+Silence is absence of evidence, not refusal or disobedience. The default Wake Policy permits one spoken re-engagement across silence/unusable-audio events; after that WakeMyWay backs off to the alarm and motion observation rather than continuing to solicit speech. Realtime's assistant-turn budget follows this bounded verbal-retry allowance rather than the full escalation ceiling.
 
 ## Authority and safety remain unchanged
 
