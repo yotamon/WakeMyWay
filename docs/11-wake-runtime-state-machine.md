@@ -157,27 +157,27 @@ Silence, timer expiry, escalation level, speech completion, and speech failure a
 
 ## Conversational physiological progression
 
-When two-way voice is available, Wake Runtime owns the **order of wake interventions** as well as the activation gate. Realtime does not decide what physical step comes next.
+When two-way voice is available, Wake Runtime still owns intervention selection and the activation gate. Realtime does not decide what physical step comes next, but conversation is **not** a compliance channel.
 
-The current dogfood sequence is:
+The default dogfood path is intentionally shallow:
 
 ```text
-InitialWake       -> sit upright + short reply
-1st coherent turn -> feet down / safe equivalent
-2nd coherent turn -> brief seated upper-body activation
-3rd+ coherent turn + orientation/sustained movement -> stand if safe, with a seated alternative
-later turns + orientation/sustained movement         -> one small reachable environmental activation
+InitialWake       -> gentle invitation to sit upright
+1st coherent turn -> one small movement invitation: feet down / safe equivalent
+later coherent turns -> HoldEngagement; no automatic physical checklist
 ```
 
-These are intervention intents, not assertions that the action happened. A coherent spoken reply contributes bounded Activation Evidence, while motion remains an independent evidence channel. Verbal engagement alone is never sufficient to escalate into the standing cue; device pickup alone is also insufficient. At least one orientation-change or sustained-movement observation must already exist. Wake Runtime may enter Orienting whenever its configured activation gate is satisfied; it does not require completing every conversational step.
+Upper-body activation, conditional standing and reachable environmental activation remain bounded safe intents in the runtime vocabulary, but the default conversation does not automatically march through them simply because the user keeps replying.
 
-If a spoken turn is unusable or silence expires, re-engagement may become more direct but must not earn activation evidence or ask the model to invent a more aggressive physical task.
+A coherent spoken reply contributes bounded Activation Evidence, while touch and motion remain independent evidence channels. The activation gate is based on the configured evidence score, not on a mandatory voice turn. If movement or other bounded evidence already reaches the threshold, Wake Runtime may enter Orienting even when the microphone is available and the user has said nothing.
+
+A spoken reply is therefore useful evidence, not proof of obedience and not proof that a requested physical action occurred. Silence or unusable audio earns no activation evidence. Re-engagement may make calm contact or restate one safe invitation, but must not frame silence as refusal, demand verbal proof, or invent a harder task.
 
 This keeps a useful separation:
 
 ```text
-WakeRuntime: what step / whether enough evidence exists
-AI renderer: natural wording for that approved step
+WakeRuntime: which bounded intervention / whether enough evidence exists
+AI renderer: natural low-pressure wording for that approved intent
 Sensors/turn gate: typed observations only
 ```
 
