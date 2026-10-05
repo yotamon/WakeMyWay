@@ -125,7 +125,7 @@ class AlfredRealtimePromptTest {
         val system = AlfredRealtimePrompt.SYSTEM.lowercase()
 
         assertTrue(system.contains("cognition is temporarily reduced"))
-        assertTrue(system.contains("never ask open-ended questions"))
+        assertTrue(system.contains("never ask open-ended planning questions"))
         assertTrue(system.contains("physical toolbox is not a routine"))
         assertTrue(system.contains("should not chain sit -> feet -> shoulders -> stand -> light"))
         assertTrue(system.contains("never ask the user to prove wakefulness with arithmetic"))
@@ -147,7 +147,8 @@ class AlfredRealtimePromptTest {
         )
 
         assertTrue(upperBody.contains("two slow shoulder rolls"))
-        assertTrue(upperBody.contains("Do not add breathing drills"))
+        assertTrue(upperBody.contains("breathing drills"))
+        assertTrue(upperBody.contains("Do not ask for confirmation"))
         assertTrue(standing.contains("only if standing is safe"))
         assertTrue(standing.contains("seated alternative"))
         assertTrue(reengage.contains("slightly more direct", ignoreCase = true))
