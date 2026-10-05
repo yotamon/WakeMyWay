@@ -197,13 +197,19 @@ class WakeRuntimeTest {
 
         snapshot = firstSilence.snapshot
         repeat(5) { index ->
-            snapshot = runtime.reduce(
+            val repeatedSilence = runtime.reduce(
                 snapshot,
                 WakeInput.SilenceElapsed(id("silence-${index + 2}"), Duration.ofSeconds(15)),
                 policy,
-            ).snapshot
+            )
+            snapshot = repeatedSilence.snapshot
+            assertTrue(
+                repeatedSilence.directives.none { it is WakeDirective.Speak },
+                "Only the first silence may produce a spoken re-engagement",
+            )
         }
         assertEquals(policy.maxEscalationLevel, snapshot.escalationLevel)
+        assertEquals(1, snapshot.verbalReengagementPrompts)
         assertEquals(WakePhase.ACTIVATING, snapshot.phase)
     }
 
