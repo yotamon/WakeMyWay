@@ -202,6 +202,26 @@ class AlfredRealtimePromptTest {
     }
 
     @Test
+    fun `presentation preferences cannot invent a task during hold engagement`() {
+        val prompt = AlfredRealtimePrompt.turn(
+            request(
+                intent = SpeechIntent.HoldEngagement,
+                preferences = WakePreferences(
+                    morningBarrier = MorningBarrier.MORNING_OVERWHELM,
+                    motivationStyle = com.wakemyway.core.personalization.MotivationStyle.CONCRETE_ACTION,
+                    conversationAmount = ConversationAmount.SOCIAL,
+                    humorPreference = HumorPreference.WELCOME,
+                ),
+            ),
+        ).lowercase()
+
+        assertTrue(prompt.contains("if the current directive contains no action"))
+        assertTrue(prompt.contains("must not invent one"))
+        assertTrue(prompt.contains("otherwise stay conversational"))
+        assertTrue(prompt.contains("do not give another physical action"))
+    }
+
+    @Test
     fun `motivational style stays Alfred instead of becoming a coach`() {
         val prompt = AlfredRealtimePrompt.turn(
             SpeechIntent.KeepEngaging,
