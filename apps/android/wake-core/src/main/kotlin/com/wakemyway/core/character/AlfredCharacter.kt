@@ -6,7 +6,7 @@ import com.wakemyway.core.runtime.SpeechIntent
 object AlfredCharacter {
     val spec = CharacterSpec(
         id = CharacterId("alfred"),
-        version = 8,
+        version = 9,
         displayName = "Alfred",
         voiceLocaleTag = "en-GB",
         speechRate = 0.92f,
@@ -118,78 +118,78 @@ object AlfredCharacter {
     private const val FNV_PRIME: UInt = 16777619u
 
     private val INITIAL_WAKE = listOf(
-        "Good morning. Sit up, then tell me when you're there.",
-        "Morning. Let's begin with sitting up. Tell me when you're there.",
-        "Good morning. Up to sitting, then give me a quick hello.",
-        "Morning. First move: sit up, then tell me you're with me.",
+        "Good morning. Easy start. Come up to sitting when you're ready.",
+        "Morning. No rush. Bring yourself up to sitting.",
+        "Good morning. Let's leave the pillow and find sitting.",
+        "Morning. Up to sitting when you're ready.",
     )
 
     private val ASK_TO_SIT_UP = listOf(
-        "Sit up, then tell me when you're sitting.",
-        "One thing for now: sit up, then say you're there.",
-        "Let us begin with sitting up. Tell me when it's done.",
-        "Up to sitting, please. Then tell me you're with me.",
+        "Come up to sitting when you're ready.",
+        "Easy first move. Bring yourself up to sitting.",
+        "Let's find sitting, nice and easy.",
+        "Up to sitting when it feels reasonable.",
     )
 
     private val ASK_TO_MOVE = listOf(
-        "Feet on the floor, then tell me when they're down.",
-        "A little movement now. Feet down, then answer me.",
-        "Next step: feet on the floor. Tell me when you're there.",
-        "Let us introduce gravity. Feet down, then tell me.",
+        "Feet toward the floor when you're ready.",
+        "Let's introduce gravity. Feet down when it suits.",
+        "A little movement now. Feet toward the floor.",
+        "Next small thing: feet down, nice and easy.",
     )
 
     private val ACTIVATE_UPPER_BODY = listOf(
-        "Roll your shoulders twice, slowly. Then answer me.",
-        "Two slow shoulder rolls, then give me a quick answer.",
-        "Stay seated. Two slow shoulder rolls, then tell me.",
-        "Shoulders twice, slowly. Then tell me you're with me.",
+        "Two slow shoulder rolls, if that feels useful.",
+        "A couple of slow shoulder rolls. Nothing heroic.",
+        "Stay seated and loosen the shoulders twice.",
+        "Two easy shoulder rolls, nice and slow.",
     )
 
     private val STAND_IF_SAFE = listOf(
-        "If it's safe, stand beside the bed. Otherwise sit tall. Then answer me.",
-        "Stand beside the bed if that feels safe. Otherwise stay seated and answer.",
-        "If standing is safe, stand now. If not, sit tall and answer.",
-        "Stand only if safe. Otherwise stay seated. Then tell me you're here.",
+        "If standing feels safe, come up beside the bed. Otherwise stay seated.",
+        "Stand only if it feels safe. Otherwise sit tall.",
+        "If safe, come to standing. If not, stay seated.",
+        "Standing is optional. If it's safe, come up; otherwise stay seated.",
     )
 
     private val KEEP_ENGAGING = listOf(
-        "Switch on a reachable light, or open reachable curtains. Then answer me.",
-        "One easy environment change: light or curtains within reach. Then answer.",
-        "Bring in some light if it's within reach, then tell me.",
-        "Reachable light or curtains next. Then give me a short answer.",
+        "A little reachable light might help now.",
+        "If it's handy, bring in some light.",
+        "Reachable curtains or a light, if you fancy it.",
+        "A touch of light, only if it's within reach.",
     )
 
     private val HOLD_ENGAGEMENT = listOf(
-        "All right. Stay with me a moment and give me one short reply.",
-        "I'm with you. One more clear reply, no extra gymnastics.",
-        "Fair enough. Keep talking to me for one more beat.",
-        "No need to repeat the movement. Just give me one clear reply.",
+        "Fair enough. The bed has had its say.",
+        "I'm with you. We can keep this quiet.",
+        "All right. One moment at a time.",
+        "There we are. No extra gymnastics required.",
     )
 
     private val RE_ENGAGE = listOf(
         listOf(
-            "Still with me? Give me one short answer.",
-            "Stay with me a moment. Tell me you're here.",
-            "I didn't catch words there. Give me a quick yes.",
-            "Back with me, please. One short reply.",
+            "Morning. I'm still here.",
+            "No rush. I'm here.",
+            "Still with you.",
+            "Take your time. I'm here.",
         ),
         listOf(
-            "Stay with me. Answer me out loud.",
-            "A clearer reply this time, please.",
-            "I need one short answer from you.",
-            "Give me a clear yes when you hear me.",
+            "Morning. Come back to my voice when you can.",
+            "Still here. A quick hello when you're ready.",
+            "Come back when you can. I'm here.",
+            "Morning. Let me hear you when you're ready.",
         ),
         listOf(
-            "I need a clear reply now. Answer me.",
-            "Stay with me. One clear answer now.",
-            "Answer out loud now, please.",
-            "One deliberate reply now. Tell me you're here.",
+            "Morning. Stay with the sound for a moment.",
+            "Come back to me when you're ready.",
+            "Still here. A quick hello would do.",
+            "Morning. Find my voice again.",
         ),
         listOf(
-            "Answer me now, please. One short reply.",
-            "One clear answer now. Stay with me.",
-            "I need your voice now. Give me one reply.",
-            "Give me one clear spoken answer now.",
+            "Morning. Time to come back. I'm here.",
+            "Let's leave the silence behind. I'm here.",
+            "Come back to the morning with me.",
+            "Morning. Find my voice when you can.",
         ),
     )
 
@@ -215,67 +215,67 @@ object AlfredCharacter {
     )
 
     private val MOTIVATIONAL_INITIAL_WAKE = listOf(
-        "Morning. The bed has made its case. Sit up, then tell me you're there.",
-        "Good morning. One clear first move: sit up, then answer me.",
-        "Morning. Let's start strong and simple. Sit up, then tell me.",
+        "Morning. Easy momentum: come up to sitting when you're ready.",
+        "Good morning. Start small and come up to sitting.",
+        "Morning. Let's get some daylight into the body. Start with sitting.",
     )
 
     private val MOTIVATIONAL_ASK_TO_SIT_UP = listOf(
-        "Good start. Sit up, then tell me when you're there.",
-        "No ceremony required. Sit up, then give me a quick answer.",
-        "One strong first move: sit up, then tell me you're there.",
+        "Easy first move: come up to sitting.",
+        "Start small. Bring yourself up to sitting.",
+        "A little momentum. Find sitting when you're ready.",
     )
 
     private val MOTIVATIONAL_ASK_TO_MOVE = listOf(
-        "Nice. Feet on the floor next, then tell me they're down.",
-        "Keep that start going. Feet down, then answer me.",
-        "Good. Give me feet on the floor, then tell me when it's done.",
+        "Keep the gentle momentum. Feet toward the floor.",
+        "Next small move: feet down when you're ready.",
+        "A little more movement. Feet toward the floor.",
     )
 
     private val MOTIVATIONAL_ACTIVATE_UPPER_BODY = listOf(
-        "Keep it simple. Two slow shoulder rolls, then answer me.",
-        "Two slow shoulder rolls now, then give me a quick reply.",
-        "Stay seated and roll your shoulders twice. Then answer.",
+        "Add two slow shoulder rolls. Keep it easy.",
+        "A couple of shoulder rolls to bring some movement in.",
+        "Two calm shoulder rolls. Nothing strenuous.",
     )
 
     private val MOTIVATIONAL_STAND_IF_SAFE = listOf(
-        "If standing feels safe, stand beside the bed. Otherwise sit tall and answer.",
-        "Stand only if it's safe. Otherwise stay seated and give me a quick reply.",
-        "If safe, stand beside the bed. If not, sit tall. Then answer.",
+        "If standing feels safe, come up beside the bed. Otherwise stay tall seated.",
+        "Stand only if it feels safe. Seated and tall is perfectly fine.",
+        "If safe, come to standing. Otherwise keep the seated version.",
     )
 
     private val MOTIVATIONAL_KEEP_ENGAGING = listOf(
-        "Bring in some reachable light, then give me a quick answer.",
-        "Light or curtains within reach next. Then answer me.",
-        "One easy environment change now: reachable light or curtains. Then answer.",
+        "A little reachable light could help the morning along.",
+        "If it's handy, bring in some light.",
+        "One small environment shift: reachable light, if useful.",
     )
 
     private val MOTIVATIONAL_HOLD_ENGAGEMENT = listOf(
-        "Keep the thread. One more clear reply, no repeated movement.",
-        "Good, stay with me for one more short answer.",
-        "Keep talking to me. No need to redo the last action.",
+        "Good, we can keep the momentum without adding another task.",
+        "There we are. Keep the morning moving gently.",
+        "All right. No new assignment; just stay with the moment.",
     )
 
     private val MOTIVATIONAL_RE_ENGAGE = listOf(
         listOf(
-            "Stay with me. Give me one quick answer.",
-            "Come back to my voice. One short reply.",
-            "Still here. Give me a clear yes.",
+            "Morning. I'm here when you're ready.",
+            "Come back gently. I'm still here.",
+            "Still with you. No rush.",
         ),
         listOf(
-            "Keep the thread. Answer me out loud.",
-            "One clear reply now. Stay with me.",
-            "Give me your voice for one short answer.",
+            "Morning. Find my voice when you're ready.",
+            "Come back to the thread when you can.",
+            "Still here. A quick hello is enough.",
         ),
         listOf(
-            "Stay with the morning. One clear answer now.",
-            "I need one deliberate reply now.",
-            "Answer me clearly now, please.",
+            "Morning. Let's find the thread again.",
+            "Come back to my voice when you can.",
+            "Still here. Rejoin me when you're ready.",
         ),
         listOf(
-            "One clear spoken answer now. Stay with me.",
-            "Give me one reply now, please.",
-            "Your voice now. One clear answer.",
+            "Morning. Time to rejoin the day with me.",
+            "Come back to the morning now, nice and steady.",
+            "Find my voice and come back when you can.",
         ),
     )
 
@@ -298,67 +298,67 @@ object AlfredCharacter {
     )
 
     private val MINIMAL_INITIAL_WAKE = listOf(
-        "Morning. Sit up, then answer.",
-        "Good morning. Sit up. Tell me.",
-        "Morning. Up to sitting. Answer.",
+        "Morning. Come up to sitting.",
+        "Good morning. Find sitting.",
+        "Morning. Sit up when ready.",
     )
 
     private val MINIMAL_ASK_TO_SIT_UP = listOf(
-        "Sit up. Then answer.",
-        "Sit up. Tell me when.",
-        "Up to sitting. Then answer.",
+        "Come up to sitting.",
+        "Sit up when ready.",
+        "Find sitting, nice and easy.",
     )
 
     private val MINIMAL_ASK_TO_MOVE = listOf(
-        "Feet down. Then answer.",
-        "Feet on the floor. Tell me.",
-        "Move now. Feet down.",
+        "Feet toward the floor.",
+        "Feet down when ready.",
+        "A little movement. Feet down.",
     )
 
     private val MINIMAL_ACTIVATE_UPPER_BODY = listOf(
-        "Two shoulder rolls. Then answer.",
-        "Roll shoulders twice. Answer me.",
-        "Shoulders twice, slowly. Then answer.",
+        "Two slow shoulder rolls.",
+        "Roll shoulders twice, slowly.",
+        "Shoulders twice. Keep it easy.",
     )
 
     private val MINIMAL_STAND_IF_SAFE = listOf(
-        "If safe, stand. Otherwise sit tall. Answer.",
-        "Stand if safe. Otherwise stay seated. Answer.",
-        "Stand only if safe. If not, sit tall.",
+        "Stand if safe; otherwise stay seated.",
+        "If safe, stand. Otherwise sit tall.",
+        "Standing optional. Stay seated if needed.",
     )
 
     private val MINIMAL_KEEP_ENGAGING = listOf(
-        "Reachable light or curtains. Then answer.",
-        "Light within reach. Then answer.",
-        "Open reachable curtains. Then answer.",
+        "Reachable light, if useful.",
+        "A little light, if handy.",
+        "Curtains or light, if nearby.",
     )
 
     private val MINIMAL_HOLD_ENGAGEMENT = listOf(
-        "Stay with me. One reply.",
-        "No repeat. Just answer.",
-        "One more clear reply.",
+        "I'm with you.",
+        "All right. No extra task.",
+        "Fair enough. Keep it easy.",
     )
 
     private val MINIMAL_RE_ENGAGE = listOf(
         listOf(
-            "Still here? Answer me.",
-            "Come back. Then answer.",
-            "One short reply, please.",
+            "Morning. I'm here.",
+            "Still with you.",
+            "No rush. I'm here.",
         ),
         listOf(
-            "Answer me out loud.",
-            "One clear reply now.",
-            "Stay with me. Answer.",
+            "Morning. Come back when ready.",
+            "Still here. Hello when ready.",
+            "Find my voice when ready.",
         ),
         listOf(
-            "Clear answer now, please.",
-            "Answer me clearly now.",
-            "One deliberate reply now.",
+            "Morning. Find my voice again.",
+            "Come back when you can.",
+            "Still here. Rejoin when ready.",
         ),
         listOf(
-            "Answer now. One short reply.",
-            "Your voice now. Answer me.",
-            "One clear spoken answer now.",
+            "Morning. Time to come back.",
+            "Come back to the morning.",
+            "Find my voice when you can.",
         ),
     )
 
