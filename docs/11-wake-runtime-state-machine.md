@@ -136,6 +136,7 @@ Wake Runtime receives a versioned Wake Policy containing deterministic parameter
 - activation evidence threshold
 - evidence weights
 - escalation ceiling
+- bounded verbal re-engagement prompt allowance
 - default snooze duration
 - bounded duplicate-input memory
 
@@ -171,7 +172,7 @@ Upper-body activation, conditional standing and reachable environmental activati
 
 A coherent spoken reply contributes bounded Activation Evidence, while touch and motion remain independent evidence channels. The activation gate is based on the configured evidence score, not on a mandatory voice turn. If movement or other bounded evidence already reaches the threshold, Wake Runtime may enter Orienting even when the microphone is available and the user has said nothing.
 
-A spoken reply is therefore useful evidence, not proof of obedience and not proof that a requested physical action occurred. Silence or unusable audio earns no activation evidence. Re-engagement may make calm contact or restate one safe invitation, but must not frame silence as refusal, demand verbal proof, or invent a harder task.
+A spoken reply is therefore useful evidence, not proof of obedience and not proof that a requested physical action occurred. Silence or unusable audio earns no activation evidence. The default policy permits at most **one spoken re-engagement prompt per Wake Session** across silence and unusable-audio events. After that, the alarm and motion observation continue without further verbal solicitation unless the user voluntarily re-enters conversation. Re-engagement must never frame silence as refusal, demand verbal proof, or invent a harder task.
 
 This keeps a useful separation:
 
