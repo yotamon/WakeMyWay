@@ -304,6 +304,22 @@ class WakeLearningTest {
     }
 
     @Test
+    fun `learned target cannot mutate the frozen verbal retry allowance`() {
+        val corrupted = WakePolicySnapshot(
+            sourcePolicy = policy,
+            policy = policy.copy(maxVerbalReengagementPrompts = 3),
+            sourceSessionIds = emptyList(),
+            changes = emptyList(),
+        )
+
+        val rejected = learner.resolveLearnedPolicy(corrupted, policy)
+
+        assertFalse(rejected.usedLearnedPolicy)
+        assertEquals(LearnedPolicyFallbackReason.INVALID_LEARNING_BOUNDS, rejected.reason)
+        assertEquals(policy, rejected.policy)
+    }
+
+    @Test
     fun `persisted state learned on an older baseline is rejected`() {
         val newerDefault = policy.copy(version = policy.version + 1)
 
