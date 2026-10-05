@@ -121,7 +121,8 @@ The current correction preserves WakeRuntime authority while reducing interactio
 - later coherent replies default to `HoldEngagement` rather than automatically chaining shoulder-roll, standing and environmental tasks;
 - coherent speech remains useful Activation Evidence but is no longer mandatory when touch/motion evidence already satisfies the activation threshold;
 - normal Alfred language explicitly avoids "answer me", "tell me when", "give me a clear yes" and equivalent proof-of-compliance framing;
-- silence/unusable audio is treated as missing evidence rather than disobedience; re-engagement makes calm contact instead of escalating verbal demands;
+- silence/unusable audio is treated as missing evidence rather than disobedience; the default session permits one spoken re-engagement, then backs off to alarm + motion observation instead of repeatedly soliciting speech;
+- Realtime's turn budget is now derived from the bounded verbal-retry allowance rather than three escalation retries, reducing the maximum learned-policy budget from 12 assistant turns to 10;
 - bounded upper-body, conditional-standing and environmental intents remain available as safe strategy tools rather than a mandatory checklist.
 
 Alarm Kernel, Stop/Snooze, Realtime rendering authority and alarm-only fallback are unchanged. The correction directly serves the existing 1.0 quality goal: minimum effective friction, lower annoyance and stronger perceived agency.
