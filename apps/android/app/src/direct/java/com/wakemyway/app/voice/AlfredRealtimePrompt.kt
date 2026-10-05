@@ -223,7 +223,7 @@ Do not judge whether the requested physical action was completed. Do not infer w
     private fun personalizationInstructions(request: WakeSpeechRequest): String {
         val profile = request.sessionPlan.expressionProfile
         return buildString {
-            append("These settings modify presentation only. Never change, skip or add to the current Wake Runtime action.\n")
+            append("These settings modify presentation only. Never change, skip or add to the current Wake Runtime directive. If the current directive contains no action, presentation preferences must not invent one.\n")
             append("Directness: ")
             append(
                 when (profile.directness) {
@@ -237,7 +237,7 @@ Do not judge whether the requested physical action was completed. Do not infer w
                 when (profile.verbosity) {
                     WakeVerbosity.VERY_LOW -> "prefer one terse sentence."
                     WakeVerbosity.LOW -> "prefer one short sentence, two only when needed."
-                    WakeVerbosity.MEDIUM -> "a natural acknowledgement is allowed after engagement, but keep the action unmistakable."
+                    WakeVerbosity.MEDIUM -> "a natural acknowledgement is allowed after engagement; if the current directive contains an action, keep it clear."
                 },
             )
             append("\nSocial energy: ")
@@ -245,13 +245,13 @@ Do not judge whether the requested physical action was completed. Do not infer w
                 when (profile.socialEnergy) {
                     WakeSocialEnergy.LOW -> "avoid optional small talk."
                     WakeSocialEnergy.BALANCED -> "keep normal restrained conversational warmth."
-                    WakeSocialEnergy.WARM -> "allow a little more human acknowledgement after engagement, never before the action."
+                    WakeSocialEnergy.WARM -> "allow a little more human acknowledgement after engagement; never invent an action to structure the turn."
                 },
             )
             append("\nMotivation framing: ")
             append(
                 when (profile.motivationFrame) {
-                    WakeMotivationFrame.ACTION -> "use concrete action rather than motivational language."
+                    WakeMotivationFrame.ACTION -> "when the current directive contains an action, state it concretely rather than motivationally; otherwise stay conversational."
                     WakeMotivationFrame.SUPPORT -> "brief support is allowed after engagement; avoid praise and slogans."
                     WakeMotivationFrame.ACCOUNTABILITY -> "use only the user's explicitly supplied plan when the current turn permits context."
                     WakeMotivationFrame.SOCIAL -> "brief conversational acknowledgement is allowed after engagement."
@@ -262,7 +262,7 @@ Do not judge whether the requested physical action was completed. Do not infer w
             append(
                 when (profile.humorLevel) {
                     WakeHumorLevel.OFF -> "do not make jokes or witty asides."
-                    WakeHumorLevel.LIGHT -> "at most a tiny dry aside when it does not delay the action."
+                    WakeHumorLevel.LIGHT -> "at most a tiny dry aside; never use humor to add an action or obscure the current directive."
                     WakeHumorLevel.OPEN -> "humor may be a little more present, but never stack jokes or turn the wake into entertainment."
                 },
             )
@@ -277,10 +277,10 @@ Do not judge whether the requested physical action was completed. Do not infer w
 
     private fun barrierInstruction(barrier: MorningBarrier): String = when (barrier) {
         MorningBarrier.UNSURE -> "no special framing beyond the normal sleep-inertia protocol."
-        MorningBarrier.HALF_ASLEEP -> "keep early cognition near zero; concrete action before reflection."
+        MorningBarrier.HALF_ASLEEP -> "keep early cognition near zero; when the current directive contains an action, state it simply before reflection."
         MorningBarrier.SNOOZE_LOOP -> "when the user bargains for more sleep, acknowledge briefly without turning the exchange into a compliance argument."
-        MorningBarrier.AWAKE_BUT_STUCK -> "after engagement, frame the task as starting one action rather than telling them to wake up."
-        MorningBarrier.MORNING_OVERWHELM -> "never dump an agenda; narrow attention to one immediate step."
+        MorningBarrier.AWAKE_BUT_STUCK -> "if the current directive contains a task, frame it as one small start rather than telling them to wake up; otherwise do not invent a task."
+        MorningBarrier.MORNING_OVERWHELM -> "never dump an agenda; only narrow to an immediate step when the current directive actually contains one."
         MorningBarrier.LOSE_TRACK_OF_TIME -> "keep orientation concise; mention time only if an explicit trustworthy time fact is provided."
         MorningBarrier.USUALLY_GET_UP -> "do not add friction or intensity without the runtime asking for it."
     }
