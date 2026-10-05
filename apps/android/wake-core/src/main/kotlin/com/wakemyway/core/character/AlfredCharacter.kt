@@ -240,7 +240,7 @@ object AlfredCharacter {
 
     private val MOTIVATIONAL_STAND_IF_SAFE = listOf(
         "If standing feels safe, come up beside the bed. Otherwise stay tall seated.",
-        "Stand only if it feels safe. Seated and tall is perfectly fine.",
+        "Stand only if it feels safe. Otherwise stay seated and tall.",
         "If safe, come to standing. Otherwise keep the seated version.",
     )
 
@@ -324,7 +324,7 @@ object AlfredCharacter {
     private val MINIMAL_STAND_IF_SAFE = listOf(
         "Stand if safe; otherwise stay seated.",
         "If safe, stand. Otherwise sit tall.",
-        "Standing optional. Stay seated if needed.",
+        "Stand if safe. If not, stay seated.",
     )
 
     private val MINIMAL_KEEP_ENGAGING = listOf(
