@@ -88,9 +88,9 @@ data class WakePolicy(
     val orientationChangeWeight: Int = 1,
     val sustainedMovementWeight: Int = 2,
     val maxEscalationLevel: Int = 3,
-    val maxVerbalReengagementPrompts: Int = 1,
     val defaultSnoozeDuration: Duration = Duration.ofMinutes(5),
     val rememberedInputLimit: Int = 128,
+    val maxVerbalReengagementPrompts: Int = 1,
 ) {
     init {
         require(version > 0) { "Wake policy version must be positive" }
