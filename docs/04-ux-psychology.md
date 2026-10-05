@@ -104,13 +104,13 @@ Prefer:
 - simple physical request
 - deliberate pauses
 
-Early conversation is **control flow for waking, not content to consume**. The default pattern is:
+Early conversation is **low-pressure guidance for waking, not content to consume and not a compliance test**. The default pattern is:
 
 ```text
-one safe action -> one short spoken reply -> next safe action
+one safe invitation -> pause / observe -> another intervention only if it is still useful
 ```
 
-Do not ask open-ended questions such as "How do you feel?" or "What are your plans?" while the user is still Emerging/early Engaged. Do not use arithmetic, trivia, memory tests or CAPTCHA-like puzzles as the default wake mechanism. Conversation becomes richer only after behavioral evidence increases.
+The user does not need to verbally confirm every step. Speech may contribute engagement evidence, but movement or other bounded evidence can carry the wake forward without forced spoken proof. Do not ask open-ended planning questions such as "What are your plans?" while the user is still Emerging/early Engaged. Do not use arithmetic, trivia, memory tests or CAPTCHA-like puzzles as the default wake mechanism. Conversation becomes richer only after behavioral evidence increases.
 
 ## Snooze psychology
 
@@ -183,23 +183,27 @@ Goal:
 
 ## Respectful persistence
 
-Tone should be firm without shame.
+Tone should be clear without becoming controlling. The companion can be persistent without making the user feel managed.
 
 Good:
 
-> "Feet on the floor, sir."
+> "Morning. Easy start. Come up to sitting when you're ready."
 
-> "We're moving now."
+> "Feet toward the floor when you're ready."
 
-> "You don't need to feel ready. Just sit up."
+> "Fair enough. The bed has had its say."
 
 Bad:
+
+> "Answer me now."
+
+> "You need to sit up and tell me when it's done."
 
 > "You're lazy again."
 
 > "Come on sleepyhead, you can do it!"
 
-The first attacks the person. The second infantilizes them.
+The first two turn the wake into a compliance exchange. The third attacks the person. The fourth infantilizes them.
 
 ## Physical activation
 
@@ -207,23 +211,27 @@ WMW prefers movement because the product goal is not merely consciousness. It is
 
 A 2026 exploratory randomized study found that five minutes of respiratory/muscular physiological activation after waking improved several sleep-inertia measures more consistently than cognitive stimulation after severe sleep restriction. That is promising evidence for **physiological-first** wake assistance, not proof of one universal exercise sequence.
 
-The default conversational dogfood progression is deliberately conservative:
+The physical toolbox is deliberately conservative, but it is **not** a checklist that every conversational wake must complete:
 
 1. sit upright;
 2. feet down, or an equivalent safe shift out of sleep posture;
-3. one brief seated upper-body activation;
-4. stand beside the bed only if safe and normal for the user, otherwise use a seated alternative;
-5. one reachable environmental activation such as light or curtains.
+3. optional brief seated upper-body activation;
+4. optional standing only if safe and normal for the user, with a seated alternative;
+5. optional reachable environmental activation such as light or curtains.
+
+The default conversational path uses a gentle sit-up invitation and at most one follow-up movement cue before shifting toward natural HoldEngagement. Later physical intents remain available for bounded strategy/tuning rather than being automatically chained after every reply.
 
 Rules:
 
-- one physical request per turn;
-- the runtime chooses the progression; the language model only renders the approved current intent;
-- verbal fluency alone never gives the model permission to skip ahead;
+- at most one physical invitation per turn;
+- do not require a spoken confirmation after each invitation;
+- the runtime chooses interventions; the language model only renders the approved current intent;
+- verbal fluency alone never gives the model permission to invent or escalate physical tasks;
 - no squats, jumping, balance challenges, strenuous exercise, or rapid/forced breathing;
-- standing is conditional, never a compliance requirement, and is not requested from verbal engagement or device pickup alone; orientation-change or sustained-movement evidence must already exist;
-- after unclear audio/silence, re-engage around the current safe action instead of inventing a harder one;
-- a spoken "done" is engagement evidence, not proof that a physical action occurred.
+- standing is conditional and never a compliance requirement;
+- after unclear audio/silence, make calm contact or restate one safe invitation instead of inventing a harder one;
+- a spoken "done" is engagement evidence, not proof that a physical action occurred;
+- sufficient motion/interaction evidence may complete activation without a spoken turn.
 
 V1 uses low-permission signals:
 
