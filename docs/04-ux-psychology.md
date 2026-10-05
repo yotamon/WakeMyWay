@@ -229,7 +229,7 @@ Rules:
 - verbal fluency alone never gives the model permission to invent or escalate physical tasks;
 - no squats, jumping, balance challenges, strenuous exercise, or rapid/forced breathing;
 - standing is conditional and never a compliance requirement;
-- after unclear audio/silence, make calm contact or restate one safe invitation instead of inventing a harder one;
+- after unclear audio/silence, one calm spoken re-engagement is allowed; repeated silence/noise backs off to alarm + motion observation instead of repeated prompting;
 - a spoken "done" is engagement evidence, not proof that a physical action occurred;
 - sufficient motion/interaction evidence may complete activation without a spoken turn.
 
