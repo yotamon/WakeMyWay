@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Optional read-only Android Calendar Provider context; never required to set an alarm. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- Last-resort wake layers owned by AlarmPlaybackService: redundant haptics when audio output
          is degraded, and CPU retention across the receiver-to-audio-start window. -->
     <uses-permission android:name="android.permission.VIBRATE" />
