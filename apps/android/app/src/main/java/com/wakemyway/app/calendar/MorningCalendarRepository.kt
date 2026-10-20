@@ -36,6 +36,7 @@ internal class MorningCalendarRepository(context: Context) {
     data class MorningFact(
         val description: String,
         val observedAtMillis: Long,
+        val startsAtMillis: Long,
     )
 
     fun hasPermission(): Boolean =
@@ -163,7 +164,7 @@ internal class MorningCalendarRepository(context: Context) {
         }
         // The provider may be out of sync with Google. This is a locally observed fact, not proof
         // of a currently confirmed appointment, user's intention, commute or preparation time.
-        return MorningFact(description = description, observedAtMillis = nowMillis)
+        return MorningFact(description = description, observedAtMillis = nowMillis, startsAtMillis = event.startMillis)
     }
 
     private data class Candidate(val startMillis: Long, val title: String?)
