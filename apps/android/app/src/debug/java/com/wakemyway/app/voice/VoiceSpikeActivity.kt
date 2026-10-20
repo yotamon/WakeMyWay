@@ -1,6 +1,7 @@
 package com.wakemyway.app.voice
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -119,6 +120,15 @@ class VoiceSpikeActivity : ComponentActivity() {
             setPadding(0, dp(6), 0, dp(18))
         }
         content.addView(statusBody)
+
+        // The GPT-Live lab exists only in directDebug; never show in Play or release.
+        runCatching { Class.forName("com.wakemyway.app.voice.GptLiveVoiceLabActivity") }
+            .getOrNull()?.let { voiceLab ->
+                content.addView(Button(this).apply {
+                    text = "Test GPT-Live voices (experimental)"
+                    setOnClickListener { startActivity(Intent(this@VoiceSpikeActivity, voiceLab)) }
+                }, matchWidth(topMargin = 12))
+            }
 
         progress = ProgressBar(this).apply {
             isIndeterminate = true
