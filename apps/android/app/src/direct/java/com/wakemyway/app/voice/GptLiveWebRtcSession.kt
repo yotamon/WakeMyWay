@@ -519,7 +519,7 @@ class GptLiveWebRtcSession(
         connecting.set(false)
         readyState.set(false)
         handler.removeCallbacks(startupTimeout)
-        handler.removeCallbacks(iceTimeout)
+        cancelIceTimeout()
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
         runCatching { channel?.unregisterObserver() }
