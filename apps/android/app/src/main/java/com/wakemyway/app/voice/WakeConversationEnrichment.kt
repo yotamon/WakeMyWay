@@ -7,6 +7,8 @@ import com.wakemyway.core.runtime.SpeechIntent
 data class WakeSpeechRequest(
     val intent: SpeechIntent,
     val sessionPlan: WakeSessionPlan,
+    /** Optional sanitized calendar fact, usable only in the Orientation directive. */
+    val calendarContext: String? = null,
 )
 
 /**
