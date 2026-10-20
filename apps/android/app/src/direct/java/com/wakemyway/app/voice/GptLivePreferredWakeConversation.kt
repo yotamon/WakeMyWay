@@ -29,6 +29,8 @@ class GptLivePreferredWakeConversation(
     private var liveReady = false
     private var inputEnabled = false
     private var responsePending = false
+    private var assistantAudioActive = false
+    private var userInterruptedOutput = false
     private val turnBuffer = StringBuilder()
     private val userTurnQuiet = Runnable {
         if (!closed && inputEnabled && turnBuffer.isNotBlank()) {
@@ -121,17 +123,23 @@ class GptLivePreferredWakeConversation(
     override fun onRemoteSpeechActivity(active: Boolean) {
         if (closed || fallbackPending) return
         if (active) {
+            assistantAudioActive = true
             responsePending = false
             handler.removeCallbacks(noAudioDeadline)
             listener.onAssistantSpeechStarted()
         } else {
-            listener.onAssistantSpeechFinished(interrupted = false)
+            assistantAudioActive = false
+            listener.onAssistantSpeechFinished(interrupted = userInterruptedOutput)
+            userInterruptedOutput = false
         }
     }
 
     override fun onTranscript(fromUser: Boolean, delta: String) {
         if (closed || fallbackPending || !fromUser || !inputEnabled || delta.isBlank()) return
-        if (turnBuffer.isEmpty()) listener.onUserSpeechStarted()
+        if (turnBuffer.isEmpty()) {
+            if (assistantAudioActive) userInterruptedOutput = true
+            listener.onUserSpeechStarted()
+        }
         turnBuffer.append(delta)
         if (turnBuffer.length > 250) turnBuffer.delete(0, turnBuffer.length - 250)
         handler.removeCallbacks(userTurnQuiet)

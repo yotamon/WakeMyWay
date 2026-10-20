@@ -110,7 +110,9 @@ automatic first-audible-frame latency sensor.
   intents. No model text may stop, snooze, confirm waking, or mutate the kernel.
 - Live's full-duplex stream does not emit Realtime response.done. Remote decoded
   WebRTC PCM activity and bounded silence are used only for **best-effort**
-  assistant speech callbacks; text transcript deltas never finish speech.
+  assistant speech callbacks, with a 1.4-second remote-silence grace to
+  tolerate natural pauses. A user speaking over output marks the assistant
+  turn interrupted; text transcript deltas never finish speech.
 - User transcript fragments are grouped with a bounded quiet period into
   one low-confidence engagement observation. Speech content never triggers
   Stop/Snooze, and silence never increases activation evidence.

@@ -503,7 +503,7 @@ class GptLiveWebRtcSession(
                     observer.onRemoteSpeechActivity(true)
                 }
                 handler.removeCallbacks(remoteSilenceTimer)
-                handler.postDelayed(remoteSilenceTimer, 850L)
+                handler.postDelayed(remoteSilenceTimer, 1_400L)
             }
         }
         remoteTrack = track
