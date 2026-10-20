@@ -30,7 +30,7 @@ internal object GptLivePreviewMessages {
             "offer-rejected", "invalid-server-answer", "invalid-server-response" ->
                 "The WebRTC session handshake failed. This needs an application-side fix."
             "ice-gathering-timeout", "ice-no-candidates" ->
-                "Android found no usable audio network candidates. Try mobile data, disable VPN, or check network permissions."
+                "Android couldn't establish a usable audio route (no ICE candidates). Try mobile data, disable VPN, or check network permissions."
             "ice-candidates-missing-from-sdp" ->
                 "Android found network candidates but did not include them in the offer. This needs a WebRTC signaling fix."
             "startup-timeout", "ice-connection", "peer-connection", "remote-sdp" ->
