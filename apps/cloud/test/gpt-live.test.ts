@@ -135,7 +135,7 @@ describe('account-authenticated Live SDP route', () => {
     );
     expect(response.status).toBe(201);
     expect(pilotCheck).toHaveBeenCalledWith(credential.credentialId);
-    expect(authorize.mock.invocationCallOrder[0]).toBeLessThan(pilotCheck.mock.invocationCallOrder[0]);
+    expect(authorize.mock.invocationCallOrder[0]!).toBeLessThan(pilotCheck.mock.invocationCallOrder[0]!);
     expect(reserve).toHaveBeenCalledOnce();
     expect(mint).toHaveBeenCalledOnce();
   });
