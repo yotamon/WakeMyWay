@@ -3,7 +3,7 @@ package com.wakemyway.app.voice
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import com.wakemyway.core.alarm.CharacterId
+import android.os.SystemClock
 import com.wakemyway.core.personalization.ConversationAmount
 import com.wakemyway.core.personalization.HumorPreference
 import com.wakemyway.core.personalization.InterventionStyle
@@ -31,13 +31,27 @@ class GptLivePreferredWakeConversation(
     private var responsePending = false
     private var assistantAudioActive = false
     private var userInterruptedOutput = false
+    private var userTurnOverlappedOutput = false
+    private var lastCreditedUserTurnAt = Long.MIN_VALUE
     private val turnBuffer = StringBuilder()
     private val userTurnQuiet = Runnable {
         if (!closed && inputEnabled && turnBuffer.isNotBlank()) {
             val content = turnBuffer.toString().trim()
             turnBuffer.setLength(0)
-            // Short intentional words are engagement, not command authority.
-            listener.onUserTurnObserved(content.any(Char::isLetterOrDigit))
+            val now = SystemClock.elapsedRealtime()
+            val coherent = GptLiveUserTurnGate.isPlausible(
+                content = content,
+                overlappedOutput = userTurnOverlappedOutput,
+                msSinceLastCredit = if (lastCreditedUserTurnAt == Long.MIN_VALUE) {
+                    Long.MAX_VALUE
+                } else {
+                    (now - lastCreditedUserTurnAt).coerceAtLeast(0L)
+                },
+            )
+            userTurnOverlappedOutput = false
+            if (coherent) lastCreditedUserTurnAt = now
+            // Live transcript text is tentative. No voice text executes actions.
+            listener.onUserTurnObserved(coherent)
         }
     }
     private val noAudioDeadline = Runnable {
@@ -137,6 +151,7 @@ class GptLivePreferredWakeConversation(
     override fun onTranscript(fromUser: Boolean, delta: String) {
         if (closed || fallbackPending || !fromUser || !inputEnabled || delta.isBlank()) return
         if (turnBuffer.isEmpty()) {
+            userTurnOverlappedOutput = assistantAudioActive
             if (assistantAudioActive) userInterruptedOutput = true
             listener.onUserSpeechStarted()
         }

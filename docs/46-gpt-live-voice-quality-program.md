@@ -114,8 +114,11 @@ automatic first-audible-frame latency sensor.
   tolerate natural pauses. A user speaking over output marks the assistant
   turn interrupted; text transcript deltas never finish speech.
 - User transcript fragments are grouped with a bounded quiet period into
-  one low-confidence engagement observation. Speech content never triggers
-  Stop/Snooze, and silence never increases activation evidence.
+  tentative engagement observations. Credit is denied for assistant-overlapped
+  fragments, noise/fillers, and repeated fragments within a four-second
+  window. Speech content never triggers Stop/Snooze and silence never
+  increases activation evidence. This is still heuristic and needs physical
+  comparison with meaningful real-world responses.
 - On a pre-admission 403 pilot-access denial only, retain the previous
   Realtime implementation. On all potentially billable Live failures, use the
   local wake sound and controls without automatically opening another model.
