@@ -1,0 +1,38 @@
+name: Publish GPT-Live ICE integration fix
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'fix/gpt-live-ice-signaling-integrated-20261021' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Trigger canonical signed release for precisely this merged fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$MAIN_SHA" = "$EXPECTED_MERGE_SHA" || {
+            echo "::error::main changed; refuse to release an unrelated commit."
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false \
+            -f 'release_notes=Fix GPT-Live Voice Lab ICE setup on Android: one-shot WebRTC candidate gathering, Cloudflare STUN network route discovery, safe bounded SDP fallback and actionable diagnostics. Preserve the existing account preflight, connection deadlines, and all normal alarms.'
