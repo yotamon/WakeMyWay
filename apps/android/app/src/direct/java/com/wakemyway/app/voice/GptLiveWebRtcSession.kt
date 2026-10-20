@@ -46,6 +46,8 @@ class GptLiveWebRtcSession(
 ) : AutoCloseable {
     interface Observer {
         fun onReady()
+        /** Stable, content-free phase name for explaining connection progress. */
+        fun onStage(stage: String) = Unit
         fun onTranscript(fromUser: Boolean, delta: String)
         /** Cumulative billable duration, never raw audio or a per-turn value. */
         fun onUsageSeconds(seconds: Int, final: Boolean)
@@ -97,6 +99,9 @@ class GptLiveWebRtcSession(
     private val startupTimeout = Runnable { fail("startup-timeout", generation.get()) }
     private val sessionBudget = Runnable { requestClose() }
     private val closeTimeout = Runnable { finish(usageConfirmed = false) }
+    private val iceTimeout = Runnable {
+        if (!exchangeStarted) fail("ice-gathering-timeout", generation.get())
+    }
 
     fun connect(
         character: Character = Character.ALFRED,
@@ -106,7 +111,10 @@ class GptLiveWebRtcSession(
         labSettings = settings
         val current = generation.incrementAndGet()
         handler.post {
-            if (isCurrent(current)) createConnection(character, current)
+            if (isCurrent(current)) {
+                observer.onStage("webrtc-setup")
+                createConnection(character, current)
+            }
         }
     }
 
@@ -157,11 +165,20 @@ class GptLiveWebRtcSession(
             val events = connection.createDataChannel("oai-events", DataChannel.Init())
             channel = events
             events.registerObserver(eventObserver(current))
+            observer.onStage("webrtc-offer")
             connection.createOffer(object : SimpleObserver() {
                 override fun onCreateSuccess(description: SessionDescription?) {
                     if (!isCurrent(current) || description == null) return
                     connection.setLocalDescription(object : SimpleObserver() {
-                        override fun onSetSuccess() = maybeExchangeSdp(character, current)
+                        override fun onSetSuccess() {
+                            handler.post {
+                                if (isCurrent(current) && !exchangeStarted) {
+                                    observer.onStage("ice-gathering")
+                                    handler.postDelayed(iceTimeout, ICE_TIMEOUT_MS)
+                                    maybeExchangeSdp(character, current)
+                                }
+                            }
+                        }
                         override fun onSetFailure(error: String?) = fail("local-sdp", current)
                     }, description)
                 }
@@ -180,17 +197,23 @@ class GptLiveWebRtcSession(
             if (connection.iceGatheringState() != PeerConnection.IceGatheringState.COMPLETE) return@post
             val local = connection.localDescription?.description ?: return@post
             exchangeStarted = true
+            handler.removeCallbacks(iceTimeout)
+            observer.onStage("server-authentication")
             scope.launch {
                 runCatching { createSession(local, character) }
                     .onSuccess { answer ->
                         handler.post {
                             if (!isCurrent(current) || peer !== connection) return@post
+                            observer.onStage("webrtc-answer")
                             connection.setRemoteDescription(object : SimpleObserver() {
                                 override fun onSetFailure(error: String?) = fail("remote-sdp", current)
                             }, SessionDescription(SessionDescription.Type.ANSWER, answer))
                         }
                     }
-                    .onFailure { fail("live-sdp", current) }
+                    .onFailure { error ->
+                        val stage = (error as? LivePreviewSetupException)?.stage ?: "network-or-server-error"
+                        fail(stage, current)
+                    }
             }
         }
     }
@@ -205,13 +228,29 @@ class GptLiveWebRtcSession(
             token = provisionCredential()
             response = postLiveSession(token, sdp, character)
         }
-        check(response.status == 201) { "Live admission unavailable" }
-        val json = JSONObject(response.body)
-        check(json.getString("configurationId") == CONFIGURATION_ID)
-        check(json.getJSONObject("session").getString("id").startsWith("live_"))
-        val transport = json.getJSONObject("transport")
-        check(transport.getString("type") == "webrtc")
-        return transport.getString("sdp").also { check(it.length in 40..MAX_SDP_BYTES) }
+        if (response.status != 201) {
+            // The server uses stable HTTP status codes. Never surface token, SDP
+            // or untrusted provider response bodies to an Android diagnostic.
+            throw LivePreviewSetupException(when (response.status) {
+                400, 413 -> "offer-rejected"
+                401 -> "session-authentication-failed"
+                403 -> "pilot-access-denied"
+                429 -> "daily-voice-limit"
+                503 -> "provider-or-server-unavailable"
+                else -> "server-http-${response.status.coerceIn(100, 599)}"
+            })
+        }
+        val json = runCatching { JSONObject(response.body) }
+            .getOrElse { throw LivePreviewSetupException("invalid-server-response") }
+        if (json.optString("configurationId") != CONFIGURATION_ID ||
+            !json.optJSONObject("session")?.optString("id").orEmpty().startsWith("live_") ||
+            json.optJSONObject("transport")?.optString("type") != "webrtc"
+        ) throw LivePreviewSetupException("invalid-server-response")
+        val answer = json.getJSONObject("transport").optString("sdp")
+        if (answer.length !in 40..MAX_SDP_BYTES || !answer.startsWith("v=0")) {
+            throw LivePreviewSetupException("invalid-server-answer")
+        }
+        return answer
     }
 
     private suspend fun postLiveSession(
@@ -237,9 +276,12 @@ class GptLiveWebRtcSession(
 
     private suspend fun provisionCredential(): String {
         val accessToken = account.currentAccessTokenForRealtime()
-            ?: error("Account session unavailable")
-        val credential = provisioning.provision(accessToken, credentials.installationId())
-        credentials.save(credential)
+            ?: throw LivePreviewSetupException("sign-in-required")
+        val credential = runCatching {
+            provisioning.provision(accessToken, credentials.installationId())
+        }.getOrElse { throw LivePreviewSetupException("device-authorization-failed") }
+        runCatching { credentials.save(credential) }
+            .getOrElse { throw LivePreviewSetupException("device-credential-storage-failed") }
         return credential.deviceToken
     }
 
@@ -261,6 +303,7 @@ class GptLiveWebRtcSession(
                 "session.started" -> handler.post {
                     if (!isCurrent(current) || closing || readyState.getAndSet(true)) return@post
                     handler.removeCallbacks(startupTimeout)
+                    handler.removeCallbacks(iceTimeout)
                     handler.postDelayed(sessionBudget, MAX_DURATION_MS)
                     observer.onReady()
                 }
@@ -345,6 +388,7 @@ class GptLiveWebRtcSession(
         input?.setEnabled(false)
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(startupTimeout)
+        handler.removeCallbacks(iceTimeout)
         if (readyState.get() && channel?.state() == DataChannel.State.OPEN) {
             send(channel ?: return, JSONObject().put("type", "session.close"))
             handler.postDelayed(closeTimeout, CLOSE_GRACE_MS)
@@ -417,6 +461,7 @@ class GptLiveWebRtcSession(
         connecting.set(false)
         readyState.set(false)
         handler.removeCallbacks(startupTimeout)
+        handler.removeCallbacks(iceTimeout)
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
         runCatching { channel?.unregisterObserver() }
@@ -443,6 +488,8 @@ class GptLiveWebRtcSession(
         handler.post { requestClose() }
     }
 
+    private class LivePreviewSetupException(val stage: String) : RuntimeException(stage)
+
     private abstract class SimpleObserver : SdpObserver {
         override fun onCreateSuccess(description: SessionDescription?) = Unit
         override fun onSetSuccess() = Unit
@@ -461,6 +508,7 @@ class GptLiveWebRtcSession(
         const val CLOSE_GRACE_MS = 15_000L
         private var initialized = false
         private val initLock = Any()
+        const val ICE_TIMEOUT_MS = 18_000L
         private val DELEGATION_ID = Regex("^[A-Za-z0-9_:-]{1,160}$")
     }
 }
