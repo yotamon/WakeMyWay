@@ -106,9 +106,9 @@ export interface LiveSessionAnswer {
 
 export async function createLiveSession(
   input: z.input<typeof liveRequestSchema>,
-  options: { apiKey?: string; fetchImpl?: typeof fetch; safetyIdentifier: string } ,
+  options: { apiKey?: string; fetchImpl?: typeof fetch; safetyIdentifier: string; pilotApproved?: boolean },
 ): Promise<LiveSessionAnswer> {
-  if (process.env.WMW_GPT_LIVE_ENABLED !== 'true') {
+  if (process.env.WMW_GPT_LIVE_ENABLED !== 'true' && options.pilotApproved !== true) {
     throw new HttpError(503, 'GPT-Live experiment is disabled.');
   }
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY;

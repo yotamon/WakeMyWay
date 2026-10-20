@@ -53,6 +53,7 @@ a speech-finished event from a timeout.
 - Signed, revocable, short-lived device authorization, checked before session create.
 - No arbitrary voice IDs, prompts, models or tool definitions from the client.
 - `store:false` for new Live sessions; no raw audio or transcript persistence.
+- Verified account-specific Neon pilot flag in `wmw_private.live_pilot_accounts` may authorize the founder **without** the Vercel gate (but never without a verified account/device credential). The table has RLS, no default rows and can be disabled by setting `enabled=false`. This path still consumes durable admission reservations and is not an open consumer rollout.
 - Founder account allowlist: `WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS`
   lists explicitly approved 40-character pseudonym digests; missing/empty denies
   everybody even if the global experimental switch is enabled.

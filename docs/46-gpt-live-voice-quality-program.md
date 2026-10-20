@@ -85,7 +85,7 @@ actual provider usage. Daily session admission is not a connected-duration cap.
 - [x] Feature off unless `WMW_GPT_LIVE_ENABLED=true`.
 - [x] Character/voice allowlist, server-side prompts, `store:false`.
 - [x] Validated SDP and bounded provider request.
-- [x] Durable daily quota + retry cooldown migration, and founder allowlist in cloud.
+- [x] Durable daily quota + retry cooldown migration and account-specific Neon pilot authorization (fallback to stricter Vercel allowlist mode).
 - [x] Explicit operator voice creation script.
 - [x] Unit tests for auth, denial and provider request.
 - [x] Apply additive migration 005 on the WakeMyWay Neon production database;

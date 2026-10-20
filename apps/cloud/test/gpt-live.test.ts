@@ -103,11 +103,41 @@ describe('account-authenticated Live SDP route', () => {
         body: JSON.stringify(request),
       }),
       { verifyCredential: () => credential, deviceStore: store,
+        pilotAccess: { isAllowed: async () => false },
         admissionStore: { reserve }, mintLiveSession: mint },
     );
     expect(response.status).toBe(403);
     expect(reserve).not.toHaveBeenCalled();
     expect(mint).not.toHaveBeenCalled();
+  });
+
+  it('allows a single DB-approved pilot even if global Vercel voice access is off', async () => {
+    vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'false');
+    vi.stubEnv('WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS', '');
+    const authorize = vi.fn(async () => undefined);
+    const pilotCheck = vi.fn(async () => true);
+    const reserve = vi.fn(async () => undefined);
+    const mint = vi.fn(async (_input: unknown, options: { pilotApproved?: boolean }) => {
+      expect(options.pilotApproved).toBe(true);
+      return { session: { id: 'live_test' },
+        transport: { type: 'webrtc' as const,
+          sdp: 'v=0\\r\\nm=audio 9 UDP/TLS/RTP/SAVPF 111\\r\\na=mid:0\\r\\n' } };
+    });
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'POST',
+        headers: { authorization: 'Bearer scoped-device-token', 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      }),
+      { verifyCredential: () => credential, deviceStore: { ...store, authorize },
+        pilotAccess: { isAllowed: pilotCheck },
+        admissionStore: { reserve }, mintLiveSession: mint },
+    );
+    expect(response.status).toBe(201);
+    expect(pilotCheck).toHaveBeenCalledWith(credential.credentialId);
+    expect(authorize.mock.invocationCallOrder[0]).toBeLessThan(pilotCheck.mock.invocationCallOrder[0]);
+    expect(reserve).toHaveBeenCalledOnce();
+    expect(mint).toHaveBeenCalledOnce();
   });
 
   it('does not reserve a paid admission when the experiment is disabled', async () => {
@@ -121,6 +151,7 @@ describe('account-authenticated Live SDP route', () => {
         body: JSON.stringify(request),
       }),
       { verifyCredential: () => credential, deviceStore: store,
+        pilotAccess: { isAllowed: async () => false },
         admissionStore: { reserve }, mintLiveSession: mint },
     );
     expect(response.status).toBe(503);
