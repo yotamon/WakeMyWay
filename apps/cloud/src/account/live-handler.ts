@@ -1,11 +1,13 @@
 import { errorResponse, HttpError, json, methodNotAllowed, parseJson, requestId } from '../http.js';
 import { accountRealtimeSafetyIdentifier, verifyAccountRealtimeCredential } from './account-realtime-auth.js';
 import { PostgresAccountRealtimeDeviceStore, type AccountRealtimeDeviceStore } from './realtime-device-store.js';
+import { PostgresLiveAdmissionStore, type LiveAdmissionStore } from './live-admission-store.js';
 import { createLiveSession, liveRequestSchema, type LiveSessionAnswer } from '../voice-spike/gpt-live.js';
 
 interface Options {
   verifyCredential?: typeof verifyAccountRealtimeCredential;
   deviceStore?: AccountRealtimeDeviceStore;
+  admissionStore?: LiveAdmissionStore;
   mintLiveSession?: typeof createLiveSession;
 }
 
@@ -26,6 +28,8 @@ export async function handleAccountLiveSessionRequest(
     const credential = (options.verifyCredential ?? verifyAccountRealtimeCredential)(bearer);
     await (options.deviceStore ?? new PostgresAccountRealtimeDeviceStore()).authorize(credential);
     const input = await parseJson(request, liveRequestSchema, 72 * 1024);
+    // This reservation happens before the provider can create a billable session.
+    await (options.admissionStore ?? new PostgresLiveAdmissionStore()).reserve(credential.credentialId);
     const answer: LiveSessionAnswer = await (options.mintLiveSession ?? createLiveSession)(
       input,
       { safetyIdentifier: accountRealtimeSafetyIdentifier(credential) },
