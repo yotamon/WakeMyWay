@@ -9,6 +9,7 @@ internal object GptLivePreviewMessages {
         "webrtc-setup" -> "Preparing your microphone and speaker…"
         "webrtc-offer" -> "Preparing secure audio connection…"
         "ice-gathering" -> "Checking network audio route…"
+        "partial-ice-offer" -> "Connecting with available network candidates…"
         "server-authentication" -> "Authorizing the GPT-Live preview…"
         "webrtc-answer" -> "Finishing the secure audio handshake…"
         else -> "Connecting to voice preview…"
@@ -28,8 +29,10 @@ internal object GptLivePreviewMessages {
                 "The voice backend or OpenAI session is unavailable. Check model access and billing."
             "offer-rejected", "invalid-server-answer", "invalid-server-response" ->
                 "The WebRTC session handshake failed. This needs an application-side fix."
-            "ice-gathering-timeout" ->
-                "Your phone couldn't establish an audio route. Try cellular data instead of Wi-Fi."
+            "ice-gathering-timeout", "ice-no-candidates" ->
+                "Android found no usable audio network candidates. Try mobile data, disable VPN, or check network permissions."
+            "ice-candidates-missing-from-sdp" ->
+                "Android found network candidates but did not include them in the offer. This needs a WebRTC signaling fix."
             "startup-timeout", "ice-connection", "peer-connection", "remote-sdp" ->
                 "The secure audio connection failed. Try another network or audio device."
             "device-credential-storage-failed" ->
