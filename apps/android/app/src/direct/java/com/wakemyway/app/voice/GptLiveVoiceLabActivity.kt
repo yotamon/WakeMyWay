@@ -221,7 +221,11 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
             .put("listenerConfirmedAudible", true)
             .put("observedUsageSeconds", lastSessionUsageSeconds))
         preferences.edit().putString("reviews", list.toString()).apply()
+        // A saved sample is immutable: pressing "I heard the voice" again must
+        // not re-enable the same rating and create duplicate quality evidence.
         rateButton.isEnabled = false
+        heardVoiceButton.isEnabled = false
+        noVoiceButton.isEnabled = false
         showStatus("Saved local rating #${list.length()}. No voice recording retained.")
     }
 
