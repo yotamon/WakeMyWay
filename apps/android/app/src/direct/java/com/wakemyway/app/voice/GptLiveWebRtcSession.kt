@@ -110,11 +110,27 @@ class GptLiveWebRtcSession(
         if (closed || !connecting.compareAndSet(false, true)) return
         labSettings = settings
         val current = generation.incrementAndGet()
-        handler.post {
-            if (isCurrent(current)) {
-                observer.onStage("webrtc-setup")
-                createConnection(character, current)
+        // Validate the account and refresh any expired device authorization
+        // *before* touching the communication audio route or WebRTC. The
+        // original pilot did this only after ICE negotiation, masking expired
+        // sessions as a generic transport disconnect.
+        handler.post { if (isCurrent(current)) observer.onStage("account-check") }
+        scope.launch {
+            val preflight = runCatching {
+                credentials.load()?.deviceToken ?: provisionCredential()
             }
+            preflight
+                .onSuccess {
+                    handler.post {
+                        if (isCurrent(current) && !closing) {
+                            observer.onStage("webrtc-setup")
+                            createConnection(character, current)
+                        }
+                    }
+                }
+                .onFailure { error ->
+                    fail((error as? LivePreviewSetupException)?.stage ?: "device-authorization-failed", current)
+                }
         }
     }
 
