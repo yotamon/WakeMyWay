@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.wakemyway.core.alarm.CharacterId
-import com.wakemyway.core.alarm.VoiceStyle
 import com.wakemyway.core.personalization.ConversationAmount
 import com.wakemyway.core.personalization.HumorPreference
 import com.wakemyway.core.personalization.InterventionStyle
@@ -52,10 +51,10 @@ class GptLivePreferredWakeConversation(
         if (fallbackPending || session != null) return
         session = GptLiveWebRtcSession(appContext, this).also { transport ->
             transport.connect(
-                character = when (plan.characterId) {
-                    CharacterId.ALFRED -> GptLiveWebRtcSession.Character.ALFRED
-                    CharacterId.SAM -> GptLiveWebRtcSession.Character.SAM
-                    CharacterId.LUNA -> GptLiveWebRtcSession.Character.LUNA
+                character = when (plan.characterId.value) {
+                    "sam" -> GptLiveWebRtcSession.Character.SAM
+                    "luna" -> GptLiveWebRtcSession.Character.LUNA
+                    "rocco" -> GptLiveWebRtcSession.Character.ROCCO
                     else -> GptLiveWebRtcSession.Character.ALFRED
                 },
                 settings = GptLiveWebRtcSession.VoiceLabSettings(
