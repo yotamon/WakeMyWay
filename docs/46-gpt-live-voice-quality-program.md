@@ -81,8 +81,9 @@ leaving a reserved (potentially billable) session without a client.
   deadline; retain the server's 15-second provider deadline.
 - Bound the sign-in/device credential preflight to 20 seconds before WebRTC
   touches the communication audio route.
-- Bound ICE gathering to 18 seconds and the subsequent WebRTC startup
-  to 50 seconds, covering ICE + backend response + a short negotiation grace.
+- Prefer ICE COMPLETE; after 8 seconds, allow candidate-rich partial SDP,
+  with no paid call if usable candidates or ICE credentials are missing.
+  The subsequent WebRTC startup limit remains 50 seconds.
 - Do not automatically retry a timed-out paid Live session.
 - Any deadline or failure closes the experimental audio route, never changing
   the real Android Alarm Kernel or WakeRuntime.
@@ -90,6 +91,17 @@ leaving a reserved (potentially billable) session without a client.
 These are engineering budgets, not observed p95 latency. A real phone and
 provider-enabled pilot still must prove that sessions start and audio actually
 plays; longer Lab timeouts are **not** approval for a 50-second consumer wake.
+
+## Audible speech truth in Voice Lab (2026-10-21)
+
+Provider transcript deltas, `session.started` and a negotiated audio track
+cannot prove that sound was actually audible from the phone. Rating prompts
+must therefore stay disabled until the real listener confirms hearing audio
+after a completed/closed preview. A listener reporting silence receives the
+copyable privacy-safe `no-audible-playback` diagnostic instead of a falsely
+successful voice rating. No audio recordings, raw SDP, or transcripts are
+persisted by this measurement gate. This is manual pilot feedback, not an
+automatic first-audible-frame latency sensor.
 
 ## Mandatory utterance scenario pack
 

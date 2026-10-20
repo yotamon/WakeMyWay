@@ -32,13 +32,16 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     private var lastTestedCharacter = selected
     private var lastTestedSettings = settings
     private var lastSessionUsageSeconds = 0
-    private var assistantSpoke = false
+    // A transcript fragment is NOT evidence that audio was audible.
+    private var userConfirmedAudible = false
     private var lastFailureStage: String? = null
     private var intentionallyClosing = false
     private var previewConnected = false
     private lateinit var naturalnessRating: RatingBar
     private lateinit var pleasantnessRating: RatingBar
     private lateinit var rateButton: Button
+    private lateinit var heardVoiceButton: Button
+    private lateinit var noVoiceButton: Button
     private lateinit var copyDiagnosisButton: Button
     private lateinit var status: TextView
     private lateinit var transcript: TextView
@@ -119,8 +122,38 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         transcript = TextView(this).apply { textSize = 14f }
         body.addView(transcript)
         body.addView(TextView(this).apply {
-            text = "After a preview, rate only audio you actually heard. Scores stay on this device; speech/transcripts are not saved."
+            text = "After the preview, tell us whether you actually heard speech. A transcript does not prove audible playback. Feedback stays on this device."
         })
+        heardVoiceButton = Button(this).apply {
+            text = "I heard the voice"
+            isEnabled = false
+            setOnClickListener {
+                if (!GptLiveAudibilityGate.canReport(previewConnected, session == null)) return@setOnClickListener
+                userConfirmedAudible = true
+                if (lastFailureStage == "no-audible-playback") {
+                    lastFailureStage = null
+                    copyDiagnosisButton.isEnabled = false
+                }
+                rateButton.isEnabled = GptLiveAudibilityGate.canRate(
+                    previewConnected, session == null, userConfirmedAudible,
+                )
+                showStatus("Audible speech confirmed by listener. You can rate this preview.")
+            }
+        }
+        noVoiceButton = Button(this).apply {
+            text = "No voice audio was heard"
+            isEnabled = false
+            setOnClickListener {
+                if (!GptLiveAudibilityGate.canReport(previewConnected, session == null)) return@setOnClickListener
+                userConfirmedAudible = false
+                rateButton.isEnabled = false
+                if (lastFailureStage == null) lastFailureStage = "no-audible-playback"
+                copyDiagnosisButton.isEnabled = true
+                showStatus(GptLivePreviewMessages.audioNotHeard())
+            }
+        }
+        body.addView(heardVoiceButton)
+        body.addView(noVoiceButton)
         naturalnessRating = RatingBar(this).apply {
             numStars = 5
             stepSize = 1f
@@ -165,7 +198,9 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     }
 
     private fun saveRating() {
-        if (!assistantSpoke || session != null || !rateButton.isEnabled) return
+        if (!GptLiveAudibilityGate.canRate(
+                previewConnected, session == null, userConfirmedAudible,
+            ) || !rateButton.isEnabled) return
         val preferences = getSharedPreferences("wmw_gpt_live_lab_ratings", MODE_PRIVATE)
         val list = runCatching {
             JSONArray(preferences.getString("reviews", "[]") ?: "[]")
@@ -183,6 +218,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
                 .put("locale", lastTestedSettings.locale.name.lowercase()))
             .put("naturalness", naturalnessRating.rating.toInt().coerceIn(1, 5))
             .put("pleasantness", pleasantnessRating.rating.toInt().coerceIn(1, 5))
+            .put("listenerConfirmedAudible", true)
             .put("observedUsageSeconds", lastSessionUsageSeconds))
         preferences.edit().putString("reviews", list.toString()).apply()
         rateButton.isEnabled = false
@@ -214,7 +250,9 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         lastTestedCharacter = selected
         lastTestedSettings = settings
         lastSessionUsageSeconds = 0
-        assistantSpoke = false
+        userConfirmedAudible = false
+        heardVoiceButton.isEnabled = false
+        noVoiceButton.isEnabled = false
         lastFailureStage = null
         intentionallyClosing = false
         previewConnected = false
@@ -251,7 +289,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         val heading = if (lastTranscriptFromUser == fromUser) "" else
             "\n" + (if (fromUser) "You" else selected.wire) + ": "
         lastTranscriptFromUser = fromUser
-        if (!fromUser && delta.isNotBlank()) assistantSpoke = true
+        // Even generated assistant text cannot prove that audio was played.
         // Never persist conversation text. Bound only the on-screen memory buffer.
         transcript.text = (transcript.text.toString() + heading + delta).takeLast(3_000)
     }
@@ -266,15 +304,17 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         startButton.isEnabled = true
         choiceButtons.forEach { it.isEnabled = true }
         stopButton.isEnabled = false
-        rateButton.isEnabled = assistantSpoke
+        heardVoiceButton.isEnabled = GptLiveAudibilityGate.canReport(previewConnected, session == null)
+        noVoiceButton.isEnabled = heardVoiceButton.isEnabled
+        rateButton.isEnabled = false
         // Do not overwrite an actionable failure with a generic disconnect,
         // as happened in the first consumer pilot release.
         if (lastFailureStage == null) {
             showStatus(when {
-                intentionallyClosing -> "Preview stopped."
-                usageConfirmed -> "Session closed."
                 !previewConnected -> "Preview ended before connecting. Try signing in again or check your connection."
-                else -> "Live connection ended unexpectedly."
+                intentionallyClosing -> "Preview stopped. Did you hear the voice?"
+                usageConfirmed -> "Session closed. Did you hear the voice?"
+                else -> "Live connection ended. Did you hear the voice?"
             })
         }
     }

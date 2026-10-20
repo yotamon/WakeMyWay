@@ -36,6 +36,13 @@ class GptLivePreviewMessagesTest {
         assertFalse(text.contains("billing"))
     }
 
+    @Test fun noAudioReportDoesNotClaimTheProviderFailed() {
+        val text = GptLivePreviewMessages.audioNotHeard()
+        assertTrue(text.contains("no-audible-playback"))
+        assertTrue(text.contains("does not prove"))
+        assertFalse(text.contains("provider unavailable"))
+    }
+
     @Test fun statusStagesAreHumanReadable() {
         assertTrue(GptLivePreviewMessages.progress("server-authentication").contains("Authorizing"))
         assertTrue(GptLivePreviewMessages.progress("ice-gathering").contains("network"))
