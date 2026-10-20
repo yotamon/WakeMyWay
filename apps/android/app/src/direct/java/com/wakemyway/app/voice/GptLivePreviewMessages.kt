@@ -16,6 +16,9 @@ internal object GptLivePreviewMessages {
         else -> "Connecting to voice preview…"
     }
 
+    fun audioNotHeard(): String =
+        "No audible voice reported (no-audible-playback). A connected session or transcript does not prove audio reached the speaker. Copy the safe diagnostic code and check your audio route. Regular alarms are unaffected."
+
     fun failure(stage: String): String {
         val recommendation = when (stage) {
             "sign-in-required" ->
