@@ -1,0 +1,39 @@
+name: Publish GPT-Live preview fix
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.number == 195 &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'fix/gpt-live-preview-connection-diagnostics' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Trigger canonical signed release for precisely this merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$MAIN_SHA" = "$EXPECTED_MERGE_SHA" || {
+            echo "::error::main changed; refuse to release a different commit."
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false \
+            -f 'release_notes=Voice Lab connection reliability: check/renew sign-in before WebRTC startup; display precise error and progress stages; preserve failure reason instead of hiding it as Disconnected; add copyable privacy-safe diagnosis and bounded ICE gathering. No change to scheduled alarms or normal Realtime wakes.'
