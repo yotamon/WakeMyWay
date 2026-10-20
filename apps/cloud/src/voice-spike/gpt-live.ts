@@ -69,25 +69,26 @@ const baseInstructions = [
   'At startup remain silent until the application sends an authorized wake directive. Avoid background chatter.',
 ].join('\n');
 
-export function liveSessionConfig(input: z.infer<typeof liveRequestSchema>) {
-  const modifier = input.voiceStyle === 'minimal'
+export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
+  const resolved = liveRequestSchema.parse(input);
+  const modifier = resolved.voiceStyle === 'minimal'
     ? 'Use very few words; do not become abrupt or robotic.'
-    : input.voiceStyle === 'motivational'
+    : resolved.voiceStyle === 'motivational'
       ? 'Be a little more energetic while remaining humane; never become a cheerleader.'
       : 'Keep a relaxed conversational pace.';
   const expression = [
-    `Speak in ${{ en: 'English', de: 'German', he: 'Hebrew' }[input.locale]}.`,
-    `Vocal energy: ${input.energy}. Keep natural, audible bedroom-level volume.`,
-    `Verbal directness: ${input.directness}, without shaming or coercion.`,
-    `Conversation amount: ${input.conversationAmount}; never force a reply.`,
-    `Humor: ${input.humor}; no jokes when the user is distressed.`,
+    `Speak in ${{ en: 'English', de: 'German', he: 'Hebrew' }[resolved.locale]}.`,
+    `Vocal energy: ${resolved.energy}. Keep natural, audible bedroom-level volume.`,
+    `Verbal directness: ${resolved.directness}, without shaming or coercion.`,
+    `Conversation amount: ${resolved.conversationAmount}; never force a reply.`,
+    `Humor: ${resolved.humor}; no jokes when the user is distressed.`,
   ].join(' ');
   return {
     model: GPT_LIVE_MODEL,
     store: false,
-    audio: { output: { voice: configuredVoiceFor(input.characterId) } },
+    audio: { output: { voice: configuredVoiceFor(resolved.characterId) } },
     delegation: { type: 'client' as const },
-    instructions: [baseInstructions, characterIdentity[input.characterId], modifier, expression].join('\n\n'),
+    instructions: [baseInstructions, characterIdentity[resolved.characterId], modifier, expression].join('\n\n'),
   };
 }
 
