@@ -12,6 +12,22 @@
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
+## GPT-Live voice-quality research/implementation (2026-10-20)
+
+An experimental OpenAI GPT-Live migration foundation is being implemented in draft PR #193.
+This is **not** a change to the shipped wake voice. The account-authorized server SDP broker,
+durable billable-session admission, operator-only Voice Studio seed creation, and DirectDebug
+Voice Lab are gated. `WMW_GPT_LIVE_ENABLED` is **off unless explicitly true**.
+The current Direct `gpt-realtime-2.1` adapter remains the consumer path and no new
+model- or voice-related readiness predicate is introduced.
+
+The critical gap before consumer enablement is a verified full-duplex Android audio
+coordinator: Live lacks Realtime's response-ended event, so a transcript gap may never
+be used as `WakeRuntime.SpeechFinished`. Playback/permission gating, physical-device
+validation, voice preference UX, true session billing and a controlled Play rollout
+must pass the decision gates in [ADR-029](adr/029-gpt-live-migration.md) and
+[GPT-Live Voice Quality Program](46-gpt-live-voice-quality-program.md).
+
 ## Core-experience quality reset
 
 WakeMyWay is now under an explicit core-experience quality reset within the existing 1.0 feature freeze. The canonical contract is `docs/45-core-experience-quality-reset.md`.

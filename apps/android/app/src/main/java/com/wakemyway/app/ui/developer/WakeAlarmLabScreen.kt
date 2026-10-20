@@ -358,6 +358,26 @@ fun WakeAlarmLabScreen(
             Text("Configure live conversation")
         }
 
+        if (BuildConfig.DISTRIBUTION_CHANNEL == "direct") {
+            OutlinedButton(
+                modifier = Modifier.padding(top = 12.dp),
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent().setClassName(
+                                context.packageName,
+                                "com.wakemyway.app.voice.GptLiveVoiceLabActivity",
+                            ),
+                        )
+                    }.onFailure {
+                        message = "GPT-Live Voice Lab is not available on this device."
+                    }
+                },
+            ) {
+                Text("Preview GPT-Live voices · experimental")
+            }
+        }
+
         Button(
             modifier = Modifier.padding(top = 12.dp),
             onClick = {
