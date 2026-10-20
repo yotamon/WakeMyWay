@@ -52,6 +52,29 @@ actual provider usage. Daily session admission is not a connected-duration cap.
 | Annoyance compared to current | Meaningful improvement over repeated mornings |
 | Spoken word accuracy per locale | Reviewed English, German, Hebrew separately |
 
+## Voice Lab transport timeout contract (2026-10-21)
+
+The authorized Lab SDP request may wait on account authorization, Neon admission,
+a cold Vercel function and OpenAI's 15-second upstream provider deadline. The
+shared Android HTTP client previously imposed its own 15-second total deadline,
+which could abort the phone's request before a healthy broker had returned,
+leaving a reserved (potentially billable) session without a client.
+
+- Keep ordinary app requests at the shared 15-second default.
+- Give **only** the experimental Live SDP request a bounded 28-second call
+  deadline; retain the server's 15-second provider deadline.
+- Bound the sign-in/device credential preflight to 20 seconds before WebRTC
+  touches the communication audio route.
+- Bound ICE gathering to 18 seconds and the subsequent WebRTC startup
+  to 50 seconds, covering ICE + backend response + a short negotiation grace.
+- Do not automatically retry a timed-out paid Live session.
+- Any deadline or failure closes the experimental audio route, never changing
+  the real Android Alarm Kernel or WakeRuntime.
+
+These are engineering budgets, not observed p95 latency. A real phone and
+provider-enabled pilot still must prove that sessions start and audio actually
+plays; longer Lab timeouts are **not** approval for a 50-second consumer wake.
+
 ## Mandatory utterance scenario pack
 
 1. First wake: 5-15-word invitation; no second instruction.

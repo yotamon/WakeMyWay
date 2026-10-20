@@ -6,6 +6,7 @@ package com.wakemyway.app.voice
  */
 internal object GptLivePreviewMessages {
     fun progress(stage: String): String = when (stage) {
+        "account-check" -> "Checking your WakeMyWay sign-in…"
         "webrtc-setup" -> "Preparing your microphone and speaker…"
         "webrtc-offer" -> "Preparing secure audio connection…"
         "ice-gathering" -> "Checking network audio route…"
@@ -18,6 +19,8 @@ internal object GptLivePreviewMessages {
         val recommendation = when (stage) {
             "sign-in-required" ->
                 "You need to sign in to WakeMyWay again under Profile, then retry."
+            "account-preflight-timeout" ->
+                "Sign-in verification took too long. Check the connection and retry before starting audio."
             "device-authorization-failed", "session-authentication-failed" ->
                 "Your account could not authorize voice preview. Sign out and sign in again."
             "pilot-access-denied" ->
