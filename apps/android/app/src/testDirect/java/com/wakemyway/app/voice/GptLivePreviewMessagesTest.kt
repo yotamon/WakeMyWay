@@ -22,6 +22,13 @@ class GptLivePreviewMessagesTest {
         assertTrue(GptLivePreviewMessages.failure("offer-rejected").contains("WebRTC"))
     }
 
+    @Test fun missingCandidatesProduceActionableOfflineGuidance() {
+        val text = GptLivePreviewMessages.failure("ice-no-candidates")
+        assertTrue(text.contains("audio route"))
+        assertTrue(text.contains("mobile data"))
+        assertFalse(text.contains("billing"))
+    }
+
     @Test fun statusStagesAreHumanReadable() {
         assertTrue(GptLivePreviewMessages.progress("server-authentication").contains("Authorizing"))
         assertTrue(GptLivePreviewMessages.progress("ice-gathering").contains("network"))
