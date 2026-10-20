@@ -34,6 +34,7 @@ import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.RtpReceiver
+import org.webrtc.RtpTransceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
@@ -467,6 +468,9 @@ class GptLiveWebRtcSession(
             }
             override fun onAddTrack(receiver: RtpReceiver?, mediaStreams: Array<out MediaStream>?) {
                 attachRemoteTrack(receiver?.track() as? AudioTrack, current)
+            }
+            override fun onTrack(transceiver: RtpTransceiver?) {
+                attachRemoteTrack(transceiver?.receiver?.track() as? AudioTrack, current)
             }
             override fun onRemoveStream(stream: MediaStream?) = Unit
             override fun onDataChannel(channel: DataChannel?) = Unit
