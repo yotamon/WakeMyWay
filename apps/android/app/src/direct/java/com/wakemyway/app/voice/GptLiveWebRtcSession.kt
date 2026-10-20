@@ -47,6 +47,8 @@ class GptLiveWebRtcSession(
     interface Observer {
         fun onReady()
         fun onTranscript(fromUser: Boolean, delta: String)
+        /** Cumulative billable duration, never raw audio or a per-turn value. */
+        fun onUsageSeconds(seconds: Int, final: Boolean)
         fun onSessionClosed(usageConfirmed: Boolean)
         fun onFailure(stage: String)
     }
@@ -66,7 +68,7 @@ class GptLiveWebRtcSession(
     private val readyState = AtomicBoolean(false)
     private var closed = false
     private var closing = false
-    private var sessionFinalized = false
+    private var lastUsageSeconds = 0
     private var exchangeStarted = false
     private var peer: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
@@ -247,17 +249,48 @@ class GptLiveWebRtcSession(
                     }
                 }
                 "session.delegation.created" -> {
-                    // No delegation handler in the lab. Never invent an action/result.
-                    fail("unhandled-delegation", current)
+                    // Voice Lab has no action authority. Resolve a delegation only
+                    // with a safe, bounded no-action explanation to the model.
+                    // This ID is provider-generated; never treat it as an instruction.
+                    val delegation = event.optJSONObject("delegation")
+                    val id = delegation?.optString("id").orEmpty()
+                    if (delegation?.optString("target") != "client" ||
+                        !DELEGATION_ID.matches(id)) {
+                        fail("unexpected-delegation", current)
+                    } else {
+                        handler.post {
+                            if (isCurrent(current) && !closing) {
+                                val events = channel ?: return@post
+                                if (!send(events, JSONObject()
+                                    .put("type", "session.thinking.append")
+                                    .put("event_id", "wmw_lab_no_action_${System.nanoTime()}")
+                                    .put("delegation_id", id)
+                                    .put("content",
+                                        "This is a voice-only preview. No external tools, sensors, alarm or snooze actions are available. Continue naturally without claiming any action happened."))) {
+                                    fail("delegation-write", current)
+                                }
+                            }
+                        }
+                    }
+                }
+                "session.usage.updated" -> handler.post {
+                    if (!isCurrent(current)) return@post
+                    updateUsage(event.optJSONObject("usage")?.optInt("seconds", -1) ?: -1, false)
                 }
                 "session.closed" -> handler.post {
                     if (!isCurrent(current)) return@post
-                    sessionFinalized = true
+                    updateUsage(event.optJSONObject("usage")?.optInt("seconds", -1) ?: -1, true)
                     finish(usageConfirmed = true)
                 }
                 "error" -> fail("provider-error", current)
             }
         }
+    }
+
+    private fun updateUsage(seconds: Int, final: Boolean) {
+        if (seconds < 0 || seconds < lastUsageSeconds) return
+        lastUsageSeconds = seconds
+        observer.onUsageSeconds(seconds, final)
     }
 
     private fun peerObserver(current: Long, character: Character) =
@@ -346,7 +379,7 @@ class GptLiveWebRtcSession(
 
     private fun fail(stage: String, current: Long) {
         handler.post {
-            if (!isCurrent(current)) return@post
+            if (!isCurrent(current) || closing) return@post
             Log.w("WmwLiveLab", "failure stage=${stage.take(40)}")
             generation.incrementAndGet()
             observer.onFailure(stage.take(40))
@@ -404,5 +437,6 @@ class GptLiveWebRtcSession(
         const val CLOSE_GRACE_MS = 15_000L
         private var initialized = false
         private val initLock = Any()
+        private val DELEGATION_ID = Regex("^[A-Za-z0-9_:-]{1,160}$")
     }
 }

@@ -112,6 +112,10 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         transcript.text = (transcript.text.toString() + "\n" + label + ": " + delta).takeLast(3_000)
     }
 
+    override fun onUsageSeconds(seconds: Int, final: Boolean) = runOnUiThread {
+        showStatus("Live voice usage: ${seconds}s" + if (final) " (final)." else ".")
+    }
+
     override fun onSessionClosed(usageConfirmed: Boolean) = runOnUiThread {
         session = null
         startButton.isEnabled = true

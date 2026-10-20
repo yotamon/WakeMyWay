@@ -39,15 +39,22 @@ export const BUILTIN_CHARACTER_VOICES = {
  * character. Clients never submit provider voice IDs. The ID is resolved once
  * at session creation and therefore cannot drift mid-wake.
  */
-export function configuredVoiceFor(characterId: keyof typeof BUILTIN_CHARACTER_VOICES): string {
+export function configuredVoiceFor(characterId: keyof typeof BUILTIN_CHARACTER_VOICES): string | { id: string } {
   const key = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
   const configured = process.env[key]?.trim();
   if (!configured) return BUILTIN_CHARACTER_VOICES[characterId];
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(configured)) {
+  if (!/^voice_[A-Za-z0-9_-]{1,122}$/.test(configured)) {
     throw new HttpError(503, 'An approved character voice is misconfigured.');
   }
-  return configured;
+  return { id: configured };
 }
+
+const characterVoiceDescription: Record<keyof typeof BUILTIN_CHARACTER_VOICES, string> = {
+  alfred: 'An adult British masculine voice with natural warm resonance, dry wit, a quietly textured timbre and conversational timing; untheatrical, never a narrator.',
+  sam: 'An adult warmly conversational voice, grounded and friendly, relaxed timing with subtly varied human inflection; not a wellness coach.',
+  luna: 'An adult feminine voice, intimate and softly spoken yet audible, gently paced with natural pauses; not a meditation narrator.',
+  rocco: 'An adult masculine voice with light rasp, quick dry humour and confident easygoing delivery; no shouting, cartoonish acting or insults.',
+};
 
 const characterIdentity = {
   alfred: 'Alfred: familiar British presence, composed, warm but understated, dry and gently witty. Avoid theatrical butler acting.',
@@ -88,7 +95,7 @@ export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
     store: false,
     audio: { output: { voice: configuredVoiceFor(resolved.characterId) } },
     delegation: { type: 'client' as const },
-    instructions: [baseInstructions, characterIdentity[resolved.characterId], modifier, expression].join('\n\n'),
+    instructions: [baseInstructions, characterIdentity[resolved.characterId], characterVoiceDescription[resolved.characterId], modifier, expression].join('\n\n'),
   };
 }
 

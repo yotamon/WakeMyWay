@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLiveSession, liveRequestSchema, liveSessionConfig, OPENAI_LIVE_SESSIONS_URL } from '../src/voice-spike/gpt-live';
 import { handleAccountLiveSessionRequest } from '../src/account/live-handler';
@@ -13,6 +13,7 @@ const credential = {
   expiresAt: 1_900_000_000,
 };
 
+beforeEach(() => vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'true'));
 afterEach(() => vi.unstubAllEnvs());
 
 describe('GPT-Live session configuration', () => {
@@ -26,6 +27,13 @@ describe('GPT-Live session configuration', () => {
     });
     expect(config.instructions).toContain('WakeRuntime owns wake phases');
     expect(config.instructions).toContain('remain silent');
+  });
+
+  it('uses a custom voice ID object rather than a provider name for reviewed voice IDs', () => {
+    vi.stubEnv('WMW_GPT_LIVE_VOICE_ALFRED', 'voice_approved_candidate');
+    expect(liveSessionConfig(request).audio.output.voice).toEqual({ id: 'voice_approved_candidate' });
+    vi.stubEnv('WMW_GPT_LIVE_VOICE_ALFRED', 'marin');
+    expect(() => liveSessionConfig(request)).toThrow('misconfigured');
   });
 
   it('resolves known characters to approved voices only', () => {
@@ -78,6 +86,24 @@ describe('account-authenticated Live SDP route', () => {
     const endpoint = 'https://wakemyway.test/api/v1/account/live-session';
     expect((await handleAccountLiveSessionRequest(new Request(endpoint))).status).toBe(405);
     expect((await handleAccountLiveSessionRequest(new Request(endpoint, { method: 'POST' }))).status).toBe(401);
+  });
+
+  it('does not reserve a paid admission when the experiment is disabled', async () => {
+    vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'false');
+    const reserve = vi.fn(async () => undefined);
+    const mint = vi.fn();
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'POST',
+        headers: { authorization: 'Bearer scoped-device-token', 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      }),
+      { verifyCredential: () => credential, deviceStore: store,
+        admissionStore: { reserve }, mintLiveSession: mint },
+    );
+    expect(response.status).toBe(503);
+    expect(reserve).not.toHaveBeenCalled();
+    expect(mint).not.toHaveBeenCalled();
   });
 
   it('authorizes the stored device credential before calling OpenAI', async () => {

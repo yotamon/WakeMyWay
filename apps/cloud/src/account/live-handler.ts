@@ -28,6 +28,10 @@ export async function handleAccountLiveSessionRequest(
     const credential = (options.verifyCredential ?? verifyAccountRealtimeCredential)(bearer);
     await (options.deviceStore ?? new PostgresAccountRealtimeDeviceStore()).authorize(credential);
     const input = await parseJson(request, liveRequestSchema, 72 * 1024);
+    // Disabled experiments must not consume daily admissions or create sessions.
+    if (process.env.WMW_GPT_LIVE_ENABLED !== 'true') {
+      throw new HttpError(503, 'GPT-Live experiment is disabled.');
+    }
     // This reservation happens before the provider can create a billable session.
     await (options.admissionStore ?? new PostgresLiveAdmissionStore()).reserve(credential.credentialId);
     const answer: LiveSessionAnswer = await (options.mintLiveSession ?? createLiveSession)(
