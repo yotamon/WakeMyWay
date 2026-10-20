@@ -28,6 +28,21 @@ export const BUILTIN_CHARACTER_VOICES = {
   rocco: 'ripple',
 } as const;
 
+/**
+ * An operator may activate one previously reviewed prompt-created Voice ID per
+ * character. Clients never submit provider voice IDs. The ID is resolved once
+ * at session creation and therefore cannot drift mid-wake.
+ */
+export function configuredVoiceFor(characterId: keyof typeof BUILTIN_CHARACTER_VOICES): string {
+  const key = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
+  const configured = process.env[key]?.trim();
+  if (!configured) return BUILTIN_CHARACTER_VOICES[characterId];
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(configured)) {
+    throw new HttpError(503, 'An approved character voice is misconfigured.');
+  }
+  return configured;
+}
+
 const characterIdentity = {
   alfred: 'Alfred: familiar British presence, composed, warm but understated, dry and gently witty. Avoid theatrical butler acting.',
   sam: 'Sam: a warm, steady, relaxed friend. Conversational and understanding; never chirpy, performative or overprotective.',
@@ -57,7 +72,7 @@ export function liveSessionConfig(input: z.infer<typeof liveRequestSchema>) {
   return {
     model: GPT_LIVE_MODEL,
     store: false,
-    audio: { output: { voice: BUILTIN_CHARACTER_VOICES[input.characterId] } },
+    audio: { output: { voice: configuredVoiceFor(input.characterId) } },
     delegation: { type: 'client' as const },
     instructions: [baseInstructions, characterIdentity[input.characterId], modifier].join('\n\n'),
   };
