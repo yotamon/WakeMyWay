@@ -1,3 +1,4 @@
+import { handleAccountLiveSessionRequest } from '../../../src/account/live-handler.js';
 import { handleAccountBackupRequest } from '../../../src/account/backup-handler.js';
 import { handleAccountMeRequest } from '../../../src/account/me-handler.js';
 import {
@@ -18,6 +19,7 @@ const OPERATIONS = new Set([
   'mobile-google-complete',
   'mobile-google-exchange',
   'realtime-token',
+  'live-session',
   'realtime-provision',
 ]);
 
@@ -40,6 +42,8 @@ export default {
         return handleMobileGoogleComplete(request);
       case 'mobile-google-exchange':
         return handleMobileGoogleExchange(request);
+      case 'live-session':
+        return handleAccountLiveSessionRequest(request);
       case 'realtime-token':
         return handleAccountRealtimeTokenRequest(request);
       case 'realtime-provision':
