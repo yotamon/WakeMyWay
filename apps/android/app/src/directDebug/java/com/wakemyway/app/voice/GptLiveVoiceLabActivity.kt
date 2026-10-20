@@ -1,6 +1,7 @@
 package com.wakemyway.app.voice
 
 import android.Manifest
+import com.wakemyway.app.alarm.AlarmKernel
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.WindowManager
@@ -179,6 +180,14 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
 
     private fun startSession() {
         if (session != null) return
+        // The lab is not allowed to change audio routing while a real alarm
+        // owns critical playback. If the kernel cannot be read, fail closed.
+        val noActiveAlarm = runCatching { AlarmKernel(this).activeOccurrence() == null }
+            .getOrDefault(false)
+        if (!noActiveAlarm) {
+            showStatus("Finish the active alarm before testing Live audio.")
+            return
+        }
         showStatus("Opening approved GPT-Live session…")
         startButton.isEnabled = false
         choiceButtons.forEach { it.isEnabled = false }
