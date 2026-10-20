@@ -17,7 +17,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * DirectDebug-only GPT-Live experiment. Never sets an alarm, never writes
+ * Direct distribution GPT-Live preview experiment. Never sets an alarm, never writes
  * Wake History, never permits AI to change Stop/Snooze or WakeRuntime.
  * A real account and the server WMW_GPT_LIVE_ENABLED gate are required.
  */
