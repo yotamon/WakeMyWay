@@ -1,0 +1,39 @@
+name: Publish Live-first wake pilot release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.number == 200 &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'feat/live-first-wake-conversation-20261021' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch signed release for exact merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$CURRENT" = "$MERGE_SHA" || {
+            echo "::error::main changed after PR merge; will not release a different commit"
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false \
+            -f 'release_notes=Live-first WakeMyWay Direct pilot: prefer GPT-Live for voice-enabled wakes with audio activity turn tracking, bounded app-owned wake cues and user interruption support. Keep backend pilot authorization, cost limits and legacy Realtime fallback for denied accounts; preserve independent local alarm and Stop/Snooze.'

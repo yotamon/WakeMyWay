@@ -103,6 +103,30 @@ successful voice rating. No audio recordings, raw SDP, or transcripts are
 persisted by this measurement gate. This is manual pilot feedback, not an
 automatic first-audible-frame latency sensor.
 
+## Live-first wake adapter (2026-10-21)
+
+- The default voice enrichment in the Direct distribution prefers GPT-Live.
+  Client-delegated speech uses only **typed, allowlisted** WakeRuntime speech
+  intents. No model text may stop, snooze, confirm waking, or mutate the kernel.
+- Live's full-duplex stream does not emit Realtime response.done. Remote decoded
+  WebRTC PCM activity and bounded silence are used only for **best-effort**
+  assistant speech callbacks, with a 1.4-second remote-silence grace to
+  tolerate natural pauses. A user speaking over output marks the assistant
+  turn interrupted; text transcript deltas never finish speech.
+- User transcript fragments are grouped with a bounded quiet period into
+  tentative engagement observations. Credit is denied for assistant-overlapped
+  fragments, noise/fillers, and repeated fragments within a four-second
+  window. Speech content never triggers Stop/Snooze and silence never
+  increases activation evidence. This is still heuristic and needs physical
+  comparison with meaningful real-world responses.
+- On a pre-admission 403 pilot-access denial only, retain the previous
+  Realtime implementation. On all potentially billable Live failures, use the
+  local wake sound and controls without automatically opening another model.
+- Keep the Live account pilot gate, daily quota and 180-second session budget.
+  Do not treat an approved preview as proof of overnight reliability. Full
+  consumer rollout and Play distribution require physical wake tests and cost
+  evidence, not just successful compilation.
+
 ## Mandatory utterance scenario pack
 
 1. First wake: 5-15-word invitation; no second instruction.
