@@ -1,0 +1,39 @@
+name: Publish GPT-Live ICE fix release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.number == 197 &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'fix/gpt-live-ice-gathering-20261021' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Trigger canonical signed release of exactly this merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$MAIN_SHA" = "$EXPECTED_MERGE_SHA" || {
+            echo "::error::main changed since this PR merged; refuse to release unrelated code."
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false \
+            -f 'release_notes=Fix experimental GPT-Live Voice Lab ICE gathering timeout on Android: use one-shot candidate gathering with Cloudflare STUN, bounded safe SDP fallback, and clearer network diagnostics. Regular alarms and their voice remain unchanged.'
