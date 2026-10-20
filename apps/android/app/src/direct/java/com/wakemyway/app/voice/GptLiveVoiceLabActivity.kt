@@ -1,6 +1,8 @@
 package com.wakemyway.app.voice
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import com.wakemyway.app.alarm.AlarmKernel
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -31,9 +33,13 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     private var lastTestedSettings = settings
     private var lastSessionUsageSeconds = 0
     private var assistantSpoke = false
+    private var lastFailureStage: String? = null
+    private var intentionallyClosing = false
+    private var previewConnected = false
     private lateinit var naturalnessRating: RatingBar
     private lateinit var pleasantnessRating: RatingBar
     private lateinit var rateButton: Button
+    private lateinit var copyDiagnosisButton: Button
     private lateinit var status: TextView
     private lateinit var transcript: TextView
     private lateinit var startButton: Button
@@ -67,6 +73,17 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
             textSize = 16f
         }
         body.addView(status)
+        copyDiagnosisButton = Button(this).apply {
+            text = "Copy diagnostic code"
+            isEnabled = false
+            setOnClickListener {
+                val code = lastFailureStage ?: return@setOnClickListener
+                val clipboard = getSystemService(ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(ClipData.newPlainText("WakeMyWay Live stage", code))
+                showStatus("Copied diagnostic code: $code")
+            }
+        }
+        body.addView(copyDiagnosisButton)
         body.addView(TextView(this).apply { text = "Choose a voice and expression profile" })
         for (character in GptLiveWebRtcSession.Character.entries) {
             body.addView(Button(this).apply {
@@ -198,6 +215,10 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         lastTestedSettings = settings
         lastSessionUsageSeconds = 0
         assistantSpoke = false
+        lastFailureStage = null
+        intentionallyClosing = false
+        previewConnected = false
+        copyDiagnosisButton.isEnabled = false
         rateButton.isEnabled = false
         GptLiveWebRtcSession(this, this).also {
             session = it
@@ -206,12 +227,20 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     }
 
     private fun stopSession() {
+        intentionallyClosing = true
         showStatus("Closing…")
         stopButton.isEnabled = false
         session?.requestClose()
     }
 
+    override fun onStage(stage: String) = runOnUiThread {
+        if (lastFailureStage == null && !intentionallyClosing) {
+            showStatus(GptLivePreviewMessages.progress(stage))
+        }
+    }
+
     override fun onReady() = runOnUiThread {
+        previewConnected = true
         showStatus("Connected. Preview started; speak normally to test interruptions.")
         session?.startLabConversation()
     }
@@ -238,17 +267,29 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         choiceButtons.forEach { it.isEnabled = true }
         stopButton.isEnabled = false
         rateButton.isEnabled = assistantSpoke
-        showStatus(if (usageConfirmed) "Session closed." else "Disconnected; final usage unconfirmed.")
+        // Do not overwrite an actionable failure with a generic disconnect,
+        // as happened in the first consumer pilot release.
+        if (lastFailureStage == null) {
+            showStatus(when {
+                intentionallyClosing -> "Preview stopped."
+                usageConfirmed -> "Session closed."
+                !previewConnected -> "Preview ended before connecting. Try signing in again or check your connection."
+                else -> "Live connection ended unexpectedly."
+            })
+        }
     }
 
     override fun onFailure(stage: String) = runOnUiThread {
-        showStatus("Live unavailable: $stage. No impact on alarms.")
+        lastFailureStage = stage
+        copyDiagnosisButton.isEnabled = true
+        showStatus(GptLivePreviewMessages.failure(stage))
     }
 
     private fun showStatus(message: String) { status.text = message }
 
     override fun onStop() {
         // A voice preview must never keep a hidden microphone/session running.
+        if (session != null) intentionallyClosing = true
         session?.requestClose()
         super.onStop()
     }
