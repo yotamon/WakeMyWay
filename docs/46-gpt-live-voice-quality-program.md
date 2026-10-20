@@ -52,6 +52,22 @@ actual provider usage. Daily session admission is not a connected-duration cap.
 | Annoyance compared to current | Meaningful improvement over repeated mornings |
 | Spoken word accuracy per locale | Reviewed English, German, Hebrew separately |
 
+## Voice Lab ICE gathering correction (2026-10-21)
+
+- The previous native Android Live Lab path used GATHER_CONTINUALLY while
+  awaiting ICE COMPLETE. That can stall and produce ice-gathering-timeout
+  before any provider admission (confirmed zero admissions in pilot logs).
+- Live Lab now uses one-shot ICE candidate gathering, Cloudflare's public
+  stun.cloudflare.com:3478 for NAT discovery, and a bounded 8-second
+  candidate-rich fallback for implementations that do not emit COMPLETE.
+  Cloudflare STUN sees the device's network address metadata but not audio.
+- Never start the paid GPT-Live SDP session with no usable candidate,
+  ICE password/username, DTLS fingerprint, and audio m-line.
+- This is an opt-in pilot fix, not proof that real phones can successfully
+  establish audio over all VPNs, mobile connections or restrictive firewalls.
+  A managed TURN service remains future scope if measurable network failures
+  justify its cost.
+
 ## Voice Lab transport timeout contract (2026-10-21)
 
 The authorized Lab SDP request may wait on account authorization, Neon admission,

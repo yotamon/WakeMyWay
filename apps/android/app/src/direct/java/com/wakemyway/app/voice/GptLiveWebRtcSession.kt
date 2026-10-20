@@ -100,9 +100,10 @@ class GptLiveWebRtcSession(
     private val startupTimeout = Runnable { fail("startup-timeout", generation.get()) }
     private val sessionBudget = Runnable { requestClose() }
     private val closeTimeout = Runnable { finish(usageConfirmed = false) }
-    private val iceTimeout = Runnable {
-        if (!exchangeStarted) fail("ice-gathering-timeout", generation.get())
-    }
+    // A one-shot SDP exchange must not wait on a continual ICE gather.
+    // Keep the deadline tied to this session's generation and character.
+    private var iceTimeout: Runnable? = null
+    private var gatheredCandidateCount = 0
 
     fun connect(
         character: Character = Character.ALFRED,
@@ -172,9 +173,15 @@ class GptLiveWebRtcSession(
             }
             configureAudioRoute()
             factory = PeerConnectionFactory.builder().createPeerConnectionFactory()
-            val config = PeerConnection.RTCConfiguration(emptyList()).apply {
+            // Public Cloudflare STUN finds usable NAT candidates in this
+            // opt-in pilot. It receives network address metadata, never voice.
+            // Use a gathering policy that can actually reach COMPLETE.
+            val stun = PeerConnection.IceServer.builder(
+                "stun:stun.cloudflare.com:3478",
+            ).createIceServer()
+            val config = PeerConnection.RTCConfiguration(listOf(stun)).apply {
                 sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
-                continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+                continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE
             }
             val connection = factory?.createPeerConnection(config, peerObserver(current, character))
                 ?: error("WebRTC peer creation failed")
@@ -197,7 +204,13 @@ class GptLiveWebRtcSession(
                             handler.post {
                                 if (isCurrent(current) && !exchangeStarted) {
                                     observer.onStage("ice-gathering")
-                                    handler.postDelayed(iceTimeout, GptLiveConnectionTiming.ICE_GATHERING_TIMEOUT_MS)
+                                    val expiry = Runnable {
+                                        maybeExchangeSdp(character, current, allowPartial = true)
+                                    }
+                                    iceTimeout = expiry
+                                    handler.postDelayed(
+                                        expiry, GptLiveConnectionTiming.ICE_GATHERING_TIMEOUT_MS,
+                                    )
                                     maybeExchangeSdp(character, current)
                                 }
                             }
@@ -213,17 +226,36 @@ class GptLiveWebRtcSession(
         }
     }
 
-    private fun maybeExchangeSdp(character: Character, current: Long) {
+    private fun maybeExchangeSdp(
+        character: Character,
+        current: Long,
+        allowPartial: Boolean = false,
+    ) {
         handler.post {
-            if (!isCurrent(current) || exchangeStarted) return@post
+            if (!isCurrent(current) || closing || exchangeStarted) return@post
             val connection = peer ?: return@post
-            if (connection.iceGatheringState() != PeerConnection.IceGatheringState.COMPLETE) return@post
-            val local = connection.localDescription?.description ?: return@post
+            val complete = connection.iceGatheringState() ==
+                PeerConnection.IceGatheringState.COMPLETE
+            val local = connection.localDescription?.description
+            when (GptLiveIceOfferGate.decision(local, complete, allowPartial)) {
+                GptLiveIceOfferGate.Decision.WAIT -> return@post
+                GptLiveIceOfferGate.Decision.REJECT -> {
+                    // No candidate-rich SDP means no billable OpenAI session.
+                    fail(
+                        if (gatheredCandidateCount > 0) "ice-candidates-missing-from-sdp"
+                        else "ice-no-candidates",
+                        current,
+                    )
+                    return@post
+                }
+                GptLiveIceOfferGate.Decision.SEND -> Unit
+            }
+            val offer = local ?: return@post
             exchangeStarted = true
-            handler.removeCallbacks(iceTimeout)
-            observer.onStage("server-authentication")
+            cancelIceTimeout()
+            observer.onStage(if (complete) "server-authentication" else "partial-ice-offer")
             scope.launch {
-                runCatching { createSession(local, character) }
+                runCatching { createSession(offer, character) }
                     .onSuccess { answer ->
                         handler.post {
                             if (!isCurrent(current) || peer !== connection) return@post
@@ -327,7 +359,7 @@ class GptLiveWebRtcSession(
                 "session.started" -> handler.post {
                     if (!isCurrent(current) || closing || readyState.getAndSet(true)) return@post
                     handler.removeCallbacks(startupTimeout)
-                    handler.removeCallbacks(iceTimeout)
+                    cancelIceTimeout()
                     handler.postDelayed(sessionBudget, MAX_DURATION_MS)
                     observer.onReady()
                 }
@@ -391,7 +423,11 @@ class GptLiveWebRtcSession(
             override fun onIceGatheringChange(state: PeerConnection.IceGatheringState?) {
                 if (state == PeerConnection.IceGatheringState.COMPLETE) maybeExchangeSdp(character, current)
             }
-            override fun onIceCandidate(candidate: IceCandidate?) = Unit
+            override fun onIceCandidate(candidate: IceCandidate?) {
+                if (candidate != null) handler.post {
+                    if (isCurrent(current) && !exchangeStarted) gatheredCandidateCount++
+                }
+            }
             override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) = Unit
             override fun onAddStream(stream: MediaStream?) = Unit
             override fun onRemoveStream(stream: MediaStream?) = Unit
@@ -406,6 +442,11 @@ class GptLiveWebRtcSession(
             }
         }
 
+    private fun cancelIceTimeout() {
+        iceTimeout?.let { handler.removeCallbacks(it) }
+        iceTimeout = null
+    }
+
     fun requestClose() {
         if (closed || closing) return
         closing = true
@@ -413,7 +454,7 @@ class GptLiveWebRtcSession(
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(preflightTimeout)
         handler.removeCallbacks(startupTimeout)
-        handler.removeCallbacks(iceTimeout)
+        cancelIceTimeout()
         if (readyState.get() && channel?.state() == DataChannel.State.OPEN) {
             send(channel ?: return, JSONObject().put("type", "session.close"))
             handler.postDelayed(closeTimeout, CLOSE_GRACE_MS)
@@ -487,7 +528,7 @@ class GptLiveWebRtcSession(
         readyState.set(false)
         handler.removeCallbacks(preflightTimeout)
         handler.removeCallbacks(startupTimeout)
-        handler.removeCallbacks(iceTimeout)
+        cancelIceTimeout()
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
         runCatching { channel?.unregisterObserver() }

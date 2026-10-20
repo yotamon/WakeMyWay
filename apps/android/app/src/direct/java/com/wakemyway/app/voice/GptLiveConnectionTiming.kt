@@ -11,8 +11,9 @@ internal object GptLiveConnectionTiming {
     // Credential refresh happens before WebRTC takes over the audio route.
     const val ACCOUNT_PREFLIGHT_TIMEOUT_MS = 20_000L
 
-    // Wait for gathering before submitting a complete SDP offer.
-    const val ICE_GATHERING_TIMEOUT_MS = 18_000L
+    // Prefer COMPLETE. With usable candidates after this grace period, send
+    // the candidate-rich offer rather than timing out indefinitely.
+    const val ICE_GATHERING_TIMEOUT_MS = 8_000L
 
     // Cover provider deadline plus authorization, cold-start and transit.
     const val LIVE_BACKEND_TIMEOUT_MS = 28_000L
