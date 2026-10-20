@@ -90,7 +90,7 @@ describe('account-authenticated Live SDP route', () => {
         headers: { authorization: 'Bearer scoped-device-token', 'content-type': 'application/json' },
         body: JSON.stringify(request),
       }),
-      { verifyCredential: () => credential, deviceStore: { ...store, authorize }, mintLiveSession: mint },
+      { verifyCredential: () => credential, deviceStore: { ...store, authorize }, admissionStore: { reserve: vi.fn(async () => undefined) }, mintLiveSession: mint },
     );
     expect(response.status).toBe(201);
     expect(authorize).toHaveBeenCalledWith(credential);
@@ -109,7 +109,7 @@ describe('account-authenticated Live SDP route', () => {
         headers: { authorization: 'Bearer bad-token', 'content-type': 'application/json' },
         body: JSON.stringify(request),
       }),
-      { verifyCredential: () => credential, deviceStore: { ...store, authorize: async () => { throw new Error('revoked'); } }, mintLiveSession: mint },
+      { verifyCredential: () => credential, deviceStore: { ...store, authorize: async () => { throw new Error('revoked'); } }, admissionStore: { reserve: vi.fn(async () => undefined) }, mintLiveSession: mint },
     );
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(mint).not.toHaveBeenCalled();
