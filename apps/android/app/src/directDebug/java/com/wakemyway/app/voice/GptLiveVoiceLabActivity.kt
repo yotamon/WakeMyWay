@@ -6,11 +6,14 @@ import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.RatingBar
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * DirectDebug-only GPT-Live experiment. Never sets an alarm, never writes
@@ -23,6 +26,13 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     private var settings = GptLiveWebRtcSession.VoiceLabSettings()
     private val choiceButtons = mutableListOf<Button>()
     private var lastTranscriptFromUser: Boolean? = null
+    private var lastTestedCharacter = selected
+    private var lastTestedSettings = settings
+    private var lastSessionUsageSeconds = 0
+    private var assistantSpoke = false
+    private lateinit var naturalnessRating: RatingBar
+    private lateinit var pleasantnessRating: RatingBar
+    private lateinit var rateButton: Button
     private lateinit var status: TextView
     private lateinit var transcript: TextView
     private lateinit var startButton: Button
@@ -90,6 +100,31 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         body.addView(stopButton)
         transcript = TextView(this).apply { textSize = 14f }
         body.addView(transcript)
+        body.addView(TextView(this).apply {
+            text = "After a preview, rate only audio you actually heard. Scores stay on this device; speech/transcripts are not saved."
+        })
+        naturalnessRating = RatingBar(this).apply {
+            numStars = 5
+            stepSize = 1f
+            rating = 3f
+            contentDescription = "Naturalness rating from one to five stars"
+        }
+        pleasantnessRating = RatingBar(this).apply {
+            numStars = 5
+            stepSize = 1f
+            rating = 3f
+            contentDescription = "Morning pleasantness rating from one to five stars"
+        }
+        body.addView(TextView(this).apply { text = "How human and natural?" })
+        body.addView(naturalnessRating)
+        body.addView(TextView(this).apply { text = "Would you enjoy hearing this every morning?" })
+        body.addView(pleasantnessRating)
+        rateButton = Button(this).apply {
+            text = "Save local voice ratings"
+            isEnabled = false
+            setOnClickListener { saveRating() }
+        }
+        body.addView(rateButton)
     }
 
     private fun <T : Enum<T>> addChoice(
@@ -111,6 +146,31 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         })
     }
 
+    private fun saveRating() {
+        if (!assistantSpoke || session != null || !rateButton.isEnabled) return
+        val preferences = getSharedPreferences("wmw_gpt_live_lab_ratings", MODE_PRIVATE)
+        val list = runCatching {
+            JSONArray(preferences.getString("reviews", "[]") ?: "[]")
+        }.getOrElse { JSONArray() }
+        // Bound retention; exclude audio, transcript, email, token, SDP and private context.
+        while (list.length() >= 50) list.remove(0)
+        list.put(JSONObject()
+            .put("at", System.currentTimeMillis())
+            .put("character", lastTestedCharacter.wire)
+            .put("expression", JSONObject()
+                .put("energy", lastTestedSettings.energy.name.lowercase())
+                .put("directness", lastTestedSettings.directness.name.lowercase())
+                .put("conversation", lastTestedSettings.conversationAmount.name.lowercase())
+                .put("humor", lastTestedSettings.humor.name.lowercase())
+                .put("locale", lastTestedSettings.locale.name.lowercase()))
+            .put("naturalness", naturalnessRating.rating.toInt().coerceIn(1, 5))
+            .put("pleasantness", pleasantnessRating.rating.toInt().coerceIn(1, 5))
+            .put("observedUsageSeconds", lastSessionUsageSeconds))
+        preferences.edit().putString("reviews", list.toString()).apply()
+        rateButton.isEnabled = false
+        showStatus("Saved local rating #${list.length()}. No voice recording retained.")
+    }
+
     private fun askToStart() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
@@ -125,6 +185,11 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         stopButton.isEnabled = true
         transcript.text = ""
         lastTranscriptFromUser = null
+        lastTestedCharacter = selected
+        lastTestedSettings = settings
+        lastSessionUsageSeconds = 0
+        assistantSpoke = false
+        rateButton.isEnabled = false
         GptLiveWebRtcSession(this, this).also {
             session = it
             it.connect(selected, settings)
@@ -148,11 +213,13 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         val heading = if (lastTranscriptFromUser == fromUser) "" else
             "\n" + (if (fromUser) "You" else selected.wire) + ": "
         lastTranscriptFromUser = fromUser
+        if (!fromUser && delta.isNotBlank()) assistantSpoke = true
         // Never persist conversation text. Bound only the on-screen memory buffer.
         transcript.text = (transcript.text.toString() + heading + delta).takeLast(3_000)
     }
 
     override fun onUsageSeconds(seconds: Int, final: Boolean) = runOnUiThread {
+        lastSessionUsageSeconds = maxOf(lastSessionUsageSeconds, seconds)
         showStatus("Live voice usage: ${seconds}s" + if (final) " (final)." else ".")
     }
 
@@ -161,6 +228,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         startButton.isEnabled = true
         choiceButtons.forEach { it.isEnabled = true }
         stopButton.isEnabled = false
+        rateButton.isEnabled = assistantSpoke
         showStatus(if (usageConfirmed) "Session closed." else "Disconnected; final usage unconfirmed.")
     }
 

@@ -115,12 +115,12 @@ class GptLiveWebRtcSession(
         val current = generation.get()
         val events = channel ?: return
         if (!isCurrent(current) || !readyState.get() || closing) return
-        input?.setEnabled(true)
-        send(events, JSONObject().put("type", "session.commentary.append")
+        val delivered = send(events, JSONObject().put("type", "session.commentary.append")
             .put("event_id", "wmw_lab_open_$current")
             .put("delegation_id", JSONObject.NULL)
             .put("content",
                 "This is a short WakeMyWay voice preview. Say one natural, friendly good-morning greeting, then listen. Do not assign any physical tasks."))
+        if (delivered) input?.setEnabled(true) else fail("lab-cue-write", current)
     }
 
     /** Stop microphone immediately even if session close is still pending. */
@@ -199,7 +199,8 @@ class GptLiveWebRtcSession(
         check(sdp.length in 40..MAX_SDP_BYTES)
         var token = credentials.load()?.deviceToken ?: provisionCredential()
         var response = postLiveSession(token, sdp, character)
-        if (response.status == 401 || response.status == 403) {
+        // 403 also covers the private allowlist; re-provisioning cannot fix it.
+        if (response.status == 401) {
             credentials.clear()
             token = provisionCredential()
             response = postLiveSession(token, sdp, character)

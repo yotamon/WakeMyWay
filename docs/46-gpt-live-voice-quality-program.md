@@ -88,7 +88,9 @@ actual provider usage. Daily session admission is not a connected-duration cap.
 - [x] Durable daily quota + retry cooldown migration, and founder allowlist in cloud.
 - [x] Explicit operator voice creation script.
 - [x] Unit tests for auth, denial and provider request.
-- [ ] Apply migration in target environment and verify database permissions.
+- [x] Apply additive migration 005 on the WakeMyWay Neon production database;
+  verified on 2026-10-20 that `wmw_private.live_session_admissions` exists,
+  has RLS enabled and initially contained zero rows. Experiment remains off.
 - [ ] Configure reviewed founder account pseudonym under
   `WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS` and turn the feature gate on
   only in an experimental environment. Derive pseudonym from the verified

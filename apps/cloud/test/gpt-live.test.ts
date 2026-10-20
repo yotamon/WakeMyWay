@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLiveSession, liveRequestSchema, liveSessionConfig, OPENAI_LIVE_SESSIONS_URL } from '../src/voice-spike/gpt-live';
 import { handleAccountLiveSessionRequest } from '../src/account/live-handler';
+import { HttpError } from '../src/http';
 import type { AccountRealtimeDeviceStore } from '../src/account/realtime-device-store';
 
 const sdp = 'v=0\r\no=- 123 123 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=mid:0\r\n';
@@ -146,6 +147,22 @@ describe('account-authenticated Live SDP route', () => {
       configurationId: 'openai:gpt-live-1:webrtc-client-v1',
       session: { id: 'live_test' },
     });
+  });
+
+  it('rejects quota exhaustion without contacting OpenAI', async () => {
+    const mint = vi.fn();
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'POST',
+        headers: { authorization: 'Bearer scoped-device-token', 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      }),
+      { verifyCredential: () => credential, deviceStore: store,
+        admissionStore: { reserve: async () => { throw new HttpError(429, 'quota reached'); } },
+        mintLiveSession: mint },
+    );
+    expect(response.status).toBe(429);
+    expect(mint).not.toHaveBeenCalled();
   });
 
   it('does not allocate billable sessions when a credential was revoked', async () => {
