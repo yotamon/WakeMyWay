@@ -13,7 +13,10 @@ const credential = {
   expiresAt: 1_900_000_000,
 };
 
-beforeEach(() => vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'true'));
+beforeEach(() => {
+  vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'true');
+  vi.stubEnv('WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS', 'a'.repeat(40));
+});
 afterEach(() => vi.unstubAllEnvs());
 
 describe('GPT-Live session configuration', () => {
@@ -86,6 +89,24 @@ describe('account-authenticated Live SDP route', () => {
     const endpoint = 'https://wakemyway.test/api/v1/account/live-session';
     expect((await handleAccountLiveSessionRequest(new Request(endpoint))).status).toBe(405);
     expect((await handleAccountLiveSessionRequest(new Request(endpoint, { method: 'POST' }))).status).toBe(401);
+  });
+
+  it('rejects non-allowlisted accounts without a paid admission', async () => {
+    vi.stubEnv('WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS', '');
+    const reserve = vi.fn(async () => undefined);
+    const mint = vi.fn();
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'POST',
+        headers: { authorization: 'Bearer scoped-device-token', 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      }),
+      { verifyCredential: () => credential, deviceStore: store,
+        admissionStore: { reserve }, mintLiveSession: mint },
+    );
+    expect(response.status).toBe(403);
+    expect(reserve).not.toHaveBeenCalled();
+    expect(mint).not.toHaveBeenCalled();
   });
 
   it('does not reserve a paid admission when the experiment is disabled', async () => {

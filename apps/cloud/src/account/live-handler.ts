@@ -32,6 +32,17 @@ export async function handleAccountLiveSessionRequest(
     if (process.env.WMW_GPT_LIVE_ENABLED !== 'true') {
       throw new HttpError(503, 'GPT-Live experiment is disabled.');
     }
+    // Founder/dev-only allowlist. Do not broaden billable GPT-Live to every
+    // authenticated user before product entitlement + global spend controls.
+    const allowlist = new Set(
+      (process.env.WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS ?? '')
+        .split(',')
+        .map(value => value.trim().toLowerCase())
+        .filter(value => /^[a-f0-9]{40}$/.test(value)),
+    );
+    if (!allowlist.has(credential.accountPseudonym)) {
+      throw new HttpError(403, 'GPT-Live is not enabled for this account.');
+    }
     // This reservation happens before the provider can create a billable session.
     await (options.admissionStore ?? new PostgresLiveAdmissionStore()).reserve(credential.credentialId);
     const answer: LiveSessionAnswer = await (options.mintLiveSession ?? createLiveSession)(

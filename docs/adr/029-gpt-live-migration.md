@@ -53,6 +53,9 @@ a speech-finished event from a timeout.
 - Signed, revocable, short-lived device authorization, checked before session create.
 - No arbitrary voice IDs, prompts, models or tool definitions from the client.
 - `store:false` for new Live sessions; no raw audio or transcript persistence.
+- Founder account allowlist: `WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS`
+  lists explicitly approved 40-character pseudonym digests; missing/empty denies
+  everybody even if the global experimental switch is enabled.
 - Durable per-account UTC daily admission counter, 20-second start cooldown,
   16 sessions/day by default. The ledger records counts, not conversation content.
 - OpenAI key server-only; no provider response bodies, SDP, secrets, user speech,

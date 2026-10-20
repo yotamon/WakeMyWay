@@ -85,10 +85,15 @@ actual provider usage. Daily session admission is not a connected-duration cap.
 - [x] Feature off unless `WMW_GPT_LIVE_ENABLED=true`.
 - [x] Character/voice allowlist, server-side prompts, `store:false`.
 - [x] Validated SDP and bounded provider request.
-- [x] Durable daily quota + retry cooldown migration.
+- [x] Durable daily quota + retry cooldown migration, and founder allowlist in cloud.
 - [x] Explicit operator voice creation script.
 - [x] Unit tests for auth, denial and provider request.
 - [ ] Apply migration in target environment and verify database permissions.
+- [ ] Configure reviewed founder account pseudonym under
+  `WMW_GPT_LIVE_ALLOWED_ACCOUNT_PSEUDONYMS` and turn the feature gate on
+  only in an experimental environment. Derive pseudonym from the verified
+  account ID using the project’s existing accountRealtimePseudonym function,
+  never from email or an unverified client assertion.
 - [ ] Verify OpenAI account actually has GPT-Live access.
 
 ### B — Android Live transport

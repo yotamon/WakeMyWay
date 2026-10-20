@@ -20,6 +20,8 @@ import androidx.core.content.ContextCompat
 class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observer {
     private var session: GptLiveWebRtcSession? = null
     private var selected = GptLiveWebRtcSession.Character.ALFRED
+    private var settings = GptLiveWebRtcSession.VoiceLabSettings()
+    private val choiceButtons = mutableListOf<Button>()
     private lateinit var status: TextView
     private lateinit var transcript: TextView
     private lateinit var startButton: Button
@@ -53,6 +55,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
             textSize = 16f
         }
         body.addView(status)
+        body.addView(TextView(this).apply { text = "Choose a voice and expression profile" })
         for (character in GptLiveWebRtcSession.Character.entries) {
             body.addView(Button(this).apply {
                 text = character.wire.replaceFirstChar { it.uppercase() }
@@ -60,8 +63,19 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
                     selected = character
                     showStatus("Selected ${character.wire}. Start to hear this voice.")
                 }
+                choiceButtons.add(this)
             })
         }
+        addChoice(body, "Energy", GptLiveWebRtcSession.Energy.entries,
+            { settings.energy }, { settings = settings.copy(energy = it) })
+        addChoice(body, "Directness", GptLiveWebRtcSession.Directness.entries,
+            { settings.directness }, { settings = settings.copy(directness = it) })
+        addChoice(body, "Conversation", GptLiveWebRtcSession.ConversationAmount.entries,
+            { settings.conversationAmount }, { settings = settings.copy(conversationAmount = it) })
+        addChoice(body, "Humour", GptLiveWebRtcSession.Humor.entries,
+            { settings.humor }, { settings = settings.copy(humor = it) })
+        addChoice(body, "Language", GptLiveWebRtcSession.Locale.entries,
+            { settings.locale }, { settings = settings.copy(locale = it) })
         startButton = Button(this).apply {
             text = "Start a short preview"
             setOnClickListener { askToStart() }
@@ -77,6 +91,25 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         body.addView(transcript)
     }
 
+    private fun <T : Enum<T>> addChoice(
+        container: LinearLayout,
+        label: String,
+        options: List<T>,
+        current: () -> T,
+        set: (T) -> Unit,
+    ) {
+        container.addView(Button(this).apply {
+            fun refresh() { text = "$label: ${current().name.lowercase()}" }
+            refresh()
+            setOnClickListener {
+                val index = options.indexOf(current())
+                set(options[(index + 1) % options.size])
+                refresh()
+            }
+            choiceButtons.add(this)
+        })
+    }
+
     private fun askToStart() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
@@ -87,11 +120,12 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         if (session != null) return
         showStatus("Opening approved GPT-Live session…")
         startButton.isEnabled = false
+        choiceButtons.forEach { it.isEnabled = false }
         stopButton.isEnabled = true
         transcript.text = ""
         GptLiveWebRtcSession(this, this).also {
             session = it
-            it.connect(selected)
+            it.connect(selected, settings)
         }
     }
 
@@ -119,6 +153,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     override fun onSessionClosed(usageConfirmed: Boolean) = runOnUiThread {
         session = null
         startButton.isEnabled = true
+        choiceButtons.forEach { it.isEnabled = true }
         stopButton.isEnabled = false
         showStatus(if (usageConfirmed) "Session closed." else "Disconnected; final usage unconfirmed.")
     }

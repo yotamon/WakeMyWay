@@ -56,6 +56,18 @@ class GptLiveWebRtcSession(
     enum class Character(val wire: String) {
         ALFRED("alfred"), SAM("sam"), LUNA("luna"), ROCCO("rocco"),
     }
+    enum class Energy { CALM, BALANCED, ENERGETIC }
+    enum class Directness { GENTLE, BALANCED, FIRM }
+    enum class ConversationAmount { MINIMAL, NATURAL, CHATTY }
+    enum class Humor { OFF, SUBTLE, PLAYFUL }
+    enum class Locale { EN, DE, HE }
+    data class VoiceLabSettings(
+        val energy: Energy = Energy.BALANCED,
+        val directness: Directness = Directness.BALANCED,
+        val conversationAmount: ConversationAmount = ConversationAmount.NATURAL,
+        val humor: Humor = Humor.SUBTLE,
+        val locale: Locale = Locale.EN,
+    )
 
     private val appContext = context.applicationContext
     private val account = WakeAccountManager.get(appContext)
@@ -69,6 +81,7 @@ class GptLiveWebRtcSession(
     private var closed = false
     private var closing = false
     private var lastUsageSeconds = 0
+    private var labSettings = VoiceLabSettings()
     private var exchangeStarted = false
     private var peer: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
@@ -85,8 +98,12 @@ class GptLiveWebRtcSession(
     private val sessionBudget = Runnable { requestClose() }
     private val closeTimeout = Runnable { finish(usageConfirmed = false) }
 
-    fun connect(character: Character = Character.ALFRED) {
+    fun connect(
+        character: Character = Character.ALFRED,
+        settings: VoiceLabSettings = VoiceLabSettings(),
+    ) {
         if (closed || !connecting.compareAndSet(false, true)) return
+        labSettings = settings
         val current = generation.incrementAndGet()
         handler.post {
             if (isCurrent(current)) createConnection(character, current)
@@ -203,7 +220,13 @@ class GptLiveWebRtcSession(
             .url(LIVE_SESSION_URL)
             .post(JSONObject().put("sdp", sdp)
                 .put("characterId", character.wire)
-                .put("voiceStyle", "default").toString()
+                .put("voiceStyle", "default")
+                .put("energy", labSettings.energy.name.lowercase())
+                .put("directness", labSettings.directness.name.lowercase())
+                .put("conversationAmount", labSettings.conversationAmount.name.lowercase())
+                .put("humor", labSettings.humor.name.lowercase())
+                .put("locale", labSettings.locale.name.lowercase())
+                .toString()
                 .toRequestBody(WakeHttpClient.jsonMediaType))
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
