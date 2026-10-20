@@ -18,6 +18,12 @@ export const liveRequestSchema = z.object({
   sdp: offerSchema,
   characterId: z.enum(['alfred', 'sam', 'luna', 'rocco']).default('alfred'),
   voiceStyle: z.enum(['default', 'minimal', 'motivational']).default('default'),
+  // Presentation only. These may NEVER amend the authoritative WakeRuntime policy.
+  energy: z.enum(['calm', 'balanced', 'energetic']).default('balanced'),
+  directness: z.enum(['gentle', 'balanced', 'firm']).default('balanced'),
+  conversationAmount: z.enum(['minimal', 'natural', 'chatty']).default('natural'),
+  humor: z.enum(['off', 'subtle', 'playful']).default('subtle'),
+  locale: z.enum(['en', 'de', 'he']).default('en'),
 }).strict();
 
 /** Safe allowlisted voice identifiers; no user-supplied raw OpenAI voice IDs. */
@@ -69,12 +75,19 @@ export function liveSessionConfig(input: z.infer<typeof liveRequestSchema>) {
     : input.voiceStyle === 'motivational'
       ? 'Be a little more energetic while remaining humane; never become a cheerleader.'
       : 'Keep a relaxed conversational pace.';
+  const expression = [
+    `Speak in ${{ en: 'English', de: 'German', he: 'Hebrew' }[input.locale]}.`,
+    `Vocal energy: ${input.energy}. Keep natural, audible bedroom-level volume.`,
+    `Verbal directness: ${input.directness}, without shaming or coercion.`,
+    `Conversation amount: ${input.conversationAmount}; never force a reply.`,
+    `Humor: ${input.humor}; no jokes when the user is distressed.`,
+  ].join(' ');
   return {
     model: GPT_LIVE_MODEL,
     store: false,
     audio: { output: { voice: configuredVoiceFor(input.characterId) } },
     delegation: { type: 'client' as const },
-    instructions: [baseInstructions, characterIdentity[input.characterId], modifier].join('\n\n'),
+    instructions: [baseInstructions, characterIdentity[input.characterId], modifier, expression].join('\n\n'),
   };
 }
 
