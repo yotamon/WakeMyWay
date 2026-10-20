@@ -31,10 +31,21 @@ object WakeHttpClient {
     suspend fun execute(
         request: Request,
         maxResponseBytes: Long,
+        callTimeoutMillis: Long = 15_000L,
     ): WakeHttpResponse {
-        require(maxResponseBytes > 0) { "HTTP response limit must be positive." }
+        require(maxResponseBytes > 0 && maxResponseBytes < Long.MAX_VALUE) {
+            "HTTP response limit must be positive and finite."
+        }
+        require(callTimeoutMillis in 1L..60_000L) {
+            "HTTP call timeout must be between 1 and 60000 milliseconds."
+        }
 
-        return client.newCall(request).executeAsync().use { response ->
+        // Override the deadline only for this call. Other account and wake
+        // requests retain the existing 15-second default; Live's authorized
+        // SDP broker can take longer than its upstream provider deadline.
+        val call = client.newCall(request)
+        call.timeout().timeout(callTimeoutMillis, TimeUnit.MILLISECONDS)
+        return call.executeAsync().use { response ->
             val source = response.body?.source()
             val body = if (source == null) {
                 ""
@@ -43,7 +54,10 @@ object WakeHttpClient {
                 if (source.buffer.size > maxResponseBytes) {
                     throw IOException("HTTP response exceeded the allowed size.")
                 }
-                String(source.readByteArray(), StandardCharsets.UTF_8)
+                // Read only the bytes already buffered by the bounded request.
+                // Reading from the source itself would continue until EOF and
+                // could silently exceed maxResponseBytes for a streamed body.
+                String(source.buffer.readByteArray(), StandardCharsets.UTF_8)
             }
             WakeHttpResponse(
                 status = response.code,

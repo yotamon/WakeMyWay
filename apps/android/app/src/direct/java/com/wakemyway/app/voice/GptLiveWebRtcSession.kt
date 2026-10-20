@@ -96,6 +96,7 @@ class GptLiveWebRtcSession(
     private var previousSpeakerOn: Boolean? = null
     private var legacySpeakerRoute = false
 
+    private val preflightTimeout = Runnable { fail("account-preflight-timeout", generation.get()) }
     private val startupTimeout = Runnable { fail("startup-timeout", generation.get()) }
     private val sessionBudget = Runnable { requestClose() }
     private val closeTimeout = Runnable { finish(usageConfirmed = false) }
@@ -114,7 +115,12 @@ class GptLiveWebRtcSession(
         // *before* touching the communication audio route or WebRTC. The
         // original pilot did this only after ICE negotiation, masking expired
         // sessions as a generic transport disconnect.
-        handler.post { if (isCurrent(current)) observer.onStage("account-check") }
+        handler.post {
+            if (isCurrent(current)) {
+                observer.onStage("account-check")
+                handler.postDelayed(preflightTimeout, GptLiveConnectionTiming.ACCOUNT_PREFLIGHT_TIMEOUT_MS)
+            }
+        }
         scope.launch {
             val preflight = runCatching {
                 credentials.load()?.deviceToken ?: provisionCredential()
@@ -153,6 +159,7 @@ class GptLiveWebRtcSession(
     }
 
     private fun createConnection(character: Character, current: Long) {
+        handler.removeCallbacks(preflightTimeout)
         try {
             synchronized(initLock) {
                 if (!initialized) {
@@ -190,7 +197,7 @@ class GptLiveWebRtcSession(
                             handler.post {
                                 if (isCurrent(current) && !exchangeStarted) {
                                     observer.onStage("ice-gathering")
-                                    handler.postDelayed(iceTimeout, ICE_TIMEOUT_MS)
+                                    handler.postDelayed(iceTimeout, GptLiveConnectionTiming.ICE_GATHERING_TIMEOUT_MS)
                                     maybeExchangeSdp(character, current)
                                 }
                             }
@@ -200,7 +207,7 @@ class GptLiveWebRtcSession(
                 }
                 override fun onCreateFailure(error: String?) = fail("offer", current)
             }, MediaConstraints())
-            handler.postDelayed(startupTimeout, STARTUP_TIMEOUT_MS)
+            handler.postDelayed(startupTimeout, GptLiveConnectionTiming.WEBRTC_STARTUP_TIMEOUT_MS)
         } catch (_: Throwable) {
             fail("webrtc-init", current)
         }
@@ -288,6 +295,7 @@ class GptLiveWebRtcSession(
             .header("Accept", "application/json")
             .build(),
         80L * 1024,
+        callTimeoutMillis = GptLiveConnectionTiming.LIVE_BACKEND_TIMEOUT_MS,
     )
 
     private suspend fun provisionCredential(): String {
@@ -403,6 +411,7 @@ class GptLiveWebRtcSession(
         closing = true
         input?.setEnabled(false)
         handler.removeCallbacks(sessionBudget)
+        handler.removeCallbacks(preflightTimeout)
         handler.removeCallbacks(startupTimeout)
         handler.removeCallbacks(iceTimeout)
         if (readyState.get() && channel?.state() == DataChannel.State.OPEN) {
@@ -476,6 +485,7 @@ class GptLiveWebRtcSession(
         closed = true
         connecting.set(false)
         readyState.set(false)
+        handler.removeCallbacks(preflightTimeout)
         handler.removeCallbacks(startupTimeout)
         handler.removeCallbacks(iceTimeout)
         handler.removeCallbacks(sessionBudget)
@@ -519,12 +529,10 @@ class GptLiveWebRtcSession(
         const val MAX_SDP_BYTES = 65536
         const val MAX_EVENT_BYTES = 65536
         const val MAX_TRANSCRIPT_CHARS = 2048
-        const val STARTUP_TIMEOUT_MS = 30_000L
         const val MAX_DURATION_MS = 180_000L
         const val CLOSE_GRACE_MS = 15_000L
         private var initialized = false
         private val initLock = Any()
-        const val ICE_TIMEOUT_MS = 18_000L
         private val DELEGATION_ID = Regex("^[A-Za-z0-9_:-]{1,160}$")
     }
 }

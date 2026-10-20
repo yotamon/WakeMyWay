@@ -22,6 +22,13 @@ class GptLivePreviewMessagesTest {
         assertTrue(GptLivePreviewMessages.failure("offer-rejected").contains("WebRTC"))
     }
 
+    @Test fun accountPreflightHasItsOwnErrorBeforeStartingAudio() {
+        val text = GptLivePreviewMessages.failure("account-preflight-timeout")
+        assertTrue(text.contains("Sign-in verification"))
+        assertFalse(text.contains("OpenAI session is unavailable"))
+        assertTrue(GptLivePreviewMessages.progress("account-check").contains("sign-in"))
+    }
+
     @Test fun statusStagesAreHumanReadable() {
         assertTrue(GptLivePreviewMessages.progress("server-authentication").contains("Authorizing"))
         assertTrue(GptLivePreviewMessages.progress("ice-gathering").contains("network"))
