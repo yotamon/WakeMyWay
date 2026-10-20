@@ -17,6 +17,18 @@ These are intentionally unresolved. Do not silently choose durable answers witho
 - What independent motion evidence is sufficient before a standing cue is useful rather than premature?
 - When should environmental activation enter the wake, and which actions remain broadly accessible without smart-home dependencies?
 
+## Calendar-aware Morning Purpose (Shape, not Build)
+
+See [Morning Purpose Shape specification](implementation/morning-purpose-calendar-shape.md). Before development decide:
+
+- Does a one-event reminder after Orienting measurably outperform the existing Tomorrow Contract without increasing morning annoyance?
+- Is Android Calendar Provider sufficient for a local founder pilot, and what evidence would justify direct Google Calendar OAuth and public verification?
+- What exact speech timing, explicit event selection, and optional user-requested expansion are acceptable across Wake Phases?
+- Which calendar(s), source status, private-event exclusion and out-loud sharing defaults best meet data-minimization and consent requirements?
+- What freshness bound permits safe time-sensitive claims, and what local deletion/retention period is legally and product-appropriate?
+- Can Wake Lab demonstrate safe prompt-injection handling and no regression to Stop/Snooze / Realtime fallback?
+- Will this be deferred until the 1.0 quality reset is complete, or is an evidence-backed core-value exception justified?
+
 ## Wake Learning v0
 
 - What minimum source-session evidence is required before the first learned policy change?
