@@ -1,0 +1,42 @@
+name: Publish GPT-Live Voice Lab release
+
+# One-shot, tightly scoped bridge to the existing signed production release
+# workflow. The release itself still runs its full CI, device, signing and
+# publication gates; this automation never publishes APKs directly.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-reviewed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.number == 193 &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'feat/gpt-live-foundation-20261020' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Trigger canonical signed release after approved merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$MAIN_SHA" = "$EXPECTED_MERGE_SHA" || {
+            echo "::error::main advanced; refuse to auto-release an unintended commit."
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false \
+            -f 'release_notes=GPT-Live Voice Lab pilot for Direct builds: experimental OpenAI voice character previews, expression presets and local listening ratings. No change to alarm delivery or the default wake conversation. GPT-Live requires account allowlist and server configuration, and remains disabled by default.'
