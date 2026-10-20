@@ -9,6 +9,7 @@ import com.wakemyway.app.alarm.WakeInteractiveDiagnosticEvent
 import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.alarm.WakeTerminalActions
 import com.wakemyway.app.alarm.WakeTerminalReason
+import com.wakemyway.app.calendar.MorningCalendarRepository
 import com.wakemyway.app.motion.AndroidMotionObserver
 import com.wakemyway.core.alarm.CharacterId
 import com.wakemyway.core.alarm.VoiceStyle
@@ -24,6 +25,11 @@ import com.wakemyway.core.runtime.WakeInputId
 import com.wakemyway.core.runtime.WakeOutcome
 import com.wakemyway.core.runtime.WakePhase
 import com.wakemyway.core.runtime.WakePolicy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import com.wakemyway.core.runtime.WakeRuntime
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.runtime.WakeSessionSnapshot
@@ -51,6 +57,16 @@ class WakeVoiceSessionController(
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
+    private val calendarScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile private var morningCalendarFact: MorningCalendarRepository.MorningFact? = null
+    init {
+        // Optional provider I/O is off the wake/OS/UI path. Never delay critical alarm playback.
+        calendarScope.launch {
+            morningCalendarFact = runCatching {
+                MorningCalendarRepository(appContext).readNextFact()
+            }.getOrNull()
+        }
+    }
     private val timingTrace = WakeTimingTrace(appContext)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val sessionPlan: WakeSessionPlan = WakeSessionStrategyResolver.resolve(
@@ -308,6 +324,7 @@ class WakeVoiceSessionController(
         listening = false
         speaking = false
         conversation?.close()
+        calendarScope.cancel()
         motionObserver.stop()
         motionObserving = false
         if (restoreCriticalAudio) {
@@ -414,7 +431,13 @@ class WakeVoiceSessionController(
         AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
         publish()
 
-        if (!liveConversation.respond(WakeSpeechRequest(intent, sessionPlan))) {
+        val now = System.currentTimeMillis()
+        val calendarContext = if (intent == SpeechIntent.Orientation) {
+            morningCalendarFact?.takeIf {
+                now - it.observedAtMillis in 0L..600_000L && it.startsAtMillis > now
+            }?.description
+        } else null
+        if (!liveConversation.respond(WakeSpeechRequest(intent, sessionPlan, calendarContext))) {
             enterAlarmOnly(WakeVoiceDegradationReason.TURN_FAILURE)
         }
     }
