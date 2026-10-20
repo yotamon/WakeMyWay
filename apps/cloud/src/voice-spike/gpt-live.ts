@@ -98,7 +98,7 @@ export interface LiveSessionAnswer {
 }
 
 export async function createLiveSession(
-  input: z.infer<typeof liveRequestSchema>,
+  input: z.input<typeof liveRequestSchema>,
   options: { apiKey?: string; fetchImpl?: typeof fetch; safetyIdentifier: string } ,
 ): Promise<LiveSessionAnswer> {
   if (process.env.WMW_GPT_LIVE_ENABLED !== 'true') {
