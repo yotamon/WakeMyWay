@@ -6,13 +6,16 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import com.wakemyway.app.network.WakeHttpClient
 import com.wakemyway.app.product.account.WakeAccountManager
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,12 +26,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
+import org.webrtc.AudioTrackSink
 import org.webrtc.DataChannel
 import org.webrtc.IceCandidate
 import org.webrtc.MediaConstraints
 import org.webrtc.MediaStream
 import org.webrtc.PeerConnection
 import org.webrtc.PeerConnectionFactory
+import org.webrtc.RtpReceiver
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
@@ -49,6 +54,8 @@ class GptLiveWebRtcSession(
         /** Stable, content-free phase name for explaining connection progress. */
         fun onStage(stage: String) = Unit
         fun onTranscript(fromUser: Boolean, delta: String)
+        /** Observed non-silent remote WebRTC audio, not a guarantee of speaker audibility. */
+        fun onRemoteSpeechActivity(active: Boolean) = Unit
         /** Cumulative billable duration, never raw audio or a per-turn value. */
         fun onUsageSeconds(seconds: Int, final: Boolean)
         fun onSessionClosed(usageConfirmed: Boolean)
@@ -84,11 +91,22 @@ class GptLiveWebRtcSession(
     private var closing = false
     private var lastUsageSeconds = 0
     private var labSettings = VoiceLabSettings()
+    private var selectedVoiceStyle = "default"
     private var exchangeStarted = false
     private var peer: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
     private var source: AudioSource? = null
     private var input: AudioTrack? = null
+    private var remoteTrack: AudioTrack? = null
+    private var remoteSink: AudioTrackSink? = null
+    private var outputActive = false
+    private val lastAudioSampleNotice = AtomicLong(0L)
+    private val remoteSilenceTimer = Runnable {
+        if (outputActive && !closed) {
+            outputActive = false
+            observer.onRemoteSpeechActivity(false)
+        }
+    }
     private var channel: DataChannel? = null
     private var manager: AudioManager? = null
     private var previousMode: Int? = null
@@ -108,9 +126,12 @@ class GptLiveWebRtcSession(
     fun connect(
         character: Character = Character.ALFRED,
         settings: VoiceLabSettings = VoiceLabSettings(),
+        voiceStyle: String = "default",
     ) {
+        require(voiceStyle in setOf("default", "minimal", "motivational"))
         if (closed || !connecting.compareAndSet(false, true)) return
         labSettings = settings
+        selectedVoiceStyle = voiceStyle
         val current = generation.incrementAndGet()
         // Validate the account and refresh any expired device authorization
         // *before* touching the communication audio route or WebRTC. The
@@ -152,6 +173,18 @@ class GptLiveWebRtcSession(
             .put("content",
                 "This is a short WakeMyWay voice preview. Say one natural, friendly good-morning greeting, then listen. Do not assign any physical tasks."))
         if (delivered) input?.setEnabled(true) else fail("lab-cue-write", current)
+    }
+
+    /** One authorized wake directive. Never accepts raw instructions from the user or AI. */
+    fun sendWakeCue(content: String): Boolean {
+        val current = generation.get()
+        val events = channel ?: return false
+        if (content.length !in 1..500 || !isCurrent(current) || !readyState.get() || closing) return false
+        return send(events, JSONObject()
+            .put("type", "session.commentary.append")
+            .put("event_id", "wmw_wake_${current}_${System.nanoTime()}")
+            .put("delegation_id", JSONObject.NULL)
+            .put("content", content))
     }
 
     /** Stop microphone immediately even if session close is still pending. */
@@ -315,7 +348,7 @@ class GptLiveWebRtcSession(
             .url(LIVE_SESSION_URL)
             .post(JSONObject().put("sdp", sdp)
                 .put("characterId", character.wire)
-                .put("voiceStyle", "default")
+                .put("voiceStyle", selectedVoiceStyle)
                 .put("energy", labSettings.energy.name.lowercase())
                 .put("directness", labSettings.directness.name.lowercase())
                 .put("conversationAmount", labSettings.conversationAmount.name.lowercase())
@@ -429,7 +462,12 @@ class GptLiveWebRtcSession(
                 }
             }
             override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>?) = Unit
-            override fun onAddStream(stream: MediaStream?) = Unit
+            override fun onAddStream(stream: MediaStream?) {
+                attachRemoteTrack(stream?.audioTracks?.firstOrNull(), current)
+            }
+            override fun onAddTrack(receiver: RtpReceiver?, mediaStreams: Array<out MediaStream>?) {
+                attachRemoteTrack(receiver?.track() as? AudioTrack, current)
+            }
             override fun onRemoveStream(stream: MediaStream?) = Unit
             override fun onDataChannel(channel: DataChannel?) = Unit
             override fun onRenegotiationNeeded() = Unit
@@ -441,6 +479,37 @@ class GptLiveWebRtcSession(
                 if (state == PeerConnection.PeerConnectionState.FAILED) fail("peer-connection", current)
             }
         }
+
+    private fun attachRemoteTrack(track: AudioTrack?, current: Long) {
+        if (track == null || !isCurrent(current) || remoteTrack === track) return
+        remoteTrack?.let { old -> remoteSink?.let { sink -> runCatching { old.removeSink(sink) } } }
+        val sink = AudioTrackSink { audioData, bitsPerSample, _, _, _, _ ->
+            if (bitsPerSample != 16 || closed) return@AudioTrackSink
+            val buf = audioData.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+            var checked = 0
+            var strong = 0
+            while (buf.remaining() >= 2 && checked < 240) {
+                if (abs(buf.short.toInt()) > 500) strong++
+                checked++
+            }
+            if (checked < 24 || strong * 10 < checked) return@AudioTrackSink
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastAudioSampleNotice.get() < 70L) return@AudioTrackSink
+            lastAudioSampleNotice.set(now)
+            handler.post {
+                if (!isCurrent(current) || closing) return@post
+                if (!outputActive) {
+                    outputActive = true
+                    observer.onRemoteSpeechActivity(true)
+                }
+                handler.removeCallbacks(remoteSilenceTimer)
+                handler.postDelayed(remoteSilenceTimer, 850L)
+            }
+        }
+        remoteTrack = track
+        remoteSink = sink
+        runCatching { track.addSink(sink) }.onFailure { fail("remote-audio-sink", current) }
+    }
 
     private fun cancelIceTimeout() {
         iceTimeout?.let { handler.removeCallbacks(it) }
@@ -531,6 +600,11 @@ class GptLiveWebRtcSession(
         cancelIceTimeout()
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
+        handler.removeCallbacks(remoteSilenceTimer)
+        outputActive = false
+        remoteTrack?.let { track -> remoteSink?.let { sink -> runCatching { track.removeSink(sink) } } }
+        remoteTrack = null
+        remoteSink = null
         runCatching { channel?.unregisterObserver() }
         runCatching { channel?.close() }
         runCatching { channel?.dispose() }

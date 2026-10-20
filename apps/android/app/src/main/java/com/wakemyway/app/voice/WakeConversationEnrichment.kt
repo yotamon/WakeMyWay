@@ -29,6 +29,9 @@ interface WakeConversationEnrichment : AutoCloseable {
 
     val ready: Boolean
 
+    /** Inclusive connection admission + negotiation budget; local alarm is always audible. */
+    val startupBudgetMillis: Long get() = 20_000L
+
     fun connect()
 
     /** Requests one bounded natural-language response for a typed Wake Runtime intent and style. */
@@ -47,6 +50,7 @@ interface WakeConversationEnrichment : AutoCloseable {
  */
 internal object WakeConversationEnrichmentFactory {
     private val implementations = listOf(
+        "com.wakemyway.app.voice.GptLivePreferredWakeConversation",
         "com.wakemyway.app.voice.DirectRealtimeWakeConversation",
         "com.wakemyway.app.voice.DebugRealtimeWakeConversation",
     )
@@ -54,17 +58,23 @@ internal object WakeConversationEnrichmentFactory {
     fun create(
         context: Context,
         listener: WakeConversationEnrichment.Listener,
+        sessionPlan: WakeSessionPlan,
     ): WakeConversationEnrichment? = implementations.firstNotNullOfOrNull { implementation ->
         runCatching {
             val type = Class.forName(implementation)
-            val constructor = type.getConstructor(
+            val live = implementation.endsWith("GptLivePreferredWakeConversation")
+            val constructor = if (live) type.getConstructor(
+                Context::class.java,
+                WakeConversationEnrichment.Listener::class.java,
+                WakeSessionPlan::class.java,
+            ) else type.getConstructor(
                 Context::class.java,
                 WakeConversationEnrichment.Listener::class.java,
             )
-            constructor.newInstance(
-                context.applicationContext,
-                listener,
-            ) as WakeConversationEnrichment
+            if (live) constructor.newInstance(context.applicationContext, listener, sessionPlan)
+                as WakeConversationEnrichment
+            else constructor.newInstance(context.applicationContext, listener)
+                as WakeConversationEnrichment
         }.getOrNull()
     }
 }
