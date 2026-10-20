@@ -22,6 +22,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     private var selected = GptLiveWebRtcSession.Character.ALFRED
     private var settings = GptLiveWebRtcSession.VoiceLabSettings()
     private val choiceButtons = mutableListOf<Button>()
+    private var lastTranscriptFromUser: Boolean? = null
     private lateinit var status: TextView
     private lateinit var transcript: TextView
     private lateinit var startButton: Button
@@ -123,6 +124,7 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
         choiceButtons.forEach { it.isEnabled = false }
         stopButton.isEnabled = true
         transcript.text = ""
+        lastTranscriptFromUser = null
         GptLiveWebRtcSession(this, this).also {
             session = it
             it.connect(selected, settings)
@@ -141,9 +143,13 @@ class GptLiveVoiceLabActivity : ComponentActivity(), GptLiveWebRtcSession.Observ
     }
 
     override fun onTranscript(fromUser: Boolean, delta: String) = runOnUiThread {
-        val label = if (fromUser) "You" else selected.wire
-        // No persistence. Bound UI text in memory; closing clears it.
-        transcript.text = (transcript.text.toString() + "\n" + label + ": " + delta).takeLast(3_000)
+        // Transcript deltas are fragments, not turns. Preserve whitespace and
+        // keep adjacent fragments from one speaker on the same readable line.
+        val heading = if (lastTranscriptFromUser == fromUser) "" else
+            "\n" + (if (fromUser) "You" else selected.wire) + ": "
+        lastTranscriptFromUser = fromUser
+        // Never persist conversation text. Bound only the on-screen memory buffer.
+        transcript.text = (transcript.text.toString() + heading + delta).takeLast(3_000)
     }
 
     override fun onUsageSeconds(seconds: Int, final: Boolean) = runOnUiThread {
