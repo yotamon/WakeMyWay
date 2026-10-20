@@ -49,7 +49,7 @@ describe('GPT-Live session configuration', () => {
 
   it('posts the verified SDP + voice config to Live, not Realtime', async () => {
     vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'true');
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+    const fetchImpl = vi.fn(async (_url: RequestInfo | URL, _options?: RequestInit) => new Response(JSON.stringify({
       session: { id: 'live_test' },
       transport: { type: 'webrtc', sdp: 'v=0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\na=mid:0\r\n' },
     }), { status: 201 }));
@@ -59,11 +59,11 @@ describe('GPT-Live session configuration', () => {
     expect(result.session.id).toBe('live_test');
     const [url, options] = fetchImpl.mock.calls[0]!;
     expect(url).toBe(OPENAI_LIVE_SESSIONS_URL);
-    const body = JSON.parse(String(options.body));
+    const body = JSON.parse(String(options!.body));
     expect(body.session.audio.output.voice).toBe('vesper');
     expect(body.session.store).toBe(false);
     expect(body.transport.sdp).toBe(sdp);
-    expect(options.headers.authorization).toBe('Bearer test-key');
+    expect((options!.headers as Record<string, string>).authorization).toBe('Bearer test-key');
   });
 });
 
