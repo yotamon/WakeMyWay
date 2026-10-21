@@ -11,7 +11,7 @@ enum class WakeVoiceDegradationReason {
 }
 
 internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDegradationReason =
-    when (stage) {
+    when (stage.removePrefix("live-")) {
         "credential",
         "webrtc-init",
         "offer",
@@ -22,6 +22,9 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "peer",
         "transport-disconnected",
         "data-channel-closed",
+        "channel-closed",
+        "ice-connection",
+        "peer-connection",
         -> WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE
 
         "turn-budget",
@@ -31,7 +34,7 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
     }
 
 internal fun diagnosticEventForConversationFailure(stage: String): WakeInteractiveDiagnosticEvent =
-    when (stage) {
+    when (stage.removePrefix("live-")) {
         "credential" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_CREDENTIAL
 
         "webrtc-init",
@@ -41,10 +44,13 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "remote-sdp",
         "ice",
         "peer",
+        "ice-connection",
+        "peer-connection",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_NEGOTIATION
 
         "transport-disconnected",
         "data-channel-closed",
+        "channel-closed",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT
 
         "turn-budget" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
