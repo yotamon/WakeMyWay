@@ -36,9 +36,14 @@ class MorningCalendarRepositoryTest {
         repo.selectCalendar(456)
         assertFalse(repo.settings().includeEventTitlesInVoice)
 
+        val revisionBeforeDisconnect = repo.settings().consentRevision
         repo.disconnect()
         assertNull(repo.settings().selectedCalendarId)
         assertFalse(repo.settings().includeEventTitlesInVoice)
+        assertTrue(repo.settings().consentRevision > revisionBeforeDisconnect)
+        val disconnectedRevision = repo.settings().consentRevision
+        repo.selectCalendar(123)
+        assertTrue(repo.settings().consentRevision > disconnectedRevision)
     }
 
     @Test
