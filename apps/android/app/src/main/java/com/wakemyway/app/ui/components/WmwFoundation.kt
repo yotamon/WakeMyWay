@@ -186,6 +186,16 @@ fun WmwPrimaryAction(
         WmwActionTone.DARK -> WmwColors.Midnight
         WmwActionTone.PAPER -> WmwColors.PaperCard
     }
+    val sunroomFill = if (enabled && resolvedTone == WmwActionTone.WARM) {
+        Modifier.background(
+            brush = Brush.horizontalGradient(
+                listOf(WmwColors.SunriseSoft, WmwColors.SunroomCoral),
+            ),
+            shape = RoundedCornerShape(22.dp),
+        )
+    } else {
+        Modifier
+    }
     val content = when (resolvedTone) {
         WmwActionTone.WARM -> WmwColors.Midnight
         WmwActionTone.DARK -> WmwColors.WarmLight
@@ -196,11 +206,12 @@ fun WmwPrimaryAction(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = WmwSizes.PrimaryActionHeight),
+            .heightIn(min = WmwSizes.PrimaryActionHeight)
+            .then(sunroomFill),
         enabled = enabled,
         shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = container,
+            containerColor = if (enabled && resolvedTone == WmwActionTone.WARM) Color.Transparent else container,
             contentColor = content,
             disabledContainerColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.10f) else WmwColors.DeepNavy,
             disabledContentColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.35f) else WmwColors.FaintText,
