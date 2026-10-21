@@ -39,12 +39,13 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
 /**
- * GPT-Live experimental full-duplex transport. Intentionally NOT a
- * WakeConversationEnrichment: GPT-Live has no Realtime response.done analogue,
- * so there is no truthful onAssistantSpeechFinished event to feed WakeRuntime.
+ * Full-duplex GPT-Live WebRTC transport, used by Voice Lab and preferred
+ * Direct wake sessions. Live has no authoritative per-turn response.done event:
+ * remote PCM and transcript quiet are best-effort playback proxies, never
+ * proof of speaker audibility or authority over WakeRuntime.
  *
- * This transport only belongs in Voice Lab until a playback-gated coordinator
- * has been physically verified. It does not own Alarm Kernel, Stop or Snooze.
+ * The alarm remains independently audible and Stop/Snooze stay native.
+ * Locked-screen, Doze and audio-route behavior require physical-device proof.
  */
 class GptLiveWebRtcSession(
     context: Context,
