@@ -276,7 +276,7 @@ fun AlarmEditorScreen(
         if (result.saved) exitEditor() else error = result.detail ?: "Could not save this alarm."
     }
 
-    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
+    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier, sunroomHero = true) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
