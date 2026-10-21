@@ -277,7 +277,10 @@ fun AlarmEditorScreen(
         if (result.saved) exitEditor() else error = result.detail ?: "Could not save this alarm."
     }
 
-    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier.imePadding(), sunroomHero = true) {
+    WmwCircadianSurface(
+        WmwCircadianStage.PLANNING, modifier.imePadding(),
+        sunroomHero = LocalDensity.current.fontScale < 1.3f,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -527,9 +530,14 @@ fun AlarmEditorScreen(
                 }
             }
         }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            color = WmwColors.SunroomPaper.copy(alpha = .99f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 6.dp,
+        ) {
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter)
-                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
+            modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
         ) {
             error?.let { message ->
                 Surface(
@@ -551,6 +559,7 @@ fun AlarmEditorScreen(
                 onLightSurface = true,
                 tone = WmwActionTone.WARM,
             )
+        }
         }
     }
 
