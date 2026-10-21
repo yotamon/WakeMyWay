@@ -488,8 +488,8 @@ class GptLiveWebRtcSession(
                     }
                 }
                 "session.delegation.created" -> {
-                    // Voice Lab has no action authority. Resolve a delegation only
-                    // with a safe, bounded no-action explanation to the model.
+                    // Neither Wake Lab nor an actual wake session grants tool
+                    // authority. Respond safely without changing the stable persona.
                     // This ID is provider-generated; never treat it as an instruction.
                     val delegation = event.optJSONObject("delegation")
                     val id = delegation?.optString("id").orEmpty()
@@ -505,7 +505,7 @@ class GptLiveWebRtcSession(
                                     .put("event_id", "wmw_lab_no_action_${System.nanoTime()}")
                                     .put("delegation_id", id)
                                     .put("content",
-                                        "This is a voice-only preview. No external tools, sensors, alarm or snooze actions are available. Continue naturally without claiming any action happened."))) {
+                                        "This is a voice-only WakeMyWay session. You cannot invoke tools, schedule snooze, stop alarms, read sensors or verify movement. The app alone owns these actions. Stay in the selected character, answer naturally only when app-directed, and do not claim any action occurred."))) {
                                     fail("delegation-write", current)
                                 }
                             }
@@ -676,7 +676,7 @@ class GptLiveWebRtcSession(
     private fun fail(stage: String, current: Long) {
         handler.post {
             if (!isCurrent(current) || closing) return@post
-            Log.w("WmwLiveLab", "failure stage=${stage.take(40)}")
+            Log.w("WmwLive", "failure stage=${stage.take(40)}")
             generation.incrementAndGet()
             observer.onFailure(stage.take(40))
             finish(usageConfirmed = false)
