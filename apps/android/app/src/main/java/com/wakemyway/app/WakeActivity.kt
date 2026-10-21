@@ -51,6 +51,7 @@ import com.wakemyway.app.alarm.WakeTimingTrace
 import com.wakemyway.app.preparation.WakePreparationManager
 import com.wakemyway.app.preparation.WakeTimePreparedContent
 import com.wakemyway.app.product.AlarmDefinitionRepository
+import com.wakemyway.app.ui.components.SunroomSunStamp
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwCircadianStage
 import com.wakemyway.app.ui.components.WmwCircadianSurface
@@ -766,21 +767,24 @@ private fun FirstMoveTile(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.heightIn(min = adaptiveWakeSpace(124)),
-        shape = MaterialTheme.shapes.medium,
-        color = WmwColors.PaperCard.copy(alpha = 0.92f),
-        border = BorderStroke(0.75.dp, WmwColors.DarkHairline),
+        modifier = modifier.heightIn(min = adaptiveWakeSpace(108)),
+        shape = RoundedCornerShape(26.dp),
+        color = WmwColors.SunroomPaper,
+        border = BorderStroke(1.dp, WmwColors.Sunrise.copy(alpha = .30f)),
+        shadowElevation = 3.dp,
     ) {
-        Column(
-            modifier = Modifier.padding(WmwSpacing.Md),
-            verticalArrangement = Arrangement.SpaceBetween,
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(WmwSpacing.Lg),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
         ) {
-            Surface(
-                modifier = Modifier.size(26.dp),
-                shape = MaterialTheme.shapes.extraLarge,
-                color = WmwColors.Sunrise.copy(alpha = 0.16f),
-            ) {}
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = WmwColors.Midnight)
+            SunroomSunStamp(Modifier.size(42.dp))
+            Text(
+                label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                color = WmwColors.Midnight,
+            )
         }
     }
 }
