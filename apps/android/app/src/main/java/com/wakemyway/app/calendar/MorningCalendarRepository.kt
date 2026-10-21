@@ -133,7 +133,10 @@ internal class MorningCalendarRepository(context: Context) {
         }.build()
 
         var first: Candidate? = null
-        app.contentResolver.query(uri, projection, null, null, CalendarContract.Instances.BEGIN + " ASC")
+        app.contentResolver.query(
+            uri, projection, "${CalendarContract.Events.CALENDAR_ID} = ?",
+            arrayOf(calendarId.toString()), CalendarContract.Instances.BEGIN + " ASC",
+        )
             ?.use { cursor ->
                 var seen = 0
                 while (cursor.moveToNext() && seen++ < MAX_INSTANCES) {
