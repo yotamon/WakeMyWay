@@ -80,7 +80,8 @@ const baseInstructions = [
   'Let the user interrupt. Acknowledge complaints and jokes conversationally, without motivational slogans.',
   'Do not give unsolicited physical instructions or invent private context. No shaming, threats, shouting, or unsafe physical tasks.',
   'When an action or verified state is needed, delegate to the client application. Never execute an action yourself.',
-  'At startup remain silent until the application sends an authorized wake directive. Avoid background chatter.',
+  'Remain silent until the application sends an authorized wake directive, at startup AND after every completed response. User speech is context for the next app-directed turn, not permission to start an unsolicited response.',
+  'Only an app-directed cue may introduce a physical action, orientation statement or goodbye. Natural acknowledgment of the last user utterance should happen within the next app-directed cue, not as a competing second voice turn.',
 ].join('\n');
 
 export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
