@@ -489,50 +489,91 @@ private fun EngagedWakeSurface(
     snoozeMinutes: Long,
     modifier: Modifier,
 ) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720 ||
+        LocalDensity.current.fontScale >= 1.3f
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
-        Spacer(Modifier.height(adaptiveWakeSpace(36)))
-        Text(
-            text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
-            style = MaterialTheme.typography.headlineMedium,
-            color = WmwColors.WarmLight,
-            textAlign = TextAlign.Center,
-        )
-        WmwTimeDisplay(
-            time = displayTime,
-            modifier = Modifier.padding(top = WmwSpacing.Xs),
-            compact = true,
-        )
-        WmwWakeLine(
-            state = WmwWakeLineState.LISTENING,
-            modifier = Modifier.padding(top = adaptiveWakeSpace(42)),
-            height = WmwSizes.WakeWaveHeight,
-        )
-        Surface(
-            modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xs),
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xE8242849),
-            border = BorderStroke(1.dp, WmwColors.WarmLight.copy(alpha = .22f)),
-        ) {
+        if (compact) {
+            // Spoken copy can grow unexpectedly. The alarm's critical controls never scroll away.
             Column(
-                modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
+                modifier = Modifier.fillMaxWidth().weight(1f)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
             ) {
-                Text(
-                    text = stringResource(R.string.wake_voice_listening),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = WmwColors.GoldenLight,
-                )
-                Text(
-                    text = stringResource(R.string.wake_voice_answer_prompt),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = WmwColors.WarmLight,
-                    textAlign = TextAlign.Center,
-                )
+                ListeningWakeHeader(spokenLine, displayTime, compact = true)
+                Spacer(Modifier.height(WmwSpacing.Sm))
+                ListeningWakeSignal(compact = true)
             }
+        } else {
+            ListeningWakeHeader(spokenLine, displayTime, compact = false)
+            Spacer(Modifier.weight(1f))
+            ListeningWakeSignal(compact = false)
+            Spacer(Modifier.height(WmwSpacing.Sm))
         }
-        Spacer(Modifier.weight(1f))
         WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
+    }
+}
+
+@Composable
+private fun ListeningWakeHeader(
+    spokenLine: String?,
+    displayTime: String,
+    compact: Boolean,
+) {
+    Spacer(Modifier.height(adaptiveWakeSpace(if (compact) 12 else 28)))
+    Text(
+        text = stringResource(R.string.wake_character_name).uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = WmwColors.GoldenLight,
+    )
+    WmwTimeDisplay(
+        time = displayTime,
+        modifier = Modifier.padding(top = WmwSpacing.Xs),
+        compact = compact,
+        color = WmwColors.WarmLight,
+    )
+    Text(
+        text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
+        modifier = Modifier.padding(top = WmwSpacing.Md),
+        style = if (compact) MaterialTheme.typography.headlineSmall
+        else MaterialTheme.typography.headlineMedium,
+        color = WmwColors.WarmLight,
+        textAlign = TextAlign.Center,
+    )
+}
+
+@Composable
+private fun ListeningWakeSignal(compact: Boolean) {
+    WmwWakeLine(
+        state = WmwWakeLineState.LISTENING,
+        height = if (compact) 70.dp else WmwSizes.WakeWaveHeight,
+    )
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xs),
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xEE242849),
+        border = BorderStroke(1.dp, WmwColors.GoldenLight.copy(alpha = .32f)),
+        shadowElevation = 5.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = WmwSpacing.Lg,
+                vertical = if (compact) WmwSpacing.Sm else WmwSpacing.Md,
+            ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+        ) {
+            Text(
+                text = stringResource(R.string.wake_voice_listening),
+                style = MaterialTheme.typography.labelLarge,
+                color = WmwColors.GoldenLight,
+            )
+            Text(
+                text = stringResource(R.string.wake_voice_answer_prompt),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.WarmLight,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
