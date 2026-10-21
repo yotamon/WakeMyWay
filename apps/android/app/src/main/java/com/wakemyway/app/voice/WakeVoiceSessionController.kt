@@ -120,6 +120,11 @@ class WakeVoiceSessionController(
                         return@post
                     }
                     timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING)
+                    audibleAssistantOutput = true
+                    if (captionBuffer.isNotEmpty()) {
+                        currentLine = captionBuffer.toString()
+                            .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
+                    }
                     speaking = true
                     listening = false
                     mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
@@ -143,9 +148,11 @@ class WakeVoiceSessionController(
                     if (captionBuffer.length > 240) {
                         captionBuffer.delete(0, captionBuffer.length - 240)
                     }
-                    currentLine = captionBuffer.toString()
-                        .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
-                    publish()
+                    if (audibleAssistantOutput) {
+                        currentLine = captionBuffer.toString()
+                            .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
+                        publish()
+                    }
                 }
             }
 
@@ -153,6 +160,7 @@ class WakeVoiceSessionController(
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
                     val userSpeechAlreadyStarted = listening
+                    audibleAssistantOutput = false
                     speaking = false
                     if (interrupted) {
                         // Barge-in means the assistant turn is still waiting for the user's reply.
@@ -237,6 +245,7 @@ class WakeVoiceSessionController(
     private var closed = false
     private var listening = false
     private var speaking = false
+    private var audibleAssistantOutput = false
     private var voiceResponseRequested = false
     private var motionObservationRequested = false
     private var motionObserving = false
@@ -361,6 +370,7 @@ class WakeVoiceSessionController(
         conversation?.close()
         captionBuffer.setLength(0)
         currentLine = null
+        audibleAssistantOutput = false
         calendarScope.cancel()
         motionObserver.stop()
         motionObserving = false
@@ -463,6 +473,7 @@ class WakeVoiceSessionController(
         listening = false
         currentLine = null
         captionBuffer.setLength(0)
+        audibleAssistantOutput = false
         mode = if (snapshot.phase == WakePhase.ORIENTING) {
             WakeVoiceMode.ORIENTING
         } else {
@@ -659,6 +670,7 @@ class WakeVoiceSessionController(
         realtimeIntent = null
         currentLine = null
         captionBuffer.setLength(0)
+        audibleAssistantOutput = false
         mainHandler.removeCallbacks(startFallback)
         mainHandler.removeCallbacks(silenceWatchdog)
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
