@@ -57,14 +57,14 @@ class WakeVoiceSessionController(
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
-    private val calendarRepository = MorningCalendarRepository(appContext)
+    private val calendarRepository = runCatching { MorningCalendarRepository(appContext) }.getOrNull()
     private val calendarScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var morningCalendarFact: MorningCalendarRepository.MorningFact? = null
     init {
         // Optional provider I/O is off the wake/OS/UI path. Never delay critical alarm playback.
         calendarScope.launch {
             morningCalendarFact = runCatching {
-                calendarRepository.readNextFact()
+                calendarRepository?.readNextFact()
             }.getOrNull()
         }
     }
@@ -436,7 +436,7 @@ class WakeVoiceSessionController(
         val calendarContext = if (intent == SpeechIntent.Orientation) {
             morningCalendarFact?.takeIf {
                 now - it.observedAtMillis in 0L..600_000L && it.startsAtMillis > now &&
-                    calendarRepository.hasPermission() &&
+                    calendarRepository?.hasPermission() == true &&
                     calendarRepository.settings().consentRevision == it.consentRevision &&
                     calendarRepository.settings().enabled
             }?.description
