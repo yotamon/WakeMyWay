@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.alarms
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -137,8 +139,9 @@ private fun AlarmCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(WmwColors.SunroomPaper, RoundedCornerShape(24.dp))
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = WmwSpacing.Md),
+            .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -234,7 +237,7 @@ private fun AlarmCard(
                 .fillMaxWidth()
                 .padding(top = WmwSpacing.Md)
                 .height(1.dp),
-            color = WmwColors.DarkHairline,
+            color = WmwColors.SunroomPeach.copy(alpha = .60f),
         ) {}
     }
 }
