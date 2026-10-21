@@ -12,6 +12,29 @@
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
+## Morning Purpose calendar-aware wake (feature branch, not released)
+
+PR #201 introduces a directly implemented, owner-authorized optional calendar enrichment slice.
+It reads **one explicitly selected Google calendar already synchronized by Android**, using
+read-only Android Calendar Provider access rather than expanding Neon Better Auth's Google sign-in
+scopes. The user separately opts into calendar permission/selection and any remote voice title
+disclosure. By default the current event's time is the only calendar context supplied to AI.
+The selected, eligible event is read off the alarm/voice UI thread when an interactive wake
+begins and passed only in **Orienting** after activation evidence, with consent revision and
+freshness checks. The Alarm Kernel, Wake Runtime, Stop/Snooze, Wake Ready and fallback semantics
+are untouched.
+
+Both Realtime and GPT-Live orientation cues are supported. Event titles are never persisted in
+this implementation. The `You → Morning calendar context` screen supports permission, calendar
+selection, optional title disclosure and disconnect. Reset clears consent.
+
+**Status:** Code is in open PR #201, not merged, not deployed. CI/physical acceptance must be
+checked for the final commit before release; a prior intermediate commit passing CI is not
+proof of the whole current diff. No direct Google Calendar OAuth or cloud calendar backend has
+been introduced.
+
+See [Morning Purpose implementation contract](implementation/morning-purpose-calendar-shape.md).
+
 ## GPT-Live voice-quality research/implementation (2026-10-20)
 
 An experimental OpenAI GPT-Live migration foundation is being implemented in draft PR #193.
