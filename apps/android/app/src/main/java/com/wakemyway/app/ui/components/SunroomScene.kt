@@ -29,6 +29,7 @@ fun SunroomScene(
     stage: WmwCircadianStage,
     modifier: Modifier = Modifier,
     hero: Boolean = false,
+    editorHeader: Boolean = false,
 ) {
     val planningAtmosphere = LocalWmwPlanningAtmosphere.current
     Canvas(modifier.fillMaxSize().clearAndSetSemantics {}) {
@@ -80,19 +81,19 @@ fun SunroomScene(
         }
 
         val sunX = when (stage) {
-            WmwCircadianStage.PLANNING -> w * .81f
+            WmwCircadianStage.PLANNING -> if (editorHeader) w * .91f else w * .81f
             WmwCircadianStage.ORIENTED -> w * .68f
             else -> w * .54f
         }
         val sunY = when (stage) {
-            WmwCircadianStage.PLANNING -> h * .205f
+            WmwCircadianStage.PLANNING -> if (editorHeader) h * .125f else h * .205f
             WmwCircadianStage.EMERGING -> h * .75f
             WmwCircadianStage.ENGAGED -> h * .67f
             WmwCircadianStage.ACTIVE -> h * .60f
             WmwCircadianStage.ORIENTED -> h * .54f
             WmwCircadianStage.COMPLETE -> h * .32f
         }
-        val radius = (w * (if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
+        val radius = (w * (if (editorHeader) .085f else if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
             .coerceAtMost(h * .105f)
         if (stage != WmwCircadianStage.PLANNING || hero) {
             drawCircle(
@@ -187,7 +188,7 @@ fun SunroomScene(
             hill(startY + h * .14f, h * .025f, Color(0xFFF0D2BC).copy(alpha = .54f), 3f)
         }
 
-        drawSunroomDetails(stage = stage, hero = hero)
+        drawSunroomDetails(stage = stage, hero = hero, editorHeader = editorHeader)
 
     }
 }
