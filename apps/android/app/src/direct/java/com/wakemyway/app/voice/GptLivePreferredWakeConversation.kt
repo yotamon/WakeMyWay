@@ -29,6 +29,7 @@ class GptLivePreferredWakeConversation(
     private var liveReady = false
     private var inputEnabled = false
     private var responsePending = false
+    private var queuedCue: String? = null
     private var assistantAudioActive = false
     private var userInterruptedOutput = false
     private var userTurnOverlappedOutput = false
@@ -109,6 +110,18 @@ class GptLivePreferredWakeConversation(
         legacy?.let { return it.respond(request) }
         if (!ready || responsePending) return false
         val cue = GptLiveWakeCue.forRequest(request)
+        if (assistantAudioActive) {
+            // A user may interrupt the previous response before the PCM stream is
+            // quiet. Accept the new runtime directive, but serialize the actual
+            // provider cue until the previous audio run finishes.
+            queuedCue = cue
+            responsePending = true
+            return true
+        }
+        return sendCue(cue)
+    }
+
+    private fun sendCue(cue: String): Boolean {
         val accepted = session?.sendWakeCue(cue) ?: false
         if (accepted) {
             responsePending = true
@@ -137,19 +150,42 @@ class GptLivePreferredWakeConversation(
     override fun onRemoteSpeechActivity(active: Boolean) {
         if (closed || fallbackPending) return
         if (active) {
+            if (assistantAudioActive) return
+            // Only an app-authorized typed runtime cue may initiate another
+            // assistant turn. Unexpected output cannot drive the wake state.
+            if (!responsePending) {
+                listener.onConversationFailure("live-unexpected-output")
+                return
+            }
             assistantAudioActive = true
             responsePending = false
             handler.removeCallbacks(noAudioDeadline)
             listener.onAssistantSpeechStarted()
         } else {
+            if (!assistantAudioActive) return
             assistantAudioActive = false
+            val nextCue = queuedCue
+            if (nextCue != null) {
+                queuedCue = null
+                userInterruptedOutput = false
+                // The prior turn was consumed by the user's interruption.
+                // Its terminal PCM callback must not complete the NEW directive.
+                responsePending = false
+                if (!sendCue(nextCue)) listener.onConversationFailure("live-queued-cue")
+                return
+            }
             listener.onAssistantSpeechFinished(interrupted = userInterruptedOutput)
             userInterruptedOutput = false
         }
     }
 
     override fun onTranscript(fromUser: Boolean, delta: String) {
-        if (closed || fallbackPending || !fromUser || !inputEnabled || delta.isBlank()) return
+        if (closed || fallbackPending || delta.isBlank()) return
+        if (!fromUser) {
+            if (responsePending || assistantAudioActive) listener.onAssistantTranscript(delta)
+            return
+        }
+        if (!inputEnabled) return
         if (turnBuffer.isEmpty()) {
             userTurnOverlappedOutput = assistantAudioActive
             if (assistantAudioActive) userInterruptedOutput = true
@@ -174,6 +210,10 @@ class GptLivePreferredWakeConversation(
 
     override fun onSessionClosed(usageConfirmed: Boolean) {
         liveReady = false
+        handler.removeCallbacks(noAudioDeadline)
+        queuedCue = null
+        responsePending = false
+        assistantAudioActive = false
         session = null
         if (closed) return
         if (fallbackPending) {
@@ -192,6 +232,9 @@ class GptLivePreferredWakeConversation(
         handler.removeCallbacks(noAudioDeadline)
         handler.removeCallbacks(userTurnQuiet)
         turnBuffer.setLength(0)
+        queuedCue = null
+        responsePending = false
+        assistantAudioActive = false
         session?.requestClose()
         session = null
         legacy?.close()
