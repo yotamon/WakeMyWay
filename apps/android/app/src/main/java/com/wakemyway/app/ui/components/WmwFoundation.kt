@@ -17,11 +17,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -81,7 +83,13 @@ fun WmwCircadianSurface(
             hero = sunroomHero,
             editorHeader = sunroomEditor,
         )
-        content()
+        // Material default ink is dark on light planning surfaces. A dark wake scene
+        // must explicitly supply readable defaults to any reusable/debug content.
+        CompositionLocalProvider(
+            LocalContentColor provides if (dark) WmwColors.WarmLight else WmwColors.Midnight,
+        ) {
+            content()
+        }
     }
 }
 
@@ -192,16 +200,6 @@ fun WmwPrimaryAction(
         WmwActionTone.DARK -> WmwColors.Midnight
         WmwActionTone.PAPER -> WmwColors.PaperCard
     }
-    val sunroomFill = if (enabled && resolvedTone == WmwActionTone.WARM) {
-        Modifier.background(
-            brush = Brush.horizontalGradient(
-                listOf(WmwColors.SunriseSoft, WmwColors.SunroomCoral),
-            ),
-            shape = RoundedCornerShape(22.dp),
-        )
-    } else {
-        Modifier
-    }
     val content = when (resolvedTone) {
         WmwActionTone.WARM -> WmwColors.Midnight
         WmwActionTone.DARK -> WmwColors.WarmLight
@@ -212,12 +210,11 @@ fun WmwPrimaryAction(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = WmwSizes.PrimaryActionHeight)
-            .then(sunroomFill),
+            .heightIn(min = WmwSizes.PrimaryActionHeight),
         enabled = enabled,
         shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (enabled && resolvedTone == WmwActionTone.WARM) Color.Transparent else container,
+            containerColor = container,
             contentColor = content,
             disabledContainerColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.10f) else WmwColors.DeepNavy,
             disabledContentColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.35f) else WmwColors.FaintText,

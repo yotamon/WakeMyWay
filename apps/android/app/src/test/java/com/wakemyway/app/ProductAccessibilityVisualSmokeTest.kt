@@ -2,6 +2,9 @@ package com.wakemyway.app
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.Text
+import com.wakemyway.app.ui.components.WmwCircadianStage
+import com.wakemyway.app.ui.components.WmwCircadianSurface
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
@@ -9,6 +12,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.home.TonightScreen
+import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.navigation.ConsumerTab
+import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.voice.WakeVoiceMode
@@ -60,6 +67,51 @@ class ProductAccessibilityVisualSmokeTest {
                         onBack = {},
                         onSave = { AlarmEditorResult(saved = true) },
                     )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun todayActionWithBottomNavigationLargeTextCompactRenders() {
+        captureRoboImage("responsive/today_bottom_nav_large_text_360x640.png") {
+            LargeText {
+                WakeMyWayTheme {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.HOME,
+                        onTabSelected = {},
+                    ) { contentModifier ->
+                        TonightScreen(
+                            state = TonightUiState(
+                                wakeTime = "07:30",
+                                dateLabel = "Thursday, 22 Oct",
+                                hasOccurrence = true,
+                                wakeReady = true,
+                                readinessDetail = "Wake ready",
+                                wakeReason = "An important morning",
+                                hasTomorrowContract = true,
+                                tomorrowContractPrepared = false,
+                            ),
+                            onOpenWakeSetup = {},
+                            onOpenTomorrowPlan = {},
+                            onOpenWakeLab = {},
+                            greetingOverride = "Good evening",
+                            modifier = contentModifier,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun darkWakeLabTextUsesLightAccessibleInk() {
+        // Screenshot is the authoritative rendered-color check; Roborazzi may render in
+        // a deferred pass, so a mutable value read synchronously here would be unreliable.
+        captureRoboImage("responsive/lab_text_contrast_360x640.png") {
+            WakeMyWayTheme {
+                WmwCircadianSurface(stage = WmwCircadianStage.EMERGING) {
+                    Text("Wake Alarm Lab")
                 }
             }
         }

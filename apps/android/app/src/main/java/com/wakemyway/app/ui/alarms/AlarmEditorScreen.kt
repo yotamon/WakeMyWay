@@ -533,7 +533,10 @@ fun AlarmEditorScreen(
             }
         }
         Surface(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding(),
             color = WmwColors.SunroomPaper.copy(alpha = .99f),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             shadowElevation = 6.dp,
