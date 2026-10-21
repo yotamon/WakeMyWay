@@ -187,7 +187,7 @@ class GptLiveWebRtcSession(
         }
         scope.launch {
             val preflight = runCatching {
-                credentials.load()?.deviceToken ?: provisionCredential()
+                checkLivePreAdmission(credentials.load()?.deviceToken ?: provisionCredential())
             }
             preflight
                 .onSuccess {
@@ -345,6 +345,42 @@ class GptLiveWebRtcSession(
                         fail(stage, current)
                     }
             }
+        }
+    }
+
+    /**
+     * A cheap authenticated pre-admission check. Disabled accounts bypass ICE and
+     * never create a paid OpenAI session. 405 is tolerated during a rolling
+     * backend deployment; the SDP broker remains the ultimate admission gate.
+     */
+    private suspend fun checkLivePreAdmission(initialToken: String) {
+        suspend fun check(token: String) = WakeHttpClient.execute(
+            Request.Builder()
+                .url(LIVE_SESSION_URL)
+                .get()
+                .header("Authorization", "Bearer $token")
+                .header("Accept", "application/json")
+                .build(),
+            4L * 1024,
+            callTimeoutMillis = 8_000L,
+        )
+        var response = check(initialToken)
+        if (response.status == 401) {
+            credentials.clear()
+            response = check(provisionCredential())
+        }
+        when (response.status) {
+            200 -> {
+                val available = runCatching {
+                    JSONObject(response.body).optBoolean("available", false)
+                }.getOrDefault(false)
+                if (!available) throw LivePreviewSetupException("pilot-access-denied")
+            }
+            405 -> Unit // Existing broker, no separate read-only preflight yet.
+            403 -> throw LivePreviewSetupException("pilot-access-denied")
+            401 -> throw LivePreviewSetupException("session-authentication-failed")
+            429 -> throw LivePreviewSetupException("daily-voice-limit")
+            else -> throw LivePreviewSetupException("pre-admission-unavailable")
         }
     }
 
