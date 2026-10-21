@@ -133,7 +133,7 @@ class WakeVoiceSessionController(
                     if (closed || alarmOnly || !realtimeTurnInFlight || delta.isBlank()) return@post
                     // Output captions only; no raw mic text and no persistence in Wake History.
                     val printable = delta.map { character ->
-                        if (character.isISOControl() || character == '\n' || character == '\r') ' ' else character
+                        if (Character.isISOControl(character) || character == '\n' || character == '\r') ' ' else character
                     }.joinToString("")
                     captionBuffer.append(printable)
                     if (captionBuffer.length > 240) {
