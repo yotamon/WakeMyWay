@@ -107,6 +107,7 @@ fun TonightScreen(
     WmwCircadianSurface(
         stage = WmwCircadianStage.PLANNING,
         modifier = modifier,
+        sunroomHero = true,
     ) {
         Column(
             modifier = Modifier
