@@ -105,7 +105,7 @@ class WakeVoiceSessionController(
                     conversationLive = true
                     mainHandler.removeCallbacks(startFallback)
                     when {
-                        startRequested && !started -> beginRuntime()
+                        startRequested && surfaceVisible && !started -> beginRuntime()
                         started -> syncSurfaceBoundResources()
                         else -> publish()
                     }
@@ -115,6 +115,10 @@ class WakeVoiceSessionController(
             override fun onAssistantSpeechStarted() {
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight) return@post
+                    if (!surfaceVisible) {
+                        enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
+                        return@post
+                    }
                     timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING)
                     speaking = true
                     listening = false
@@ -123,7 +127,7 @@ class WakeVoiceSessionController(
                     } else {
                         WakeVoiceMode.SPEAKING
                     }
-                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    setVoiceWindow(true)
                     publish()
                 }
             }
@@ -171,6 +175,7 @@ class WakeVoiceSessionController(
 
                     realtimeTurnInFlight = false
                     realtimeIntent = null
+                    setVoiceWindow(false)
                     dispatch(WakeInput.SpeechFinished(nextInputId("realtime-speech-finished")))
                 }
             }
@@ -182,7 +187,7 @@ class WakeVoiceSessionController(
                     timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_LISTENING)
                     listening = true
                     mode = WakeVoiceMode.LISTENING
-                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    setVoiceWindow(true)
                     publish()
                 }
             }
@@ -199,6 +204,7 @@ class WakeVoiceSessionController(
                     speaking = false
                     realtimeTurnInFlight = false
                     realtimeIntent = null
+                    setVoiceWindow(false)
                     dispatch(
                         WakeInput.VoiceResponseObserved(
                             id = nextInputId(
@@ -239,6 +245,7 @@ class WakeVoiceSessionController(
     private val captionBuffer = StringBuilder()
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
+    private var voiceWindowOpen = false
     private var alarmOnly = false
     private var degradationReason: WakeVoiceDegradationReason? = null
     private var realtimeTurnInFlight = false
@@ -276,6 +283,7 @@ class WakeVoiceSessionController(
             voiceResponseRequested = false
             listening = false
             conversation?.setInputEnabled(false)
+            setVoiceWindow(false)
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("realtime-silence"),
@@ -301,7 +309,9 @@ class WakeVoiceSessionController(
             }
         } else if (!alarmOnly) {
             conversation?.connect()
-            if (started) {
+            if (conversationLive && !started) {
+                beginRuntime()
+            } else if (started) {
                 dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
             }
         }
@@ -318,9 +328,16 @@ class WakeVoiceSessionController(
     override fun onSurfaceHidden() {
         surfaceVisible = false
         mainHandler.removeCallbacks(silenceWatchdog)
-        suspendListeningForHiddenSurface()
-        suspendMotionForHiddenSurface()
-        AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        // Do not keep the microphone, remote speech and critical music ducked
+        // behind a hidden surface. Re-entry remains a safe alarm-only wake.
+        if (started && !alarmOnly) {
+            enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
+        } else {
+            suspendListeningForHiddenSurface()
+            suspendMotionForHiddenSurface()
+            setVoiceWindow(false)
+            AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        }
     }
 
     override fun closeForTerminalAction() {
@@ -348,7 +365,10 @@ class WakeVoiceSessionController(
         motionObserver.stop()
         motionObserving = false
         if (restoreCriticalAudio) {
+            setVoiceWindow(false)
             AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        } else {
+            voiceWindowOpen = false
         }
     }
 
@@ -449,7 +469,7 @@ class WakeVoiceSessionController(
             WakeVoiceMode.SPEAKING
         }
         liveConversation.setInputEnabled(true)
-        AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+        setVoiceWindow(true)
         publish()
 
         val now = System.currentTimeMillis()
@@ -491,7 +511,7 @@ class WakeVoiceSessionController(
             mode = WakeVoiceMode.LISTENING
             currentLine = null
             conversation.setInputEnabled(true)
-            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+            setVoiceWindow(true)
             mainHandler.removeCallbacks(realtimeSilenceTimeout)
             mainHandler.postDelayed(
                 realtimeSilenceTimeout,
@@ -645,8 +665,20 @@ class WakeVoiceSessionController(
         conversation?.setInputEnabled(false)
         conversation?.close()
         stopMotionObservation()
+        setVoiceWindow(false)
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
         publish()
+    }
+
+    /** Idempotent request to the authoritative alarm service, never a player owner. */
+    private fun setVoiceWindow(active: Boolean) {
+        if (voiceWindowOpen == active) return
+        voiceWindowOpen = active
+        if (active) {
+            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+        } else {
+            AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        }
     }
 
     private fun nextInputId(kind: String): WakeInputId =
