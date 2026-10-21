@@ -46,7 +46,7 @@ export async function handleAccountLiveSessionRequest(
           .isAllowed(credential.credentialId);
     if (!envApproved && !pilotApproved) {
       throw new HttpError(
-        process.env.WMW_GPT_LIVE_ENABLED === 'true' ? 403 : 503,
+        403,
         'GPT-Live experiment is unavailable for this account.',
       );
     }
