@@ -20,7 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -49,16 +55,27 @@ fun WmwConsumerScaffold(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.(Modifier) -> Unit,
 ) {
+    // The bottom bar includes system navigation insets and can grow at large font scales.
+    // Measure its *actual* rendered height instead of relying on the old fixed 88dp gap.
+    val density = LocalDensity.current
+    var measuredBottomBarPx by remember { mutableIntStateOf(0) }
+    val bottomBarInset = if (measuredBottomBarPx > 0) {
+        with(density) { measuredBottomBarPx.toDp() } + WmwSpacing.Sm
+    } else {
+        WmwSizes.ConsumerNavigationInset + WmwSpacing.Xl
+    }
     Box(
         modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        content(Modifier.padding(bottom = WmwSizes.ConsumerNavigationInset))
+        content(Modifier.padding(bottom = bottomBarInset))
         WmwBottomBar(
             selectedTab = if (selectedTab == ConsumerTab.INSIGHTS) ConsumerTab.HOME else selectedTab,
             onTabSelected = onTabSelected,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .onSizeChanged { measuredBottomBarPx = it.height },
         )
     }
 }
