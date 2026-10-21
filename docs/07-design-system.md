@@ -6,7 +6,7 @@ WakeMyWay should feel like a **calm, premium morning companion**, not a generic 
 
 The brand idea is simple: **a sunrise meeting a line that is simultaneously a landscape and a calm sound wave**. That form connects the product name, visual identity, voice-first wake experience and the transition from night to morning.
 
-The user-approved production reference is the sunrise-wave brand direction implemented in Android. Earlier dark editorial/serif explorations are superseded where they conflict with this document.
+The user-approved production reference is the sunrise-wave identity, expressed through the Sunroom Club native Android art direction approved on 2026-10-21. Earlier dark editorial/serif explorations are superseded where they conflict with this document. The canonical mark remains the continuous Wake Line beneath a rising sun; the new decorative smiling sun is **not** the launcher mark, an assistant or a new character.
 
 ## Canonical mark: Sunrise + Wake Line
 
@@ -79,6 +79,10 @@ Product promise should remain concrete and human. Avoid language that makes the 
 The palette is **sunrise atmospheric**, not an “AI gradient” system. Blue/lavender never becomes a neon intelligence metaphor and should not dominate calls to action.
 
 All production text usage must remain contrast-tested.
+
+## Sunroom Club — decorative illustration exception (2026-10-21)
+
+Sunroom Club adds warm illustrated sunrise landscapes and a small *noninteractive* smiling-sun motif on selected planning and oriented/complete surfaces. This is a narrow exception to the prior no-mascot preference, not permission to add a speaking/interactive mascot. Alfred remains the sole active launch voice persona. The mascot is hidden from accessibility semantics and is kept away from text and critical controls. Generic settings pages use a calmer paper atmosphere without the face. No full-screen baked screenshots, fake task lists, fake operating-system chrome, remote images or invented controls are permitted. UI elements and private content remain native, dynamic and readable over artwork.
 
 ## Light and dark product worlds
 
