@@ -9,6 +9,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wakemyway.app.ui.alarms.AlarmEditorResult
 import com.wakemyway.app.ui.alarms.AlarmEditorScreen
+import com.wakemyway.app.ui.home.TonightScreen
+import com.wakemyway.app.ui.home.TonightUiState
+import com.wakemyway.app.ui.navigation.ConsumerTab
+import com.wakemyway.app.ui.navigation.WmwConsumerScaffold
 import com.wakemyway.app.ui.onboarding.OnboardingScreen
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
 import com.wakemyway.app.voice.WakeVoiceMode
@@ -60,6 +64,38 @@ class ProductAccessibilityVisualSmokeTest {
                         onBack = {},
                         onSave = { AlarmEditorResult(saved = true) },
                     )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun todayActionWithBottomNavigationLargeTextCompactRenders() {
+        captureRoboImage("responsive/today_bottom_nav_large_text_360x640.png") {
+            LargeText {
+                WakeMyWayTheme {
+                    WmwConsumerScaffold(
+                        selectedTab = ConsumerTab.HOME,
+                        onTabSelected = {},
+                    ) { contentModifier ->
+                        TonightScreen(
+                            state = TonightUiState(
+                                wakeTime = "07:30",
+                                dateLabel = "Thursday, 22 Oct",
+                                hasOccurrence = true,
+                                wakeReady = true,
+                                readinessDetail = "Wake ready",
+                                wakeReason = "An important morning",
+                                hasTomorrowContract = true,
+                                tomorrowContractPrepared = false,
+                            ),
+                            onOpenWakeSetup = {},
+                            onOpenTomorrowPlan = {},
+                            onOpenWakeLab = {},
+                            greetingOverride = "Good evening",
+                            modifier = contentModifier,
+                        )
+                    }
                 }
             }
         }
