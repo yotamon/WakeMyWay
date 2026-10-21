@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
+import com.wakemyway.app.ui.theme.LocalWmwPlanningAtmosphere
 import com.wakemyway.app.ui.theme.WmwColors
 
 /**
@@ -29,6 +30,7 @@ fun SunroomScene(
     modifier: Modifier = Modifier,
     hero: Boolean = false,
 ) {
+    val planningAtmosphere = LocalWmwPlanningAtmosphere.current
     Canvas(modifier.fillMaxSize().clearAndSetSemantics {}) {
         val w = size.width
         val h = size.height
@@ -41,7 +43,8 @@ fun SunroomScene(
 
         val sky = when (stage) {
             WmwCircadianStage.PLANNING -> listOf(
-                Color(0xFFFFF7E9), Color(0xFFFFF1E2), Color(0xFFF8E1D3), Color(0xFFFFF8F0)
+                planningAtmosphere.top, planningAtmosphere.middle,
+                planningAtmosphere.bottom, WmwColors.SunroomPaper,
             )
             WmwCircadianStage.EMERGING -> listOf(
                 Color(0xFF090F2B), Color(0xFF192049), Color(0xFF3D3159), Color(0xFF161D3E)
