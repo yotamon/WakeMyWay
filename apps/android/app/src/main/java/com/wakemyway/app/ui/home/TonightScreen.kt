@@ -319,7 +319,7 @@ private fun NextWakeCard(
                     ),
                     positive = state.wakeReady,
                 )
-            }
+        }
         if (!state.hasOccurrence) {
             Text(
                 text = state.readinessDetail,
@@ -349,7 +349,6 @@ private fun NextWakeCard(
                 }
             }
         }
-
     }
 }
 
@@ -424,25 +423,41 @@ private fun AlfredSignature(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = WmwSpacing.Sm, vertical = WmwSpacing.Md),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
+        modifier = modifier.fillMaxWidth()
+            .padding(horizontal = WmwSpacing.Xs),
+        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
+        verticalAlignment = Alignment.Bottom,
     ) {
-        AlfredMark(Modifier.size(38.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.wake_character_name),
-                style = MaterialTheme.typography.titleMedium,
-                color = WmwColors.Midnight,
-            )
-            Text(
-                text = quote,
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.LightQuietText,
-            )
+        AlfredMark(Modifier.size(42.dp))
+        Surface(
+            modifier = Modifier.weight(1f),
+            color = WmwColors.SunroomPaper.copy(alpha = .93f),
+            border = androidx.compose.foundation.BorderStroke(
+                0.75.dp, WmwColors.Sunrise.copy(alpha = .23f),
+            ),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                topStart = 24.dp,
+                topEnd = 24.dp,
+                bottomEnd = 24.dp,
+                bottomStart = 7.dp,
+            ),
+            shadowElevation = 2.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_character_name),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = WmwColors.Midnight,
+                )
+                Text(
+                    text = quote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.SunroomMutedInk,
+                )
+            }
         }
     }
 }

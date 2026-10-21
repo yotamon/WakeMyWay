@@ -29,6 +29,7 @@ fun SunroomScene(
     stage: WmwCircadianStage,
     modifier: Modifier = Modifier,
     hero: Boolean = false,
+    editorHeader: Boolean = false,
 ) {
     val planningAtmosphere = LocalWmwPlanningAtmosphere.current
     Canvas(modifier.fillMaxSize().clearAndSetSemantics {}) {
@@ -80,22 +81,22 @@ fun SunroomScene(
         }
 
         val sunX = when (stage) {
-            WmwCircadianStage.PLANNING -> w * .81f
+            WmwCircadianStage.PLANNING -> if (editorHeader) w * .86f else w * .81f
             WmwCircadianStage.ORIENTED -> w * .68f
             else -> w * .54f
         }
         val sunY = when (stage) {
-            WmwCircadianStage.PLANNING -> h * .205f
+            WmwCircadianStage.PLANNING -> if (editorHeader) h * .09f else h * .205f
             WmwCircadianStage.EMERGING -> h * .75f
             WmwCircadianStage.ENGAGED -> h * .67f
             WmwCircadianStage.ACTIVE -> h * .60f
             WmwCircadianStage.ORIENTED -> h * .54f
             WmwCircadianStage.COMPLETE -> h * .32f
         }
-        val radius = (w * (if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
+        val radius = (w * (if (editorHeader) .060f else if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
             .coerceAtMost(h * .105f)
         if (stage != WmwCircadianStage.PLANNING || hero) {
-        drawCircle(
+            drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
                     WmwColors.GoldenLight.copy(alpha = if (dark) .27f else .37f),
@@ -187,28 +188,8 @@ fun SunroomScene(
             hill(startY + h * .14f, h * .025f, Color(0xFFF0D2BC).copy(alpha = .54f), 3f)
         }
 
-        // Two quiet stems give the illustrated world its organic storybook silhouette.
-        val foliage = if (dark) Color(0xFF202A4D) else Color(0xFFAF8F82).copy(alpha = .36f)
-        listOf(.035f, .96f).forEachIndexed { index, fraction ->
-            val baseX = w * fraction
-            val sign = if (index == 0) 1f else -1f
-            val baseY = h * .98f
-            val topY = if (dark) h * .64f else h * .79f
-            drawLine(
-                color = foliage, start = Offset(baseX, baseY),
-                end = Offset(baseX + sign * w * .052f, topY),
-                strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round,
-            )
-            for (leaf in 0..3) {
-                val y = baseY - (baseY - topY) * (leaf + 1) / 5f
-                val x = baseX + sign * w * .052f * (leaf + 1) / 5f
-                drawOval(
-                    color = foliage,
-                    topLeft = Offset(x - 9.dp.toPx(), y - 5.dp.toPx()),
-                    size = Size(19.dp.toPx(), 9.dp.toPx()),
-                )
-            }
-        }
+        drawSunroomDetails(stage = stage, hero = hero, editorHeader = editorHeader)
+
     }
 }
 

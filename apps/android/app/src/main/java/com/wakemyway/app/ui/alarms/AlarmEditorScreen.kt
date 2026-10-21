@@ -279,7 +279,9 @@ fun AlarmEditorScreen(
 
     WmwCircadianSurface(
         WmwCircadianStage.PLANNING, modifier.imePadding(),
-        sunroomHero = LocalDensity.current.fontScale < 1.3f,
+        sunroomHero = LocalDensity.current.fontScale < 1.3f &&
+            LocalLayoutDirection.current != LayoutDirection.Rtl,
+        sunroomEditor = true,
     ) {
         Column(
             modifier = Modifier
@@ -626,20 +628,23 @@ private fun EditorSection(
 
 @Composable
 private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
+    val roomy = LocalConfiguration.current.screenWidthDp >= 390 &&
+        LocalDensity.current.fontScale < 1.3f
     Surface(
-        modifier = Modifier.fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick),
-        color = WmwColors.SunroomPeach.copy(alpha = .65f),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
+        color = WmwColors.SunroomPeach.copy(alpha = .63f),
         shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(1.dp, WmwColors.Sunrise.copy(alpha = .20f)),
+        border = BorderStroke(1.dp, WmwColors.Sunrise.copy(alpha = .24f)),
+        shadowElevation = 2.dp,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .heightIn(min = 104.dp)
                 .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
         ) {
+            if (roomy) SunroomSunStamp(modifier = Modifier.size(38.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "WAKE TIME",
