@@ -25,15 +25,15 @@ import com.wakemyway.core.runtime.WakeInputId
 import com.wakemyway.core.runtime.WakeOutcome
 import com.wakemyway.core.runtime.WakePhase
 import com.wakemyway.core.runtime.WakePolicy
+import com.wakemyway.core.runtime.WakeRuntime
+import com.wakemyway.core.runtime.WakeSessionId
+import com.wakemyway.core.runtime.WakeSessionSnapshot
+import com.wakemyway.core.schedule.WakeOccurrenceId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import com.wakemyway.core.runtime.WakeRuntime
-import com.wakemyway.core.runtime.WakeSessionId
-import com.wakemyway.core.runtime.WakeSessionSnapshot
-import com.wakemyway.core.schedule.WakeOccurrenceId
 
 interface WakeSessionController : AutoCloseable {
     fun onSurfaceVisible()
@@ -57,13 +57,14 @@ class WakeVoiceSessionController(
     elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
 ) : WakeSessionController {
     private val appContext = context.applicationContext
+    private val calendarRepository = MorningCalendarRepository(appContext)
     private val calendarScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var morningCalendarFact: MorningCalendarRepository.MorningFact? = null
     init {
         // Optional provider I/O is off the wake/OS/UI path. Never delay critical alarm playback.
         calendarScope.launch {
             morningCalendarFact = runCatching {
-                MorningCalendarRepository(appContext).readNextFact()
+                calendarRepository.readNextFact()
             }.getOrNull()
         }
     }
@@ -434,7 +435,10 @@ class WakeVoiceSessionController(
         val now = System.currentTimeMillis()
         val calendarContext = if (intent == SpeechIntent.Orientation) {
             morningCalendarFact?.takeIf {
-                now - it.observedAtMillis in 0L..600_000L && it.startsAtMillis > now
+                now - it.observedAtMillis in 0L..600_000L && it.startsAtMillis > now &&
+                    calendarRepository.hasPermission() &&
+                    calendarRepository.settings().consentRevision == it.consentRevision &&
+                    calendarRepository.settings().enabled
             }?.description
         } else null
         if (!liveConversation.respond(WakeSpeechRequest(intent, sessionPlan, calendarContext))) {
