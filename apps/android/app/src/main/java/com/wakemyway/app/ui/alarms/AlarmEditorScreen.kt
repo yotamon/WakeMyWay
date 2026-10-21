@@ -279,7 +279,8 @@ fun AlarmEditorScreen(
 
     WmwCircadianSurface(
         WmwCircadianStage.PLANNING, modifier.imePadding(),
-        sunroomHero = LocalDensity.current.fontScale < 1.3f,
+        sunroomHero = LocalDensity.current.fontScale < 1.3f &&
+            LocalLayoutDirection.current != LayoutDirection.Rtl,
         sunroomEditor = true,
     ) {
         Column(
