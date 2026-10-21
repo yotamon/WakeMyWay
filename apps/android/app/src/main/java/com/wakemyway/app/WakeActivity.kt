@@ -8,6 +8,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -499,11 +501,10 @@ private fun EngagedWakeSurface(
             modifier = Modifier.padding(top = WmwSpacing.Xs),
             compact = true,
         )
-        WmwWakeHorizon(
+        WmwWakeLine(
+            state = WmwWakeLineState.LISTENING,
             modifier = Modifier.padding(top = adaptiveWakeSpace(42)),
-            progress = 0.42f,
-            onDark = true,
-            active = true,
+            height = WmwSizes.WakeWaveHeight,
         )
         Text(
             text = stringResource(R.string.wake_voice_listening),
@@ -545,11 +546,10 @@ private fun ActiveWakeSurface(
             modifier = Modifier.padding(top = WmwSpacing.Xs),
             compact = true,
         )
-        WmwWakeHorizon(
+        WmwWakeLine(
+            state = WmwWakeLineState.MOVING,
             modifier = Modifier.padding(top = adaptiveWakeSpace(30)),
-            progress = 0.68f,
-            onDark = true,
-            active = true,
+            height = WmwSizes.WakeWaveHeight,
         )
         Text(
             text = stringResource(R.string.wake_voice_moving),
@@ -785,6 +785,10 @@ private fun FirstMoveTile(
     }
 }
 
+/**
+ * Critical Stop and optional Snooze are always rendered above scenery.
+ * Actions stay wired to the existing Alarm Kernel / WakeSessionViewModel callbacks.
+ */
 @Composable
 private fun WakeSafetyFooter(
     onSnooze: (() -> Unit)?,
@@ -792,36 +796,56 @@ private fun WakeSafetyFooter(
     snoozeMinutes: Long,
     onLightSurface: Boolean,
 ) {
-    val textColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.72f) else WmwColors.QuietText
+    val textColor = if (onLightSurface) WmwColors.Midnight else WmwColors.WarmLight
+    val backgroundColor = if (onLightSurface) {
+        WmwColors.SunroomPaper
+    } else {
+        Color(0xCC242849)
+    }
+    val outlineColor = if (onLightSurface) {
+        WmwColors.Sunrise.copy(alpha = .35f)
+    } else {
+        WmwColors.WarmLight.copy(alpha = .58f)
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
     ) {
         if (onSnooze != null) {
+            Surface(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(20.dp),
+                color = backgroundColor,
+                border = BorderStroke(1.dp, outlineColor),
+            ) {
+                TextButton(
+                    onClick = onSnooze,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = WmwSizes.SleepyTouchTarget),
+                ) {
+                    Text(
+                        text = stringResource(R.string.wake_snooze_minutes, snoozeMinutes),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = textColor,
+                    )
+                }
+            }
+        }
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(20.dp),
+            color = backgroundColor,
+            border = BorderStroke(1.dp, outlineColor),
+        ) {
             TextButton(
-                onClick = onSnooze,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(WmwSizes.SleepyTouchTarget),
+                onClick = onStop,
+                modifier = Modifier.fillMaxWidth().heightIn(min = WmwSizes.SleepyTouchTarget),
             ) {
                 Text(
-                    text = stringResource(R.string.wake_snooze_minutes, snoozeMinutes),
-                    style = MaterialTheme.typography.bodySmall,
+                    text = stringResource(R.string.wake_stop_alarm),
+                    style = MaterialTheme.typography.labelLarge,
                     color = textColor,
                 )
             }
-        }
-        TextButton(
-            onClick = onStop,
-            modifier = Modifier
-                .weight(1f)
-                .height(WmwSizes.SleepyTouchTarget),
-        ) {
-            Text(
-                text = stringResource(R.string.wake_stop_alarm),
-                style = MaterialTheme.typography.bodySmall,
-                color = textColor,
-            )
         }
     }
 }
