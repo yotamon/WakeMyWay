@@ -29,6 +29,7 @@ internal class MorningCalendarRepository(context: Context) {
     data class Settings(
         val selectedCalendarId: Long? = null,
         val includeEventTitlesInVoice: Boolean = false,
+        val consentRevision: Long = 0L,
     ) {
         val enabled: Boolean get() = selectedCalendarId != null
     }
@@ -37,6 +38,7 @@ internal class MorningCalendarRepository(context: Context) {
         val description: String,
         val observedAtMillis: Long,
         val startsAtMillis: Long,
+        val consentRevision: Long,
     )
 
     fun hasPermission(): Boolean =
@@ -46,17 +48,20 @@ internal class MorningCalendarRepository(context: Context) {
     fun settings(): Settings = Settings(
         selectedCalendarId = preferences.getLong(CALENDAR_ID, -1L).takeIf { it > 0L },
         includeEventTitlesInVoice = preferences.getBoolean(SHARE_TITLES, false),
+        consentRevision = preferences.getLong(CONSENT_REVISION, 0L),
     )
 
     fun selectCalendar(id: Long) {
         require(id > 0L)
         // Revocation or changing calendars clears the sensitive-title consent.
-        preferences.edit().putLong(CALENDAR_ID, id).putBoolean(SHARE_TITLES, false).apply()
+        preferences.edit().putLong(CALENDAR_ID, id).putBoolean(SHARE_TITLES, false)
+            .putLong(CONSENT_REVISION, settings().consentRevision + 1L).apply()
     }
 
     fun setShareTitles(enabled: Boolean) {
         if (!settings().enabled) return
-        preferences.edit().putBoolean(SHARE_TITLES, enabled).apply()
+        preferences.edit().putBoolean(SHARE_TITLES, enabled)
+            .putLong(CONSENT_REVISION, settings().consentRevision + 1L).apply()
     }
 
     fun disconnect() {
@@ -164,7 +169,7 @@ internal class MorningCalendarRepository(context: Context) {
         }
         // The provider may be out of sync with Google. This is a locally observed fact, not proof
         // of a currently confirmed appointment, user's intention, commute or preparation time.
-        return MorningFact(description = description, observedAtMillis = nowMillis, startsAtMillis = event.startMillis)
+        return MorningFact(description = description, observedAtMillis = nowMillis, startsAtMillis = event.startMillis, consentRevision = selected.consentRevision)
     }
 
     private data class Candidate(val startMillis: Long, val title: String?)
@@ -176,6 +181,7 @@ internal class MorningCalendarRepository(context: Context) {
         private const val PREFS = "morning-calendar-consent-v1"
         private const val CALENDAR_ID = "selected-calendar"
         private const val SHARE_TITLES = "remote-voice-event-titles"
+        private const val CONSENT_REVISION = "consent-revision"
         private const val MAX_CALENDARS = 100
         private const val MAX_INSTANCES = 250
 
