@@ -100,13 +100,54 @@ class GptLiveWebRtcSession(
     private var input: AudioTrack? = null
     private var remoteTrack: AudioTrack? = null
     private var remoteSink: AudioTrackSink? = null
-    private var outputActive = false
+    private val audioActivityGate = GptLiveAudioActivityGate()
     private val lastAudioSampleNotice = AtomicLong(0L)
-    private val remoteSilenceTimer = Runnable {
-        if (outputActive && !closed) {
-            outputActive = false
-            observer.onRemoteSpeechActivity(false)
+    private val remoteSilenceTimer = object : Runnable {
+        override fun run() {
+            if (closed || closing) return
+            val remaining = audioActivityGate.remainingQuietMillis(SystemClock.elapsedRealtime())
+                ?: return
+            if (remaining > 0L) {
+                handler.postDelayed(this, remaining)
+            } else if (audioActivityGate.finishIfQuiet(SystemClock.elapsedRealtime())) {
+                observer.onRemoteSpeechActivity(false)
+            }
         }
+    }
+    private var disconnectTimeout: Runnable? = null
+    private fun scheduleVoiceQuietCheck() {
+        handler.removeCallbacks(remoteSilenceTimer)
+        audioActivityGate.remainingQuietMillis(SystemClock.elapsedRealtime())?.let { remaining ->
+            handler.postDelayed(remoteSilenceTimer, remaining.coerceAtLeast(1L))
+        }
+    }
+    private fun checkConnectionHealth(current: Long) {
+        handler.post {
+            if (!isCurrent(current) || closing) return@post
+            val disconnected = peer?.iceConnectionState() ==
+                PeerConnection.IceConnectionState.DISCONNECTED ||
+                peer?.connectionState() == PeerConnection.PeerConnectionState.DISCONNECTED
+            if (!disconnected || !readyState.get()) {
+                cancelDisconnectTimeout()
+                return@post
+            }
+            if (disconnectTimeout == null) {
+                val task = Runnable {
+                    disconnectTimeout = null
+                    if (!isCurrent(current) || closing) return@Runnable
+                    val stillDisconnected = peer?.iceConnectionState() ==
+                        PeerConnection.IceConnectionState.DISCONNECTED ||
+                        peer?.connectionState() == PeerConnection.PeerConnectionState.DISCONNECTED
+                    if (stillDisconnected) fail("transport-disconnected", current)
+                }
+                disconnectTimeout = task
+                handler.postDelayed(task, 4_000L)
+            }
+        }
+    }
+    private fun cancelDisconnectTimeout() {
+        disconnectTimeout?.let { handler.removeCallbacks(it) }
+        disconnectTimeout = null
     }
     private var channel: DataChannel? = null
     private var manager: AudioManager? = null
@@ -400,9 +441,13 @@ class GptLiveWebRtcSession(
                 "session.input_transcript.delta", "session.output_transcript.delta" -> {
                     val delta = event.optString("delta").take(MAX_TRANSCRIPT_CHARS)
                     if (delta.isNotBlank()) handler.post {
-                        if (isCurrent(current)) observer.onTranscript(
-                            event.optString("type") == "session.input_transcript.delta", delta,
-                        )
+                        if (!isCurrent(current) || closing) return@post
+                        val fromUser = event.optString("type") == "session.input_transcript.delta"
+                        if (!fromUser) {
+                            audioActivityGate.onOutputTranscript(SystemClock.elapsedRealtime())
+                            scheduleVoiceQuietCheck()
+                        }
+                        observer.onTranscript(fromUser, delta)
                     }
                 }
                 "session.delegation.created" -> {
@@ -477,10 +522,19 @@ class GptLiveWebRtcSession(
             override fun onRenegotiationNeeded() = Unit
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                 if (state == PeerConnection.IceConnectionState.FAILED ||
-                    state == PeerConnection.IceConnectionState.CLOSED) fail("ice-connection", current)
+                    state == PeerConnection.IceConnectionState.CLOSED) {
+                    fail("ice-connection", current)
+                } else {
+                    checkConnectionHealth(current)
+                }
             }
             override fun onConnectionChange(state: PeerConnection.PeerConnectionState?) {
-                if (state == PeerConnection.PeerConnectionState.FAILED) fail("peer-connection", current)
+                if (state == PeerConnection.PeerConnectionState.FAILED ||
+                    state == PeerConnection.PeerConnectionState.CLOSED) {
+                    fail("peer-connection", current)
+                } else {
+                    checkConnectionHealth(current)
+                }
             }
         }
 
@@ -502,12 +556,10 @@ class GptLiveWebRtcSession(
             lastAudioSampleNotice.set(now)
             handler.post {
                 if (!isCurrent(current) || closing) return@post
-                if (!outputActive) {
-                    outputActive = true
+                if (audioActivityGate.onAudiblePcm(now)) {
                     observer.onRemoteSpeechActivity(true)
                 }
-                handler.removeCallbacks(remoteSilenceTimer)
-                handler.postDelayed(remoteSilenceTimer, 1_400L)
+                scheduleVoiceQuietCheck()
             }
         }
         remoteTrack = track
@@ -605,7 +657,8 @@ class GptLiveWebRtcSession(
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
         handler.removeCallbacks(remoteSilenceTimer)
-        outputActive = false
+        cancelDisconnectTimeout()
+        audioActivityGate.reset()
         remoteTrack?.let { track -> remoteSink?.let { sink -> runCatching { track.removeSink(sink) } } }
         remoteTrack = null
         remoteSink = null
