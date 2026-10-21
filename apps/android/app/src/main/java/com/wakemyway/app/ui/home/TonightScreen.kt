@@ -137,7 +137,6 @@ fun TonightScreen(
                         color = WmwColors.Midnight,
                     )
                 }
-                SunroomSunStamp(modifier = Modifier.padding(top = WmwSpacing.Xs))
             }
             Spacer(Modifier.height(WmwSpacing.Lg))
             NextWakeCard(state = state, onClick = onOpenWakeSetup)
@@ -294,15 +293,6 @@ private fun NextWakeCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = WmwColors.SunroomMutedInk,
             )
-            if (state.hasOccurrence) {
-                WmwInlineStatus(
-                    label = stringResource(
-                        if (state.wakeReady) R.string.tonight_wake_ready
-                        else R.string.tonight_wake_not_ready,
-                    ),
-                    positive = state.wakeReady,
-                )
-            }
         }
         Text(
             text = state.wakeTime,
@@ -319,6 +309,15 @@ private fun NextWakeCard(
             style = MaterialTheme.typography.bodyMedium,
             color = WmwColors.SunroomMutedInk,
         )
+            if (state.hasOccurrence) {
+                WmwInlineStatus(
+                    label = stringResource(
+                        if (state.wakeReady) R.string.tonight_wake_ready
+                        else R.string.tonight_wake_not_ready,
+                    ),
+                    positive = state.wakeReady,
+                )
+            }
         if (!state.hasOccurrence) {
             Text(
                 text = state.readinessDetail,
