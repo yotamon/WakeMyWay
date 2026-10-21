@@ -31,7 +31,7 @@ internal object GptLivePreviewMessages {
                 "GPT-Live preview isn't enabled for this account. Check pilot access."
             "daily-voice-limit" ->
                 "The daily voice preview limit was reached. Try again tomorrow."
-            "provider-or-server-unavailable", "server-http-503" ->
+            "provider-or-server-unavailable", "server-http-503", "pre-admission-unavailable" ->
                 "The voice backend or OpenAI session is unavailable. Check model access and billing."
             "offer-rejected", "invalid-server-answer", "invalid-server-response" ->
                 "The WebRTC session handshake failed. This needs an application-side fix."
