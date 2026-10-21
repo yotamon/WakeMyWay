@@ -48,6 +48,8 @@ import com.wakemyway.app.ui.components.WmwSecondaryAction
 import com.wakemyway.app.ui.components.WmwStatusPill
 import com.wakemyway.app.ui.components.WmwInlineStatus
 import com.wakemyway.app.ui.components.WmwWakeHorizon
+import com.wakemyway.app.ui.components.SunroomSunStamp
+import com.wakemyway.app.ui.components.WmwBrandHeader
 import com.wakemyway.app.ui.components.WmwSunriseMark
 import com.wakemyway.app.ui.components.WmwTimeDisplay
 import com.wakemyway.app.ui.theme.WakeMyWayTheme
@@ -115,17 +117,30 @@ fun TonightScreen(
                 .padding(horizontal = WmwSpacing.Lg)
                 .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
         ) {
-            WmwPageHeader(
-                title = stringResource(R.string.tonight_brand_home_title),
-                subtitle = stringResource(R.string.tonight_brand_home_subtitle),
-                intro = greeting,
-            )
-
-            Spacer(Modifier.height(WmwSpacing.Xl))
-            NextWakeCard(
-                state = state,
-                onClick = onOpenWakeSetup,
-            )
+            WmwBrandHeader()
+            Spacer(Modifier.height(WmwSpacing.Lg))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = greeting,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = WmwColors.SunroomMutedInk,
+                    )
+                    Text(
+                        text = stringResource(R.string.tonight_brand_home_title),
+                        modifier = Modifier.padding(top = WmwSpacing.Xs),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = WmwColors.Midnight,
+                    )
+                }
+                SunroomSunStamp(modifier = Modifier.padding(top = WmwSpacing.Xs))
+            }
+            Spacer(Modifier.height(WmwSpacing.Lg))
+            NextWakeCard(state = state, onClick = onOpenWakeSetup)
 
             if (hasMorningCheckIn) {
                 WmwCard(
@@ -265,75 +280,81 @@ private fun NextWakeCard(
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = WmwSpacing.Sm),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start,
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.tonight_next_wake_label).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = WmwColors.SunroomMutedInk,
+            )
+            if (state.hasOccurrence) {
+                WmwInlineStatus(
+                    label = stringResource(
+                        if (state.wakeReady) R.string.tonight_wake_ready
+                        else R.string.tonight_wake_not_ready,
+                    ),
+                    positive = state.wakeReady,
+                )
+            }
+        }
         Text(
-            text = stringResource(R.string.tonight_next_wake_label).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = WmwColors.LightQuietText,
-        )
-
-        WmwTimeDisplay(
-            time = state.wakeTime,
+            text = state.wakeTime,
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onClick)
                 .padding(top = WmwSpacing.Xs),
-            compact = false,
+            style = MaterialTheme.typography.displayLarge,
             color = WmwColors.Midnight,
+            maxLines = 1,
         )
         Text(
             text = state.dateLabel,
             style = MaterialTheme.typography.bodyMedium,
-            color = WmwColors.LightQuietText,
-            textAlign = TextAlign.Center,
+            color = WmwColors.SunroomMutedInk,
         )
-
-        state.wakeReason?.takeIf { it.isNotBlank() }?.let { reason ->
+        if (!state.hasOccurrence) {
             Text(
-                text = stringResource(R.string.tonight_reason_label).uppercase(),
-                modifier = Modifier.padding(top = WmwSpacing.Lg),
-                style = MaterialTheme.typography.labelSmall,
-                color = WmwColors.DawnText,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = reason,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Xs),
-                style = MaterialTheme.typography.titleMedium,
-                color = WmwColors.Midnight,
-                textAlign = TextAlign.Center,
+                text = state.readinessDetail,
+                modifier = Modifier.padding(top = WmwSpacing.Xs),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.LightQuietText,
             )
         }
 
+        state.wakeReason?.takeIf { it.isNotBlank() }?.let { reason ->
+            WmwCard(
+                modifier = Modifier.padding(top = WmwSpacing.Lg)
+                    .clickable(role = Role.Button, onClick = onClick),
+                onLightSurface = true,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs)) {
+                    Text(
+                        text = stringResource(R.string.tonight_reason_label).uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WmwColors.DawnText,
+                    )
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = WmwColors.Midnight,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(WmwSpacing.Md))
+        // The continuous horizon belongs to the real alarm display, not a fabricated agenda.
         WmwWakeHorizon(
-            modifier = Modifier.padding(horizontal = WmwSpacing.Md),
+            modifier = Modifier.padding(horizontal = WmwSpacing.Sm),
             progress = if (state.hasOccurrence) 0.54f else 0.18f,
             onDark = false,
             active = state.hasOccurrence && state.wakeReady,
         )
-
-        if (state.hasOccurrence) {
-            WmwInlineStatus(
-                label = stringResource(
-                    if (state.wakeReady) R.string.tonight_wake_ready else R.string.tonight_wake_not_ready,
-                ),
-                positive = state.wakeReady,
-            )
-        } else {
-            Text(
-                text = state.readinessDetail,
-                modifier = Modifier.padding(horizontal = WmwSpacing.Lg),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.LightQuietText,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }
 
@@ -343,69 +364,61 @@ private fun TomorrowContractPreview(
     onClick: () -> Unit,
 ) {
     val editDescription = stringResource(R.string.tonight_edit_contract)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .semantics {
-                role = Role.Button
-                contentDescription = editDescription
-            }
-            .padding(horizontal = WmwSpacing.Xs, vertical = WmwSpacing.Md),
-        verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+    WmwCard(
+        modifier = Modifier.clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = editDescription },
+        onLightSurface = true,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Sm)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.tonight_morning_plan_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = WmwColors.Midnight,
+                )
+                Text(
+                    text = when {
+                        state.hasTomorrowContract -> stringResource(R.string.tonight_contract_ready)
+                        state.tomorrowContractPromptRequired -> stringResource(R.string.tonight_contract_prompt)
+                        else -> stringResource(R.string.tonight_contract_optional)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = WmwColors.DawnText,
+                )
+            }
             Text(
-                text = stringResource(R.string.tonight_section_contract).uppercase(),
-                style = MaterialTheme.typography.labelSmall,
+                text = stringResource(
+                    if (state.hasTomorrowContract) R.string.tonight_morning_plan_ready
+                    else if (state.tomorrowContractPromptRequired) R.string.tonight_contract_prompt_empty
+                    else R.string.tonight_contract_empty,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
                 color = WmwColors.LightQuietText,
             )
-            Text(
-                text = when {
-                    state.hasTomorrowContract -> stringResource(R.string.tonight_contract_ready)
-                    state.tomorrowContractPromptRequired -> stringResource(R.string.tonight_contract_prompt)
-                    else -> stringResource(R.string.tonight_contract_optional)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.DawnText,
-            )
-        }
-        Text(
-            text = stringResource(
-                if (state.hasTomorrowContract) {
-                    R.string.tonight_morning_plan_title
-                } else {
-                    R.string.tonight_tomorrow_matters
-                },
-            ),
-            style = MaterialTheme.typography.titleLarge,
-            color = WmwColors.Midnight,
-        )
-        Text(
-            text = if (state.hasTomorrowContract) {
-                stringResource(R.string.tonight_morning_plan_ready)
-            } else {
-                stringResource(
-                    if (state.tomorrowContractPromptRequired) {
-                        R.string.tonight_contract_prompt_empty
-                    } else {
-                        R.string.tonight_contract_empty
-                    },
-                )
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = WmwColors.LightQuietText,
-        )
-        state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
-            Text(
-                text = stringResource(R.string.tonight_first_move, firstMove),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.Midnight,
-            )
+            state.firstMove?.takeIf { it.isNotBlank() }?.let { firstMove ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = WmwColors.MorningPaper,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(WmwSpacing.Md),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Sm),
+                    ) {
+                        SunroomSunStamp(Modifier.size(36.dp))
+                        Text(
+                            text = stringResource(R.string.tonight_first_move, firstMove),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = WmwColors.Midnight,
+                        )
+                    }
+                }
+            }
         }
     }
 }
