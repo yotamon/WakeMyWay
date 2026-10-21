@@ -316,6 +316,8 @@ class AlarmPlaybackService : Service() {
 
         // A player that exists but can no longer report playback must be released before its
         // replacement is built, or a degraded redelivery would leak media decoders.
+        gainAnimator?.cancel()
+        gainAnimator = null
         releaseIdleMediaPlayer()
 
         requestCriticalAudioFocus()
