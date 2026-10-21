@@ -21,6 +21,7 @@ import kotlin.math.sqrt
 internal fun DrawScope.drawSunroomDetails(
     stage: WmwCircadianStage,
     hero: Boolean,
+    editorHeader: Boolean = false,
 ) {
     val w = size.width
     val h = size.height
@@ -31,19 +32,19 @@ internal fun DrawScope.drawSunroomDetails(
         stage == WmwCircadianStage.COMPLETE
     val sunVisible = stage != WmwCircadianStage.PLANNING || hero
     val sunX = when (stage) {
-        WmwCircadianStage.PLANNING -> w * .81f
+        WmwCircadianStage.PLANNING -> if (editorHeader) w * .91f else w * .81f
         WmwCircadianStage.ORIENTED -> w * .68f
         else -> w * .54f
     }
     val sunY = when (stage) {
-        WmwCircadianStage.PLANNING -> h * .205f
+        WmwCircadianStage.PLANNING -> if (editorHeader) h * .125f else h * .205f
         WmwCircadianStage.EMERGING -> h * .75f
         WmwCircadianStage.ENGAGED -> h * .67f
         WmwCircadianStage.ACTIVE -> h * .60f
         WmwCircadianStage.ORIENTED -> h * .54f
         WmwCircadianStage.COMPLETE -> h * .32f
     }
-    val r = (w * (if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
+    val r = (w * (if (editorHeader) .085f else if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
         .coerceAtMost(h * .105f)
 
     // Sunrise rays are small editorial details, never a second button or the application icon.
@@ -99,7 +100,7 @@ internal fun DrawScope.drawSunroomDetails(
             )
         }
         val birdY = if (morning) h * .42f else h * .43f
-        repeat(if (morning) 3 else 2) { i ->
+        repeat(if (morning) 3 else 0) { i ->
             val x = w * (.66f + i * .067f)
             val y = birdY + ((i % 2) * .022f * h)
             val bird = Path().apply {
