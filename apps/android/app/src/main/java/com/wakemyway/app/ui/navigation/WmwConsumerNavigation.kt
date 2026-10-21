@@ -74,10 +74,10 @@ private fun WmwBottomBar(
             .navigationBarsPadding()
             .padding(bottom = WmwSpacing.Xxs)
             .fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = WmwColors.PaperCard.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        color = WmwColors.SunroomPaper.copy(alpha = 0.98f),
         border = BorderStroke(0.75.dp, WmwColors.DarkHairline.copy(alpha = 0.55f)),
-        shadowElevation = 0.dp,
+        shadowElevation = 5.dp,
         tonalElevation = 0.dp,
     ) {
         Row(
@@ -108,7 +108,7 @@ private fun WmwBottomBar(
                         text = tab.label,
                         modifier = Modifier.padding(top = 2.dp),
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText,
+                        color = if (selected) WmwColors.Midnight else WmwColors.SunroomMutedInk,
                         maxLines = 1,
                     )
                     if (selected) {
@@ -131,7 +131,7 @@ private fun ConsumerNavGlyph(
     tab: ConsumerTab,
     selected: Boolean,
 ) {
-    val color = if (selected) WmwColors.Midnight else WmwColors.LightQuietText
+    val color = if (selected) WmwColors.Midnight else WmwColors.SunroomMutedInk
     Canvas(Modifier.size(18.dp)) {
         val stroke = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
         when (tab) {
