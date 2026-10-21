@@ -65,7 +65,13 @@ internal class MorningCalendarRepository(context: Context) {
     }
 
     fun disconnect() {
-        preferences.edit().clear().commit()
+        // Keep a monotonic non-sensitive consent generation to invalidate any in-flight result.
+        // Clearing it back to zero could accidentally re-match a prior revision after reconnect.
+        preferences.edit()
+            .remove(CALENDAR_ID)
+            .remove(SHARE_TITLES)
+            .putLong(CONSENT_REVISION, settings().consentRevision + 1L)
+            .commit()
     }
 
     /**
@@ -157,7 +163,7 @@ internal class MorningCalendarRepository(context: Context) {
                     ) continue
                     val title = cursor.getString(3)
                     val candidate = Candidate(start, title)
-                    if (first == null || candidate.startMillis < first!!.startMillis) first = candidate
+                    if (first?.let { candidate.startMillis < it.startMillis } != false) first = candidate
                 }
             } ?: return null
 
