@@ -189,7 +189,7 @@ fun WmwSectionLabel(
         text = text.uppercase(),
         modifier = modifier,
         style = MaterialTheme.typography.labelSmall,
-        color = WmwColors.DawnText,
+        color = WmwColors.SunroomMutedInk,
     )
 }
 

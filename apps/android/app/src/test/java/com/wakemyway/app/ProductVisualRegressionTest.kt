@@ -402,6 +402,52 @@ class ProductVisualRegressionTest {
     }
 
     @Test
+    fun todayReadyWithNavigation() {
+        captureRoboImage("tonight_with_navigation.png") {
+            WakeMyWayTheme {
+                WmwConsumerScaffold(
+                    selectedTab = ConsumerTab.HOME,
+                    onTabSelected = {},
+                ) { contentModifier ->
+                    TonightScreen(
+                        state = TonightUiState(
+                            wakeTime = "07:30",
+                            dateLabel = "Tuesday, 14 Jan",
+                            hasOccurrence = true,
+                            wakeReady = true,
+                            readinessDetail = "Scheduled locally.",
+                            hasTomorrowContract = true,
+                            tomorrowContractPrepared = true,
+                            wakeReason = "Design review at 10:00.",
+                            firstMove = "Shower",
+                        ),
+                        onOpenWakeSetup = {},
+                        onOpenTomorrowPlan = {},
+                        onOpenWakeLab = {},
+                        greetingOverride = "Good evening",
+                        modifier = contentModifier,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun wakeAlarmOnly() {
+        captureRoboImage("wake_alarm_only.png") {
+            WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = null,
+                    onSnooze = {},
+                    onStop = {},
+                    voiceCheckInEnabled = false,
+                    displayTime = "07:30",
+                )
+            }
+        }
+    }
+
+    @Test
     fun wakeEmerging() {
         captureRoboImage("wake_emerging.png") {
             WakeMyWayTheme {
@@ -488,6 +534,25 @@ class ProductVisualRegressionTest {
                         spokenLine = "Good morning.",
                         speechAvailable = true,
                         voiceInputAvailable = true,
+                    ),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun wakeComplete() {
+        captureRoboImage("wake_complete.png") {
+            WakeMyWayTheme {
+                WakeSurface(
+                    preparedPlan = visualPreparedPlan(),
+                    onSnooze = {},
+                    onStop = {},
+                    displayTime = "07:34",
+                    voiceState = WakeVoiceUiState(
+                        mode = WakeVoiceMode.COMPLETE,
+                        speechAvailable = true,
+                        voiceInputAvailable = false,
                     ),
                 )
             }

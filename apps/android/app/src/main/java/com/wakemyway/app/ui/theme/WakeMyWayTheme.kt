@@ -28,9 +28,9 @@ data class WmwPlanningAtmosphere(
 )
 
 private val DaylightAtmosphere = WmwPlanningAtmosphere(
-    top = WmwColors.Paper,
-    middle = WmwColors.Cloud,
-    bottom = Color(0xFFF3F1F7),
+    top = WmwColors.SunroomPaper,
+    middle = WmwColors.SunroomCanvas,
+    bottom = Color(0xFFF7E4DB),
     sunriseGlow = WmwColors.Sunrise,
     sunriseGlowAlpha = 0.12f,
     dawnGlow = WmwColors.Dawn,
@@ -68,9 +68,9 @@ private val DaylightColors = lightColorScheme(
     onSecondary = WmwColors.WarmLight,
     secondaryContainer = WmwColors.Dawn.copy(alpha = 0.28f),
     onSecondaryContainer = WmwColors.Midnight,
-    background = WmwColors.Cloud,
+    background = WmwColors.SunroomCanvas,
     onBackground = WmwColors.Midnight,
-    surface = WmwColors.Paper,
+    surface = WmwColors.SunroomPaper,
     onSurface = WmwColors.Midnight,
     surfaceVariant = WmwColors.LightSurfaceMuted,
     onSurfaceVariant = WmwColors.LightQuietText,
@@ -226,11 +226,11 @@ private val WakeMyWayTypography = Typography(
 )
 
 private val WakeMyWayShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(14.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(30.dp),
+    extraSmall = RoundedCornerShape(12.dp),
+    small = RoundedCornerShape(18.dp),
+    medium = RoundedCornerShape(24.dp),
+    large = RoundedCornerShape(28.dp),
+    extraLarge = RoundedCornerShape(34.dp),
 )
 
 @Composable

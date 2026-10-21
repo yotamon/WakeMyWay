@@ -11,6 +11,13 @@ import androidx.compose.ui.unit.dp
  * Runtime state may change the amount of light on screen, but the brand hues remain stable.
  */
 object WmwColors {
+    // Sunroom Club: native scene, warm paper and sunset action language.
+    val SunroomCanvas = Color(0xFFFFF4E7)
+    val SunroomPaper = Color(0xFFFFFCF7)
+    val SunroomCoral = Color(0xFFFF9479)
+    val SunroomPeach = Color(0xFFFFC5A3)
+    val SunroomDusk = Color(0xFF242849)
+    val SunroomMutedInk = Color(0xFF775B62)
     // Core brand palette from the approved WakeMyWay brand kit.
     val Midnight = Color(0xFF08142F)
     val DeepNavy = Color(0xFF10264C)

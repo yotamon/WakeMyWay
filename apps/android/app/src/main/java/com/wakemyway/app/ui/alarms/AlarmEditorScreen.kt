@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.wakemyway.app.alarm.WakeSoundCatalog
 import com.wakemyway.app.alarm.WakeSoundPreviewPlayer
+import com.wakemyway.app.ui.components.SunroomSunStamp
 import com.wakemyway.app.ui.components.WmwActionTone
 import com.wakemyway.app.ui.components.WmwCard
 import com.wakemyway.app.ui.components.WmwCircadianStage
@@ -275,7 +277,10 @@ fun AlarmEditorScreen(
         if (result.saved) exitEditor() else error = result.detail ?: "Could not save this alarm."
     }
 
-    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
+    WmwCircadianSurface(
+        WmwCircadianStage.PLANNING, modifier.imePadding(),
+        sunroomHero = LocalDensity.current.fontScale < 1.3f,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -283,7 +288,7 @@ fun AlarmEditorScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
-                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
+                .padding(top = WmwSpacing.Md, bottom = 132.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -301,12 +306,19 @@ fun AlarmEditorScreen(
                 }
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
-            Text(
-                text = if (existing == null) "Create alarm" else "Edit alarm",
-                style = MaterialTheme.typography.headlineLarge,
-                color = WmwColors.Midnight,
-            )
+            Spacer(Modifier.height(WmwSpacing.Sm))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (existing == null) "Create alarm" else "Edit alarm",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = WmwColors.Midnight,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Text(
                 text = "Set the moment first. Personalize only as much as you want.",
                 modifier = Modifier.padding(top = WmwSpacing.Xs),
@@ -315,6 +327,7 @@ fun AlarmEditorScreen(
             )
 
             EditorSection("Wake", Modifier.padding(top = WmwSpacing.Xl)) {
+                TimeRow(time = time, onClick = ::chooseTime)
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it.take(AlarmDefinition.MAX_LABEL_CHARACTERS) },
@@ -322,13 +335,13 @@ fun AlarmEditorScreen(
                     label = { Text("Why this wake?") },
                     placeholder = { Text("Gym before work") },
                     singleLine = true,
+                    shape = RoundedCornerShape(20.dp),
                 )
                 Text(
                     text = "Keep it short and human. This becomes the wake’s reason when tomorrow has no more specific context.",
                     style = MaterialTheme.typography.bodySmall,
                     color = WmwColors.LightQuietText,
                 )
-                TimeRow(time = time, onClick = ::chooseTime)
                 ChoiceRow(
                     options = EditorScheduleMode.entries,
                     selected = mode,
@@ -505,14 +518,6 @@ fun AlarmEditorScreen(
                 )
             }
 
-            WmwPrimaryAction(
-                label = if (existing == null) "Create alarm" else "Save changes",
-                onClick = ::save,
-                modifier = Modifier.padding(top = WmwSpacing.Xl),
-                onLightSurface = true,
-                tone = WmwActionTone.WARM,
-            )
-
             if (existing != null && onDelete != null) {
                 TextButton(
                     onClick = {
@@ -524,6 +529,37 @@ fun AlarmEditorScreen(
                     Text("Delete alarm", color = WmwColors.DangerText)
                 }
             }
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            color = WmwColors.SunroomPaper.copy(alpha = .99f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shadowElevation = 6.dp,
+        ) {
+        Column(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
+        ) {
+            error?.let { message ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = WmwColors.SunroomPaper,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = WmwSpacing.Xs),
+                ) {
+                    Text(
+                        text = message,
+                        color = WmwColors.DangerText,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(WmwSpacing.Md),
+                    )
+                }
+            }
+            WmwPrimaryAction(
+                label = if (existing == null) "Create alarm" else "Save changes",
+                onClick = ::save,
+                onLightSurface = true,
+                tone = WmwActionTone.WARM,
+            )
+        }
         }
     }
 
@@ -590,29 +626,39 @@ private fun EditorSection(
 
 @Composable
 private fun TimeRow(time: LocalTime, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 72.dp)
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = WmwSpacing.Xs),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
+        color = WmwColors.SunroomPeach.copy(alpha = .65f),
+        shape = RoundedCornerShape(26.dp),
+        border = BorderStroke(1.dp, WmwColors.Sunrise.copy(alpha = .20f)),
     ) {
-        Column {
-            Text("Wake time", style = MaterialTheme.typography.labelSmall, color = WmwColors.LightQuietText)
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = 104.dp)
+                .padding(horizontal = WmwSpacing.Md, vertical = WmwSpacing.Sm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "WAKE TIME",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WmwColors.SunroomMutedInk,
+                )
+                Text(
+                    time.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Light),
+                    color = WmwColors.Midnight,
+                    maxLines = 1,
+                )
+            }
             Text(
-                "Tap to change",
-                modifier = Modifier.padding(top = 2.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = WmwColors.LightQuietText,
+                "Change ↗",
+                style = MaterialTheme.typography.labelLarge,
+                color = WmwColors.Midnight,
             )
         }
-        Text(
-            time.format(DateTimeFormatter.ofPattern("HH:mm")),
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Light),
-            color = WmwColors.Midnight,
-        )
     }
 }
 
@@ -633,8 +679,8 @@ private fun WakeSoundChoice(
                 role = Role.RadioButton,
             ),
         shape = RoundedCornerShape(18.dp),
-        color = if (selected) WmwColors.Midnight else WmwColors.MorningPaper,
-        border = if (selected) null else BorderStroke(1.dp, WmwColors.DarkHairline),
+        color = if (selected) WmwColors.SunroomPeach.copy(alpha = .46f) else WmwColors.SunroomPaper,
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) WmwColors.Sunrise else WmwColors.DarkHairline),
     ) {
         Row(
             modifier = Modifier.padding(start = WmwSpacing.Md, end = WmwSpacing.Sm, top = WmwSpacing.Xs, bottom = WmwSpacing.Xs),
@@ -645,20 +691,20 @@ private fun WakeSoundChoice(
                 Text(
                     text = wakeSoundName(id),
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (selected) WmwColors.WarmLight else WmwColors.Midnight,
+                    color = WmwColors.Midnight,
                 )
                 Text(
                     text = if (id == WakeSoundCatalog.defaultId) "WakeMyWay default" else "Built-in wake sound",
                     modifier = Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (selected) WmwColors.WarmLight.copy(alpha = 0.72f) else WmwColors.LightQuietText,
+                    color = WmwColors.LightQuietText,
                 )
             }
             TextButton(onClick = onPreview) {
                 Text(
                     text = if (previewing) "Stop" else "Preview",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) WmwColors.Sunrise else WmwColors.DawnText,
+                    color = WmwColors.DawnText,
                 )
             }
             Text(
