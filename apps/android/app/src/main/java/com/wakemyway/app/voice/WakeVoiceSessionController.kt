@@ -61,11 +61,9 @@ class WakeVoiceSessionController(
     private val calendarScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var morningCalendarFact: MorningCalendarRepository.MorningFact? = null
     init {
-        // Optional provider I/O is off the wake/OS/UI path. Never delay critical alarm playback.
+        // Optional Calendar Provider I/O must never hold the alarm/voice UI/Stop/Snooze path.
         calendarScope.launch {
-            morningCalendarFact = runCatching {
-                calendarRepository?.readNextFact()
-            }.getOrNull()
+            morningCalendarFact = runCatching { calendarRepository?.readNextFact() }.getOrNull()
         }
     }
     private val timingTrace = WakeTimingTrace(appContext)
@@ -206,6 +204,7 @@ class WakeVoiceSessionController(
                 }
             }
         },
+        sessionPlan,
     )
 
     private lateinit var snapshot: WakeSessionSnapshot
@@ -278,7 +277,7 @@ class WakeVoiceSessionController(
             publish()
             if (conversation != null) {
                 conversation.connect()
-                mainHandler.postDelayed(startFallback, REALTIME_START_BUDGET_MILLIS)
+                mainHandler.postDelayed(startFallback, conversation.startupBudgetMillis)
             } else {
                 enterAlarmOnly(WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE)
             }
@@ -631,11 +630,8 @@ class WakeVoiceSessionController(
         WakeInputId("${occurrenceId.value}:${inputSequence++}:$kind")
 
     private companion object {
-        // A cold Direct wake may need broker token minting plus WebRTC negotiation before the
-        // first session.updated event. Each bounded network call may legitimately take up to 15s,
-        // so an 8s global budget could cancel a healthy connection before its own timeout. The
-        // alarm remains audible throughout while Realtime gets a realistic startup window.
-        const val REALTIME_START_BUDGET_MILLIS = 20_000L
+        // Provider-specific startup deadlines belong to WakeConversationEnrichment.
+        // WakeRuntime and the local alarm remain independent of every provider.
     }
 }
 
