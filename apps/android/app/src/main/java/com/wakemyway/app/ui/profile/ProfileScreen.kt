@@ -66,6 +66,7 @@ fun ProfileScreen(
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenWakePreferences: () -> Unit = {},
+    onOpenMorningCalendar: () -> Unit = {},
     onOpenAppearance: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -214,6 +215,11 @@ fun ProfileScreen(
             }
 
             ProfileSection("Your mornings", Modifier.padding(top = WmwSpacing.Lg)) {
+                ProfileLink(
+                    title = "Morning calendar context",
+                    detail = "Optionally use one synced Google calendar during the voice wake",
+                    onClick = onOpenMorningCalendar,
+                )
                 Text(
                     text = "Reusable First Move",
                     style = MaterialTheme.typography.titleSmall,

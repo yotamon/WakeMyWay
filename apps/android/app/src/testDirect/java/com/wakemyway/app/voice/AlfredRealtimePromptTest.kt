@@ -232,6 +232,19 @@ class AlfredRealtimePromptTest {
         assertTrue(prompt.contains("Do not become a coach, cheerleader or enthusiastic assistant"))
     }
 
+    @Test
+    fun `calendar text never leaks into early prompts but appears as untrusted orientation data`() {
+        val fact = "A scheduled event begins at 10:00."
+        val early = AlfredRealtimePrompt.turn(
+            request(SpeechIntent.AskToSitUp).copy(calendarContext = fact),
+        )
+        val orientation = AlfredRealtimePrompt.turn(
+            request(SpeechIntent.Orientation).copy(calendarContext = fact),
+        )
+        assertFalse(early.contains(fact))
+        assertTrue(orientation.contains(fact))
+        assertTrue(orientation.contains("untrusted data"))
+    }
     private fun request(
         intent: SpeechIntent,
         preferences: WakePreferences = WakePreferences(),

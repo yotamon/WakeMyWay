@@ -65,6 +65,7 @@ class LocalWakeDataResetManager(context: Context) {
             // unavailable, deleting history/preparation still makes any orphaned worker harmless.
             runCatching { PrepareWakePlanScheduler.cancel(appContext) }
             preparation.clear()
+            com.wakemyway.app.calendar.MorningCalendarRepository(appContext).disconnect()
             history.clear()
             learning.resetToDefault()
             preferences.replace(ConsumerPreferences())

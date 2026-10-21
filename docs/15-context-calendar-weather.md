@@ -12,6 +12,9 @@ Context is not a reason to build a morning dashboard.
 
 ## Calendar
 
+> **Feature shaping, not shipped behavior (2026-10-21):** See [Morning Purpose — calendar-aware wake context](implementation/morning-purpose-calendar-shape.md) for an Explore/Shape product and technical specification. It preserves the Android Calendar Provider V1 preference below pending explicit provider/OAuth review, and does not authorize 1.0 scope expansion.
+
+
 For Android V1, prefer Android Calendar Provider over immediate Google Calendar OAuth.
 
 Request read-only calendar access only if the user opts in.

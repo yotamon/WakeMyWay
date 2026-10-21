@@ -67,6 +67,7 @@ import com.wakemyway.app.ui.profile.AboutScreen
 import com.wakemyway.app.ui.profile.AccountScreen
 import com.wakemyway.app.ui.profile.AppearanceScreen
 import com.wakemyway.app.ui.profile.PrivacyScreen
+import com.wakemyway.app.ui.profile.MorningCalendarScreen
 import com.wakemyway.app.ui.profile.ProfileScreen
 import com.wakemyway.app.ui.profile.SubscriptionScreen
 import com.wakemyway.app.ui.profile.WakePreferencesScreen
@@ -110,6 +111,9 @@ private data object PrivacyRoute : NavKey
 
 @Serializable
 private data object AppearanceRoute : NavKey
+
+@Serializable
+private data object MorningCalendarRoute : NavKey
 
 @Serializable
 private data object WakePreferencesRoute : NavKey
@@ -484,11 +488,16 @@ fun WakeMyWayApp(
                             onOpenNotifications = onOpenNotificationSettings,
                             onOpenPrivacy = { backStack.add(PrivacyRoute) },
                             onOpenWakePreferences = { backStack.add(WakePreferencesRoute) },
+                            onOpenMorningCalendar = { backStack.add(MorningCalendarRoute) },
                             onOpenAppearance = { backStack.add(AppearanceRoute) },
                             onOpenAbout = { backStack.add(AboutRoute) },
                             modifier = contentModifier,
                         )
                     }
+                }
+
+                entry<MorningCalendarRoute> {
+                    MorningCalendarScreen(onBack = { backStack.removeLastOrNull() })
                 }
 
                 entry<WakePreferencesRoute> {
