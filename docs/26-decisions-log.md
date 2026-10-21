@@ -679,3 +679,12 @@ This is visual/content convergence permitted by the 1.0 polish scope. Alarm Kern
 
 Canonical implementation contract: [`implementation/reason-first-calm-companion.md`](implementation/reason-first-calm-companion.md).
 
+
+
+# Sunroom Club selected as primary native visual direction — 2026-10-21
+
+The product owner selected the illustrated, warm, playful Sunroom Club four-panel prototype as WakeMyWay's main visual target. It replaces the earlier neutral UI design and competing style studies as the production **visual** direction, without approving new product functionality.
+
+The friendly smiling sun is purely decorative, never an assistant avatar, an independent wake character or a substitute for the canonical Sunrise + Wake Line logo. Planning and oriented/completion screens may use it when legible and unobtrusive. Listening/moving remain dark, sparse and driven by real Wake Runtime state. Stop/Snooze remain native and immediately accessible.
+
+The example two-step morning timeline and its invented times in the illustration are excluded: current product data supports a truthful wake reason, Tomorrow Contract and optional First Move. Existing Android UI, security, wake/runtime state, offline and alarm authority constraints override artistic details. The native implementation must be reviewed through real screenshots before re-baselining curated visual hashes. No changes to Realtime, Alarm Kernel or persistence are authorized by this decision.
