@@ -165,7 +165,7 @@ class WakeVoiceSessionController(
                     val hadActiveRuntimeTurn = realtimeTurnInFlight
                     audibleAssistantOutput = false
                     if (!hadActiveRuntimeTurn) {
-                        if (!listening) setVoiceWindow(false)
+                        if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) setVoiceWindow(false)
                         publish()
                         return@post
                     }
@@ -221,7 +221,7 @@ class WakeVoiceSessionController(
                     speaking = false
                     realtimeTurnInFlight = false
                     realtimeIntent = null
-                    if (!audibleAssistantOutput) setVoiceWindow(false)
+                    if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) setVoiceWindow(false)
                     dispatch(
                         WakeInput.VoiceResponseObserved(
                             id = nextInputId(
@@ -301,7 +301,9 @@ class WakeVoiceSessionController(
             voiceResponseRequested = false
             listening = false
             conversation?.setInputEnabled(false)
-            setVoiceWindow(false)
+            if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) {
+                setVoiceWindow(false)
+            }
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("realtime-silence"),
