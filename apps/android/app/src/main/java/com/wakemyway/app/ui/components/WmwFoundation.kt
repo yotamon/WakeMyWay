@@ -65,6 +65,7 @@ fun WmwCircadianSurface(
     modifier: Modifier = Modifier,
     ambientGlow: Boolean = true,
     sunroomHero: Boolean = false,
+    sunroomEditor: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val dark = stage == WmwCircadianStage.EMERGING ||
@@ -74,7 +75,12 @@ fun WmwCircadianSurface(
             .fillMaxSize()
             .background(if (dark) WmwColors.Midnight else WmwColors.Paper),
     ) {
-        if (ambientGlow) SunroomScene(stage = stage, modifier = Modifier.fillMaxSize(), hero = sunroomHero)
+        if (ambientGlow) SunroomScene(
+            stage = stage,
+            modifier = Modifier.fillMaxSize(),
+            hero = sunroomHero,
+            editorHeader = sunroomEditor,
+        )
         content()
     }
 }
