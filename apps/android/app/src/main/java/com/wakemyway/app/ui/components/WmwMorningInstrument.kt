@@ -102,21 +102,28 @@ fun WmwInlineStatus(
 ) {
     val accent = if (positive) WmwColors.Success else WmwColors.Sunrise
     val textColor = if (onDark) WmwColors.WarmLight else WmwColors.Midnight
-    Row(
+    Surface(
         modifier = modifier.heightIn(min = 32.dp),
-        horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
-        verticalAlignment = Alignment.CenterVertically,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+        color = if (onDark) WmwColors.WarmLight.copy(alpha = .08f)
+        else accent.copy(alpha = .095f),
     ) {
-        Surface(
-            modifier = Modifier.size(7.dp),
-            shape = CircleShape,
-            color = accent,
-        ) {}
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = textColor,
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = WmwSpacing.Sm, vertical = WmwSpacing.Xs),
+            horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(7.dp),
+                shape = CircleShape,
+                color = accent,
+            ) {}
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor,
+            )
+        }
     }
 }
 
