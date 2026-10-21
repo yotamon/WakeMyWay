@@ -12,7 +12,7 @@
 **Cloud rule:** cloud/account state is never Alarm Kernel or WakeRuntime authority  
 **1.0 scope rule:** reliability, defects, polish, accessibility, measured tuning and launch infrastructure may proceed; new product capabilities are deferred unless evidence shows they are required to deliver or sell the existing core promise
 
-## Morning Purpose calendar-aware wake (feature branch, not released)
+## Morning Purpose calendar-aware wake (merged; awaiting next APK release)
 
 PR #201 introduces a directly implemented, owner-authorized optional calendar enrichment slice.
 It reads **one explicitly selected Google calendar already synchronized by Android**, using
@@ -28,10 +28,13 @@ Both Realtime and GPT-Live orientation cues are supported. Event titles are neve
 this implementation. The `You → Morning calendar context` screen supports permission, calendar
 selection, optional title disclosure and disconnect. Reset clears consent.
 
-**Status:** Code is in open PR #201, not merged, not deployed. CI/physical acceptance must be
-checked for the final commit before release; a prior intermediate commit passing CI is not
-proof of the whole current diff. No direct Google Calendar OAuth or cloud calendar backend has
-been introduced.
+**Status (2026-10-21):** PR #201 merged into `main` at commit `75e4a41c`.
+The final PR commit passed Android CI, Android Device Reliability Tests, Android Upgrade
+Persistence, Android Visual Regression and Docs CI. The last published public Android APK
+remains `v0.2.29` (released before this merge), so the calendar feature is **not yet in the
+published APK**. A release still requires the documented manual `Release WakeMyWay` GitHub
+Actions workflow. Physical testing with a real synced Google calendar remains a separate
+acceptance check. No direct Google Calendar OAuth or cloud calendar backend was introduced.
 
 See [Morning Purpose implementation contract](implementation/morning-purpose-calendar-shape.md).
 

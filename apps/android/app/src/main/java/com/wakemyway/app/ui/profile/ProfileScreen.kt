@@ -321,6 +321,10 @@ fun PrivacyScreen(
                 body = "Your reason and First Move stay in credential-protected app storage. They are not copied into Direct Boot alarm state.",
             )
             PrivacyFact(
+                title = "Morning calendar context",
+                body = "Optional. WakeMyWay reads your chosen Google calendar already synced to this phone using Android read-only calendar permission. Only the next eligible event's time may reach OpenAI during a conversational wake. Event titles are shared and spoken only if you enable that separate option. Private, declined and all-day events are excluded. Disconnect the calendar to stop new sharing; event details aren't saved in wake history.",
+            )
+            PrivacyFact(
                 title = "Voice replies",
                 body = "Voice Check-In is optional. When conversational voice is available, audio is used only for the active conversation and WakeMyWay does not persist raw microphone audio or transcripts. If voice is unavailable, the selected alarm sound continues and Stop/Snooze remain local.",
             )
