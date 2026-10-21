@@ -1,5 +1,6 @@
 package com.wakemyway.app.alarm
 
+import android.animation.ValueAnimator
 import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.app.Service
@@ -26,12 +27,16 @@ import androidx.core.content.ContextCompat
 import com.wakemyway.app.WakeActivity
 import com.wakemyway.app.widget.WakeWidgetUpdater
 import com.wakemyway.core.schedule.WakeOccurrenceId
+import kotlin.math.abs
 
 class AlarmPlaybackService : Service() {
     private var mediaPlayer: MediaPlayer? = null
     private var toneFallback: ToneGenerator? = null
     private var activePlaybackSpec: WakeSoundPlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
     private var audioFocusRequest: AudioFocusRequest? = null
+    private var gainAnimator: ValueAnimator? = null
+    private var currentGain = 1f
+    private var voiceWindowActive = false
     private var hapticsStarted = false
     private var notificationPresentation = WakeNotificationPresentation.FULL_SCREEN
     private var criticalPresentationAllowed = true
@@ -39,7 +44,7 @@ class AlarmPlaybackService : Service() {
     private var emergencyToneCpuLock: PowerManager.WakeLock? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val restoreAlarmVolume = Runnable {
-        setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
+        endVoiceWindow()
     }
     private var recoveryOccurrenceId: WakeOccurrenceId? = null
     private val refreshRecoveryGuard = object : Runnable {
@@ -318,6 +323,8 @@ class AlarmPlaybackService : Service() {
 
         val resolved = WakeSoundCatalog.resolve(this, policy.soundId)
         activePlaybackSpec = resolved.playback
+        currentGain = activePlaybackSpec.criticalGain
+        voiceWindowActive = false
 
         val selectedStarted = runCatching {
             mediaPlayer = createLoopingPlayer(
@@ -336,6 +343,7 @@ class AlarmPlaybackService : Service() {
         // silence and never weaken Stop/Snooze controllability.
         if (!resolved.usedEmergencyFallback) {
             activePlaybackSpec = WakeSoundCatalog.emergencyPlaybackSpec
+            currentGain = activePlaybackSpec.criticalGain
             val emergencyStarted = runCatching {
                 mediaPlayer = createLoopingPlayer(
                     rawResourceId = com.wakemyway.app.R.raw.emergency_alarm,
@@ -496,17 +504,42 @@ class AlarmPlaybackService : Service() {
      * volume automatically. A ToneGenerator fallback is intentionally never ducked.
      */
     private fun beginVoiceWindow() {
-        setCriticalPlaybackVolume(activePlaybackSpec.voiceWindowGain)
+        if (!voiceWindowActive) {
+            voiceWindowActive = true
+            animateAlarmGain(activePlaybackSpec.voiceWindowGain, 280L)
+        }
+        // The alarm service owns a bounded lease. UI crashes, missed callbacks or
+        // a silent Live stream cannot suppress the alarm indefinitely.
         mainHandler.removeCallbacks(restoreAlarmVolume)
         mainHandler.postDelayed(restoreAlarmVolume, VOICE_WINDOW_MAX_MILLIS)
     }
 
     private fun endVoiceWindow() {
         mainHandler.removeCallbacks(restoreAlarmVolume)
-        setCriticalPlaybackVolume(activePlaybackSpec.criticalGain)
+        if (!voiceWindowActive) return
+        voiceWindowActive = false
+        animateAlarmGain(activePlaybackSpec.criticalGain, 360L)
+    }
+
+    private fun animateAlarmGain(target: Float, millis: Long) {
+        gainAnimator?.cancel()
+        gainAnimator = null
+        if (mediaPlayer == null) return // Emergency ToneGenerator is never ducked.
+        if (abs(currentGain - target) < 0.005f) {
+            setCriticalPlaybackVolume(target)
+            return
+        }
+        gainAnimator = ValueAnimator.ofFloat(currentGain, target).apply {
+            duration = millis
+            addUpdateListener { animator ->
+                setCriticalPlaybackVolume(animator.animatedValue as Float)
+            }
+            start()
+        }
     }
 
     private fun setCriticalPlaybackVolume(volume: Float) {
+        currentGain = volume
         mediaPlayer?.runCatching { setVolume(volume, volume) }
     }
 
@@ -518,6 +551,10 @@ class AlarmPlaybackService : Service() {
 
     private fun releasePlayback() {
         mainHandler.removeCallbacks(restoreAlarmVolume)
+        gainAnimator?.cancel()
+        gainAnimator = null
+        voiceWindowActive = false
+        currentGain = 1f
         mainHandler.removeCallbacks(reArmToneFallback)
         releaseIdleMediaPlayer()
         toneFallback?.let { tone ->
