@@ -11,7 +11,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [35])
 class MorningCalendarRepositoryTest {
     @Test
     fun calendarIsDisabledAndTitlesAreNotSharedByDefault() {
