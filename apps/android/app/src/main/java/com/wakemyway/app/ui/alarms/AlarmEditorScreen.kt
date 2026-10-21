@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -276,7 +277,7 @@ fun AlarmEditorScreen(
         if (result.saved) exitEditor() else error = result.detail ?: "Could not save this alarm."
     }
 
-    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier, sunroomHero = true) {
+    WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier.imePadding(), sunroomHero = true) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -284,7 +285,7 @@ fun AlarmEditorScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
-                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
+                .padding(top = WmwSpacing.Md, bottom = 132.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -514,14 +515,6 @@ fun AlarmEditorScreen(
                 )
             }
 
-            WmwPrimaryAction(
-                label = if (existing == null) "Create alarm" else "Save changes",
-                onClick = ::save,
-                modifier = Modifier.padding(top = WmwSpacing.Xl),
-                onLightSurface = true,
-                tone = WmwActionTone.WARM,
-            )
-
             if (existing != null && onDelete != null) {
                 TextButton(
                     onClick = {
@@ -533,6 +526,31 @@ fun AlarmEditorScreen(
                     Text("Delete alarm", color = WmwColors.DangerText)
                 }
             }
+        }
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
+        ) {
+            error?.let { message ->
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = WmwColors.SunroomPaper,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = WmwSpacing.Xs),
+                ) {
+                    Text(
+                        text = message,
+                        color = WmwColors.DangerText,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(WmwSpacing.Md),
+                    )
+                }
+            }
+            WmwPrimaryAction(
+                label = if (existing == null) "Create alarm" else "Save changes",
+                onClick = ::save,
+                onLightSurface = true,
+                tone = WmwActionTone.WARM,
+            )
         }
     }
 
