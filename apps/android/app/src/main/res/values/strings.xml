@@ -128,7 +128,7 @@
     <string name="wake_voice_orienting">You’re moving</string>
     <string name="wake_voice_degraded">Voice reply unavailable · keep moving</string>
     <string name="wake_voice_complete">Morning started</string>
-    <string name="wake_voice_answer_prompt">Answer out loud. A real reply is part of this wake.</string>
+    <string name="wake_voice_answer_prompt">You can reply if you like, or just start moving at your own pace.</string>
     <string name="wake_voice_privacy_note">Voice replies are recognized on-device. Audio and transcripts are not saved.</string>
     <string name="wake_alarm_only_title">Good morning.</string>
     <string name="wake_alarm_only_detail">Voice Check-In is off for this alarm.</string>
