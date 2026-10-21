@@ -718,15 +718,17 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
             .fillMaxWidth()
             .padding(top = WmwSpacing.Md),
     )
-    Text(
-        text = stringResource(R.string.wake_first_move_confirmation_detail),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = WmwSpacing.Sm),
-        style = MaterialTheme.typography.bodySmall,
-        color = WmwColors.LightQuietText,
-        textAlign = TextAlign.Center,
-    )
+    if (!compactLargeText) {
+        Text(
+            text = stringResource(R.string.wake_first_move_confirmation_detail),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = WmwSpacing.Sm),
+            style = MaterialTheme.typography.bodySmall,
+            color = WmwColors.LightQuietText,
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 @Composable
