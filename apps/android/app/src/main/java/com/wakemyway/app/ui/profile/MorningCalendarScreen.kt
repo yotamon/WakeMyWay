@@ -52,6 +52,7 @@ fun MorningCalendarScreen(
     var settings by remember { mutableStateOf(repo.settings()) }
     var choices by remember { mutableStateOf<List<MorningCalendarRepository.CalendarChoice>>(emptyList()) }
     var loading by remember { mutableStateOf(permitted) }
+    var refreshRevision by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -60,7 +61,7 @@ fun MorningCalendarScreen(
         if (!granted) error = "Calendar permission wasn't granted. Your alarms still work normally."
     }
 
-    LaunchedEffect(permitted) {
+    LaunchedEffect(permitted, refreshRevision) {
         if (!permitted) {
             choices = emptyList()
             loading = false
@@ -111,7 +112,7 @@ fun MorningCalendarScreen(
                             "account on your phone, then return here.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    TextButton(onClick = { permitted = false; permitted = repo.hasPermission() }) {
+                    TextButton(onClick = { refreshRevision += 1 }) {
                         Text("Check again")
                     }
                 }
