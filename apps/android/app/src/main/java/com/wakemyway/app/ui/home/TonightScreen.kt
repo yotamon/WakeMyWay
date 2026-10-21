@@ -115,7 +115,7 @@ fun TonightScreen(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = WmwSpacing.Lg)
-                .padding(top = WmwSpacing.Md, bottom = WmwSpacing.Xl),
+                .padding(top = WmwSpacing.Md, bottom = 136.dp),
         ) {
             WmwBrandHeader()
             Spacer(Modifier.height(WmwSpacing.Lg))
@@ -231,16 +231,6 @@ fun TonightScreen(
                 )
             }
 
-            Spacer(Modifier.height(WmwSpacing.Xl))
-            WmwPrimaryAction(
-                label = stringResource(
-                    if (state.hasOccurrence) R.string.tonight_edit_wake else R.string.tonight_set_wake,
-                ),
-                onClick = onOpenWakeSetup,
-                onLightSurface = true,
-                tone = WmwActionTone.WARM,
-            )
-
             if (showDeveloperTools) {
                 val conversationReady = ConversationalAlfredState.isReady(context)
                 WmwSecondaryAction(
@@ -271,6 +261,17 @@ fun TonightScreen(
                 )
             }
         }
+        // Pinned above consumer navigation; the optional content scrolls independently.
+        WmwPrimaryAction(
+            label = stringResource(
+                if (state.hasOccurrence) R.string.tonight_edit_wake else R.string.tonight_set_wake,
+            ),
+            onClick = onOpenWakeSetup,
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Sm),
+            onLightSurface = true,
+            tone = WmwActionTone.WARM,
+        )
     }
 }
 
@@ -347,14 +348,7 @@ private fun NextWakeCard(
                 }
             }
         }
-        Spacer(Modifier.height(WmwSpacing.Md))
-        // The continuous horizon belongs to the real alarm display, not a fabricated agenda.
-        WmwWakeHorizon(
-            modifier = Modifier.padding(horizontal = WmwSpacing.Sm),
-            progress = if (state.hasOccurrence) 0.54f else 0.18f,
-            onDark = false,
-            active = state.hasOccurrence && state.wakeReady,
-        )
+
     }
 }
 
