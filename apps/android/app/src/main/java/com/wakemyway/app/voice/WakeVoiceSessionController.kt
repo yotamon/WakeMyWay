@@ -132,7 +132,7 @@ class WakeVoiceSessionController(
                     } else {
                         WakeVoiceMode.SPEAKING
                     }
-                    setVoiceWindow(true)
+                    setVoiceWindow(true, renew = true)
                     publish()
                 }
             }
@@ -683,8 +683,8 @@ class WakeVoiceSessionController(
     }
 
     /** Idempotent request to the authoritative alarm service, never a player owner. */
-    private fun setVoiceWindow(active: Boolean) {
-        if (voiceWindowOpen == active) return
+    private fun setVoiceWindow(active: Boolean, renew: Boolean = false) {
+        if (voiceWindowOpen == active && !(active && renew)) return
         voiceWindowOpen = active
         if (active) {
             AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
