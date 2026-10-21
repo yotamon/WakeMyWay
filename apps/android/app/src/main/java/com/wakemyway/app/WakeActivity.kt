@@ -77,6 +77,8 @@ class WakeActivity : ComponentActivity() {
     private var occurrenceId: WakeOccurrenceId? = null
     private var preparedPlan by mutableStateOf<PreparedWakePlan?>(null)
     private var defaultFirstMove by mutableStateOf<String?>(null)
+    // Never reveal model speech (including private calendar context) over the lock screen.
+    private var privateVoiceCaptionsAllowed by mutableStateOf(false)
     private var sessionViewModel: WakeSessionViewModel? = null
     private var wakePolicy: CriticalWakePolicy = CriticalWakePolicy.DEFAULT
 
@@ -134,7 +136,8 @@ class WakeActivity : ComponentActivity() {
                         onFirstMoveConfirmed = { viewModel.confirmFirstMove() },
                         voiceCheckInEnabled = wakePolicy.voiceCheckInEnabled,
                         snoozeMinutes = wakePolicy.snoozeDuration.toMinutes().coerceAtLeast(1),
-                        voiceState = voiceState,
+                        voiceState = if (privateVoiceCaptionsAllowed) voiceState
+                            else voiceState.copy(spokenLine = null),
                     )
                     WakeTerminalFeedback(
                         state = terminalUiState,
@@ -194,6 +197,7 @@ class WakeActivity : ComponentActivity() {
         sessionViewModel?.onSurfaceHidden()
         preparedPlan = null
         defaultFirstMove = null
+        privateVoiceCaptionsAllowed = false
         super.onPause()
     }
 
@@ -212,11 +216,13 @@ class WakeActivity : ComponentActivity() {
         val userManager = getSystemService(UserManager::class.java)
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (!userManager.isUserUnlocked || keyguard.isDeviceLocked) {
+            privateVoiceCaptionsAllowed = false
             preparedPlan = null
             defaultFirstMove = null
             return
         }
 
+        privateVoiceCaptionsAllowed = true
         val kernel = AlarmKernel(applicationContext)
         val activeScheduleId = kernel.activeOccurrence()
             ?.takeIf { active -> active.id == id }
@@ -239,7 +245,7 @@ class WakeActivity : ComponentActivity() {
             }
         }.getOrNull()
 
-        if (preparedPlan != null || defaultFirstMove != null) {
+        if (wakePolicy.voiceCheckInEnabled || preparedPlan != null || defaultFirstMove != null) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
@@ -272,6 +278,7 @@ internal fun WakeSurface(
         return
     }
 
+    val characterName = voiceState?.characterName ?: stringResource(R.string.wake_character_name)
     when (voiceState?.mode) {
         WakeVoiceMode.ALARM_ONLY -> AlarmOnlyWakeSurface(
             preparedPlan = preparedPlan,
@@ -287,6 +294,7 @@ internal fun WakeSurface(
         WakeVoiceMode.STARTING,
         WakeVoiceMode.SPEAKING,
         -> EmergingWakeSurface(
+            characterName = characterName,
             preparedPlan = preparedPlan,
             spokenLine = voiceState?.spokenLine,
             displayTime = displayTime,
@@ -297,6 +305,7 @@ internal fun WakeSurface(
         )
 
         WakeVoiceMode.LISTENING -> EngagedWakeSurface(
+            characterName = characterName,
             spokenLine = voiceState.spokenLine,
             displayTime = displayTime,
             onSnooze = onSnooze,
@@ -439,6 +448,7 @@ private fun AlarmOnlyWakeSurface(
 
 @Composable
 private fun EmergingWakeSurface(
+    characterName: String,
     preparedPlan: PreparedWakePlan?,
     spokenLine: String?,
     displayTime: String,
@@ -450,7 +460,7 @@ private fun EmergingWakeSurface(
     WakeFrame(WmwCircadianStage.EMERGING, modifier) {
         Spacer(Modifier.height(adaptiveWakeSpace(96)))
         Text(
-            text = stringResource(R.string.wake_character_name).uppercase(),
+            text = characterName.uppercase(),
             style = MaterialTheme.typography.labelMedium,
             color = WmwColors.FaintText,
         )
@@ -482,6 +492,7 @@ private fun EmergingWakeSurface(
 
 @Composable
 private fun EngagedWakeSurface(
+    characterName: String,
     spokenLine: String?,
     displayTime: String,
     onSnooze: (() -> Unit)?,
@@ -499,12 +510,12 @@ private fun EngagedWakeSurface(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ListeningWakeHeader(spokenLine, displayTime, compact = true)
+                ListeningWakeHeader(spokenLine, displayTime, characterName, compact = true)
                 Spacer(Modifier.height(WmwSpacing.Sm))
                 ListeningWakeSignal(compact = true)
             }
         } else {
-            ListeningWakeHeader(spokenLine, displayTime, compact = false)
+            ListeningWakeHeader(spokenLine, displayTime, characterName, compact = false)
             Spacer(Modifier.weight(1f))
             ListeningWakeSignal(compact = false)
             Spacer(Modifier.height(WmwSpacing.Sm))
@@ -517,11 +528,12 @@ private fun EngagedWakeSurface(
 private fun ListeningWakeHeader(
     spokenLine: String?,
     displayTime: String,
+    characterName: String,
     compact: Boolean,
 ) {
     Spacer(Modifier.height(adaptiveWakeSpace(if (compact) 12 else 28)))
     Text(
-        text = stringResource(R.string.wake_character_name).uppercase(),
+        text = characterName.uppercase(),
         style = MaterialTheme.typography.labelMedium,
         color = WmwColors.GoldenLight,
     )
