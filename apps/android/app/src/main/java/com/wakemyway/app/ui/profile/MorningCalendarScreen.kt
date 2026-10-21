@@ -54,6 +54,8 @@ fun MorningCalendarScreen(
     var loading by remember { mutableStateOf(permitted) }
     var refreshRevision by remember { mutableStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
+    var preview by remember { mutableStateOf<String?>(null) }
+    var previewLoading by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -72,6 +74,18 @@ fun MorningCalendarScreen(
         choices = result.getOrElse { emptyList() }
         error = result.exceptionOrNull()?.let { "Calendar data is unavailable on this phone." }
         loading = false
+    }
+
+    LaunchedEffect(permitted, settings.consentRevision, refreshRevision) {
+        if (!permitted || !settings.enabled) {
+            preview = null
+            previewLoading = false
+            return@LaunchedEffect
+        }
+        previewLoading = true
+        val result = withContext(Dispatchers.IO) { runCatching { repo.readNextFact() } }
+        preview = result.getOrNull()?.description
+        previewLoading = false
     }
 
     WmwCircadianSurface(WmwCircadianStage.PLANNING, modifier) {
@@ -163,6 +177,20 @@ fun MorningCalendarScreen(
                         "Event details are read directly on your phone when voice starts. " +
                             "Titles aren't stored, logged or used for learning. " +
                             "Your phone's calendar sync may not be up to date.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    HorizontalDivider()
+                    Text("Preview · next 12 hours", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when {
+                            previewLoading -> "Checking locally synced events…"
+                            preview != null -> preview.orEmpty()
+                            else -> "No eligible event found in the next 12 hours, or calendar sync is unavailable."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        "The morning voice reads again after the alarm fires. This isn't a live Google server status.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                     TextButton(onClick = {
