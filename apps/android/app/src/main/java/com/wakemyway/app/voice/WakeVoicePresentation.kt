@@ -25,10 +25,18 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "channel-closed",
         "ice-connection",
         "peer-connection",
+        "remote-audio-sink",
         -> WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE
 
         "turn-budget",
+        "no-audio",
+        "queued-cue",
+        "unexpected-output",
         -> WakeVoiceDegradationReason.TURN_FAILURE
+
+        "startup-timeout",
+        "account-preflight-timeout",
+        -> WakeVoiceDegradationReason.STARTUP_TIMEOUT
 
         else -> WakeVoiceDegradationReason.SESSION_FAILURE
     }
@@ -51,9 +59,19 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "transport-disconnected",
         "data-channel-closed",
         "channel-closed",
+        "remote-audio-sink",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT
 
-        "turn-budget" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
+        "turn-budget",
+        "no-audio",
+        "queued-cue",
+        "unexpected-output",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
+
+        "startup-timeout",
+        "account-preflight-timeout",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT
+
         else -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_SESSION
     }
 
