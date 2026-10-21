@@ -272,7 +272,7 @@ fun WakeAlarmLabScreen(
                     .onSuccess {
                         health = kernel.health()
                         message = if (exerciseLiveVoice) {
-                            "Instant wake started with Live Voice Check-In."
+                            "Instant wake started. Live Voice connection is attempted, not guaranteed."
                         } else {
                             "Instant alarm-only wake started. Live Voice is not ready on this device."
                         }
@@ -633,7 +633,14 @@ private fun HealthFacts(
     )
     Text(
         modifier = Modifier.padding(top = 4.dp),
-        text = "Voice replies: ${voiceWakeReadiness?.name?.lowercase() ?: "unknown"}",
+        text = when (voiceWakeReadiness) {
+            VoiceWakeReadiness.READY ->
+                "Microphone permitted. Live voice connection is verified only when a session starts."
+            VoiceWakeReadiness.SETUP_REQUIRED ->
+                "Microphone permission is required for voice replies."
+            VoiceWakeReadiness.UNAVAILABLE, null ->
+                "Voice availability is unknown. The local alarm remains available."
+        },
         style = MaterialTheme.typography.bodySmall,
     )
     health.nextOccurrence?.let {
