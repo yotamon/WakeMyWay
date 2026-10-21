@@ -22,14 +22,15 @@ export async function handleAccountLiveSessionRequest(
   options: Options = {},
 ): Promise<Response> {
   const id = requestId(request);
-  if (request.method !== 'POST') return methodNotAllowed(['POST'], id);
+  if (request.method !== 'POST' && request.method !== 'GET') {
+    return methodNotAllowed(['GET', 'POST'], id);
+  }
   try {
     // Authentication happens before parsing the SDP to minimize attack surface.
     const bearer = request.headers.get('authorization')?.trim().match(/^Bearer\s+([^\s]+)$/i)?.[1];
     if (!bearer) throw new HttpError(401, 'Unauthorized.');
     const credential = (options.verifyCredential ?? verifyAccountRealtimeCredential)(bearer);
     await (options.deviceStore ?? new PostgresAccountRealtimeDeviceStore()).authorize(credential);
-    const input = await parseJson(request, liveRequestSchema, 72 * 1024);
     // A project owner can activate a single verified pilot account in Neon
     // without granting voice access to all consumers or exposing API keys.
     const allowedPseudonyms = new Set(
@@ -50,6 +51,12 @@ export async function handleAccountLiveSessionRequest(
         'GPT-Live experiment is unavailable for this account.',
       );
     }
+    // Read-only, account-scoped admission preflight. It never reserves quota, sends
+    // SDP, or creates a potentially paid provider session.
+    if (request.method === 'GET') {
+      return json({ available: true }, 200, id);
+    }
+    const input = await parseJson(request, liveRequestSchema, 72 * 1024);
     // This reservation happens before the provider can create a billable session.
     await (options.admissionStore ?? new PostgresLiveAdmissionStore()).reserve(credential.credentialId);
     const answer: LiveSessionAnswer = await (options.mintLiveSession ?? createLiveSession)(
