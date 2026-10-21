@@ -81,19 +81,19 @@ fun SunroomScene(
         }
 
         val sunX = when (stage) {
-            WmwCircadianStage.PLANNING -> if (editorHeader) w * .95f else w * .81f
+            WmwCircadianStage.PLANNING -> if (editorHeader) w * .86f else w * .81f
             WmwCircadianStage.ORIENTED -> w * .68f
             else -> w * .54f
         }
         val sunY = when (stage) {
-            WmwCircadianStage.PLANNING -> if (editorHeader) h * .10f else h * .205f
+            WmwCircadianStage.PLANNING -> if (editorHeader) h * .09f else h * .205f
             WmwCircadianStage.EMERGING -> h * .75f
             WmwCircadianStage.ENGAGED -> h * .67f
             WmwCircadianStage.ACTIVE -> h * .60f
             WmwCircadianStage.ORIENTED -> h * .54f
             WmwCircadianStage.COMPLETE -> h * .32f
         }
-        val radius = (w * (if (editorHeader) .075f else if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
+        val radius = (w * (if (editorHeader) .060f else if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
             .coerceAtMost(h * .105f)
         if (stage != WmwCircadianStage.PLANNING || hero) {
             drawCircle(
