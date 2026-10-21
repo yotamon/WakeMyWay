@@ -222,6 +222,28 @@ fun WakeAlarmLabScreen(
             style = MaterialTheme.typography.headlineSmall,
         )
         HealthFacts(health, voiceWakeReadiness)
+        // Read existing local diagnostics rather than equating microphone permission with a
+        // successfully connected live conversation. Event types contain no private transcript.
+        val lastVoiceFailure = history.asSequence()
+            .flatMap { it.events.asReversed().asSequence() }
+            .firstOrNull { it.type.startsWith("REALTIME_FAILURE_") }
+        lastVoiceFailure?.let { failure ->
+            Text(
+                text = "Last Live connection issue: " +
+                    failure.type.removePrefix("REALTIME_FAILURE_")
+                        .lowercase().replace('_', ' '),
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = WmwColors.GoldenLight,
+            )
+            Text(
+                text = "This records a previous wake attempt, not the current connection state. " +
+                    "Use Share reliability report below for more detail.",
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = WmwColors.QuietText,
+            )
+        }
         ResolvedWakePlanFacts(
             plan = resolvedWakePlan,
             voiceCheckInEnabled = criticalPolicy.voiceCheckInEnabled,
