@@ -30,7 +30,7 @@ describe('GPT-Live session configuration', () => {
       audio: { output: { voice: 'vesper' } },
     });
     expect(config.instructions).toContain('WakeRuntime owns wake phases');
-    expect(config.instructions).toContain('remain silent');
+    expect(config.instructions).toContain('Remain silent until the application sends an authorized wake directive');
   });
 
   it('uses a custom voice ID object rather than a provider name for reviewed voice IDs', () => {
