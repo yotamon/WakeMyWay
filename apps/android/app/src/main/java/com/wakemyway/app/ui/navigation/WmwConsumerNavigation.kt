@@ -98,8 +98,11 @@ private fun WmwBottomBar(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = 34.dp, height = 26.dp)
-                            .background(Color.Transparent),
+                            .size(width = 38.dp, height = 30.dp)
+                            .background(
+                                if (selected) WmwColors.Sunrise.copy(alpha = .14f) else Color.Transparent,
+                                RoundedCornerShape(13.dp),
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         ConsumerNavGlyph(tab = tab, selected = selected)
