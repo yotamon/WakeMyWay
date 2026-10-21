@@ -116,6 +116,8 @@ class GptLivePreferredWakeConversation(
             // provider cue until the previous audio run finishes.
             queuedCue = cue
             responsePending = true
+            handler.removeCallbacks(noAudioDeadline)
+            handler.postDelayed(noAudioDeadline, 12_000L)
             return true
         }
         return sendCue(cue)
