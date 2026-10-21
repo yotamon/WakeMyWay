@@ -86,9 +86,10 @@ describe('account-authenticated Live SDP route', () => {
     authorize: vi.fn(async () => undefined),
   };
 
-  it('rejects unauthenticated and non-POST requests before any OpenAI call', async () => {
+  it('rejects unauthenticated and unsupported methods before any OpenAI call', async () => {
     const endpoint = 'https://wakemyway.test/api/v1/account/live-session';
-    expect((await handleAccountLiveSessionRequest(new Request(endpoint))).status).toBe(405);
+    expect((await handleAccountLiveSessionRequest(new Request(endpoint, { method: 'PUT' }))).status).toBe(405);
+    expect((await handleAccountLiveSessionRequest(new Request(endpoint))).status).toBe(401);
     expect((await handleAccountLiveSessionRequest(new Request(endpoint, { method: 'POST' }))).status).toBe(401);
   });
 
@@ -154,9 +155,42 @@ describe('account-authenticated Live SDP route', () => {
         pilotAccess: { isAllowed: async () => false },
         admissionStore: { reserve }, mintLiveSession: mint },
     );
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(403);
     expect(reserve).not.toHaveBeenCalled();
     expect(mint).not.toHaveBeenCalled();
+  });
+
+  it('preflights allowed accounts without reserving any paid Live admission', async () => {
+    const reserve = vi.fn();
+    const mint = vi.fn();
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'GET',
+        headers: { authorization: 'Bearer scoped-device-token' },
+      }),
+      { verifyCredential: () => credential, deviceStore: store,
+        admissionStore: { reserve }, mintLiveSession: mint },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ available: true });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(mint).not.toHaveBeenCalled();
+  });
+
+  it('rejects disabled Live during preflight without using paid admission', async () => {
+    vi.stubEnv('WMW_GPT_LIVE_ENABLED', 'false');
+    const reserve = vi.fn();
+    const response = await handleAccountLiveSessionRequest(
+      new Request('https://wakemyway.test/api/v1/account/live-session', {
+        method: 'GET',
+        headers: { authorization: 'Bearer scoped-device-token' },
+      }),
+      { verifyCredential: () => credential, deviceStore: store,
+        pilotAccess: { isAllowed: async () => false },
+        admissionStore: { reserve } },
+    );
+    expect(response.status).toBe(403);
+    expect(reserve).not.toHaveBeenCalled();
   });
 
   it('authorizes the stored device credential before calling OpenAI', async () => {
