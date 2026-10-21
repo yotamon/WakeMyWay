@@ -755,21 +755,12 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
         label = preparedPlan?.firstMoveLine?.removePrefix("First move: ")
             ?: defaultFirstMove
             ?: stringResource(R.string.wake_first_move_fallback),
+        supportingText = if (compactLargeText) null
+            else stringResource(R.string.wake_first_move_confirmation_detail),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = WmwSpacing.Md),
     )
-    if (!compactLargeText) {
-        Text(
-            text = stringResource(R.string.wake_first_move_confirmation_detail),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = WmwSpacing.Sm),
-            style = MaterialTheme.typography.bodySmall,
-            color = WmwColors.LightQuietText,
-            textAlign = TextAlign.Center,
-        )
-    }
 }
 
 @Composable
@@ -821,6 +812,7 @@ private fun CompleteWakeSurface(
 @Composable
 private fun FirstMoveTile(
     label: String,
+    supportingText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -836,12 +828,23 @@ private fun FirstMoveTile(
             horizontalArrangement = Arrangement.spacedBy(WmwSpacing.Md),
         ) {
             SunroomSunStamp(Modifier.size(42.dp))
-            Text(
-                label,
+            Column(
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-                color = WmwColors.Midnight,
-            )
+                verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = WmwColors.Midnight,
+                )
+                supportingText?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.SunroomMutedInk,
+                    )
+                }
+            }
         }
     }
 }
