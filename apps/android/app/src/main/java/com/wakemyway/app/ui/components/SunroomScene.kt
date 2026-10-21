@@ -27,6 +27,7 @@ import com.wakemyway.app.ui.theme.WmwColors
 fun SunroomScene(
     stage: WmwCircadianStage,
     modifier: Modifier = Modifier,
+    hero: Boolean = false,
 ) {
     Canvas(modifier.fillMaxSize().clearAndSetSemantics {}) {
         val w = size.width
@@ -75,17 +76,22 @@ fun SunroomScene(
             }
         }
 
-        val sunX = if (stage == WmwCircadianStage.PLANNING) w * .81f else w * .54f
+        val sunX = when (stage) {
+            WmwCircadianStage.PLANNING -> w * .81f
+            WmwCircadianStage.ORIENTED -> w * .68f
+            else -> w * .54f
+        }
         val sunY = when (stage) {
             WmwCircadianStage.PLANNING -> h * .205f
             WmwCircadianStage.EMERGING -> h * .75f
             WmwCircadianStage.ENGAGED -> h * .67f
             WmwCircadianStage.ACTIVE -> h * .60f
-            WmwCircadianStage.ORIENTED -> h * .36f
+            WmwCircadianStage.ORIENTED -> h * .54f
             WmwCircadianStage.COMPLETE -> h * .32f
         }
         val radius = (w * (if (stage == WmwCircadianStage.PLANNING) .115f else .18f))
             .coerceAtMost(h * .105f)
+        if (stage != WmwCircadianStage.PLANNING || hero) {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -124,12 +130,13 @@ fun SunroomScene(
                 radius * .14f,
                 Offset(sunX + radius * .47f, sunY + radius * .19f),
             )
-            drawArc(
-                color = face, startAngle = 20f, sweepAngle = 140f, useCenter = false,
-                topLeft = Offset(sunX - radius * .21f, sunY - radius * .01f),
-                size = Size(radius * .42f, radius * .36f),
-                style = Stroke(width = (radius * .046f).coerceAtLeast(1.5f), cap = StrokeCap.Round),
-            )
+            val smile = Path().apply {
+                moveTo(sunX - radius * .24f, sunY + radius * .10f)
+                quadraticBezierTo(sunX, sunY + radius * .43f, sunX + radius * .24f, sunY + radius * .10f)
+            }
+            drawPath(smile, color = face, style = Stroke(width = (radius * .046f).coerceAtLeast(1.5f), cap = StrokeCap.Round))
+        }
+
         }
 
         // Airy clouds, almost transparent in planning, small and low contrast in active wake.
@@ -212,9 +219,10 @@ fun SunroomSunStamp(modifier: Modifier = Modifier) {
         val face = Color(0xFF914D46)
         drawCircle(face, r * .075f, Offset(center.x - r * .28f, center.y - r * .08f))
         drawCircle(face, r * .075f, Offset(center.x + r * .28f, center.y - r * .08f))
-        drawArc(face, 22f, 136f, false,
-            topLeft = Offset(center.x - r * .26f, center.y),
-            size = Size(r * .52f, r * .40f),
-            style = Stroke(width = (r * .07f).coerceAtLeast(1.5f), cap = StrokeCap.Round))
+        val smile = Path().apply {
+            moveTo(center.x - r * .24f, center.y + r * .1f)
+            quadraticBezierTo(center.x, center.y + r * .44f, center.x + r * .24f, center.y + r * .1f)
+        }
+        drawPath(smile, color = face, style = Stroke(width = (r * .07f).coerceAtLeast(1.5f), cap = StrokeCap.Round))
     }
 }
