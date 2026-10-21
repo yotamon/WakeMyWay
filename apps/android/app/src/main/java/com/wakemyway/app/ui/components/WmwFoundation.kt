@@ -1,6 +1,7 @@
 package com.wakemyway.app.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +55,10 @@ enum class WmwActionTone {
  * through midnight navy toward daylight. Peach/gold and dawn-lavender light are atmospheric
  * accents only, never generic AI gradients.
  */
+/**
+ * Branded illustrated background only: stage and critical actions remain controlled elsewhere.
+ * Fall back to a solid local color even when decorative painting cannot be displayed.
+ */
 @Composable
 fun WmwCircadianSurface(
     stage: WmwCircadianStage,
@@ -61,123 +66,14 @@ fun WmwCircadianSurface(
     ambientGlow: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val planningAtmosphere = LocalWmwPlanningAtmosphere.current
-    val background = when (stage) {
-        WmwCircadianStage.PLANNING -> Brush.verticalGradient(
-            listOf(
-                planningAtmosphere.top,
-                planningAtmosphere.middle,
-                planningAtmosphere.bottom,
-            ),
-        )
-        WmwCircadianStage.EMERGING -> Brush.verticalGradient(
-            listOf(Color(0xFF050B19), WmwColors.Midnight, Color(0xFF0C1D3D)),
-        )
-        WmwCircadianStage.ENGAGED -> Brush.verticalGradient(
-            listOf(Color(0xFF07122B), Color(0xFF0D2145), Color(0xFF18274D)),
-        )
-        WmwCircadianStage.ACTIVE -> Brush.verticalGradient(
-            listOf(WmwColors.Midnight, Color(0xFF11264C), Color(0xFF24345D), Color(0xFF142445)),
-        )
-        WmwCircadianStage.ORIENTED -> Brush.verticalGradient(
-            listOf(Color(0xFFFFF9F3), WmwColors.MorningPaper, Color(0xFFF3F2FA)),
-        )
-        WmwCircadianStage.COMPLETE -> Brush.verticalGradient(
-            listOf(WmwColors.Paper, Color(0xFFFFF4EA), Color(0xFFF3F2FA)),
-        )
-    }
-
+    val dark = stage == WmwCircadianStage.EMERGING ||
+        stage == WmwCircadianStage.ENGAGED || stage == WmwCircadianStage.ACTIVE
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(background),
+            .background(if (dark) WmwColors.Midnight else WmwColors.Paper),
     ) {
-        if (ambientGlow) {
-            Canvas(Modifier.fillMaxSize()) {
-                when (stage) {
-                    WmwCircadianStage.PLANNING -> {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    planningAtmosphere.sunriseGlow.copy(
-                                        alpha = planningAtmosphere.sunriseGlowAlpha,
-                                    ),
-                                    WmwColors.GoldenLight.copy(
-                                        alpha = planningAtmosphere.sunriseGlowAlpha * 0.50f,
-                                    ),
-                                    Color.Transparent,
-                                ),
-                                center = Offset(size.width * 0.85f, size.height * 0.08f),
-                                radius = size.maxDimension * 0.34f,
-                            ),
-                            radius = size.maxDimension * 0.34f,
-                            center = Offset(size.width * 0.85f, size.height * 0.08f),
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    planningAtmosphere.dawnGlow.copy(
-                                        alpha = planningAtmosphere.dawnGlowAlpha,
-                                    ),
-                                    Color.Transparent,
-                                ),
-                                center = Offset(size.width * 0.10f, size.height * 0.92f),
-                                radius = size.maxDimension * 0.30f,
-                            ),
-                            radius = size.maxDimension * 0.30f,
-                            center = Offset(size.width * 0.10f, size.height * 0.92f),
-                        )
-                    }
-                    WmwCircadianStage.EMERGING,
-                    WmwCircadianStage.ENGAGED,
-                    WmwCircadianStage.ACTIVE,
-                    -> {
-                        val center = when (stage) {
-                            WmwCircadianStage.EMERGING -> Offset(size.width * 0.50f, size.height * 0.68f)
-                            WmwCircadianStage.ENGAGED -> Offset(size.width * 0.50f, size.height * 0.62f)
-                            WmwCircadianStage.ACTIVE -> Offset(size.width * 0.50f, size.height * 0.58f)
-                            else -> Offset.Zero
-                        }
-                        val alpha = when (stage) {
-                            WmwCircadianStage.EMERGING -> 0.10f
-                            WmwCircadianStage.ENGAGED -> 0.18f
-                            WmwCircadianStage.ACTIVE -> 0.30f
-                            else -> 0f
-                        }
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    WmwColors.Sunrise.copy(alpha = alpha),
-                                    WmwColors.GoldenLight.copy(alpha = alpha * 0.52f),
-                                    WmwColors.Dawn.copy(alpha = alpha * 0.16f),
-                                    Color.Transparent,
-                                ),
-                                center = center,
-                                radius = size.maxDimension * 0.36f,
-                            ),
-                            radius = size.maxDimension * 0.36f,
-                            center = center,
-                        )
-                    }
-                    WmwCircadianStage.ORIENTED,
-                    WmwCircadianStage.COMPLETE,
-                    -> {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    WmwColors.GoldenLight.copy(alpha = 0.14f),
-                                    Color.Transparent,
-                                ),
-                                center = Offset(size.width * 0.72f, size.height * 0.14f),
-                                radius = size.maxDimension * 0.30f,
-                            ),
-                            radius = size.maxDimension * 0.30f,
-                            center = Offset(size.width * 0.72f, size.height * 0.14f),
-                        )
-                    }
-                }
-            }
-        }
+        if (ambientGlow) SunroomScene(stage = stage, modifier = Modifier.fillMaxSize())
         content()
     }
 }
@@ -249,24 +145,24 @@ fun WmwCard(
     contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(WmwSpacing.Lg),
     content: @Composable () -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.medium
+    val shape = RoundedCornerShape(26.dp)
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .border(
                 width = 0.75.dp,
-                color = if (onLightSurface) WmwColors.DarkHairline else WmwColors.Hairline,
+                color = if (onLightSurface) Color(0x33D99176) else WmwColors.Hairline,
                 shape = shape,
             ),
         color = if (onLightSurface) {
-            WmwColors.PaperCard.copy(alpha = 0.90f)
+            Color(0xFFFFFCF7).copy(alpha = 0.96f)
         } else {
             WmwColors.ElevatedNightSurface.copy(alpha = 0.88f)
         },
         contentColor = if (onLightSurface) WmwColors.Midnight else WmwColors.WarmLight,
         shape = shape,
         tonalElevation = 0.dp,
-        shadowElevation = if (onLightSurface) 1.dp else 0.dp,
+        shadowElevation = if (onLightSurface) 5.dp else 0.dp,
     ) {
         Box(modifier = Modifier.padding(contentPadding)) {
             content()
@@ -301,14 +197,14 @@ fun WmwPrimaryAction(
             .fillMaxWidth()
             .heightIn(min = WmwSizes.PrimaryActionHeight),
         enabled = enabled,
-        shape = RoundedCornerShape(100.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
             contentColor = content,
             disabledContainerColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.10f) else WmwColors.DeepNavy,
             disabledContentColor = if (onLightSurface) WmwColors.Midnight.copy(alpha = 0.35f) else WmwColors.FaintText,
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp, pressedElevation = 1.dp, disabledElevation = 0.dp),
     ) {
         Text(
             text = label,
