@@ -128,6 +128,23 @@ class WakeVoiceSessionController(
                 }
             }
 
+            override fun onAssistantTranscript(delta: String) {
+                mainHandler.post {
+                    if (closed || alarmOnly || !realtimeTurnInFlight || delta.isBlank()) return@post
+                    // Output captions only; no raw mic text and no persistence in Wake History.
+                    val printable = delta.map { character ->
+                        if (character.isISOControl() || character == '\n' || character == '\r') ' ' else character
+                    }.joinToString("")
+                    captionBuffer.append(printable)
+                    if (captionBuffer.length > 240) {
+                        captionBuffer.delete(0, captionBuffer.length - 240)
+                    }
+                    currentLine = captionBuffer.toString()
+                        .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
+                    publish()
+                }
+            }
+
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
@@ -219,6 +236,7 @@ class WakeVoiceSessionController(
     private var motionObserving = false
     private var inputSequence = 0L
     private var currentLine: String? = null
+    private val captionBuffer = StringBuilder()
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
     private var alarmOnly = false
@@ -324,6 +342,8 @@ class WakeVoiceSessionController(
         listening = false
         speaking = false
         conversation?.close()
+        captionBuffer.setLength(0)
+        currentLine = null
         calendarScope.cancel()
         motionObserver.stop()
         motionObserving = false
@@ -422,6 +442,7 @@ class WakeVoiceSessionController(
         speaking = true
         listening = false
         currentLine = null
+        captionBuffer.setLength(0)
         mode = if (snapshot.phase == WakePhase.ORIENTING) {
             WakeVoiceMode.ORIENTING
         } else {
@@ -579,6 +600,7 @@ class WakeVoiceSessionController(
                 speechAvailable = snapshot.capabilities.speechAvailable,
                 voiceInputAvailable = snapshot.capabilities.voiceInputAvailable,
                 conversational = conversationLive,
+                characterName = sessionPlan.characterId.value.replaceFirstChar { it.uppercase() },
             ),
         )
     }
@@ -616,6 +638,7 @@ class WakeVoiceSessionController(
         realtimeTurnInFlight = false
         realtimeIntent = null
         currentLine = null
+        captionBuffer.setLength(0)
         mainHandler.removeCallbacks(startFallback)
         mainHandler.removeCallbacks(silenceWatchdog)
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
@@ -663,4 +686,5 @@ data class WakeVoiceUiState(
     val voiceInputAvailable: Boolean = false,
     val conversational: Boolean = false,
     val degradationReason: WakeVoiceDegradationReason? = null,
+    val characterName: String = "Alfred",
 )
