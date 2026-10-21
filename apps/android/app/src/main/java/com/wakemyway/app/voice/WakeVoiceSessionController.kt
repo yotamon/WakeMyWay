@@ -158,9 +158,18 @@ class WakeVoiceSessionController(
 
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
-                    if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
-                    val userSpeechAlreadyStarted = listening
+                    if (closed || alarmOnly || !started) return@post
+                    // The last user reply might have consumed this runtime turn
+                    // before the remote PCM tail. Restore music, but never
+                    // dispatch a duplicate SpeechFinished after that reply.
+                    val hadActiveRuntimeTurn = realtimeTurnInFlight
                     audibleAssistantOutput = false
+                    if (!hadActiveRuntimeTurn) {
+                        if (!listening) setVoiceWindow(false)
+                        publish()
+                        return@post
+                    }
+                    val userSpeechAlreadyStarted = listening
                     speaking = false
                     if (interrupted) {
                         // Barge-in means the assistant turn is still waiting for the user's reply.
@@ -212,7 +221,7 @@ class WakeVoiceSessionController(
                     speaking = false
                     realtimeTurnInFlight = false
                     realtimeIntent = null
-                    setVoiceWindow(false)
+                    if (!audibleAssistantOutput) setVoiceWindow(false)
                     dispatch(
                         WakeInput.VoiceResponseObserved(
                             id = nextInputId(
@@ -480,7 +489,8 @@ class WakeVoiceSessionController(
             WakeVoiceMode.SPEAKING
         }
         liveConversation.setInputEnabled(true)
-        setVoiceWindow(true)
+        // Keep the alarm at critical gain until actual remote PCM starts:
+        // a silent or delayed provider must not suppress wake playback.
         publish()
 
         val now = System.currentTimeMillis()
