@@ -490,7 +490,7 @@ private fun EngagedWakeSurface(
     modifier: Modifier,
 ) {
     WakeFrame(WmwCircadianStage.ENGAGED, modifier) {
-        Spacer(Modifier.height(adaptiveWakeSpace(82)))
+        Spacer(Modifier.height(adaptiveWakeSpace(36)))
         Text(
             text = spokenLine?.takeIf { it.isNotBlank() } ?: stringResource(R.string.wake_default_greeting),
             style = MaterialTheme.typography.headlineMedium,
@@ -507,19 +507,30 @@ private fun EngagedWakeSurface(
             modifier = Modifier.padding(top = adaptiveWakeSpace(42)),
             height = WmwSizes.WakeWaveHeight,
         )
-        Text(
-            text = stringResource(R.string.wake_voice_listening),
-            modifier = Modifier.padding(top = WmwSpacing.Md),
-            style = MaterialTheme.typography.labelMedium,
-            color = WmwColors.GoldenLight,
-        )
-        Text(
-            text = stringResource(R.string.wake_voice_answer_prompt),
-            modifier = Modifier.padding(top = WmwSpacing.Sm),
-            style = MaterialTheme.typography.bodySmall,
-            color = WmwColors.QuietText,
-            textAlign = TextAlign.Center,
-        )
+        Surface(
+            modifier = Modifier.fillMaxWidth().padding(top = WmwSpacing.Xs),
+            shape = RoundedCornerShape(24.dp),
+            color = Color(0xE8242849),
+            border = BorderStroke(1.dp, WmwColors.WarmLight.copy(alpha = .22f)),
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = WmwSpacing.Lg, vertical = WmwSpacing.Md),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(WmwSpacing.Xs),
+            ) {
+                Text(
+                    text = stringResource(R.string.wake_voice_listening),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = WmwColors.GoldenLight,
+                )
+                Text(
+                    text = stringResource(R.string.wake_voice_answer_prompt),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = WmwColors.WarmLight,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
         Spacer(Modifier.weight(1f))
         WakeSafetyFooter(onSnooze, onStop, snoozeMinutes, onLightSurface = false)
     }
@@ -673,19 +684,22 @@ private fun androidx.compose.foundation.layout.ColumnScope.OrientedWakeBody(
         )
     }
 
-    WmwWakeLine(
-        state = WmwWakeLineState.SETTLED,
-        onLightSurface = true,
-        modifier = if (compactLargeText) {
-            Modifier
-                .fillMaxWidth()
-                .padding(top = WmwSpacing.Lg)
-        } else {
-            Modifier.padding(top = adaptiveWakeSpace(58))
-        },
-        height = if (compactLargeText) 72.dp else adaptiveWakeSpace(100),
-        sunrise = true,
-    )
+    // On compact phones with very large text, prioritize the reason and First Move over art.
+    if (!compactLargeText) {
+        WmwWakeLine(
+            state = WmwWakeLineState.SETTLED,
+            onLightSurface = true,
+            modifier = if (compactLargeText) {
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = WmwSpacing.Lg)
+            } else {
+                Modifier.padding(top = adaptiveWakeSpace(58))
+            },
+            height = if (compactLargeText) 72.dp else adaptiveWakeSpace(100),
+            sunrise = true,
+        )
+    }
 
     Text(
         text = stringResource(R.string.wake_whats_first),
