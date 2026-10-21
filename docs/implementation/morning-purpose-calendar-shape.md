@@ -1,11 +1,40 @@
 # Morning Purpose — calendar-aware wake context (Explore / Shape)
 
-**Status:** Proposed Shape contract, **not approved for Build**  
+**Status:** Owner-authorized Build implementation in PR #201; Android Calendar Provider V1 (not direct Google OAuth)  
 **Date:** 2026-10-21  
 **Target:** WakeMyWay Android; optional future Google Calendar connection  
-**Project scope:** Deferred beyond the active 1.0 core-experience quality reset unless explicitly accepted as a core-value exception  
+**Project scope:** Owner explicitly requested implementation on 2026-10-21 as a core-value exception; release acceptance still requires normal reliability and privacy checks  
 **Owner of behavior:** Existing Wake Runtime and Wake Policy, never Calendar or the AI model  
 **Related sources:** [Context](../../CONTEXT.md) · [Product workflow](../34-product-development-workflow.md) · [Calendar constraints](../15-context-calendar-weather.md) · [Tomorrow Contract / UX](../05-ux-flows.md) · [Wake Runtime](../11-wake-runtime-state-machine.md) · [Voice](../13-ai-voice-character-system.md) · [Privacy](../16-privacy-security.md) · [1.0 scope freeze](../45-core-experience-quality-reset.md) · [Open questions](../27-open-questions.md)
+
+## Implementation slice (2026-10-21; PR #201)
+
+The product owner explicitly directed implementation without a separate Wake Lab discovery experiment. The
+code in this PR implements a bounded, read-only V1 rather than every future option listed in this Shape document.
+
+**Implemented in branch:**
+- Optional Android `READ_CALENDAR` runtime permission and `You → Morning calendar context` screen.
+- Explicit selection of one locally synchronized Google calendar. This uses Calendar Provider (the existing
+  device Google account), **not** Neon Better Auth's identity-only Google token and **not** Google Calendar API OAuth.
+- Separate opt-in before a selected calendar event title is included in remote Live/Realtime prompts. By
+  default only the time of a timed, eligible event is sent; private/confidential, declined, canceled,
+  all-day and free events are omitted.
+- Optional background provider read at conversational session start; a fresh observation may be used **only**
+  with the Wake Runtime's Orientation intent, and only while calendar permission/consent revision remains valid.
+- Integration with both direct Realtime and GPT-Live paths; Live also now supports explicitly approved
+  Tomorrow Contract / First Move content at orientation.
+- Clean disconnect and local-data reset; never writes event titles to disk, Direct Boot or diagnostics.
+- Unit tests for consent revocation, title sanitization, and per-phase prompt/cue scope.
+
+**Not implemented / not claimed:**
+- Direct Google OAuth, cloud sync, push notifications, multi-calendar aggregation, live ETA/travel buffer.
+- An automatic event importance inference, custom pinned per-event intention, or a full interactive day planner.
+- Background exact pre-alarm refresh guarantees; data is read after the active wake starts, without blocking alarm playback.
+- Physical Android testing with the owner's actual synced calendar and all OEM/Doze/network combinations; automated
+  CI is necessary but not sufficient for physical proof.
+
+This is an implementation update to the Shape artifact, not evidence that every earlier hypothesis has
+been verified. User-requested feature scope is deliberately small to prioritize stable wake delivery.
 
 > **Thesis:** A clock knows *when*. Morning Purpose helps the chosen Character know *what makes this wake worthwhile* — without mistaking a calendar event for the user's own motivation.
 
@@ -294,7 +323,7 @@ Pre-register sample sizes/thresholds before user beta; do not call these validat
 | Success / annoyance / confirmed wake metrics | **Specified; baseline data open** |
 | 1.0 feature-freeze exception or post-1.0 sequencing | **Not approved** |
 
-**Do not enter Build just because this spec exists.** First run a small Wake Lab interaction study and review (a) real usefulness, (b) permission/data minimization, (c) provider strategy, (d) existing core reliability gates. If value cannot beat simple Tomorrow Contract reminders, archive or reduce the feature.
+**The owner has authorized the limited Android V1 Build scope above.** Do not expand it solely because this spec lists later opportunities. First run a small Wake Lab interaction study and review (a) real usefulness, (b) permission/data minimization, (c) provider strategy, (d) existing core reliability gates. If value cannot beat simple Tomorrow Contract reminders, archive or reduce the feature.
 
 ## 13. Explicit human/external actions once Build is authorized
 
