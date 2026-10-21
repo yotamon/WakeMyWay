@@ -314,7 +314,6 @@ fun AlarmEditorScreen(
                     color = WmwColors.Midnight,
                     modifier = Modifier.weight(1f),
                 )
-                SunroomSunStamp()
             }
             Text(
                 text = "Set the moment first. Personalize only as much as you want.",
