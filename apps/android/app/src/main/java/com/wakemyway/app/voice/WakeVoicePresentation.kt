@@ -36,6 +36,7 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
 
         "startup-timeout",
         "account-preflight-timeout",
+        "startup-budget-exhausted",
         -> WakeVoiceDegradationReason.STARTUP_TIMEOUT
 
         else -> WakeVoiceDegradationReason.SESSION_FAILURE
@@ -70,6 +71,7 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
 
         "startup-timeout",
         "account-preflight-timeout",
+        "startup-budget-exhausted",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT
 
         else -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_SESSION

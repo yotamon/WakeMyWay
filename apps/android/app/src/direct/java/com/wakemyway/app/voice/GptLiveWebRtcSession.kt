@@ -95,6 +95,7 @@ class GptLiveWebRtcSession(
     private var labSettings = VoiceLabSettings()
     private var selectedVoiceStyle = "default"
     private var exchangeStarted = false
+    private var startedAtElapsedMillis = 0L
     private var peer: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
     private var source: AudioSource? = null
@@ -176,6 +177,7 @@ class GptLiveWebRtcSession(
         labSettings = settings
         selectedVoiceStyle = voiceStyle
         val current = generation.incrementAndGet()
+        startedAtElapsedMillis = SystemClock.elapsedRealtime()
         // Validate the account and refresh any expired device authorization
         // *before* touching the communication audio route or WebRTC. The
         // original pilot did this only after ICE negotiation, masking expired
@@ -184,6 +186,7 @@ class GptLiveWebRtcSession(
             if (isCurrent(current)) {
                 observer.onStage("account-check")
                 handler.postDelayed(preflightTimeout, GptLiveConnectionTiming.ACCOUNT_PREFLIGHT_TIMEOUT_MS)
+                handler.postDelayed(startupTimeout, GptLiveConnectionTiming.TOTAL_STARTUP_TIMEOUT_MS)
             }
         }
         scope.launch {
@@ -296,7 +299,6 @@ class GptLiveWebRtcSession(
                 }
                 override fun onCreateFailure(error: String?) = fail("offer", current)
             }, MediaConstraints())
-            handler.postDelayed(startupTimeout, GptLiveConnectionTiming.WEBRTC_STARTUP_TIMEOUT_MS)
         } catch (_: Throwable) {
             fail("webrtc-init", current)
         }
@@ -327,6 +329,15 @@ class GptLiveWebRtcSession(
                 GptLiveIceOfferGate.Decision.SEND -> Unit
             }
             val offer = local ?: return@post
+            // Avoid opening a potentially billable Live session that cannot
+            // reasonably finish before the app's wake startup deadline.
+            if (GptLiveConnectionTiming.remainingStartupMillis(
+                    startedAtElapsedMillis, SystemClock.elapsedRealtime(),
+                ) < GptLiveConnectionTiming.MIN_REMAINING_BEFORE_SDP_EXCHANGE_MS
+            ) {
+                fail("startup-budget-exhausted", current)
+                return@post
+            }
             exchangeStarted = true
             cancelIceTimeout()
             observer.onStage(if (complete) "server-authentication" else "partial-ice-offer")

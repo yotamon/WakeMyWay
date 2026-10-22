@@ -39,7 +39,8 @@ internal object GptLivePreviewMessages {
                 "Android couldn't establish a usable audio route (no ICE candidates). Try mobile data, disable VPN, or check network permissions."
             "ice-candidates-missing-from-sdp" ->
                 "Android found network candidates but did not include them in the offer. This needs a WebRTC signaling fix."
-            "startup-timeout", "ice-connection", "peer-connection", "remote-sdp" ->
+            "startup-timeout", "startup-budget-exhausted",
+            "ice-connection", "peer-connection", "remote-sdp" ->
                 "The secure audio connection failed. Try another network or audio device."
             "device-credential-storage-failed" ->
                 "Secure device authorization couldn't be stored. Unlock the device and retry."
