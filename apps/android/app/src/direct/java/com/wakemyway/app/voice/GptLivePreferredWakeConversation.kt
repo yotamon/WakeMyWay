@@ -8,6 +8,7 @@ import com.wakemyway.core.personalization.ConversationAmount
 import com.wakemyway.core.personalization.HumorPreference
 import com.wakemyway.core.personalization.InterventionStyle
 import com.wakemyway.core.personalization.WakeSessionPlan
+import com.wakemyway.core.personalization.WakeSpokenLanguage
 import com.wakemyway.core.runtime.SpeechIntent
 
 /**
@@ -97,11 +98,10 @@ class GptLivePreferredWakeConversation(
                         HumorPreference.WELCOME -> GptLiveWebRtcSession.Humor.PLAYFUL
                         else -> GptLiveWebRtcSession.Humor.SUBTLE
                     },
-                    locale = when (java.util.Locale.getDefault().language) {
-                        "he", "iw" -> GptLiveWebRtcSession.Locale.HE
-                        "de" -> GptLiveWebRtcSession.Locale.DE
-                        else -> GptLiveWebRtcSession.Locale.EN
-                    },
+                    locale = resolveWakeLiveLocale(
+                        plan.preferences.spokenLanguage,
+                        java.util.Locale.getDefault().language,
+                    ),
                 ),
                 voiceStyle = plan.voiceStyle.name.lowercase(),
             )
@@ -318,5 +318,20 @@ internal object GptLiveWakeCue {
         SpeechIntent.SnoozeConfirmation -> "Explain that snooze requires tapping the app's confirmation. Do not claim it was set."
         SpeechIntent.SnoozeFailed -> "Briefly say that snooze did not work and the local alarm is still active."
         SpeechIntent.Orientation -> "The app detected enough activity to offer a calm transition into the day. Say one short encouraging goodbye without claiming certainty about being awake."
+    }
+}
+
+/** An explicit choice wins over OS locale, with a safe English fallback. */
+internal fun resolveWakeLiveLocale(
+    preference: WakeSpokenLanguage,
+    deviceLanguage: String,
+): GptLiveWebRtcSession.Locale = when (preference) {
+    WakeSpokenLanguage.ENGLISH -> GptLiveWebRtcSession.Locale.EN
+    WakeSpokenLanguage.GERMAN -> GptLiveWebRtcSession.Locale.DE
+    WakeSpokenLanguage.HEBREW -> GptLiveWebRtcSession.Locale.HE
+    WakeSpokenLanguage.SYSTEM -> when (deviceLanguage.lowercase()) {
+        "he", "iw" -> GptLiveWebRtcSession.Locale.HE
+        "de" -> GptLiveWebRtcSession.Locale.DE
+        else -> GptLiveWebRtcSession.Locale.EN
     }
 }

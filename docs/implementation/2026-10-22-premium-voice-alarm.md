@@ -71,7 +71,7 @@ For each run verify:
 | Interruption and transcript lifecycle | Partially implemented | PCM/transcript hysteresis and deferred user evidence; no authoritative provider turn-end event |
 | Critical sound coordination | Implemented, device-unverified | Real route switching, speaker audibility, calls and volume policy |
 | Character and conversational personality | Implemented prompts, subjective quality unmeasured | Human voice evaluation across languages, complaints, barge-in and humor |
-| Personalization | Improved | Existing turn-length, motivation and pacing preferences now shape actual authorized cues; explicit in-app language selection missing |
+| Personalization | Implemented for existing profiles | Turn-length, motivation and pacing shape app cues; explicit voice-only language selection is persisted with backward-compatible defaults |
 | Captions and wake UI | Implemented | Unlock-gated transient assistant text and character name; RTL and font-scale field checks |
 | Audio echo/background speech | Conservative only | No proof that recognized voice belongs to the person; test background television, overlapping speakers |
 | Quality observability | Local bounded metrics implemented | p50/p95 from device journal, no central fleet telemetry or true audio-route confirmation |

@@ -12,6 +12,7 @@ import com.wakemyway.core.personalization.MorningBarrier
 import com.wakemyway.core.personalization.MotivationStyle
 import com.wakemyway.core.personalization.PerceivedWakeInertia
 import com.wakemyway.core.personalization.WakePreferences
+import com.wakemyway.core.personalization.WakeSpokenLanguage
 import java.io.File
 import java.io.FileNotFoundException
 import org.json.JSONObject
@@ -167,6 +168,7 @@ class ConsumerPreferencesRepository(
         put(KEY_MOTIVATION_STYLE, preferences.motivationStyle.name)
         put(KEY_CONVERSATION_AMOUNT, preferences.conversationAmount.name)
         put(KEY_HUMOR_PREFERENCE, preferences.humorPreference.name)
+        put(KEY_SPOKEN_LANGUAGE, preferences.spokenLanguage.name)
     }
 
     private fun decodeWakePreferences(json: JSONObject): WakePreferences = WakePreferences(
@@ -190,6 +192,10 @@ class ConsumerPreferencesRepository(
         humorPreference = enumOrDefault(
             json.optString(KEY_HUMOR_PREFERENCE),
             HumorPreference.LIGHT,
+        ),
+        spokenLanguage = enumOrDefault(
+            json.optString(KEY_SPOKEN_LANGUAGE),
+            WakeSpokenLanguage.SYSTEM,
         ),
     )
 
@@ -218,5 +224,6 @@ class ConsumerPreferencesRepository(
         private const val KEY_MOTIVATION_STYLE = "motivationStyle"
         private const val KEY_CONVERSATION_AMOUNT = "conversationAmount"
         private const val KEY_HUMOR_PREFERENCE = "humorPreference"
+        private const val KEY_SPOKEN_LANGUAGE = "spokenLanguage"
     }
 }
