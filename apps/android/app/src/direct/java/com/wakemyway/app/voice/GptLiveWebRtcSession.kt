@@ -155,6 +155,7 @@ class GptLiveWebRtcSession(
     private var manager: AudioManager? = null
     private var previousMode: Int? = null
     private var previousSpeakerId: Int? = null
+    private var selectedSpeakerId: Int? = null
     private var previousSpeakerOn: Boolean? = null
     private var legacySpeakerRoute = false
 
@@ -299,8 +300,8 @@ class GptLiveWebRtcSession(
                 }
                 override fun onCreateFailure(error: String?) = fail("offer", current)
             }, MediaConstraints())
-        } catch (_: Throwable) {
-            fail("webrtc-init", current)
+        } catch (error: Throwable) {
+            fail((error as? LivePreviewSetupException)?.stage ?: "webrtc-init", current)
         }
     }
 
@@ -604,6 +605,16 @@ class GptLiveWebRtcSession(
             lastAudioSampleNotice.set(now)
             handler.post {
                 if (!isCurrent(current) || closing) return@post
+                // Remote decoded PCM does not prove the device is still
+                // routing it through the loudspeaker we selected initially.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    !GptLiveAudioRoutePolicy.remainsOnSelectedSpeaker(
+                        selectedSpeakerId, manager?.communicationDevice?.id,
+                    )
+                ) {
+                    fail("audio-route-lost", current)
+                    return@post
+                }
                 if (audioActivityGate.onAudiblePcm(now)) {
                     observer.onRemoteSpeechActivity(true)
                 }
@@ -644,6 +655,11 @@ class GptLiveWebRtcSession(
 
     private fun configureAudioRoute() {
         val audio = appContext.getSystemService(AudioManager::class.java) ?: return
+        // A phone call or another communication app may already own this
+        // route. Never replace its mode with a wake conversation.
+        if (!GptLiveAudioRoutePolicy.mayAcquire(audio.mode)) {
+            throw LivePreviewSetupException("audio-route-busy")
+        }
         manager = audio
         previousMode = audio.mode
         @Suppress("DEPRECATION")
@@ -658,6 +674,9 @@ class GptLiveWebRtcSession(
             }
             speaker != null && runCatching { audio.setCommunicationDevice(speaker) }.getOrDefault(false)
         } else false
+        selectedSpeakerId = if (selected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audio.communicationDevice?.id
+        } else null
         if (!selected) {
             legacySpeakerRoute = true
             @Suppress("DEPRECATION")
@@ -681,6 +700,7 @@ class GptLiveWebRtcSession(
         previousMode = null
         previousSpeakerOn = null
         previousSpeakerId = null
+        selectedSpeakerId = null
         legacySpeakerRoute = false
     }
 

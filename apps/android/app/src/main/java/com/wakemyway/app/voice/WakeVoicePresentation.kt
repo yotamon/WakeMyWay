@@ -26,6 +26,8 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "ice-connection",
         "peer-connection",
         "remote-audio-sink",
+        "audio-route-busy",
+        "audio-route-lost",
         -> WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE
 
         "turn-budget",
@@ -61,6 +63,8 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "data-channel-closed",
         "channel-closed",
         "remote-audio-sink",
+        "audio-route-busy",
+        "audio-route-lost",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT
 
         "turn-budget",

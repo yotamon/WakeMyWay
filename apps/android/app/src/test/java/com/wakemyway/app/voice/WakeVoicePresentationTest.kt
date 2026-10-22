@@ -82,6 +82,14 @@ class WakeVoicePresentationTest {
             degradationReasonForConversationFailure("live-remote-audio-sink"),
         )
         assertEquals(
+            WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE,
+            degradationReasonForConversationFailure("live-audio-route-lost"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT,
+            diagnosticEventForConversationFailure("live-audio-route-busy"),
+        )
+        assertEquals(
             WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT,
             diagnosticEventForConversationFailure("live-startup-timeout"),
         )

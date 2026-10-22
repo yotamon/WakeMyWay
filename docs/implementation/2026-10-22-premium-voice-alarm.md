@@ -85,3 +85,7 @@ CI verifies software contracts, not biologically confirmed wakefulness or physic
 - Legacy Realtime is only started after an explicit no-admission 403, **and only** when the selected persona is Alfred, the selected spoken locale is English, and enough startup budget remains for its separate connection. Other characters/languages retain the original local alarm sound rather than unexpectedly switching identities.
 - GPT-Live usage seconds received from the provider are recorded in the privacy-safe on-device wake journal (with a final-report flag) and included in its report. This is a measured **duration proxy**, not OpenAI's billed currency, token breakdown, or proof that the sound reached the speaker.
 - The local alarm remains independent of admission, transport and usage accounting.
+
+## Real communication-route safety (code guard, not device acceptance)
+
+If Android reports an active call or an existing communication session, Live must not claim the route and instead degrades without touching the local alarm. Once the configured built-in communication speaker is selected, unexpected route changes during incoming PCM fail the optional voice session and restore ordinary critical alarm playback. The speaker-route comparison is guarded by Android API level. This detects a changed OS route; it does not measure acoustic output, volume, wireless devices or transient underruns. Verify with real Bluetooth devices, media playback and phone calls.
