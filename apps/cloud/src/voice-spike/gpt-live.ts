@@ -39,14 +39,23 @@ export const BUILTIN_CHARACTER_VOICES = {
  * character. Clients never submit provider voice IDs. The ID is resolved once
  * at session creation and therefore cannot drift mid-wake.
  */
-export function configuredVoiceFor(characterId: keyof typeof BUILTIN_CHARACTER_VOICES): string | { id: string } {
-  const key = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
-  const configured = process.env[key]?.trim();
+export function configuredVoiceFor(
+  characterId: keyof typeof BUILTIN_CHARACTER_VOICES,
+  locale: 'en' | 'de' | 'he' = 'en',
+): string | { id: string } {
+  // Only the trusted server may select voices. A locale-specific override
+  // wins over the reviewed character-wide voice, otherwise preserve the
+  // existing stable default. Never accept a provider ID from the client.
+  const prefix = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
+  const localeKey = `${prefix}_${locale.toUpperCase()}`;
+  const configured = (process.env[localeKey]?.trim() || process.env[prefix]?.trim());
   if (!configured) return BUILTIN_CHARACTER_VOICES[characterId];
-  if (!/^voice_[A-Za-z0-9_-]{1,122}$/.test(configured)) {
-    throw new HttpError(503, 'An approved character voice is misconfigured.');
-  }
-  return { id: configured };
+  if (/^voice_[A-Za-z0-9_-]{1,122}$/.test(configured)) return { id: configured };
+
+  // GPT-Live added German-native voice candidates in October 2026. They
+  // remain opt-in until a human review approves their character continuity.
+  if (locale === 'de' && ['nuri', 'juni', 'flitz'].includes(configured)) return configured;
+  throw new HttpError(503, 'An approved character voice is misconfigured.');
 }
 
 const characterVoiceDescription: Record<keyof typeof BUILTIN_CHARACTER_VOICES, string> = {
@@ -101,7 +110,7 @@ export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
   return {
     model: GPT_LIVE_MODEL,
     store: false,
-    audio: { output: { voice: configuredVoiceFor(resolved.characterId) } },
+    audio: { output: { voice: configuredVoiceFor(resolved.characterId, resolved.locale) } },
     delegation: { type: 'client' as const },
     instructions: [baseInstructions, characterIdentity[resolved.characterId], characterVoiceDescription[resolved.characterId], modifier, expression].join('\n\n'),
   };
