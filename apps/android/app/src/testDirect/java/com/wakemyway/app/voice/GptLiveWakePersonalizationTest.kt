@@ -31,7 +31,7 @@ class GptLiveWakePersonalizationTest {
                 conversationAmount = ConversationAmount.SOCIAL,
                 motivationStyle = MotivationStyle.LIGHT_CONVERSATION,
             ),
-            CharacterId.LUNA, VoiceStyle.DEFAULT, WakePolicy(),
+            CharacterId("luna"), VoiceStyle.DEFAULT, WakePolicy(),
         )
         val cue = GptLiveWakeCue.forRequest(WakeSpeechRequest(SpeechIntent.InitialWake, plan))
         assertTrue(cue.contains("generous quiet pause"))
