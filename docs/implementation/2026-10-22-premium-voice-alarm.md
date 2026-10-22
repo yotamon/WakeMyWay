@@ -58,7 +58,7 @@ For each run verify:
 - **Wake effectiveness:** Coherent speech alone can contribute activation score. It is not biological proof of being out of bed; the product must evaluate this claim against real-world follow-through and accessibility.
 - **Network posture:** STUN-only connectivity cannot guarantee success across restrictive networks; TURN should be justified by observed failure rates and cost.
 - **Provider launch parity:** Play flavor and Live entitlements are separate distribution decisions; no general Play launch is implied.
-- **Language:** The existing Android system-locale mapping is retained. A standalone wake-language preference needs a separate explicit product decision and localization review.
+- **Language:** English, German, Hebrew or following Android's system locale is now selectable for voice independently of UI language. Human native-speaker ratings, mixed-language speech and RTL font-scale field checks are not complete.
 - **Testing:** No device measurements or claims are produced by writing this code. Comprehensive Android/Cloud CI and real-device acceptance remain mandatory before merging/releasing.
 
 ## Review-to-implementation reconciliation (2026-10-22)
@@ -93,3 +93,7 @@ If Android reports an active call or an existing communication session, Live mus
 ## Opaque provider session IDs and commentary acknowledgments
 
 Provider-assigned Live session IDs are opaque. Accept validated nonblank bounded IDs without assuming a `live_` prefix (including OpenAI's documented `sess_` examples). When a wake `session.commentary.append` is explicitly rejected, fail the optional voice turn without retrying a potentially admitted session. An acknowledged append only means the provider accepted context into the timeline; neither it nor an output transcript proves that the user heard speech. This distinction is retained in the diagnostics.
+
+## Backend build compatibility, 2026-10-22
+
+A Vercel preview exposed serverless-function compiler `TS2688` failures with TypeScript 7.0.2 that ordinary Cloud CI did not reveal. TypeScript was pinned to compatible 6.0.3 with a consistent package lock, and Node/pg build type packages are regular dependencies. A clean preview and Cloud CI remain release requirements; a Vercel `READY` label alone is insufficient. The preview is not production, may require authenticated SSO, and does not establish a real GPT-Live paid-audio call. Do not silently switch the approved character voices.

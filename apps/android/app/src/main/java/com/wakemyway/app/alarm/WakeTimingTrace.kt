@@ -128,16 +128,22 @@ class WakeTimingTrace(
      */
     fun voiceUsage(occurrenceId: WakeOccurrenceId, seconds: Int, final: Boolean) {
         if (seconds !in 0..3_600) return
-        safelyMutate { sessions ->
-            sessions.findSession(occurrenceId)?.let { session ->
+        runCatching {
+            synchronized(LOCK) {
+                val sessions = readSessions()
+                val session = sessions.findSession(occurrenceId) ?: return@synchronized
                 val previous = session.optInt(KEY_VOICE_USAGE_SECONDS, -1)
-                if (seconds < previous) return@let
-                val previouslyFinal = session.optBoolean(KEY_VOICE_USAGE_FINAL, false)
-                if (previouslyFinal) return@let
-                if (final || previous < 0 || seconds - previous >= 10) {
-                    session.put(KEY_VOICE_USAGE_SECONDS, seconds)
-                    if (final) session.put(KEY_VOICE_USAGE_FINAL, true)
+                if (seconds < previous || session.optBoolean(KEY_VOICE_USAGE_FINAL, false)) {
+                    return@synchronized
                 }
+                // Provider may emit every second. Persist only each 10-second
+                // bucket or the final event, including a final zero-duration.
+                if (!final && previous >= 0 && seconds - previous < 10) {
+                    return@synchronized
+                }
+                session.put(KEY_VOICE_USAGE_SECONDS, seconds)
+                if (final) session.put(KEY_VOICE_USAGE_FINAL, true)
+                persistSessions(sessions)
             }
         }
     }
@@ -184,9 +190,9 @@ class WakeTimingTrace(
             appendLine("  " + WakeLatencySummary.describe(
                 "voice-ready-to-remote-PCM", sessions.map { it.realtimeReadyToFirstSpeakingMillis },
             ))
-            appendLine("  " + WakeLatencySummary.describe(
-                "provider-reported-session-usage", sessions.map { it.voiceUsageSeconds?.toLong()?.times(1_000L) },
-            ) + " (durations expressed in ms; not billed spend)")
+            appendLine("  " + WakeSessionDurationSummary.describe(
+                "provider-reported-session-usage", sessions.map { it.voiceUsageSeconds },
+            ) + " (duration, not billed spend)")
             appendLine("  confirmedUsageReports=" + sessions.count { it.voiceUsageFinal })
             appendLine("  voiceReady=" + sessions.count { snap ->
                 snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_READY.name }

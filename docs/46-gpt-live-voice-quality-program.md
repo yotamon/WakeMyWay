@@ -1,7 +1,7 @@
 # GPT-Live voice quality program
 
 **Date:** 2026-10-20
-**Current state:** engineering foundation in PR #193; no consumer launch.
+**Current state (2026-10-22):** Original engineering foundation in PR #193; Live-first Direct wake reliability hardening is in draft PR #207. Automated tests and a Vercel preview build do not certify physical reliability.
 **Objective:** Make the voice *pleasant, stable, personal and useful* over repeat
 mornings, not merely technically conversational. OpenAI-only in this phase.
 
@@ -83,14 +83,14 @@ leaving a reserved (potentially billable) session without a client.
   touches the communication audio route.
 - Prefer ICE COMPLETE; after 8 seconds, allow candidate-rich partial SDP,
   with no paid call if usable candidates or ICE credentials are missing.
-  The subsequent WebRTC startup limit remains 50 seconds.
+  The previously independent 50-second startup deadline has been superseded by one inclusive 35-second Direct startup budget. Keep the provider request deadline nested within it.
 - Do not automatically retry a timed-out paid Live session.
 - Any deadline or failure closes the experimental audio route, never changing
   the real Android Alarm Kernel or WakeRuntime.
 
 These are engineering budgets, not observed p95 latency. A real phone and
 provider-enabled pilot still must prove that sessions start and audio actually
-plays; longer Lab timeouts are **not** approval for a 50-second consumer wake.
+plays; historical Lab deadlines are **not** approval for an arbitrarily slow consumer wake.
 
 ## Audible speech truth in Voice Lab (2026-10-21)
 
@@ -110,7 +110,7 @@ automatic first-audible-frame latency sensor.
   intents. No model text may stop, snooze, confirm waking, or mutate the kernel.
 - Live's full-duplex stream does not emit Realtime response.done. Remote decoded
   WebRTC PCM activity and bounded silence are used only for **best-effort**
-  assistant speech callbacks, with a 1.4-second remote-silence grace to
+  assistant speech callbacks, with 2.8-second PCM and 1.6-second output-transcript quiet gates to
   tolerate natural pauses. A user speaking over output marks the assistant
   turn interrupted; text transcript deltas never finish speech.
 - User transcript fragments are grouped with a bounded quiet period into
@@ -215,3 +215,11 @@ Android: `cd apps/android && ./gradlew :app:testDirectDebugUnitTest :app:assembl
 Then run real-device Wake Lab matrix, verify session cost on OpenAI dashboard,
 and check the connected microphone is released on all terminal paths.
 No new release until all mandatory checks have physical evidence.
+
+## Superseding branch evidence and release gate, 2026-10-22
+
+The older checkboxes above are **historical stage tracking**, not a current release authorization. Draft PR #207 implements the Direct GPT-Live adapter and authoritative local Alarm Kernel boundary, read-only eligibility preflight, one 35s startup budget, conservative transcript/PCM turn gate, bounded session lifetime, cue serialization, speaker/call route protections, privacy-safe usage seconds, per-character voice language (English, German, Hebrew, or follow system), and operator-controlled locale-specific voice overrides.
+
+Vercel preview verification discovered that TypeScript 7.0.2 could yield repeated TS2688 errors while the deployment misleadingly reported READY. The cloud TypeScript toolchain was pinned to 6.0.3 for compatible Vercel compiler integrations. Never infer successful backend function compilation from READY alone; inspect build logs and CI before a production deployment.
+
+The authoritative physical and human acceptance cases are in [the voice field-acceptance protocol](implementation/2026-10-22-voice-field-acceptance.md). No repeated-morning results, blinded voice ratings, true device speaker audibility, signed-in-place OnePlus upgrades or actual provider invoices have been verified by CI or Vercel preview.
