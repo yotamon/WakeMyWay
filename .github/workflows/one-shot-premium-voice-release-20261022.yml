@@ -1,0 +1,46 @@
+# Single-use operator-requested release dispatcher.
+# Canonical signing and all publish gates remain in android-release.yml.
+name: Publish premium voice reliability patch
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'ops/dispatch-premium-voice-release-20261022' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Release exactly the newly merged main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$CURRENT" = "$MERGE_SHA" || {
+            echo "::error::main changed after this release dispatcher was merged"
+            exit 1
+          }
+          LATEST="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test "$LATEST" = 'v0.2.31' || {
+            echo "::error::Stable version has advanced; refusing unintended version bump"
+            exit 1
+          }
+          gh api "repos/$GITHUB_REPOSITORY/compare/0955235f9b8f202f7713584baf4e5e0c1068e125...$CURRENT" --jq '.behind_by' |
+            grep -qx '0'
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false
