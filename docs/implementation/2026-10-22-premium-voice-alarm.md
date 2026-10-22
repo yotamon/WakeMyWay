@@ -60,3 +60,22 @@ For each run verify:
 - **Provider launch parity:** Play flavor and Live entitlements are separate distribution decisions; no general Play launch is implied.
 - **Language:** The existing Android system-locale mapping is retained. A standalone wake-language preference needs a separate explicit product decision and localization review.
 - **Testing:** No device measurements or claims are produced by writing this code. Comprehensive Android/Cloud CI and real-device acceptance remain mandatory before merging/releasing.
+
+## Review-to-implementation reconciliation (2026-10-22)
+
+| Reviewed area | Status | Remaining verification or work |
+|---|---|---|
+| Native alarm and terminal actions | Existing architecture preserved | Repeated OEM / reboot / permission-loss physical proof |
+| Live access preflight and safe fallback | Implemented | Backend rollout and cost-accounting evidence |
+| Unified startup budget | Implemented | Absolute 35s budget; p95 on supported phones not measured |
+| Interruption and transcript lifecycle | Partially implemented | PCM/transcript hysteresis and deferred user evidence; no authoritative provider turn-end event |
+| Critical sound coordination | Implemented, device-unverified | Real route switching, speaker audibility, calls and volume policy |
+| Character and conversational personality | Implemented prompts, subjective quality unmeasured | Human voice evaluation across languages, complaints, barge-in and humor |
+| Personalization | Improved | Existing turn-length, motivation and pacing preferences now shape actual authorized cues; explicit in-app language selection missing |
+| Captions and wake UI | Implemented | Unlock-gated transient assistant text and character name; RTL and font-scale field checks |
+| Audio echo/background speech | Conservative only | No proof that recognized voice belongs to the person; test background television, overlapping speakers |
+| Quality observability | Local bounded metrics implemented | p50/p95 from device journal, no central fleet telemetry or true audio-route confirmation |
+| Behavioral wake effectiveness | Not proven | Compare real out-of-bed follow-through and morning annoyance with alarm-only baseline |
+| Signed release | Not completed | Real-device signoff, cloud deployment, operator-triggered release/signing |
+
+CI verifies software contracts, not biologically confirmed wakefulness or physical speaker audibility. A green Android emulator is a release candidate, not a reliability guarantee.

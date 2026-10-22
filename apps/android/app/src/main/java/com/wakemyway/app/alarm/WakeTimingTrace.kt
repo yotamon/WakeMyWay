@@ -153,6 +153,23 @@ class WakeTimingTrace(
             appendLine("build=${Build.FINGERPRINT}")
             appendLine("app=$appVersion")
             appendLine("sessions=${sessions.size}")
+            appendLine("privacy-safe local metrics (limited history; remote PCM is not verified speaker audio):")
+            appendLine("  " + WakeLatencySummary.describe(
+                "trigger-to-native-audio", sessions.map { it.triggerToAudioMillis },
+            ))
+            appendLine("  " + WakeLatencySummary.describe(
+                "voice-connect-to-ready", sessions.map { it.realtimeConnectToReadyMillis },
+            ))
+            appendLine("  " + WakeLatencySummary.describe(
+                "voice-ready-to-remote-PCM", sessions.map { it.realtimeReadyToFirstSpeakingMillis },
+            ))
+            appendLine("  voiceReady=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_READY.name }
+            } + "; remotePCMObserved=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING.name }
+            } + "; voiceDegraded=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_DEGRADED.name }
+            })
             appendLine()
 
             sessions.forEachIndexed { index, session ->

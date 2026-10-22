@@ -276,7 +276,19 @@ internal object GptLiveWakeCue {
                 "Keep the pace light and responsive."
             else -> "Give the person room to respond."
         }
-        val cue = "$style $pace $baseCue"
+        val motivation = when (request.sessionPlan.expressionProfile.motivationFrame) {
+            com.wakemyway.core.personalization.WakeMotivationFrame.ACTION ->
+                "Focus on one tiny practical action."
+            com.wakemyway.core.personalization.WakeMotivationFrame.SUPPORT ->
+                "Be supportive without praise or pep talks."
+            com.wakemyway.core.personalization.WakeMotivationFrame.ACCOUNTABILITY ->
+                "Be gently direct, never scolding."
+            com.wakemyway.core.personalization.WakeMotivationFrame.SOCIAL ->
+                "Feel like a familiar friend, not a coach."
+            com.wakemyway.core.personalization.WakeMotivationFrame.HUMOR ->
+                "Allow subtle observational humor, never teasing."
+        }
+        val cue = "$style $pace $motivation $baseCue"
         if (request.intent != SpeechIntent.Orientation) return cue.take(500)
         val facts = request.sessionPlan.allowedContext
         return buildString {
