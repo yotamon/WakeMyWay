@@ -9,6 +9,7 @@ import com.wakemyway.core.personalization.MorningBarrier
 import com.wakemyway.core.personalization.MotivationStyle
 import com.wakemyway.core.personalization.PerceivedWakeInertia
 import com.wakemyway.core.personalization.WakePreferences
+import com.wakemyway.core.personalization.WakeSpokenLanguage
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -54,6 +55,7 @@ class ConsumerPreferencesRepositoryTest {
                 motivationStyle = MotivationStyle.ACCOUNTABILITY,
                 conversationAmount = ConversationAmount.MINIMAL,
                 humorPreference = HumorPreference.OFF,
+                spokenLanguage = WakeSpokenLanguage.HEBREW,
             ),
         )
 
@@ -210,6 +212,7 @@ class ConsumerPreferencesRepositoryTest {
         assertEquals(InterventionStyle.FIRM, wake.interventionStyle)
         assertEquals(ConversationAmount.MINIMAL, wake.conversationAmount)
         assertEquals(HumorPreference.OFF, wake.humorPreference)
+        assertEquals(WakeSpokenLanguage.SYSTEM, wake.spokenLanguage)
     }
 
     @Test(expected = IllegalArgumentException::class)

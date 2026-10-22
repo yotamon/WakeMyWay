@@ -22,10 +22,14 @@ interface WakeConversationEnrichment : AutoCloseable {
     interface Listener {
         fun onConversationReady()
         fun onAssistantSpeechStarted()
+        /** Ephemeral assistant caption fragments only; never persist them or treat them as authority. */
+        fun onAssistantTranscript(delta: String) = Unit
         fun onAssistantSpeechFinished(interrupted: Boolean)
         fun onUserSpeechStarted()
         /** Reports whether the detected audio turn contained usable, intentional spoken engagement. */
         fun onUserTurnObserved(coherent: Boolean = true)
+        /** Provider-reported seconds are a local cost proxy, not billed currency. */
+        fun onProviderUsageObserved(seconds: Int, final: Boolean) = Unit
         fun onConversationFailure(stage: String)
     }
 

@@ -39,12 +39,13 @@ import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 
 /**
- * GPT-Live experimental full-duplex transport. Intentionally NOT a
- * WakeConversationEnrichment: GPT-Live has no Realtime response.done analogue,
- * so there is no truthful onAssistantSpeechFinished event to feed WakeRuntime.
+ * Full-duplex GPT-Live WebRTC transport, used by Voice Lab and preferred
+ * Direct wake sessions. Live has no authoritative per-turn response.done event:
+ * remote PCM and transcript quiet are best-effort playback proxies, never
+ * proof of speaker audibility or authority over WakeRuntime.
  *
- * This transport only belongs in Voice Lab until a playback-gated coordinator
- * has been physically verified. It does not own Alarm Kernel, Stop or Snooze.
+ * The alarm remains independently audible and Stop/Snooze stay native.
+ * Locked-screen, Doze and audio-route behavior require physical-device proof.
  */
 class GptLiveWebRtcSession(
     context: Context,
@@ -91,27 +92,71 @@ class GptLiveWebRtcSession(
     private var closed = false
     private var closing = false
     private var lastUsageSeconds = 0
+    private var pendingWakeCueEventId: String? = null
     private var labSettings = VoiceLabSettings()
     private var selectedVoiceStyle = "default"
     private var exchangeStarted = false
+    private var startedAtElapsedMillis = 0L
     private var peer: PeerConnection? = null
     private var factory: PeerConnectionFactory? = null
     private var source: AudioSource? = null
     private var input: AudioTrack? = null
     private var remoteTrack: AudioTrack? = null
     private var remoteSink: AudioTrackSink? = null
-    private var outputActive = false
+    private val audioActivityGate = GptLiveAudioActivityGate()
     private val lastAudioSampleNotice = AtomicLong(0L)
-    private val remoteSilenceTimer = Runnable {
-        if (outputActive && !closed) {
-            outputActive = false
-            observer.onRemoteSpeechActivity(false)
+    private val remoteSilenceTimer = object : Runnable {
+        override fun run() {
+            if (closed || closing) return
+            val remaining = audioActivityGate.remainingQuietMillis(SystemClock.elapsedRealtime())
+                ?: return
+            if (remaining > 0L) {
+                handler.postDelayed(this, remaining)
+            } else if (audioActivityGate.finishIfQuiet(SystemClock.elapsedRealtime())) {
+                observer.onRemoteSpeechActivity(false)
+            }
         }
+    }
+    private var disconnectTimeout: Runnable? = null
+    private fun scheduleVoiceQuietCheck() {
+        handler.removeCallbacks(remoteSilenceTimer)
+        audioActivityGate.remainingQuietMillis(SystemClock.elapsedRealtime())?.let { remaining ->
+            handler.postDelayed(remoteSilenceTimer, remaining.coerceAtLeast(1L))
+        }
+    }
+    private fun checkConnectionHealth(current: Long) {
+        handler.post {
+            if (!isCurrent(current) || closing) return@post
+            val disconnected = peer?.iceConnectionState() ==
+                PeerConnection.IceConnectionState.DISCONNECTED ||
+                peer?.connectionState() == PeerConnection.PeerConnectionState.DISCONNECTED
+            if (!disconnected || !readyState.get()) {
+                cancelDisconnectTimeout()
+                return@post
+            }
+            if (disconnectTimeout == null) {
+                val task = Runnable {
+                    disconnectTimeout = null
+                    if (!isCurrent(current) || closing) return@Runnable
+                    val stillDisconnected = peer?.iceConnectionState() ==
+                        PeerConnection.IceConnectionState.DISCONNECTED ||
+                        peer?.connectionState() == PeerConnection.PeerConnectionState.DISCONNECTED
+                    if (stillDisconnected) fail("transport-disconnected", current)
+                }
+                disconnectTimeout = task
+                handler.postDelayed(task, 4_000L)
+            }
+        }
+    }
+    private fun cancelDisconnectTimeout() {
+        disconnectTimeout?.let { handler.removeCallbacks(it) }
+        disconnectTimeout = null
     }
     private var channel: DataChannel? = null
     private var manager: AudioManager? = null
     private var previousMode: Int? = null
     private var previousSpeakerId: Int? = null
+    private var selectedSpeakerId: Int? = null
     private var previousSpeakerOn: Boolean? = null
     private var legacySpeakerRoute = false
 
@@ -134,6 +179,7 @@ class GptLiveWebRtcSession(
         labSettings = settings
         selectedVoiceStyle = voiceStyle
         val current = generation.incrementAndGet()
+        startedAtElapsedMillis = SystemClock.elapsedRealtime()
         // Validate the account and refresh any expired device authorization
         // *before* touching the communication audio route or WebRTC. The
         // original pilot did this only after ICE negotiation, masking expired
@@ -142,11 +188,12 @@ class GptLiveWebRtcSession(
             if (isCurrent(current)) {
                 observer.onStage("account-check")
                 handler.postDelayed(preflightTimeout, GptLiveConnectionTiming.ACCOUNT_PREFLIGHT_TIMEOUT_MS)
+                handler.postDelayed(startupTimeout, GptLiveConnectionTiming.TOTAL_STARTUP_TIMEOUT_MS)
             }
         }
         scope.launch {
             val preflight = runCatching {
-                credentials.load()?.deviceToken ?: provisionCredential()
+                checkLivePreAdmission(credentials.load()?.deviceToken ?: provisionCredential())
             }
             preflight
                 .onSuccess {
@@ -181,11 +228,14 @@ class GptLiveWebRtcSession(
         val current = generation.get()
         val events = channel ?: return false
         if (content.length !in 1..500 || !isCurrent(current) || !readyState.get() || closing) return false
-        return send(events, JSONObject()
+        val cueEventId = "wmw_wake_${current}_${System.nanoTime()}"
+        val accepted = send(events, JSONObject()
             .put("type", "session.commentary.append")
-            .put("event_id", "wmw_wake_${current}_${System.nanoTime()}")
+            .put("event_id", cueEventId)
             .put("delegation_id", JSONObject.NULL)
             .put("content", content))
+        if (accepted) pendingWakeCueEventId = cueEventId
+        return accepted
     }
 
     /** Stop microphone immediately even if session close is still pending. */
@@ -254,9 +304,8 @@ class GptLiveWebRtcSession(
                 }
                 override fun onCreateFailure(error: String?) = fail("offer", current)
             }, MediaConstraints())
-            handler.postDelayed(startupTimeout, GptLiveConnectionTiming.WEBRTC_STARTUP_TIMEOUT_MS)
-        } catch (_: Throwable) {
-            fail("webrtc-init", current)
+        } catch (error: Throwable) {
+            fail((error as? LivePreviewSetupException)?.stage ?: "webrtc-init", current)
         }
     }
 
@@ -285,6 +334,15 @@ class GptLiveWebRtcSession(
                 GptLiveIceOfferGate.Decision.SEND -> Unit
             }
             val offer = local ?: return@post
+            // Avoid opening a potentially billable Live session that cannot
+            // reasonably finish before the app's wake startup deadline.
+            if (GptLiveConnectionTiming.remainingStartupMillis(
+                    startedAtElapsedMillis, SystemClock.elapsedRealtime(),
+                ) < GptLiveConnectionTiming.MIN_REMAINING_BEFORE_SDP_EXCHANGE_MS
+            ) {
+                fail("startup-budget-exhausted", current)
+                return@post
+            }
             exchangeStarted = true
             cancelIceTimeout()
             observer.onStage(if (complete) "server-authentication" else "partial-ice-offer")
@@ -304,6 +362,42 @@ class GptLiveWebRtcSession(
                         fail(stage, current)
                     }
             }
+        }
+    }
+
+    /**
+     * A cheap authenticated pre-admission check. Disabled accounts bypass ICE and
+     * never create a paid OpenAI session. 405 is tolerated during a rolling
+     * backend deployment; the SDP broker remains the ultimate admission gate.
+     */
+    private suspend fun checkLivePreAdmission(initialToken: String) {
+        suspend fun check(token: String) = WakeHttpClient.execute(
+            Request.Builder()
+                .url(LIVE_SESSION_URL)
+                .get()
+                .header("Authorization", "Bearer $token")
+                .header("Accept", "application/json")
+                .build(),
+            4L * 1024,
+            callTimeoutMillis = 8_000L,
+        )
+        var response = check(initialToken)
+        if (response.status == 401) {
+            credentials.clear()
+            response = check(provisionCredential())
+        }
+        when (response.status) {
+            200 -> {
+                val available = runCatching {
+                    JSONObject(response.body).optBoolean("available", false)
+                }.getOrDefault(false)
+                if (!available) throw LivePreviewSetupException("pilot-access-denied")
+            }
+            405 -> Unit // Existing broker, no separate read-only preflight yet.
+            403 -> throw LivePreviewSetupException("pilot-access-denied")
+            401 -> throw LivePreviewSetupException("session-authentication-failed")
+            429 -> throw LivePreviewSetupException("daily-voice-limit")
+            else -> throw LivePreviewSetupException("pre-admission-unavailable")
         }
     }
 
@@ -332,7 +426,9 @@ class GptLiveWebRtcSession(
         val json = runCatching { JSONObject(response.body) }
             .getOrElse { throw LivePreviewSetupException("invalid-server-response") }
         if (json.optString("configurationId") != CONFIGURATION_ID ||
-            !json.optJSONObject("session")?.optString("id").orEmpty().startsWith("live_") ||
+            !GptLiveSessionIdentity.isValid(
+                json.optJSONObject("session")?.optString("id").orEmpty(),
+            ) ||
             json.optJSONObject("transport")?.optString("type") != "webrtc"
         ) throw LivePreviewSetupException("invalid-server-response")
         val answer = json.getJSONObject("transport").optString("sdp")
@@ -400,14 +496,18 @@ class GptLiveWebRtcSession(
                 "session.input_transcript.delta", "session.output_transcript.delta" -> {
                     val delta = event.optString("delta").take(MAX_TRANSCRIPT_CHARS)
                     if (delta.isNotBlank()) handler.post {
-                        if (isCurrent(current)) observer.onTranscript(
-                            event.optString("type") == "session.input_transcript.delta", delta,
-                        )
+                        if (!isCurrent(current) || closing) return@post
+                        val fromUser = event.optString("type") == "session.input_transcript.delta"
+                        if (!fromUser) {
+                            audioActivityGate.onOutputTranscript(SystemClock.elapsedRealtime())
+                            scheduleVoiceQuietCheck()
+                        }
+                        observer.onTranscript(fromUser, delta)
                     }
                 }
                 "session.delegation.created" -> {
-                    // Voice Lab has no action authority. Resolve a delegation only
-                    // with a safe, bounded no-action explanation to the model.
+                    // Neither Wake Lab nor an actual wake session grants tool
+                    // authority. Respond safely without changing the stable persona.
                     // This ID is provider-generated; never treat it as an instruction.
                     val delegation = event.optJSONObject("delegation")
                     val id = delegation?.optString("id").orEmpty()
@@ -423,11 +523,21 @@ class GptLiveWebRtcSession(
                                     .put("event_id", "wmw_lab_no_action_${System.nanoTime()}")
                                     .put("delegation_id", id)
                                     .put("content",
-                                        "This is a voice-only preview. No external tools, sensors, alarm or snooze actions are available. Continue naturally without claiming any action happened."))) {
+                                        "This is a voice-only WakeMyWay session. You cannot invoke tools, schedule snooze, stop alarms, read sensors or verify movement. The app alone owns these actions. Stay in the selected character, answer naturally only when app-directed, and do not claim any action occurred."))) {
                                     fail("delegation-write", current)
                                 }
                             }
                         }
+                    }
+                }
+                "session.commentary.appended" -> handler.post {
+                    if (!isCurrent(current) || closing) return@post
+                    val acceptedId = event.optString("client_event_id")
+                    if (acceptedId.isNotBlank() && acceptedId == pendingWakeCueEventId) {
+                        // This acknowledges timeline admission, not audible
+                        // speech, transcription accuracy or completion.
+                        pendingWakeCueEventId = null
+                        observer.onStage("wake-cue-accepted")
                     }
                 }
                 "session.usage.updated" -> handler.post {
@@ -439,7 +549,16 @@ class GptLiveWebRtcSession(
                     updateUsage(event.optJSONObject("usage")?.optInt("seconds", -1) ?: -1, true)
                     finish(usageConfirmed = true)
                 }
-                "error" -> fail("provider-error", current)
+                "error" -> {
+                    val commandId = event.optJSONObject("error")
+                        ?.optString("client_event_id")
+                        ?.takeIf(String::isNotBlank)
+                        ?: event.optString("client_event_id")
+                    val stage = if (commandId.isNotBlank() &&
+                        commandId == pendingWakeCueEventId) "cue-append-rejected"
+                    else "provider-error"
+                    fail(stage, current)
+                }
             }
         }
     }
@@ -477,10 +596,19 @@ class GptLiveWebRtcSession(
             override fun onRenegotiationNeeded() = Unit
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
                 if (state == PeerConnection.IceConnectionState.FAILED ||
-                    state == PeerConnection.IceConnectionState.CLOSED) fail("ice-connection", current)
+                    state == PeerConnection.IceConnectionState.CLOSED) {
+                    fail("ice-connection", current)
+                } else {
+                    checkConnectionHealth(current)
+                }
             }
             override fun onConnectionChange(state: PeerConnection.PeerConnectionState?) {
-                if (state == PeerConnection.PeerConnectionState.FAILED) fail("peer-connection", current)
+                if (state == PeerConnection.PeerConnectionState.FAILED ||
+                    state == PeerConnection.PeerConnectionState.CLOSED) {
+                    fail("peer-connection", current)
+                } else {
+                    checkConnectionHealth(current)
+                }
             }
         }
 
@@ -502,12 +630,20 @@ class GptLiveWebRtcSession(
             lastAudioSampleNotice.set(now)
             handler.post {
                 if (!isCurrent(current) || closing) return@post
-                if (!outputActive) {
-                    outputActive = true
+                // Remote decoded PCM does not prove the device is still
+                // routing it through the loudspeaker we selected initially.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    !GptLiveAudioRoutePolicy.remainsOnSelectedSpeaker(
+                        selectedSpeakerId, manager?.communicationDevice?.id,
+                    )
+                ) {
+                    fail("audio-route-lost", current)
+                    return@post
+                }
+                if (audioActivityGate.onAudiblePcm(now)) {
                     observer.onRemoteSpeechActivity(true)
                 }
-                handler.removeCallbacks(remoteSilenceTimer)
-                handler.postDelayed(remoteSilenceTimer, 1_400L)
+                scheduleVoiceQuietCheck()
             }
         }
         remoteTrack = track
@@ -544,6 +680,11 @@ class GptLiveWebRtcSession(
 
     private fun configureAudioRoute() {
         val audio = appContext.getSystemService(AudioManager::class.java) ?: return
+        // A phone call or another communication app may already own this
+        // route. Never replace its mode with a wake conversation.
+        if (!GptLiveAudioRoutePolicy.mayAcquire(audio.mode)) {
+            throw LivePreviewSetupException("audio-route-busy")
+        }
         manager = audio
         previousMode = audio.mode
         @Suppress("DEPRECATION")
@@ -558,6 +699,9 @@ class GptLiveWebRtcSession(
             }
             speaker != null && runCatching { audio.setCommunicationDevice(speaker) }.getOrDefault(false)
         } else false
+        selectedSpeakerId = if (selected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audio.communicationDevice?.id
+        } else null
         if (!selected) {
             legacySpeakerRoute = true
             @Suppress("DEPRECATION")
@@ -581,13 +725,14 @@ class GptLiveWebRtcSession(
         previousMode = null
         previousSpeakerOn = null
         previousSpeakerId = null
+        selectedSpeakerId = null
         legacySpeakerRoute = false
     }
 
     private fun fail(stage: String, current: Long) {
         handler.post {
             if (!isCurrent(current) || closing) return@post
-            Log.w("WmwLiveLab", "failure stage=${stage.take(40)}")
+            Log.w("WmwLive", "failure stage=${stage.take(40)}")
             generation.incrementAndGet()
             observer.onFailure(stage.take(40))
             finish(usageConfirmed = false)
@@ -605,7 +750,9 @@ class GptLiveWebRtcSession(
         handler.removeCallbacks(sessionBudget)
         handler.removeCallbacks(closeTimeout)
         handler.removeCallbacks(remoteSilenceTimer)
-        outputActive = false
+        cancelDisconnectTimeout()
+        audioActivityGate.reset()
+        pendingWakeCueEventId = null
         remoteTrack?.let { track -> remoteSink?.let { sink -> runCatching { track.removeSink(sink) } } }
         remoteTrack = null
         remoteSink = null

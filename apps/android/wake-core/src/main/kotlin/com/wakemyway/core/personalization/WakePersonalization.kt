@@ -49,6 +49,14 @@ enum class HumorPreference {
     WELCOME,
 }
 
+/** Voice-only; independent of Android UI language and critical alarm sounds. */
+enum class WakeSpokenLanguage {
+    SYSTEM,
+    ENGLISH,
+    GERMAN,
+    HEBREW,
+}
+
 data class WakePreferences(
     val morningBarrier: MorningBarrier = MorningBarrier.UNSURE,
     val perceivedWakeInertia: PerceivedWakeInertia = PerceivedWakeInertia.UNSURE,
@@ -56,6 +64,7 @@ data class WakePreferences(
     val motivationStyle: MotivationStyle = MotivationStyle.CONCRETE_ACTION,
     val conversationAmount: ConversationAmount = ConversationAmount.BALANCED,
     val humorPreference: HumorPreference = HumorPreference.LIGHT,
+    val spokenLanguage: WakeSpokenLanguage = WakeSpokenLanguage.SYSTEM,
 )
 
 enum class WakeDirectness {

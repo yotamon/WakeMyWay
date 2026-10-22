@@ -31,7 +31,7 @@ internal object GptLivePreviewMessages {
                 "GPT-Live preview isn't enabled for this account. Check pilot access."
             "daily-voice-limit" ->
                 "The daily voice preview limit was reached. Try again tomorrow."
-            "provider-or-server-unavailable", "server-http-503" ->
+            "provider-or-server-unavailable", "server-http-503", "pre-admission-unavailable" ->
                 "The voice backend or OpenAI session is unavailable. Check model access and billing."
             "offer-rejected", "invalid-server-answer", "invalid-server-response" ->
                 "The WebRTC session handshake failed. This needs an application-side fix."
@@ -39,7 +39,8 @@ internal object GptLivePreviewMessages {
                 "Android couldn't establish a usable audio route (no ICE candidates). Try mobile data, disable VPN, or check network permissions."
             "ice-candidates-missing-from-sdp" ->
                 "Android found network candidates but did not include them in the offer. This needs a WebRTC signaling fix."
-            "startup-timeout", "ice-connection", "peer-connection", "remote-sdp" ->
+            "startup-timeout", "startup-budget-exhausted",
+            "ice-connection", "peer-connection", "remote-sdp" ->
                 "The secure audio connection failed. Try another network or audio device."
             "device-credential-storage-failed" ->
                 "Secure device authorization couldn't be stored. Unlock the device and retry."

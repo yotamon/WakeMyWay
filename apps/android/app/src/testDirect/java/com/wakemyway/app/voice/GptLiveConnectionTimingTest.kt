@@ -1,27 +1,24 @@
 package com.wakemyway.app.voice
 
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GptLiveConnectionTimingTest {
-    @Test fun liveHttpDeadlineDoesNotRaceTheServerProviderDeadline() {
-        assertTrue(GptLiveConnectionTiming.LIVE_BACKEND_TIMEOUT_MS >
-            GptLiveConnectionTiming.PROVIDER_DEADLINE_MS)
+    @Test fun preflightAndWebRtcShareOneAbsoluteBudget() {
+        val start = 12_000L
+        assertEquals(35_000L, GptLiveConnectionTiming.remainingStartupMillis(start, start))
+        assertEquals(17_000L, GptLiveConnectionTiming.remainingStartupMillis(start, start + 18_000))
+        assertEquals(0L, GptLiveConnectionTiming.remainingStartupMillis(start, start + 35_000))
+        assertEquals(0L, GptLiveConnectionTiming.remainingStartupMillis(start, start + 70_000))
     }
 
-    @Test fun startupBudgetIncludesIceAndBoundedBackendWait() {
-        assertTrue(GptLiveConnectionTiming.WEBRTC_STARTUP_TIMEOUT_MS >=
-            GptLiveConnectionTiming.ICE_GATHERING_TIMEOUT_MS +
-                GptLiveConnectionTiming.LIVE_BACKEND_TIMEOUT_MS + 4_000L)
-    }
-
-    @Test fun allPreSessionDeadlinesRemainFiniteAndWellBelowTwoMinutes() {
-        val deadlines = listOf(
-            GptLiveConnectionTiming.ACCOUNT_PREFLIGHT_TIMEOUT_MS,
-            GptLiveConnectionTiming.ICE_GATHERING_TIMEOUT_MS,
-            GptLiveConnectionTiming.LIVE_BACKEND_TIMEOUT_MS,
-            GptLiveConnectionTiming.WEBRTC_STARTUP_TIMEOUT_MS,
-        )
-        assertTrue(deadlines.all { it > 0 && it < 120_000L })
+    @Test fun aPaidExchangeNeedsEnoughRemainingBudget() {
+        val start = 1_000L
+        assertTrue(GptLiveConnectionTiming.remainingStartupMillis(start, start + 10_000) >=
+            GptLiveConnectionTiming.MIN_REMAINING_BEFORE_SDP_EXCHANGE_MS)
+        assertFalse(GptLiveConnectionTiming.remainingStartupMillis(start, start + 20_000) >=
+            GptLiveConnectionTiming.MIN_REMAINING_BEFORE_SDP_EXCHANGE_MS)
     }
 }

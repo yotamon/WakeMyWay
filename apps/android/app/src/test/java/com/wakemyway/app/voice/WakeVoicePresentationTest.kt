@@ -68,6 +68,46 @@ class WakeVoicePresentationTest {
     }
 
     @Test
+    fun `live failures distinguish startup from turn and transport failures`() {
+        assertEquals(
+            WakeVoiceDegradationReason.STARTUP_TIMEOUT,
+            degradationReasonForConversationFailure("live-account-preflight-timeout"),
+        )
+        assertEquals(
+            WakeVoiceDegradationReason.TURN_FAILURE,
+            degradationReasonForConversationFailure("live-no-audio"),
+        )
+        assertEquals(
+            WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE,
+            degradationReasonForConversationFailure("live-remote-audio-sink"),
+        )
+        assertEquals(
+            WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE,
+            degradationReasonForConversationFailure("live-audio-route-lost"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT,
+            diagnosticEventForConversationFailure("live-audio-route-busy"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT,
+            diagnosticEventForConversationFailure("live-startup-timeout"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("live-unexpected-output"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("live-cue-append-rejected"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT,
+            diagnosticEventForConversationFailure("live-remote-audio-sink"),
+        )
+    }
+
+    @Test
     fun `realtime failure diagnostics preserve the actionable failure layer`() {
         assertEquals(
             WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_CREDENTIAL,

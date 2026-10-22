@@ -121,6 +121,33 @@ class WakeTimingTrace(
         }
     }
 
+    /**
+     * Best-effort provider-reported usage from the client stream. Aggregate
+     * seconds only, never a provider session ID, transcript, or billable price.
+     * Intermediate reports are bucketed to limit device-protected disk writes.
+     */
+    fun voiceUsage(occurrenceId: WakeOccurrenceId, seconds: Int, final: Boolean) {
+        if (seconds !in 0..3_600) return
+        runCatching {
+            synchronized(LOCK) {
+                val sessions = readSessions()
+                val session = sessions.findSession(occurrenceId) ?: return@synchronized
+                val previous = session.optInt(KEY_VOICE_USAGE_SECONDS, -1)
+                if (seconds < previous || session.optBoolean(KEY_VOICE_USAGE_FINAL, false)) {
+                    return@synchronized
+                }
+                // Provider may emit every second. Persist only each 10-second
+                // bucket or the final event, including a final zero-duration.
+                if (!final && previous >= 0 && seconds - previous < 10) {
+                    return@synchronized
+                }
+                session.put(KEY_VOICE_USAGE_SECONDS, seconds)
+                if (final) session.put(KEY_VOICE_USAGE_FINAL, true)
+                persistSessions(sessions)
+            }
+        }
+    }
+
     fun stopped(occurrenceId: WakeOccurrenceId) = terminal(occurrenceId, TerminalAction.STOPPED)
 
     fun snoozed(occurrenceId: WakeOccurrenceId) = terminal(occurrenceId, TerminalAction.SNOOZED)
@@ -153,6 +180,27 @@ class WakeTimingTrace(
             appendLine("build=${Build.FINGERPRINT}")
             appendLine("app=$appVersion")
             appendLine("sessions=${sessions.size}")
+            appendLine("privacy-safe local metrics (limited history; remote PCM is not verified speaker audio):")
+            appendLine("  " + WakeLatencySummary.describe(
+                "trigger-to-native-audio", sessions.map { it.triggerToAudioMillis },
+            ))
+            appendLine("  " + WakeLatencySummary.describe(
+                "voice-connect-to-ready", sessions.map { it.realtimeConnectToReadyMillis },
+            ))
+            appendLine("  " + WakeLatencySummary.describe(
+                "voice-ready-to-remote-PCM", sessions.map { it.realtimeReadyToFirstSpeakingMillis },
+            ))
+            appendLine("  " + WakeSessionDurationSummary.describe(
+                "provider-reported-session-usage", sessions.map { it.voiceUsageSeconds },
+            ) + " (duration, not billed spend)")
+            appendLine("  confirmedUsageReports=" + sessions.count { it.voiceUsageFinal })
+            appendLine("  voiceReady=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_READY.name }
+            } + "; remotePCMObserved=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING.name }
+            } + "; voiceDegraded=" + sessions.count { snap ->
+                snap.events.any { it.type == WakeInteractiveDiagnosticEvent.REALTIME_DEGRADED.name }
+            })
             appendLine()
 
             sessions.forEachIndexed { index, session ->
@@ -166,6 +214,7 @@ class WakeTimingTrace(
                         "ui=${formatMillis(session.triggerToUiMillis)}",
                 )
                 appendLine("terminal=${session.terminalAction ?: "NONE"}; serviceRecoveries=${session.serviceRecoveryCount}")
+                appendLine("voiceUsageSeconds=${session.voiceUsageSeconds ?: "unknown"}; finalUsage=${session.voiceUsageFinal}")
                 appendLine(
                     "realtime connectToReady=${formatMillis(session.realtimeConnectToReadyMillis)} " +
                         "readyToFirstSpeech=${formatMillis(session.realtimeReadyToFirstSpeakingMillis)}",
@@ -295,6 +344,8 @@ class WakeTimingTrace(
             serviceRecoveryCount = json.optInt(KEY_SERVICE_RECOVERY_COUNT, 0),
             lastRecoveryWallMillis = json.optionalLong(KEY_LAST_RECOVERY_WALL_MS),
             events = json.events(),
+            voiceUsageSeconds = json.optionalInt(KEY_VOICE_USAGE_SECONDS),
+            voiceUsageFinal = json.optBoolean(KEY_VOICE_USAGE_FINAL, false),
         )
     }
 
@@ -315,6 +366,9 @@ class WakeTimingTrace(
             }
         }
     }
+
+    private fun JSONObject.optionalInt(key: String): Int? =
+        if (has(key) && !isNull(key)) getInt(key) else null
 
     private fun JSONObject.optionalLong(key: String): Long? =
         if (has(key) && !isNull(key)) getLong(key) else null
@@ -368,6 +422,8 @@ class WakeTimingTrace(
         private const val KEY_SERVICE_RECOVERY_COUNT = "service_recovery_count"
         private const val KEY_LAST_RECOVERY_WALL_MS = "last_recovery_wall_ms"
         private const val KEY_LAST_RECOVERY_ELAPSED_MS = "last_recovery_elapsed_ms"
+        private const val KEY_VOICE_USAGE_SECONDS = "voice_usage_seconds"
+        private const val KEY_VOICE_USAGE_FINAL = "voice_usage_final"
         private const val KEY_EVENTS = "events"
         private const val KEY_EVENT_TYPE = "type"
         private const val KEY_EVENT_WALL_MS = "wall_ms"
@@ -434,6 +490,8 @@ data class TimingSnapshot(
     val serviceRecoveryCount: Int,
     val lastRecoveryWallMillis: Long?,
     val events: List<TimingEventSnapshot>,
+    val voiceUsageSeconds: Int? = null,
+    val voiceUsageFinal: Boolean = false,
 ) {
     val triggerDelayMillis: Long? = receiverWallMillis?.minus(targetWallMillis)
     val triggerToForegroundMillis: Long? = elapsedDelta(foregroundElapsedMillis)

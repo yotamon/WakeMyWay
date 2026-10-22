@@ -11,7 +11,7 @@ enum class WakeVoiceDegradationReason {
 }
 
 internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDegradationReason =
-    when (stage) {
+    when (stage.removePrefix("live-")) {
         "credential",
         "webrtc-init",
         "offer",
@@ -22,16 +22,31 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "peer",
         "transport-disconnected",
         "data-channel-closed",
+        "channel-closed",
+        "ice-connection",
+        "peer-connection",
+        "remote-audio-sink",
+        "audio-route-busy",
+        "audio-route-lost",
         -> WakeVoiceDegradationReason.TRANSPORT_UNAVAILABLE
 
         "turn-budget",
+        "no-audio",
+        "queued-cue",
+        "unexpected-output",
+        "cue-append-rejected",
         -> WakeVoiceDegradationReason.TURN_FAILURE
+
+        "startup-timeout",
+        "account-preflight-timeout",
+        "startup-budget-exhausted",
+        -> WakeVoiceDegradationReason.STARTUP_TIMEOUT
 
         else -> WakeVoiceDegradationReason.SESSION_FAILURE
     }
 
 internal fun diagnosticEventForConversationFailure(stage: String): WakeInteractiveDiagnosticEvent =
-    when (stage) {
+    when (stage.removePrefix("live-")) {
         "credential" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_CREDENTIAL
 
         "webrtc-init",
@@ -41,13 +56,30 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "remote-sdp",
         "ice",
         "peer",
+        "ice-connection",
+        "peer-connection",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_NEGOTIATION
 
         "transport-disconnected",
         "data-channel-closed",
+        "channel-closed",
+        "remote-audio-sink",
+        "audio-route-busy",
+        "audio-route-lost",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT
 
-        "turn-budget" -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
+        "turn-budget",
+        "no-audio",
+        "queued-cue",
+        "unexpected-output",
+        "cue-append-rejected",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
+
+        "startup-timeout",
+        "account-preflight-timeout",
+        "startup-budget-exhausted",
+        -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_STARTUP_TIMEOUT
+
         else -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_SESSION
     }
 

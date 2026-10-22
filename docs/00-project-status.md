@@ -1,5 +1,10 @@
 # Project status
 
+## Premium voice-alarm hardening — implementation branch (2026-10-22)
+
+The active branch `feat/premium-wake-voice-reliability-20261022` contains changes to Direct Live pre-admission, conservative PCM/transcript turn coordination, disconnection recovery, serialized cues, character continuity, short ephemeral captions, audio duck/restoration, and human-focused listening copy. It preserves local Alarm Kernel authority and does **not** certify device reliability or ship a release. Read [the implementation and physical acceptance contract](implementation/2026-10-22-premium-voice-alarm.md) before merging. Older sections below describe the historical implementation timeline and are not a substitute for this current branch status.
+
+
 **Last updated:** 2026-10-05
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  

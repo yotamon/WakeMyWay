@@ -33,6 +33,7 @@ import com.wakemyway.core.personalization.MorningBarrier
 import com.wakemyway.core.personalization.MotivationStyle
 import com.wakemyway.core.personalization.PerceivedWakeInertia
 import com.wakemyway.core.personalization.WakePreferences
+import com.wakemyway.core.personalization.WakeSpokenLanguage
 
 @Composable
 fun WakePreferencesScreen(
@@ -97,6 +98,14 @@ fun WakePreferencesScreen(
                 selected = preferences.conversationAmount,
                 label = ::conversationAmountLabel,
                 onSelected = { onChanged(preferences.copy(conversationAmount = it)) },
+            )
+            PreferenceGroup(
+                title = "Wake conversation language",
+                detail = "Choose how your Character speaks. This does not change the app language or alarm sound.",
+                options = WakeSpokenLanguage.entries,
+                selected = preferences.spokenLanguage,
+                label = ::wakeSpokenLanguageLabel,
+                onSelected = { onChanged(preferences.copy(spokenLanguage = it)) },
             )
             PreferenceGroup(
                 title = "Humor",
@@ -192,4 +201,11 @@ internal fun humorPreferenceLabel(value: HumorPreference): String = when (value)
     HumorPreference.OFF -> "Off"
     HumorPreference.LIGHT -> "Light"
     HumorPreference.WELCOME -> "Welcome"
+}
+
+internal fun wakeSpokenLanguageLabel(value: WakeSpokenLanguage): String = when (value) {
+    WakeSpokenLanguage.SYSTEM -> "Follow my phone language"
+    WakeSpokenLanguage.ENGLISH -> "English"
+    WakeSpokenLanguage.GERMAN -> "Deutsch"
+    WakeSpokenLanguage.HEBREW -> "עברית"
 }

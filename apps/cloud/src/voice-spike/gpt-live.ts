@@ -39,14 +39,23 @@ export const BUILTIN_CHARACTER_VOICES = {
  * character. Clients never submit provider voice IDs. The ID is resolved once
  * at session creation and therefore cannot drift mid-wake.
  */
-export function configuredVoiceFor(characterId: keyof typeof BUILTIN_CHARACTER_VOICES): string | { id: string } {
-  const key = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
-  const configured = process.env[key]?.trim();
+export function configuredVoiceFor(
+  characterId: keyof typeof BUILTIN_CHARACTER_VOICES,
+  locale: 'en' | 'de' | 'he' = 'en',
+): string | { id: string } {
+  // Only the trusted server may select voices. A locale-specific override
+  // wins over the reviewed character-wide voice, otherwise preserve the
+  // existing stable default. Never accept a provider ID from the client.
+  const prefix = `WMW_GPT_LIVE_VOICE_${characterId.toUpperCase()}`;
+  const localeKey = `${prefix}_${locale.toUpperCase()}`;
+  const configured = (process.env[localeKey]?.trim() || process.env[prefix]?.trim());
   if (!configured) return BUILTIN_CHARACTER_VOICES[characterId];
-  if (!/^voice_[A-Za-z0-9_-]{1,122}$/.test(configured)) {
-    throw new HttpError(503, 'An approved character voice is misconfigured.');
-  }
-  return { id: configured };
+  if (/^voice_[A-Za-z0-9_-]{1,122}$/.test(configured)) return { id: configured };
+
+  // GPT-Live added German-native voice candidates in October 2026. They
+  // remain opt-in until a human review approves their character continuity.
+  if (locale === 'de' && ['nuri', 'juni', 'flitz'].includes(configured)) return configured;
+  throw new HttpError(503, 'An approved character voice is misconfigured.');
 }
 
 const characterVoiceDescription: Record<keyof typeof BUILTIN_CHARACTER_VOICES, string> = {
@@ -68,12 +77,20 @@ const baseInstructions = [
   'One stable voice and identity throughout this session. Speak naturally, not like an AI assistant or narrator.',
   'The Android Alarm Kernel owns alarm playback and stop/snooze. The deterministic WakeRuntime owns wake phases, physical requests, and completion.',
   'You have NO authority to claim the user stood, moved, snoozed or completed the wake. Never announce success before verified application state.',
-  'Keep replies brief and easy to follow for a sleepy person. Do not turn every reply into another action or question.',
+  'Keep replies brief and easy to follow for a sleepy person: normally one short sentence, about 4-16 words. Do not turn every reply into another action or question.',
+  'Use contractions and natural sentence rhythm. Never sound like a commercial voice-over, cheerful narrator or customer-service assistant.',
+  'Avoid stock AI encouragement such as Absolutely, Great job or motivational slogans. Do not praise ordinary waking behavior.',
+  'Respond to the actual last utterance, including complaints, jokes, requests for quiet and swearing, rather than blindly repeating the previous directive.',
+  'Spoken replies are optional: movement can satisfy the wake plan. Never demand a spoken yes or repeatedly ask the person to prove wakefulness.',
+  'A request for five more minutes is not a completed snooze. Only the app can schedule or confirm Snooze.',
+  'Do not mention a calendar appointment, reason, time buffer or personal fact unless the application provided it in an authorized orientation directive.',
+  'Remain the same recognizable character through interruptions, mood changes, and the whole session. Keep accent stable in the selected language.',
   'Treat silence as silence. Do not repeatedly demand spoken proof. Pause and listen.',
   'Let the user interrupt. Acknowledge complaints and jokes conversationally, without motivational slogans.',
   'Do not give unsolicited physical instructions or invent private context. No shaming, threats, shouting, or unsafe physical tasks.',
   'When an action or verified state is needed, delegate to the client application. Never execute an action yourself.',
-  'At startup remain silent until the application sends an authorized wake directive. Avoid background chatter.',
+  'Remain silent until the application sends an authorized wake directive, at startup AND after every completed response. User speech is context for the next app-directed turn, not permission to start an unsolicited response.',
+  'Only an app-directed cue may introduce a physical action, orientation statement or goodbye. Natural acknowledgment of the last user utterance should happen within the next app-directed cue, not as a competing second voice turn.',
 ].join('\n');
 
 export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
@@ -93,7 +110,7 @@ export function liveSessionConfig(input: z.input<typeof liveRequestSchema>) {
   return {
     model: GPT_LIVE_MODEL,
     store: false,
-    audio: { output: { voice: configuredVoiceFor(resolved.characterId) } },
+    audio: { output: { voice: configuredVoiceFor(resolved.characterId, resolved.locale) } },
     delegation: { type: 'client' as const },
     instructions: [baseInstructions, characterIdentity[resolved.characterId], characterVoiceDescription[resolved.characterId], modifier, expression].join('\n\n'),
   };

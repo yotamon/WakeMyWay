@@ -105,7 +105,7 @@ class WakeVoiceSessionController(
                     conversationLive = true
                     mainHandler.removeCallbacks(startFallback)
                     when {
-                        startRequested && !started -> beginRuntime()
+                        startRequested && surfaceVisible && !started -> beginRuntime()
                         started -> syncSurfaceBoundResources()
                         else -> publish()
                     }
@@ -115,7 +115,16 @@ class WakeVoiceSessionController(
             override fun onAssistantSpeechStarted() {
                 mainHandler.post {
                     if (closed || alarmOnly || !realtimeTurnInFlight) return@post
+                    if (!surfaceVisible) {
+                        enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
+                        return@post
+                    }
                     timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_SPEAKING)
+                    audibleAssistantOutput = true
+                    if (captionBuffer.isNotEmpty()) {
+                        currentLine = captionBuffer.toString()
+                            .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
+                    }
                     speaking = true
                     listening = false
                     mode = if (::snapshot.isInitialized && snapshot.phase == WakePhase.ORIENTING) {
@@ -123,14 +132,43 @@ class WakeVoiceSessionController(
                     } else {
                         WakeVoiceMode.SPEAKING
                     }
-                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    setVoiceWindow(true, renew = true)
                     publish()
+                }
+            }
+
+            override fun onAssistantTranscript(delta: String) {
+                mainHandler.post {
+                    if (closed || alarmOnly || !realtimeTurnInFlight || delta.isBlank()) return@post
+                    // Output captions only; no raw mic text and no persistence in Wake History.
+                    val printable = delta.map { character ->
+                        if (Character.isISOControl(character) || character == '\n' || character == '\r') ' ' else character
+                    }.joinToString("")
+                    captionBuffer.append(printable)
+                    if (captionBuffer.length > 240) {
+                        captionBuffer.delete(0, captionBuffer.length - 240)
+                    }
+                    if (audibleAssistantOutput) {
+                        currentLine = captionBuffer.toString()
+                            .replace(Regex("\\s+"), " ").trim().takeLast(200).ifBlank { null }
+                        publish()
+                    }
                 }
             }
 
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
-                    if (closed || alarmOnly || !realtimeTurnInFlight || !started) return@post
+                    if (closed || alarmOnly || !started) return@post
+                    // The last user reply might have consumed this runtime turn
+                    // before the remote PCM tail. Restore music, but never
+                    // dispatch a duplicate SpeechFinished after that reply.
+                    val hadActiveRuntimeTurn = realtimeTurnInFlight
+                    audibleAssistantOutput = false
+                    if (!hadActiveRuntimeTurn) {
+                        if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) setVoiceWindow(false)
+                        publish()
+                        return@post
+                    }
                     val userSpeechAlreadyStarted = listening
                     speaking = false
                     if (interrupted) {
@@ -154,6 +192,7 @@ class WakeVoiceSessionController(
 
                     realtimeTurnInFlight = false
                     realtimeIntent = null
+                    setVoiceWindow(false)
                     dispatch(WakeInput.SpeechFinished(nextInputId("realtime-speech-finished")))
                 }
             }
@@ -165,7 +204,7 @@ class WakeVoiceSessionController(
                     timingTrace.interactive(occurrenceId, WakeInteractiveDiagnosticEvent.REALTIME_LISTENING)
                     listening = true
                     mode = WakeVoiceMode.LISTENING
-                    AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+                    setVoiceWindow(true)
                     publish()
                 }
             }
@@ -182,6 +221,7 @@ class WakeVoiceSessionController(
                     speaking = false
                     realtimeTurnInFlight = false
                     realtimeIntent = null
+                    if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) setVoiceWindow(false)
                     dispatch(
                         WakeInput.VoiceResponseObserved(
                             id = nextInputId(
@@ -190,6 +230,12 @@ class WakeVoiceSessionController(
                             coherent = coherent,
                         ),
                     )
+                }
+            }
+
+            override fun onProviderUsageObserved(seconds: Int, final: Boolean) {
+                mainHandler.post {
+                    if (!closed) timingTrace.voiceUsage(occurrenceId, seconds, final)
                 }
             }
 
@@ -214,13 +260,16 @@ class WakeVoiceSessionController(
     private var closed = false
     private var listening = false
     private var speaking = false
+    private var audibleAssistantOutput = false
     private var voiceResponseRequested = false
     private var motionObservationRequested = false
     private var motionObserving = false
     private var inputSequence = 0L
     private var currentLine: String? = null
+    private val captionBuffer = StringBuilder()
     private var mode: WakeVoiceMode = WakeVoiceMode.STARTING
     private var conversationLive = false
+    private var voiceWindowOpen = false
     private var alarmOnly = false
     private var degradationReason: WakeVoiceDegradationReason? = null
     private var realtimeTurnInFlight = false
@@ -258,6 +307,9 @@ class WakeVoiceSessionController(
             voiceResponseRequested = false
             listening = false
             conversation?.setInputEnabled(false)
+            if (!WakeVoiceAudioPolicy.voiceWindowNeeded(audibleAssistantOutput, listening)) {
+                setVoiceWindow(false)
+            }
             dispatch(
                 WakeInput.SilenceElapsed(
                     id = nextInputId("realtime-silence"),
@@ -283,7 +335,9 @@ class WakeVoiceSessionController(
             }
         } else if (!alarmOnly) {
             conversation?.connect()
-            if (started) {
+            if (conversationLive && !started) {
+                beginRuntime()
+            } else if (started) {
                 dispatch(WakeInput.WakeSurfacePresented(nextInputId("surface-visible")))
             }
         }
@@ -300,9 +354,16 @@ class WakeVoiceSessionController(
     override fun onSurfaceHidden() {
         surfaceVisible = false
         mainHandler.removeCallbacks(silenceWatchdog)
-        suspendListeningForHiddenSurface()
-        suspendMotionForHiddenSurface()
-        AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        // Do not keep the microphone, remote speech and critical music ducked
+        // behind a hidden surface. Re-entry remains a safe alarm-only wake.
+        if (started && !alarmOnly) {
+            enterAlarmOnly(WakeVoiceDegradationReason.SESSION_FAILURE)
+        } else {
+            suspendListeningForHiddenSurface()
+            suspendMotionForHiddenSurface()
+            setVoiceWindow(false)
+            AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        }
     }
 
     override fun closeForTerminalAction() {
@@ -324,11 +385,17 @@ class WakeVoiceSessionController(
         listening = false
         speaking = false
         conversation?.close()
+        captionBuffer.setLength(0)
+        currentLine = null
+        audibleAssistantOutput = false
         calendarScope.cancel()
         motionObserver.stop()
         motionObserving = false
         if (restoreCriticalAudio) {
+            setVoiceWindow(false)
             AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        } else {
+            voiceWindowOpen = false
         }
     }
 
@@ -422,13 +489,16 @@ class WakeVoiceSessionController(
         speaking = true
         listening = false
         currentLine = null
+        captionBuffer.setLength(0)
+        audibleAssistantOutput = false
         mode = if (snapshot.phase == WakePhase.ORIENTING) {
             WakeVoiceMode.ORIENTING
         } else {
             WakeVoiceMode.SPEAKING
         }
         liveConversation.setInputEnabled(true)
-        AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+        // Keep the alarm at critical gain until actual remote PCM starts:
+        // a silent or delayed provider must not suppress wake playback.
         publish()
 
         val now = System.currentTimeMillis()
@@ -470,7 +540,7 @@ class WakeVoiceSessionController(
             mode = WakeVoiceMode.LISTENING
             currentLine = null
             conversation.setInputEnabled(true)
-            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+            setVoiceWindow(true)
             mainHandler.removeCallbacks(realtimeSilenceTimeout)
             mainHandler.postDelayed(
                 realtimeSilenceTimeout,
@@ -579,6 +649,7 @@ class WakeVoiceSessionController(
                 speechAvailable = snapshot.capabilities.speechAvailable,
                 voiceInputAvailable = snapshot.capabilities.voiceInputAvailable,
                 conversational = conversationLive,
+                characterName = sessionPlan.characterId.value.replaceFirstChar { it.uppercase() },
             ),
         )
     }
@@ -616,14 +687,28 @@ class WakeVoiceSessionController(
         realtimeTurnInFlight = false
         realtimeIntent = null
         currentLine = null
+        captionBuffer.setLength(0)
+        audibleAssistantOutput = false
         mainHandler.removeCallbacks(startFallback)
         mainHandler.removeCallbacks(silenceWatchdog)
         mainHandler.removeCallbacks(realtimeSilenceTimeout)
         conversation?.setInputEnabled(false)
         conversation?.close()
         stopMotionObservation()
+        setVoiceWindow(false)
         AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
         publish()
+    }
+
+    /** Idempotent request to the authoritative alarm service, never a player owner. */
+    private fun setVoiceWindow(active: Boolean, renew: Boolean = false) {
+        if (voiceWindowOpen == active && !(active && renew)) return
+        voiceWindowOpen = active
+        if (active) {
+            AlarmPlaybackService.requestVoiceWindow(appContext, occurrenceId)
+        } else {
+            AlarmPlaybackService.requestCriticalVolume(appContext, occurrenceId)
+        }
     }
 
     private fun nextInputId(kind: String): WakeInputId =
@@ -663,4 +748,5 @@ data class WakeVoiceUiState(
     val voiceInputAvailable: Boolean = false,
     val conversational: Boolean = false,
     val degradationReason: WakeVoiceDegradationReason? = null,
+    val characterName: String = "Alfred",
 )

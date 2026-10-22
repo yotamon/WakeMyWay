@@ -127,11 +127,13 @@ ALERTING → ENGAGING → ACTIVATING → ORIENTING → FINISHED
 
 Typed `WakeInput` facts enter the runtime. Typed `WakeDirective` decisions come out. Android adapters execute those decisions and report facts back.
 
-### 🗣️ Local conversational wake
+### 🗣️ Optional GPT-Live conversational wake (Direct)
 
-Alfred can speak using a verified offline Android TTS voice and listen using Android's on-device speech recognizer. When both capabilities are healthy, motion alone cannot silently finish the wake sequence: at least one coherent spoken reply is required before orientation.
+The Direct Android flavor prefers the OpenAI GPT-Live WebRTC conversation, with an account-authorized, non-billable admission check before connecting. Explicit pre-admission Live denial can use the existing Realtime adapter. Network loss, post-admission errors, or a silent voice provider instead leave the app in fully functional local alarm-only mode. The Play flavor currently retains its separate distribution capability boundary.
 
-The microphone path does **not** persist raw audio or recognized transcript text. The release Android baseline also does not require `INTERNET` permission for local voice.
+Alfred, Sam, Luna and Rocco keep a stable character for the session. Speech is a **choice**, not a compliance ritual: meaningful motion can progress the deterministic Wake Runtime without demanding a spoken confirmation. Transient model output captions are displayed only after remote PCM activity and after device unlock; raw microphone audio and recognized user transcripts are not persisted. GPT-Live connectivity or transcript text is **not** proof of speaker audibility or waking up.
+
+The **critical alarm does not depend on INTERNET, a provider, sign-in or a voice response**. Direct voice enrichment uses network when available; there is intentionally no degraded local TTS imitation of the premium voice.
 
 ### 📱 Physical activation evidence
 
@@ -258,7 +260,7 @@ For the full documentation map, see [`docs/README.md`](docs/README.md).
 
 Wake My Way is intentionally conservative about reliability claims.
 
-Automated tests can prove deterministic behavior, integration compatibility, timing evidence and emulator coverage. They **cannot** prove the real overnight experience across locked screens, Doze, reboot-before-unlock, OEM power management, Bluetooth routing, local TTS/STT availability, or every physical device.
+Automated tests can prove deterministic behavior, integration compatibility, timing evidence and emulator coverage. They **cannot** prove the real overnight experience across locked screens, Doze, reboot-before-unlock, OEM power management, Bluetooth routing, speaker audibility, provider turn-taking, or every physical device.
 
 That physical evidence is the current next gate before broader reliability claims.
 
