@@ -34,6 +34,7 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "no-audio",
         "queued-cue",
         "unexpected-output",
+        "cue-append-rejected",
         -> WakeVoiceDegradationReason.TURN_FAILURE
 
         "startup-timeout",
@@ -71,6 +72,7 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "no-audio",
         "queued-cue",
         "unexpected-output",
+        "cue-append-rejected",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
 
         "startup-timeout",

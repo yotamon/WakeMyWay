@@ -98,6 +98,10 @@ class WakeVoicePresentationTest {
             diagnosticEventForConversationFailure("live-unexpected-output"),
         )
         assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("live-cue-append-rejected"),
+        )
+        assertEquals(
             WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TRANSPORT,
             diagnosticEventForConversationFailure("live-remote-audio-sink"),
         )

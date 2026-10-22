@@ -89,3 +89,7 @@ CI verifies software contracts, not biologically confirmed wakefulness or physic
 ## Real communication-route safety (code guard, not device acceptance)
 
 If Android reports an active call or an existing communication session, Live must not claim the route and instead degrades without touching the local alarm. Once the configured built-in communication speaker is selected, unexpected route changes during incoming PCM fail the optional voice session and restore ordinary critical alarm playback. The speaker-route comparison is guarded by Android API level. This detects a changed OS route; it does not measure acoustic output, volume, wireless devices or transient underruns. Verify with real Bluetooth devices, media playback and phone calls.
+
+## Opaque provider session IDs and commentary acknowledgments
+
+Provider-assigned Live session IDs are opaque. Accept validated nonblank bounded IDs without assuming a `live_` prefix (including OpenAI's documented `sess_` examples). When a wake `session.commentary.append` is explicitly rejected, fail the optional voice turn without retrying a potentially admitted session. An acknowledged append only means the provider accepted context into the timeline; neither it nor an output transcript proves that the user heard speech. This distinction is retained in the diagnostics.

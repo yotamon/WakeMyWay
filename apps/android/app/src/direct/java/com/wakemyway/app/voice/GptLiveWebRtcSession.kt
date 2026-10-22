@@ -92,6 +92,7 @@ class GptLiveWebRtcSession(
     private var closed = false
     private var closing = false
     private var lastUsageSeconds = 0
+    private var pendingWakeCueEventId: String? = null
     private var labSettings = VoiceLabSettings()
     private var selectedVoiceStyle = "default"
     private var exchangeStarted = false
@@ -227,11 +228,14 @@ class GptLiveWebRtcSession(
         val current = generation.get()
         val events = channel ?: return false
         if (content.length !in 1..500 || !isCurrent(current) || !readyState.get() || closing) return false
-        return send(events, JSONObject()
+        val cueEventId = "wmw_wake_${current}_${System.nanoTime()}"
+        val accepted = send(events, JSONObject()
             .put("type", "session.commentary.append")
-            .put("event_id", "wmw_wake_${current}_${System.nanoTime()}")
+            .put("event_id", cueEventId)
             .put("delegation_id", JSONObject.NULL)
             .put("content", content))
+        if (accepted) pendingWakeCueEventId = cueEventId
+        return accepted
     }
 
     /** Stop microphone immediately even if session close is still pending. */
@@ -422,7 +426,9 @@ class GptLiveWebRtcSession(
         val json = runCatching { JSONObject(response.body) }
             .getOrElse { throw LivePreviewSetupException("invalid-server-response") }
         if (json.optString("configurationId") != CONFIGURATION_ID ||
-            !json.optJSONObject("session")?.optString("id").orEmpty().startsWith("live_") ||
+            !GptLiveSessionIdentity.isValid(
+                json.optJSONObject("session")?.optString("id").orEmpty(),
+            ) ||
             json.optJSONObject("transport")?.optString("type") != "webrtc"
         ) throw LivePreviewSetupException("invalid-server-response")
         val answer = json.getJSONObject("transport").optString("sdp")
@@ -524,6 +530,16 @@ class GptLiveWebRtcSession(
                         }
                     }
                 }
+                "session.commentary.appended" -> handler.post {
+                    if (!isCurrent(current) || closing) return@post
+                    val acceptedId = event.optString("client_event_id")
+                    if (acceptedId.isNotBlank() && acceptedId == pendingWakeCueEventId) {
+                        // This acknowledges timeline admission, not audible
+                        // speech, transcription accuracy or completion.
+                        pendingWakeCueEventId = null
+                        observer.onStage("wake-cue-accepted")
+                    }
+                }
                 "session.usage.updated" -> handler.post {
                     if (!isCurrent(current)) return@post
                     updateUsage(event.optJSONObject("usage")?.optInt("seconds", -1) ?: -1, false)
@@ -533,7 +549,16 @@ class GptLiveWebRtcSession(
                     updateUsage(event.optJSONObject("usage")?.optInt("seconds", -1) ?: -1, true)
                     finish(usageConfirmed = true)
                 }
-                "error" -> fail("provider-error", current)
+                "error" -> {
+                    val commandId = event.optJSONObject("error")
+                        ?.optString("client_event_id")
+                        ?.takeIf(String::isNotBlank)
+                        ?: event.optString("client_event_id")
+                    val stage = if (commandId.isNotBlank() &&
+                        commandId == pendingWakeCueEventId) "cue-append-rejected"
+                    else "provider-error"
+                    fail(stage, current)
+                }
             }
         }
     }
@@ -727,6 +752,7 @@ class GptLiveWebRtcSession(
         handler.removeCallbacks(remoteSilenceTimer)
         cancelDisconnectTimeout()
         audioActivityGate.reset()
+        pendingWakeCueEventId = null
         remoteTrack?.let { track -> remoteSink?.let { sink -> runCatching { track.removeSink(sink) } } }
         remoteTrack = null
         remoteSink = null
