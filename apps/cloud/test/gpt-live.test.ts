@@ -40,6 +40,21 @@ describe('GPT-Live session configuration', () => {
     expect(() => liveSessionConfig(request)).toThrow('misconfigured');
   });
 
+  it('isolates reviewed German voice selection from other locales', () => {
+    vi.stubEnv('WMW_GPT_LIVE_VOICE_ALFRED_DE', 'nuri');
+    expect(liveSessionConfig({ ...request, locale: 'de' }).audio.output.voice).toBe('nuri');
+    expect(liveSessionConfig({ ...request, locale: 'en' }).audio.output.voice).toBe('vesper');
+    expect(liveSessionConfig({ ...request, locale: 'he' }).audio.output.voice).toBe('vesper');
+
+    vi.stubEnv('WMW_GPT_LIVE_VOICE_ALFRED_HE', 'voice_reviewed_hebrew');
+    expect(liveSessionConfig({ ...request, locale: 'he' }).audio.output.voice)
+      .toEqual({ id: 'voice_reviewed_hebrew' });
+
+    vi.stubEnv('WMW_GPT_LIVE_VOICE_ALFRED_DE', 'unreviewed-voice');
+    expect(() => liveSessionConfig({ ...request, locale: 'de' }))
+      .toThrow('misconfigured');
+  });
+
   it('resolves known characters to approved voices only', () => {
     expect(liveSessionConfig({ ...request, characterId: 'luna' }).audio.output.voice).toBe('willow');
     expect(liveRequestSchema.safeParse({ ...request, characterId: 'unknown' }).success).toBe(false);
