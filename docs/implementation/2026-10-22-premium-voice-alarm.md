@@ -79,3 +79,9 @@ For each run verify:
 | Signed release | Not completed | Real-device signoff, cloud deployment, operator-triggered release/signing |
 
 CI verifies software contracts, not biologically confirmed wakefulness or physical speaker audibility. A green Android emulator is a release candidate, not a reliability guarantee.
+
+## Additional hardening: fallback compatibility and usage accounting
+
+- Legacy Realtime is only started after an explicit no-admission 403, **and only** when the selected persona is Alfred, the selected spoken locale is English, and enough startup budget remains for its separate connection. Other characters/languages retain the original local alarm sound rather than unexpectedly switching identities.
+- GPT-Live usage seconds received from the provider are recorded in the privacy-safe on-device wake journal (with a final-report flag) and included in its report. This is a measured **duration proxy**, not OpenAI's billed currency, token breakdown, or proof that the sound reached the speaker.
+- The local alarm remains independent of admission, transport and usage accounting.

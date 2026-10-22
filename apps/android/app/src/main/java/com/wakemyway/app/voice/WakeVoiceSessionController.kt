@@ -233,6 +233,12 @@ class WakeVoiceSessionController(
                 }
             }
 
+            override fun onProviderUsageObserved(seconds: Int, final: Boolean) {
+                mainHandler.post {
+                    if (!closed) timingTrace.voiceUsage(occurrenceId, seconds, final)
+                }
+            }
+
             override fun onConversationFailure(stage: String) {
                 mainHandler.post {
                     if (closed || alarmOnly) return@post

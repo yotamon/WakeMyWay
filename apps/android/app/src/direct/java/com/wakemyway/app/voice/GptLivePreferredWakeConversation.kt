@@ -26,6 +26,7 @@ class GptLivePreferredWakeConversation(
     private var session: GptLiveWebRtcSession? = null
     private var legacy: DirectRealtimeWakeConversation? = null
     private var fallbackPending = false
+    private var connectedAtElapsedMillis = 0L
     private var closed = false
     private var liveReady = false
     private var inputEnabled = false
@@ -69,6 +70,7 @@ class GptLivePreferredWakeConversation(
         if (closed) return
         legacy?.let { it.connect(); return }
         if (fallbackPending || session != null) return
+        connectedAtElapsedMillis = SystemClock.elapsedRealtime()
         session = GptLiveWebRtcSession(appContext, this).also { transport ->
             transport.connect(
                 character = when (plan.characterId.value) {
@@ -216,7 +218,9 @@ class GptLivePreferredWakeConversation(
         listener.onConversationFailure("live-$stage")
     }
 
-    override fun onUsageSeconds(seconds: Int, final: Boolean) = Unit
+    override fun onUsageSeconds(seconds: Int, final: Boolean) {
+        if (!closed && liveReady) listener.onProviderUsageObserved(seconds, final)
+    }
 
     override fun onSessionClosed(usageConfirmed: Boolean) {
         liveReady = false
@@ -230,9 +234,24 @@ class GptLivePreferredWakeConversation(
         if (closed) return
         if (fallbackPending) {
             fallbackPending = false
-            legacy = DirectRealtimeWakeConversation(appContext, listener)
-            legacy?.setInputEnabled(inputEnabled)
-            legacy?.connect()
+            val candidate = DirectRealtimeWakeConversation(appContext, listener)
+            val allowed = GptLiveFallbackPolicy.canStart(
+                selectedCharacterId = plan.characterId.value,
+                selectedLocale = resolveWakeLiveLocale(
+                    plan.preferences.spokenLanguage, java.util.Locale.getDefault().language,
+                ),
+                elapsedSinceConnectMillis = SystemClock.elapsedRealtime() - connectedAtElapsedMillis,
+                totalStartupMillis = startupBudgetMillis,
+                legacyStartupMillis = candidate.startupBudgetMillis,
+            )
+            if (allowed) {
+                legacy = candidate
+                candidate.setInputEnabled(inputEnabled)
+                candidate.connect()
+            } else {
+                candidate.close()
+                listener.onConversationFailure("live-legacy-fallback-incompatible")
+            }
         } else {
             listener.onConversationFailure("live-session-ended")
         }

@@ -28,6 +28,8 @@ interface WakeConversationEnrichment : AutoCloseable {
         fun onUserSpeechStarted()
         /** Reports whether the detected audio turn contained usable, intentional spoken engagement. */
         fun onUserTurnObserved(coherent: Boolean = true)
+        /** Provider-reported seconds are a local cost proxy, not billed currency. */
+        fun onProviderUsageObserved(seconds: Int, final: Boolean) = Unit
         fun onConversationFailure(stage: String)
     }
 
