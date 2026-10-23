@@ -41,10 +41,44 @@ class WakeTimingTrace(
         val session = sessions.findSession(occurrence.id) ?: newSession(occurrence).also {
             sessions.add(0, it)
         }
-        session.put(KEY_SCENARIO, scenario)
+        // A scheduled occurrence may be registered again during reconcile/reboot. Keep the
+        // original expectation, while allowing a lab scenario to annotate a production record.
+        if (scenario != SCENARIO_SCHEDULED_WAKE || !session.has(KEY_SCENARIO)) {
+            session.put(KEY_SCENARIO, scenario)
+        }
         session.put(KEY_EXPECT_FULL_SCREEN, expectFullScreen)
-        session.put(KEY_EXPECTED_WALL_MS, System.currentTimeMillis())
-        appendEvent(session, EVENT_EXPECTED, "scenario=$scenario;fullScreen=$expectFullScreen")
+        if (session.optString(KEY_TERMINAL_ACTION) == "CANCELLED" &&
+            !session.has(KEY_RECEIVER_WALL_MS)
+        ) {
+            // A previously suspended occurrence has been durably registered again.
+            session.remove(KEY_TERMINAL_ACTION)
+            session.remove(KEY_TERMINAL_WALL_MS)
+            session.remove(KEY_TERMINAL_ELAPSED_MS)
+            appendEvent(session, EVENT_RE_REGISTERED)
+        }
+        if (!session.has(KEY_EXPECTED_WALL_MS)) {
+            session.put(KEY_EXPECTED_WALL_MS, System.currentTimeMillis())
+            appendEvent(session, EVENT_EXPECTED, "scenario=$scenario;fullScreen=$expectFullScreen")
+        }
+    }
+
+    /**
+     * A deliberately canceled pending OS occurrence must not look like a missed alarm.
+     * Once the receiver ran (or the delivery grace window already expired), never erase
+     * delivery/failure evidence. Re-registration can reopen a previously canceled expectation.
+     */
+    fun cancelled(occurrenceId: WakeOccurrenceId) = safelyMutate { sessions ->
+        sessions.findSession(occurrenceId)?.let { session ->
+            if (session.has(KEY_TERMINAL_ACTION) || session.has(KEY_RECEIVER_WALL_MS)) return@let
+            val dueWithGrace = session.optLong(KEY_TARGET_WALL_MS) + MISSED_RECEIVER_GRACE_MS
+            if (System.currentTimeMillis() > dueWithGrace) {
+                appendEvent(session, EVENT_CANCELLED_AFTER_DUE)
+                return@let
+            }
+            session.put(KEY_TERMINAL_ACTION, "CANCELLED")
+            session.put(KEY_TERMINAL_WALL_MS, System.currentTimeMillis())
+            appendEvent(session, EVENT_CANCELLED)
+        }
     }
 
     fun receiver(occurrence: WakeOccurrence) = safelyMutate { sessions ->
@@ -180,6 +214,10 @@ class WakeTimingTrace(
             appendLine("build=${Build.FINGERPRINT}")
             appendLine("app=$appVersion")
             appendLine("sessions=${sessions.size}")
+            appendLine("trackedExpected=${sessions.count { it.expectedWallMillis != null }}; " +
+                "canceledBeforeDelivery=${sessions.count { it.terminalAction == "CANCELLED" }}; " +
+                "missedReceiver=${sessions.count { it.state() == ReliabilityState.MISSED_RECEIVER }} " +
+                "(bounded journal, not an audit of every historical alarm)")
             appendLine("privacy-safe local metrics (limited history; remote PCM is not verified speaker audio):")
             appendLine("  " + WakeLatencySummary.describe(
                 "trigger-to-native-audio", sessions.map { it.triggerToAudioMillis },
@@ -380,6 +418,7 @@ class WakeTimingTrace(
     }
 
     companion object {
+        const val SCENARIO_SCHEDULED_WAKE = "SCHEDULED_WAKE"
         const val SCENARIO_INSTANT_FUNCTIONAL_TEST = "INSTANT_FUNCTIONAL_TEST"
         const val SCENARIO_NORMAL_T_PLUS_2M = "NORMAL_T_PLUS_2M"
         const val SCENARIO_SNOOZE_REPLACEMENT = "SNOOZE_REPLACEMENT"
@@ -430,6 +469,9 @@ class WakeTimingTrace(
         private const val KEY_EVENT_ELAPSED_MS = "elapsed_ms"
         private const val KEY_EVENT_DETAIL = "detail"
         private const val EVENT_EXPECTED = "EXPECTED"
+        private const val EVENT_CANCELLED = "CANCELLED"
+        private const val EVENT_CANCELLED_AFTER_DUE = "CANCEL_AFTER_DUE"
+        private const val EVENT_RE_REGISTERED = "RE_REGISTERED"
         private const val EVENT_RECEIVER = "RECEIVER"
         private const val EVENT_FOREGROUND = "FOREGROUND"
         private const val EVENT_AUDIO_STARTED = "AUDIO_STARTED"
@@ -515,9 +557,11 @@ data class TimingSnapshot(
         terminalAction == "STOPPED" -> ReliabilityState.STOPPED
         terminalAction == "SNOOZED" -> ReliabilityState.SNOOZED
         terminalAction == "INVALIDATED" -> ReliabilityState.INVALIDATED
+        terminalAction == "CANCELLED" -> ReliabilityState.CANCELLED
         scenario == WakeTimingTrace.SCENARIO_INSTANT_FUNCTIONAL_TEST && audioWallMillis != null ->
             ReliabilityState.ACTIVE
-        receiverWallMillis == null && nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
+        receiverWallMillis == null && expectedWallMillis != null &&
+            nowWallMillis > targetWallMillis + missedReceiverGraceMillis -> ReliabilityState.MISSED_RECEIVER
         receiverWallMillis == null -> ReliabilityState.EXPECTED
         audioWallMillis == null && nowWallMillis > receiverWallMillis + deliveryStageGraceMillis -> ReliabilityState.AUDIO_TIMEOUT
         audioWallMillis == null -> ReliabilityState.RECEIVED_NO_AUDIO_YET
@@ -556,6 +600,7 @@ enum class ReliabilityState {
     STOPPED,
     SNOOZED,
     INVALIDATED,
+    CANCELLED,
 }
 
 private fun formatMillis(value: Long?): String = value?.let { "${it}ms" } ?: "—"

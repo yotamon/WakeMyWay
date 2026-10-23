@@ -12,6 +12,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -47,6 +48,25 @@ class AlarmKernelRobolectricTest {
     fun tearDown() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
         runCatching { kernel.cancelSchedule() }
+    }
+
+    @Test
+    fun `ordinary registered alarm appears in the same expectation journal as Wake Lab`() {
+        val schedule = oneShotSchedule("normal-journal-" + System.nanoTime(), minutesFromNow = 20)
+        val next = requireNotNull(kernel.commitSchedule(schedule).nextOccurrence)
+        val trace = WakeTimingTrace(context)
+        val expected = requireNotNull(
+            trace.history().firstOrNull { it.occurrenceId == next.id.value },
+        )
+
+        assertEquals(WakeTimingTrace.SCENARIO_SCHEDULED_WAKE, expected.scenario)
+        assertNotNull(expected.expectedWallMillis)
+        assertEquals(ReliabilityState.EXPECTED, expected.state(nowWallMillis = next.scheduledAt.toInstant().toEpochMilli()))
+        assertEquals(1, expected.events.count { it.type == "EXPECTED" })
+
+        // This test uses a fixed historical kernel clock, so cancellation classification
+        // (which intentionally uses the real wall clock) is covered separately in the
+        // instrumentation test with an actual future occurrence.
     }
 
     @Test
