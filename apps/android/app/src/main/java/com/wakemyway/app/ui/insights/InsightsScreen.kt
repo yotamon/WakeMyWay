@@ -166,11 +166,8 @@ fun InsightsScreen(
                         color = WmwColors.DawnText,
                     )
                     Text(
-                        text = if (summary.answeredCalibrationCount == 0) {
-                            "No answered check-ins yet"
-                        } else {
-                            "${summary.answeredCalibrationCount} of ${summary.calibrationEligibleMorningCount} mornings answered"
-                        },
+                        text = "${summary.answeredCalibrationCount} of " +
+                            "${summary.calibrationEligibleMorningCount} mornings answered",
                         style = MaterialTheme.typography.titleMedium,
                         color = WmwColors.Midnight,
                     )
