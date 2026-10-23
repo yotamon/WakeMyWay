@@ -78,6 +78,8 @@ data class WakeOutcomeSummary(
     val finishReason: WakeOutcome,
     val calibration: WakeCalibration? = null,
     val frictionFeedback: WakeFrictionFeedback? = null,
+    /** Explicit user intensity rating; do not infer agency or annoyance values from it. */
+    val interventionRating: WakeInterventionRating? = null,
 ) {
     init {
         require(policyVersion > 0) { "Wake Outcome policy version must be positive" }
