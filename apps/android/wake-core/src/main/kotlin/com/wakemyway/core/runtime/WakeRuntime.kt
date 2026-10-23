@@ -86,29 +86,16 @@ class WakeRuntime {
 
             is WakeInput.VoiceResponseObserved -> {
                 if (!input.coherent) {
-                    val escalation = (remembered.escalationLevel + 1)
-                        .coerceAtMost(policy.maxEscalationLevel)
-                    val canVerballyReengage =
-                        remembered.capabilities.speechAvailable &&
-                            remembered.verbalReengagementPrompts < policy.maxVerbalReengagementPrompts
-                    val next = remembered.copy(
-                        phase = if (remembered.phase == WakePhase.ALERTING) {
-                            WakePhase.ENGAGING
-                        } else {
-                            remembered.phase
-                        },
-                        escalationLevel = escalation,
-                        verbalReengagementPrompts = remembered.verbalReengagementPrompts +
-                            if (canVerballyReengage) 1 else 0,
+                    // A tentative Live transcript can be background noise, assistant echo or
+                    // sleepy mumbling. It is not evidence of refusal or inactivity and must
+                    // not escalate, advance phases, or immediately repeat an instruction.
+                    // The existing bounded silence watchdog can offer a single gentle
+                    // follow-up later; motion evidence remains independently usable.
+                    transition(
+                        remembered,
+                        WakeDirective.EnsureAlarmAudible,
+                        WakeDirective.ObserveMotion,
                     )
-                    val directives = buildList {
-                        add(WakeDirective.EnsureAlarmAudible)
-                        if (canVerballyReengage) {
-                            add(WakeDirective.Speak(SpeechIntent.ReEngage(escalation)))
-                        }
-                        add(WakeDirective.ObserveMotion)
-                    }
-                    transition(next, *directives.toTypedArray())
                 } else {
                     val wasAlreadyActivating = remembered.phase == WakePhase.ACTIVATING
                     val next = remembered.copy(
