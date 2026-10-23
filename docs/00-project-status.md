@@ -1,15 +1,19 @@
 # Project status
 
-## Wake feedback integrity — implementation slice (2026-10-23)
+## Wake Experience Excellence — continuing implementation (2026-10-23)
 
-**In progress on `feat/wake-feedback-integrity-20261023`, not merged or released.** The first W0/W5 evidence-integrity slice of the [Wake Experience Excellence program](implementation/2026-10-23-wake-feedback-pilot.md) makes Insights distinguish voluntary real-morning check-ins from phone-observed Activation Completion. Repeated explicit `Too intense` ratings now reach the local learning guardrail, rather than being collected but ignored. This work changes no Alarm Kernel scheduling, Stop/Snooze behavior, voice audio or cloud APIs. Physical proof on a signed in-place phone build and multi-morning effectiveness evidence are outstanding.
+**Latest signed public Direct release: `v0.2.32` (2026-10-22).** Three later product/reliability changes have merged into `main`, but no newer signed release is verified in this document: [program plan #210](https://github.com/yotamon/WakeMyWay/pull/210), [outcome/feedback integrity #211](https://github.com/yotamon/WakeMyWay/pull/211) and [normal-alarm delivery evidence #212](https://github.com/yotamon/WakeMyWay/pull/212). #211 distinguishes optional reported real-morning outcomes from Activation Completion and forwards repeated `Too intense` ratings to local bounded learning. #212 best-effort records **expected normal scheduled wake delivery**, so a missing receiver does not vanish from the bounded diagnostic journal. Android CI/device and upgrade-preservation workflows passed for both implementation PRs; **neither certifies real-device overnight reliability or speaker-audible Live speech**.
+
+**Current W2 implementation slice:** `fix/unclear-speech-no-escalation-20261023`. An uncertain/possibly echoed voice response no longer escalates the deterministic wake policy or forces an immediate repeat prompt; motion evidence remains usable, and the existing single gentle re-engagement after actual silence remains available. See [the non-punitive unclear-speech behavior contract](implementation/2026-10-23-unclear-speech-calming.md). This branch is not a release or a physical acceptance result.
+
+**Current next gates:** signed in-place APK upgrade and overnight OnePlus checks for expected/sounded wakes (#9), speaker-audible Live turns and human pleasantness (#194), safe reflex dismissal Shape decision (#59), and qualified multi-morning evidence (#87). Keep a conventional backup alarm during testing. Old milestone narratives below are historical and may reference superseded branch/release state.
 
 ## Premium voice-alarm hardening — shipped Direct release (2026-10-22)
 
 PR #207 was merged and PR #208 dispatched signed release **v0.2.32**. Its Live/voice coordination, fallback and persona changes are in `main` and the published Direct artifact. See [the premium voice acceptance contract](implementation/2026-10-22-premium-voice-alarm.md). The physical phone, human voice-quality and production-account acceptance gates remain open; passing automated CI or publishing an APK does not certify overnight wake reliability. Sections below are historical timeline notes where their dates or release claims conflict with this header.
 
 
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-23
 **Product:** WakeMyWay (WMW)  
 **Platform:** Android first; optional non-critical Vercel cloud with Neon as the managed data/auth platform  
 **Current product phase:** WakeMyWay 1.0 paid-launch readiness; product capability scope is frozen by default  

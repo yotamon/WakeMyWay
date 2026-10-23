@@ -267,11 +267,15 @@ class WakeRuntimeVoiceTurnTest {
     }
 
     @Test
-    fun `incoherent voice response earns no evidence and prompts a bounded re-engagement`() {
+    fun `unclear voice from an assistant echo does not escalate or trigger immediate speech`() {
         val initial = runtime.initial(
             sessionId = WakeSessionId("voice-unclear"),
             policy = policy,
-            capabilities = WakeCapabilities(voiceInputAvailable = true),
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
         )
 
         val unclear = runtime.reduce(
@@ -280,21 +284,73 @@ class WakeRuntimeVoiceTurnTest {
             policy,
         )
 
+        assertEquals(WakePhase.ALERTING, unclear.snapshot.phase)
         assertEquals(0, unclear.snapshot.activationEvidence.coherentVoiceResponses)
-        assertEquals(1, unclear.snapshot.escalationLevel)
-        assertEquals(1, unclear.snapshot.verbalReengagementPrompts)
-        assertTrue(WakeDirective.Speak(SpeechIntent.ReEngage(1)) in unclear.directives)
+        assertEquals(0, unclear.snapshot.escalationLevel)
+        assertEquals(0, unclear.snapshot.verbalReengagementPrompts)
+        assertTrue(WakeDirective.EnsureAlarmAudible in unclear.directives)
+        assertTrue(WakeDirective.ObserveMotion in unclear.directives)
+        assertFalse(unclear.directives.any { it is WakeDirective.Speak })
 
         val repeatedUnclear = runtime.reduce(
             unclear.snapshot,
             WakeInput.VoiceResponseObserved(id("unclear-again"), coherent = false),
             policy,
         )
-
-        assertEquals(2, repeatedUnclear.snapshot.escalationLevel)
-        assertEquals(1, repeatedUnclear.snapshot.verbalReengagementPrompts)
+        assertEquals(0, repeatedUnclear.snapshot.escalationLevel)
+        assertEquals(0, repeatedUnclear.snapshot.verbalReengagementPrompts)
         assertFalse(repeatedUnclear.directives.any { it is WakeDirective.Speak })
-        assertTrue(WakeDirective.ObserveMotion in repeatedUnclear.directives)
+
+        // Once the actual silent interval elapses, the existing single re-engagement
+        // remains available rather than an unbounded prompt loop.
+        val realSilence = runtime.reduce(
+            repeatedUnclear.snapshot,
+            WakeInput.SilenceElapsed(id("silence"), java.time.Duration.ofSeconds(15)),
+            policy,
+        )
+        assertEquals(1, realSilence.snapshot.verbalReengagementPrompts)
+        assertTrue(WakeDirective.Speak(SpeechIntent.ReEngage(1)) in realSilence.directives)
+
+        val secondSilence = runtime.reduce(
+            realSilence.snapshot,
+            WakeInput.SilenceElapsed(id("silence-again"), java.time.Duration.ofSeconds(15)),
+            policy,
+        )
+        assertEquals(1, secondSilence.snapshot.verbalReengagementPrompts)
+        assertFalse(secondSilence.directives.any { it is WakeDirective.Speak })
+    }
+
+    @Test
+    fun `unclear speech does not block independent motion-based orientation`() {
+        var state = runtime.initial(
+            sessionId = WakeSessionId("voice-unclear-motion"),
+            policy = policy,
+            capabilities = WakeCapabilities(
+                speechAvailable = true,
+                voiceInputAvailable = true,
+                motionAvailable = true,
+            ),
+        )
+        state = runtime.reduce(
+            state,
+            WakeInput.VoiceResponseObserved(id("unclear"), coherent = false),
+            policy,
+        ).snapshot
+
+        repeat(2) { index ->
+            state = runtime.reduce(
+                state,
+                WakeInput.MotionObserved(
+                    id("movement-$index"),
+                    MotionEvidenceKind.SUSTAINED_MOVEMENT,
+                ),
+                policy,
+            ).snapshot
+        }
+
+        assertEquals(WakePhase.ORIENTING, state.phase)
+        assertEquals(0, state.activationEvidence.coherentVoiceResponses)
+        assertEquals(0, state.verbalReengagementPrompts)
     }
 
     @Test

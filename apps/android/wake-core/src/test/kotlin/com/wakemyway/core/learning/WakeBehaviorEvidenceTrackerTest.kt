@@ -48,7 +48,8 @@ class WakeBehaviorEvidenceTrackerTest {
         assertEquals(Duration.ofSeconds(2), observation.timeToFirstEngagement)
         assertEquals(Duration.ofSeconds(6), observation.timeToMeaningfulMovement)
         assertEquals(Duration.ofSeconds(6), observation.timeToActivationCompletion)
-        assertEquals(1, observation.maxInterventionDepth)
+        // Uncertain speech is not a refusal, so it must not count as escalation.
+        assertEquals(0, observation.maxInterventionDepth)
         assertEquals(WakePhase.ORIENTING, snapshot.phase)
     }
 
