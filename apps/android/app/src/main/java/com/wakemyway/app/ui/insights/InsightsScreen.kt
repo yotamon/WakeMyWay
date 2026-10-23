@@ -161,6 +161,54 @@ fun InsightsScreen(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
                     Text(
+                        text = "REAL MORNING FOLLOW-THROUGH",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = WmwColors.DawnText,
+                    )
+                    Text(
+                        text = if (summary.answeredCalibrationCount == 0) {
+                            "No answered check-ins yet"
+                        } else {
+                            "${summary.answeredCalibrationCount} of ${summary.calibrationEligibleMorningCount} mornings answered"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = WmwColors.Midnight,
+                    )
+                    if (summary.answeredCalibrationCount > 0) {
+                        Row(Modifier.fillMaxWidth()) {
+                            SummaryMetric(
+                                value = summary.reportedUpCount.toString(),
+                                label = "Reported up",
+                                modifier = Modifier.weight(1f),
+                            )
+                            SummaryMetric(
+                                value = summary.reportedReturnedToBedCount.toString(),
+                                label = "Back to bed",
+                                modifier = Modifier.weight(1f),
+                            )
+                            SummaryMetric(
+                                value = summary.reportedUpLaterCount.toString(),
+                                label = "Up later",
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Based only on your optional check-ins, not phone motion or AI guesses. " +
+                            "Skipped and unanswered mornings stay unknown. Activation Completion " +
+                            "above is a separate phone-observed metric.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = WmwColors.LightQuietText,
+                    )
+                }
+            }
+
+            WmwCard(
+                modifier = Modifier.padding(top = WmwSpacing.Md),
+                onLightSurface = true,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(WmwSpacing.Md)) {
+                    Text(
                         text = "INTERACTIVE PACE",
                         style = MaterialTheme.typography.labelSmall,
                         color = WmwColors.DawnText,
