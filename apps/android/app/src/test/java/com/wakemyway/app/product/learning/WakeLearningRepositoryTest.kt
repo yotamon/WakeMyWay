@@ -7,6 +7,7 @@ import com.wakemyway.app.product.history.WakeHistoryTerminalReason
 import com.wakemyway.core.learning.WakeBehaviorObservation
 import com.wakemyway.core.learning.WakeCalibration
 import com.wakemyway.core.learning.WakeCalibrationOutcome
+import com.wakemyway.core.learning.WakeInterventionRating
 import com.wakemyway.core.runtime.WakeSessionId
 import com.wakemyway.core.schedule.WakeOccurrenceId
 import com.wakemyway.core.schedule.WakeOccurrenceKind
@@ -142,6 +143,76 @@ class WakeLearningRepositoryTest {
         assertTrue(state.changedOnLatestRefresh)
         assertEquals(2, state.policy.version)
         assertEquals(5, state.policy.activationThreshold)
+    }
+
+    @Test
+    fun `repeated too intense reports block stronger intervention without inventing agency`() {
+        val history = WakeHistoryRepository(
+            context = context,
+            fileName = "intensity-history-${System.nanoTime()}.json",
+        )
+        val occurrences = (0 until 4).map { index ->
+            entry(
+                id = "too-intense-$index",
+                finishedAt = Instant.parse("2026-09-16T08:0${index + 1}:00Z"),
+                reason = WakeHistoryTerminalReason.STOPPED,
+                activation = null,
+            ).also(history::record)
+        }
+        occurrences.take(2).forEach {
+            history.attachInterventionRating(it.occurrenceId, WakeInterventionRating.TOO_INTENSE)
+        }
+        val learning = WakeLearningRepository(
+            context = context,
+            historyRepository = history,
+            fileName = "intensity-state-${System.nanoTime()}.json",
+        )
+
+        // The third report is the minimum repeated pattern: a single rating is never enough.
+        val state = learning.submitInterventionRating(
+            occurrences[2].occurrenceId,
+            WakeInterventionRating.TOO_INTENSE,
+        )
+
+        assertEquals(1, state.policy.version)
+        assertEquals(3, state.policy.maxEscalationLevel)
+        assertTrue(state.latestExplanation.contains("annoyance/agency"))
+        assertTrue(!state.changedOnLatestRefresh)
+        assertEquals(WakeInterventionRating.TOO_INTENSE,
+            history.list().first { it.occurrenceId == occurrences[2].occurrenceId }.interventionRating)
+    }
+
+    @Test
+    fun `repeated successful but too intense mornings can reduce intervention depth`() {
+        val history = WakeHistoryRepository(
+            context = context,
+            fileName = "gentler-history-${System.nanoTime()}.json",
+        )
+        repeat(4) { index ->
+            val morning = entry(
+                id = "intense-success-$index",
+                finishedAt = Instant.parse("2026-09-16T09:0${index + 1}:00Z"),
+                reason = WakeHistoryTerminalReason.COMPLETED,
+                activation = Duration.ofSeconds(40),
+            )
+            history.record(morning)
+            history.attachCalibration(morning.occurrenceId, WakeCalibration(WakeCalibrationOutcome.GOT_UP))
+            if (index < 3) {
+                history.attachInterventionRating(morning.occurrenceId, WakeInterventionRating.TOO_INTENSE)
+            }
+        }
+        val learning = WakeLearningRepository(
+            context = context,
+            historyRepository = history,
+            fileName = "gentler-state-${System.nanoTime()}.json",
+        )
+
+        val state = learning.refresh()
+
+        assertTrue(state.changedOnLatestRefresh)
+        assertEquals(2, state.policy.version)
+        assertEquals(2, state.policy.maxEscalationLevel)
+        assertTrue(state.latestExplanation.contains("excessive wake intensity"))
     }
 
     private fun entry(

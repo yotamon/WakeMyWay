@@ -174,14 +174,12 @@ class WakeLearning(
         }
 
         val highFrictionSuccesses = relevant.count { outcome ->
-            outcome.confirmedWakeSuccess == true &&
-                (outcome.frictionFeedback?.annoyance == WakeAnnoyance.HIGH ||
-                    outcome.frictionFeedback?.agency == WakeAgency.LOW)
+            outcome.confirmedWakeSuccess == true && outcome.hasExcessiveFriction()
         }
         if (highFrictionSuccesses >= rules.minimumRepeatedPatternSessions) {
             val explanation = WakeLearningExplanation(
                 code = WakeLearningReasonCode.SUCCESS_WITH_EXCESS_FRICTION,
-                summary = "$highFrictionSuccesses confirmed-success sessions also reported high annoyance or low agency; reduce maximum intervention depth by one bounded level.",
+                summary = "$highFrictionSuccesses confirmed-success sessions also reported excessive wake intensity or high annoyance/low agency; reduce maximum intervention depth by one bounded level.",
                 relevantSessionCount = relevant.size,
             )
             if (currentPolicy.maxEscalationLevel <= rules.minimumEscalationLevel) {
@@ -274,14 +272,25 @@ class WakeLearning(
             reason = LearnedPolicyFallbackReason.RESET_TO_DEFAULT,
         )
 
+    /**
+     * A single "Too intense" rating does not authorize a policy change. Repeated reports
+     * block stronger interventions without pretending to measure independent user agency.
+     */
     private fun increasedFrictionIsBlocked(outcomes: List<WakeOutcomeSummary>): Boolean {
-        val rated = outcomes.mapNotNull(WakeOutcomeSummary::frictionFeedback)
+        val rated = outcomes.mapNotNull { outcome ->
+            when {
+                outcome.frictionFeedback != null -> outcome.hasExcessiveFriction()
+                outcome.interventionRating != null -> outcome.hasExcessiveFriction()
+                else -> null
+            }
+        }
         if (rated.size < rules.minimumRepeatedPatternSessions) return false
-
-        val highAnnoyance = rated.count { feedback -> feedback.annoyance == WakeAnnoyance.HIGH }
-        val lowAgency = rated.count { feedback -> feedback.agency == WakeAgency.LOW }
-        return highAnnoyance * 2 >= rated.size || lowAgency * 2 >= rated.size
+        return rated.count { it } * 2 >= rated.size
     }
+
+    private fun WakeOutcomeSummary.hasExcessiveFriction(): Boolean =
+        frictionFeedback?.let { it.annoyance == WakeAnnoyance.HIGH || it.agency == WakeAgency.LOW }
+            ?: (interventionRating == WakeInterventionRating.TOO_INTENSE)
 
     private fun withinLearningBounds(policy: WakePolicy): Boolean =
         policy.activationThreshold in rules.minimumActivationThreshold..rules.maximumActivationThreshold &&

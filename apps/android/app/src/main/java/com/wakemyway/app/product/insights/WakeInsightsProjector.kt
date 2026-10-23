@@ -55,6 +55,36 @@ data class WakeInsightsSummary(
     val totalMorningCount: Int
         get() = mornings.size
 
+    /**
+     * Morning-level self reports (one primary occurrence plus its Snooze chain).
+     * Skipped, missing and unrecoverable outcomes are not silently counted as successes.
+     * These are user-reported outcomes, never proof of physical wakefulness.
+     */
+    private val eligibleCalibrationMornings: List<WakeMorningInsight>
+        get() = mornings.filter {
+            it.finalReason == WakeHistoryTerminalReason.COMPLETED ||
+                it.finalReason == WakeHistoryTerminalReason.STOPPED
+        }
+
+    val calibrationEligibleMorningCount: Int
+        get() = eligibleCalibrationMornings.size
+
+    val answeredCalibrationCount: Int
+        get() = eligibleCalibrationMornings.count {
+            it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP ||
+                it.calibrationOutcome == WakeCalibrationOutcome.RETURNED_TO_BED ||
+                it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP_LATER
+        }
+
+    val reportedUpCount: Int
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP }
+
+    val reportedReturnedToBedCount: Int
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.RETURNED_TO_BED }
+
+    val reportedUpLaterCount: Int
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP_LATER }
+
     val pendingCalibration: WakeMorningInsight?
         get() = mornings.firstOrNull {
             it.calibrationOutcome == null &&
