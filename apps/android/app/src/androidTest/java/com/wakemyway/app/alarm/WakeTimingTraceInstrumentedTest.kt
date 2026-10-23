@@ -60,6 +60,59 @@ class WakeTimingTraceInstrumentedTest {
     }
 
     @Test
+    fun repeatedRegistrationIsIdempotentAndPreservesLabScenario() {
+        val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("repeated-registration-test"),
+            zoneId = target.zone,
+            timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
+            revision = System.currentTimeMillis().coerceAtLeast(1),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+        )
+        val occurrence = NextWakeOccurrenceResolver().resolve(schedule, Instant.now())
+
+        trace.expected(occurrence, WakeTimingTrace.SCENARIO_SCHEDULED_WAKE, expectFullScreen = true)
+        trace.expected(occurrence, WakeTimingTrace.SCENARIO_DIRECT_BOOT, expectFullScreen = true)
+        trace.expected(occurrence, WakeTimingTrace.SCENARIO_SCHEDULED_WAKE, expectFullScreen = true)
+
+        val snapshot = trace.history(limit = 1).single()
+        assertEquals(WakeTimingTrace.SCENARIO_DIRECT_BOOT, snapshot.scenario)
+        assertEquals(1, snapshot.events.count { it.type == "EXPECTED" })
+        assertEquals(ReliabilityState.EXPECTED, snapshot.state())
+    }
+
+    @Test
+    fun intentionalCancellationCanBeReopenedByRegistrationWithoutFabricatingMisses() {
+        val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
+        val schedule = WakeSchedule(
+            id = WakeScheduleId("cancellation-test"),
+            zoneId = target.zone,
+            timesByDay = mapOf(target.dayOfWeek to target.toLocalTime()),
+            revision = System.currentTimeMillis().coerceAtLeast(1),
+            completionPolicy = WakeCompletionPolicy.ONE_SHOT,
+        )
+        val occurrence = NextWakeOccurrenceResolver().resolve(schedule, Instant.now())
+
+        trace.expected(occurrence, WakeTimingTrace.SCENARIO_SCHEDULED_WAKE, expectFullScreen = true)
+        trace.cancelled(occurrence.id)
+
+        val canceled = trace.history(limit = 1).single()
+        val afterDue = occurrence.scheduledAt.toInstant().toEpochMilli() +
+            WakeTimingTrace.MISSED_RECEIVER_GRACE_MS + 1
+        assertEquals(ReliabilityState.CANCELLED, canceled.state(nowWallMillis = afterDue))
+
+        trace.expected(occurrence, WakeTimingTrace.SCENARIO_SCHEDULED_WAKE, expectFullScreen = true)
+
+        val reRegistered = trace.history(limit = 1).single()
+        assertEquals(null, reRegistered.terminalAction)
+        assertEquals(ReliabilityState.MISSED_RECEIVER, reRegistered.state(nowWallMillis = afterDue))
+        assertEquals(
+            listOf("EXPECTED", "CANCELLED", "RE_REGISTERED"),
+            reRegistered.events.map { it.type },
+        )
+    }
+
+    @Test
     fun journalRetainsReplayableEventOrderAndHumanReadableReport() {
         val target = ZonedDateTime.now().plusMinutes(15).withNano(0)
         val schedule = WakeSchedule(
