@@ -37,11 +37,22 @@ class AlarmRegistrar(private val context: Context) {
             AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent),
             operationFor(occurrence.id),
         )
+        // Every normal wake needs an expected-delivery record, not only a Wake Lab scenario.
+        // Diagnostics are best-effort and must never change AlarmManager success semantics.
+        runCatching {
+            WakeTimingTrace(context).expected(
+                occurrence = occurrence,
+                scenario = WakeTimingTrace.SCENARIO_SCHEDULED_WAKE,
+                expectFullScreen = AlarmPresentationAccess.snapshot(context).ready,
+            )
+        }
     }
 
     fun cancel(occurrenceId: WakeOccurrenceId) {
         alarmManager.cancel(operationFor(occurrenceId))
         cancelLegacy(occurrenceId)
+        // A canceled future occurrence must not inflate the missed-alarm denominator.
+        runCatching { WakeTimingTrace(context).cancelled(occurrenceId) }
     }
 
     private fun operationFor(occurrenceId: WakeOccurrenceId): PendingIntent = PendingIntent.getBroadcast(
