@@ -60,27 +60,30 @@ data class WakeInsightsSummary(
      * Skipped, missing and unrecoverable outcomes are not silently counted as successes.
      * These are user-reported outcomes, never proof of physical wakefulness.
      */
-    val calibrationEligibleMorningCount: Int
-        get() = mornings.count {
+    private val eligibleCalibrationMornings: List<WakeMorningInsight>
+        get() = mornings.filter {
             it.finalReason == WakeHistoryTerminalReason.COMPLETED ||
                 it.finalReason == WakeHistoryTerminalReason.STOPPED
         }
 
+    val calibrationEligibleMorningCount: Int
+        get() = eligibleCalibrationMornings.size
+
     val answeredCalibrationCount: Int
-        get() = mornings.count {
+        get() = eligibleCalibrationMornings.count {
             it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP ||
                 it.calibrationOutcome == WakeCalibrationOutcome.RETURNED_TO_BED ||
                 it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP_LATER
         }
 
     val reportedUpCount: Int
-        get() = mornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP }
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP }
 
     val reportedReturnedToBedCount: Int
-        get() = mornings.count { it.calibrationOutcome == WakeCalibrationOutcome.RETURNED_TO_BED }
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.RETURNED_TO_BED }
 
     val reportedUpLaterCount: Int
-        get() = mornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP_LATER }
+        get() = eligibleCalibrationMornings.count { it.calibrationOutcome == WakeCalibrationOutcome.GOT_UP_LATER }
 
     val pendingCalibration: WakeMorningInsight?
         get() = mornings.firstOrNull {
