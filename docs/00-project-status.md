@@ -1,8 +1,12 @@
 # Project status
 
-## Premium voice-alarm hardening — implementation branch (2026-10-22)
+## Wake feedback integrity — implementation slice (2026-10-23)
 
-The active branch `feat/premium-wake-voice-reliability-20261022` contains changes to Direct Live pre-admission, conservative PCM/transcript turn coordination, disconnection recovery, serialized cues, character continuity, short ephemeral captions, audio duck/restoration, and human-focused listening copy. It preserves local Alarm Kernel authority and does **not** certify device reliability or ship a release. Read [the implementation and physical acceptance contract](implementation/2026-10-22-premium-voice-alarm.md) before merging. Older sections below describe the historical implementation timeline and are not a substitute for this current branch status.
+**In progress on `feat/wake-feedback-integrity-20261023`, not merged or released.** The first W0/W5 evidence-integrity slice of the [Wake Experience Excellence program](implementation/2026-10-23-wake-feedback-pilot.md) makes Insights distinguish voluntary real-morning check-ins from phone-observed Activation Completion. Repeated explicit `Too intense` ratings now reach the local learning guardrail, rather than being collected but ignored. This work changes no Alarm Kernel scheduling, Stop/Snooze behavior, voice audio or cloud APIs. Physical proof on a signed in-place phone build and multi-morning effectiveness evidence are outstanding.
+
+## Premium voice-alarm hardening — shipped Direct release (2026-10-22)
+
+PR #207 was merged and PR #208 dispatched signed release **v0.2.32**. Its Live/voice coordination, fallback and persona changes are in `main` and the published Direct artifact. See [the premium voice acceptance contract](implementation/2026-10-22-premium-voice-alarm.md). The physical phone, human voice-quality and production-account acceptance gates remain open; passing automated CI or publishing an APK does not certify overnight wake reliability. Sections below are historical timeline notes where their dates or release claims conflict with this header.
 
 
 **Last updated:** 2026-10-05
