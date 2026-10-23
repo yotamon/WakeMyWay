@@ -120,9 +120,9 @@ class WakeLearningRepository(
         rating: WakeInterventionRating,
     ): WakeLearningState {
         historyRepository.attachInterventionRating(occurrenceId, rating)
-        // V0 learning deliberately does not mutate policy from one subjective rating. Keep the
-        // evidence durable so future bounded rules can require repeated patterns.
-        return state()
+        // The learner requires repeated evidence: one rating alone cannot change a policy.
+        // Re-evaluate now so an already observed pattern can immediately prevent escalation.
+        return refresh()
     }
 
     /**
@@ -177,6 +177,7 @@ class WakeLearningRepository(
                 WakeHistoryTerminalReason.UNRECOVERABLE -> WakeOutcome.UNRECOVERABLE
             },
             calibration = entry.calibration,
+            interventionRating = entry.interventionRating,
         )
     }
 
