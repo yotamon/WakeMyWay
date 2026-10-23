@@ -257,6 +257,94 @@ class WakeInsightsProjectorTest {
         assertNull(WakeInsightsProjector.project(emptyList(), WakeInsightsPeriod.ALL, now).averageFirstEngagement)
     }
 
+    @Test
+    fun `self reported wake outcomes keep skipped and missing feedback unknown`() {
+        val reportedUp = entry(
+            id = "reported-up",
+            scheduledAt = now.minus(Duration.ofHours(1)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.GOT_UP),
+        )
+        val returned = entry(
+            id = "returned",
+            scheduledAt = now.minus(Duration.ofHours(2)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.RETURNED_TO_BED),
+        )
+        val later = entry(
+            id = "later",
+            scheduledAt = now.minus(Duration.ofHours(3)),
+            reason = WakeHistoryTerminalReason.STOPPED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.GOT_UP_LATER),
+        )
+        val skipped = entry(
+            id = "skipped",
+            scheduledAt = now.minus(Duration.ofHours(4)),
+            reason = WakeHistoryTerminalReason.STOPPED,
+            kind = WakeOccurrenceKind.PRIMARY,
+            calibration = WakeCalibration(WakeCalibrationOutcome.SKIPPED),
+        )
+        val unknown = entry(
+            id = "unknown",
+            scheduledAt = now.minus(Duration.ofHours(5)),
+            reason = WakeHistoryTerminalReason.COMPLETED,
+            kind = WakeOccurrenceKind.PRIMARY,
+        )
+
+        val summary = WakeInsightsProjector.project(
+            entries = listOf(reportedUp, returned, later, skipped, unknown),
+            period = WakeInsightsPeriod.ALL,
+            now = now,
+        )
+
+        assertEquals(5, summary.calibrationEligibleMorningCount)
+        assertEquals(3, summary.answeredCalibrationCount)
+        assertEquals(1, summary.reportedUpCount)
+        assertEquals(1, summary.reportedReturnedToBedCount)
+        assertEquals(1, summary.reportedUpLaterCount)
+        assertEquals(3, summary.completedMorningCount)
+    }
+
+    @Test
+    fun `snoozed chain counts only final answered outcome once`() {
+        val primary = entry(
+            id = "snooze-primary",
+            scheduledAt = now.minus(Duration.ofHours(3)),
+            reason = WakeHistoryTerminalReason.SNOOZED,
+            replacement = "snooze-final",
+            kind = WakeOccurrenceKind.PRIMARY,
+        )
+        val final = entry(
+            id = "snooze-final",
+            scheduledAt = primary.scheduledAt.plus(Duration.ofMinutes(5)),
+            reason = WakeHistoryTerminalReason.STOPPED,
+            kind = WakeOccurrenceKind.SNOOZE,
+            calibration = WakeCalibration(WakeCalibrationOutcome.RETURNED_TO_BED),
+        )
+        val incomplete = entry(
+            id = "unresolved-primary",
+            scheduledAt = now.minus(Duration.ofHours(2)),
+            reason = WakeHistoryTerminalReason.SNOOZED,
+            replacement = "missing",
+            kind = WakeOccurrenceKind.PRIMARY,
+        )
+
+        val summary = WakeInsightsProjector.project(
+            entries = listOf(final, incomplete, primary),
+            period = WakeInsightsPeriod.ALL,
+            now = now,
+        )
+
+        assertEquals(2, summary.totalMorningCount)
+        assertEquals(1, summary.calibrationEligibleMorningCount)
+        assertEquals(1, summary.answeredCalibrationCount)
+        assertEquals(1, summary.reportedReturnedToBedCount)
+        assertEquals(0, summary.reportedUpCount)
+    }
+
     private fun entry(
         id: String,
         scheduledAt: Instant,
