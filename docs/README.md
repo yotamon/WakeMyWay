@@ -84,6 +84,16 @@ Read `34` first for new product behavior, then `03`, `04`, `05`, `06`, `07`.
 | [`44-personalized-wake-profile-product-plan.md`](44-personalized-wake-profile-product-plan.md) | Personalized onboarding/Profile UX and explicit wake-preference model |
 | [`brand/assets/wake-my-way-brand-board.png`](brand/assets/wake-my-way-brand-board.png) | Initial identity exploration |
 
+## Public website (proposed Shape)
+
+These documents define the marketing/early-access website without selecting a framework, infrastructure provider or repository topology. The website is a non-critical public surface and never changes Android wake authority.
+
+| Document | Purpose |
+| --- | --- |
+| [`website/README.md`](website/README.md) | **Technology-neutral product strategy**, target visitor, positioning, release truth, brand continuity and site scope |
+| [`website/experience-and-content.md`](website/experience-and-content.md) | **Content-first UX specification**: narrative sections, page map, voice demo contract, user journeys, states and copy governance |
+| [`website/delivery-and-quality.md`](website/delivery-and-quality.md) | **Implementation-neutral delivery plan**: architectural requirements, selection criteria, phases, risk register, quality gates and definition of ready |
+
 ## Architecture
 
 | Document | Purpose |
