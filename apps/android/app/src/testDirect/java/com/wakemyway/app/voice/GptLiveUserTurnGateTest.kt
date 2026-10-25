@@ -19,6 +19,24 @@ class GptLiveUserTurnGateTest {
 
     @Test fun repeatedTranscriptBurstsHaveABoundedCooldown() {
         assertFalse(GptLiveUserTurnGate.isPlausible("yes", false, 1_100L))
-        assertTrue(GptLiveUserTurnGate.isPlausible("yes", false, 4_500L))
+        assertFalse(GptLiveUserTurnGate.isPlausible("yes", false, 2_000L, true))
+        assertTrue(GptLiveUserTurnGate.isPlausible("yes", false, 4_500L, true))
+    }
+
+    @Test fun distinctFastHumanReplyIsNotIgnored() {
+        assertTrue(GptLiveUserTurnGate.isPlausible("I am tired", false, 2_000L, false))
+        assertTrue(GptLiveUserTurnGate.isPlausible("כן, רגע", false, 2_000L, false))
+        assertFalse(GptLiveUserTurnGate.isPlausible("I am tired", true, 2_000L, false))
+    }
+
+    @Test fun duplicateFingerprintNormalizesCaseAndWhitespaceWithoutRetainingText() {
+        assertTrue(
+            GptLiveUserTurnGate.fingerprint(" Ja  Klar ") ==
+                GptLiveUserTurnGate.fingerprint("ja klar"),
+        )
+        assertFalse(
+            GptLiveUserTurnGate.fingerprint("Ja klar") ==
+                GptLiveUserTurnGate.fingerprint("Nein"),
+        )
     }
 }

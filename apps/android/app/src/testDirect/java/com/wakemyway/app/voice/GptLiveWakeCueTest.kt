@@ -40,4 +40,26 @@ class GptLiveWakeCueTest {
     @Test fun heldEngagementDoesNotIssueAnotherPhysicalTask() {
         assertTrue(GptLiveWakeCue.forIntent(SpeechIntent.HoldEngagement).contains("Do not give another task"))
     }
+
+    @Test fun reluctantFirstReplyIsAcknowledgedRatherThanAutomaticallyCommanded() {
+        val move = GptLiveWakeCue.forIntent(SpeechIntent.AskToMove)
+        assertTrue(move.contains("reluctant or exhausted"))
+        assertTrue(move.contains("without another instruction"))
+        assertTrue(move.contains("Respond to what they just said first"))
+    }
+
+    @Test fun intentOverridesActionStyleForSocialReplies() {
+        val plan = com.wakemyway.core.personalization.WakeSessionStrategyResolver.resolve(
+            preferences = com.wakemyway.core.personalization.WakePreferences(),
+            characterId = com.wakemyway.core.alarm.CharacterId.ALFRED,
+            voiceStyle = com.wakemyway.core.alarm.VoiceStyle.DEFAULT,
+            wakePolicy = com.wakemyway.core.runtime.WakePolicy(),
+        )
+        val cue = GptLiveWakeCue.forRequest(WakeSpeechRequest(SpeechIntent.HoldEngagement, plan))
+        assertTrue(cue.contains("No new action"))
+        assertFalse(cue.contains("Focus on one tiny practical action"))
+        val silence = GptLiveWakeCue.forRequest(WakeSpeechRequest(SpeechIntent.ReEngage(1), plan))
+        assertFalse(silence.contains("Focus on one tiny practical action"))
+        assertTrue(silence.contains("no repeated movement cue"))
+    }
 }
