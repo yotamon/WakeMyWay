@@ -1,0 +1,44 @@
+# Single-use dispatcher for the user-requested signed founder test release.
+# Do not bypass the canonical release quality, signing or upgrade gates.
+name: Dispatch premium wake conversation quality release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'ops/dispatch-wake-dialogue-release-20261025' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch patch release for exactly this merged main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$CURRENT" = "$MERGE_SHA" || {
+            echo "::error::main advanced after this dispatcher merged; refusing release"
+            exit 1
+          }
+          LATEST="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test "$LATEST" = 'v0.2.32' || {
+            echo "::error::Expected v0.2.32 but found $LATEST; refusing duplicate or wrong version"
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false
