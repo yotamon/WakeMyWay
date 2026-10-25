@@ -67,7 +67,23 @@ class GptLivePreferredWakeConversation(
         }
     }
     private val noAudioDeadline = Runnable {
-        if (!closed && liveReady && responsePending) listener.onConversationFailure("live-no-audio")
+        if (!closed && liveReady && GptLiveCueWaitPolicy.isSentCueStillSilent(
+                responsePending = responsePending,
+                hasQueuedCue = queuedCue != null,
+                assistantAudioActive = assistantAudioActive,
+            )
+        ) {
+            listener.onConversationFailure("live-no-audio")
+        }
+    }
+    private val queuedCueDeadline = Runnable {
+        if (!closed && liveReady && GptLiveCueWaitPolicy.isQueuedCueStalled(
+                hasQueuedCue = queuedCue != null,
+                assistantAudioActive = assistantAudioActive,
+            )
+        ) {
+            listener.onConversationFailure("live-queued-cue-stalled")
+        }
     }
 
     override val startupBudgetMillis: Long
@@ -128,8 +144,15 @@ class GptLivePreferredWakeConversation(
             // provider cue until the previous audio run finishes.
             queuedCue = cue
             responsePending = true
+            // This directive has NOT been sent to Live yet. The previous
+            // assistant PCM is still audible. Starting the first-audio
+            // watchdog here would produce a false failure before dispatch.
             handler.removeCallbacks(noAudioDeadline)
-            handler.postDelayed(noAudioDeadline, 12_000L)
+            handler.removeCallbacks(queuedCueDeadline)
+            handler.postDelayed(
+                queuedCueDeadline,
+                GptLiveCueWaitPolicy.QUEUED_CUE_DRAIN_TIMEOUT_MS,
+            )
             return true
         }
         return sendCue(cue)
@@ -139,8 +162,12 @@ class GptLivePreferredWakeConversation(
         val accepted = session?.sendWakeCue(cue) ?: false
         if (accepted) {
             responsePending = true
+            handler.removeCallbacks(queuedCueDeadline)
             handler.removeCallbacks(noAudioDeadline)
-            handler.postDelayed(noAudioDeadline, 12_000L)
+            handler.postDelayed(
+                noAudioDeadline,
+                GptLiveCueWaitPolicy.FIRST_AUDIO_TIMEOUT_MS,
+            )
         }
         return accepted
     }
@@ -181,6 +208,7 @@ class GptLivePreferredWakeConversation(
             assistantAudioActive = false
             val nextCue = queuedCue
             if (nextCue != null) {
+                handler.removeCallbacks(queuedCueDeadline)
                 queuedCue = null
                 turnSettlement.clear()
                 userInterruptedOutput = false
@@ -233,6 +261,7 @@ class GptLivePreferredWakeConversation(
     override fun onSessionClosed(usageConfirmed: Boolean) {
         liveReady = false
         handler.removeCallbacks(noAudioDeadline)
+        handler.removeCallbacks(queuedCueDeadline)
         handler.removeCallbacks(userTurnQuiet)
         turnSettlement.clear()
         queuedCue = null
@@ -269,6 +298,7 @@ class GptLivePreferredWakeConversation(
         if (closed) return
         closed = true
         handler.removeCallbacks(noAudioDeadline)
+        handler.removeCallbacks(queuedCueDeadline)
         handler.removeCallbacks(userTurnQuiet)
         turnBuffer.setLength(0)
         turnSettlement.clear()
