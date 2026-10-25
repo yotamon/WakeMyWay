@@ -36,6 +36,9 @@ class GptLivePreferredWakeConversation(
     private var userInterruptedOutput = false
     private var userTurnOverlappedOutput = false
     private var lastCreditedUserTurnAt = Long.MIN_VALUE
+    // Keep only a short-lived fingerprint, never a retained microphone transcript.
+    // A new *different* reply must not feel ignored because of a blanket cooldown.
+    private var lastCreditedTurnFingerprint: Int? = null
     private val turnBuffer = StringBuilder()
     private val turnSettlement = GptLiveTurnSettlement()
     private val userTurnQuiet = Runnable {
@@ -51,9 +54,14 @@ class GptLivePreferredWakeConversation(
                 } else {
                     (now - lastCreditedUserTurnAt).coerceAtLeast(0L)
                 },
+                sameAsRecentCreditedTurn =
+                    lastCreditedTurnFingerprint == GptLiveUserTurnGate.fingerprint(content),
             )
             userTurnOverlappedOutput = false
-            if (coherent) lastCreditedUserTurnAt = now
+            if (coherent) {
+                lastCreditedUserTurnAt = now
+                lastCreditedTurnFingerprint = GptLiveUserTurnGate.fingerprint(content)
+            }
             // Live transcript text is tentative. No voice text executes actions.
             turnSettlement.observe(coherent, assistantAudioActive)?.let(listener::onUserTurnObserved)
         }
@@ -264,6 +272,7 @@ class GptLivePreferredWakeConversation(
         handler.removeCallbacks(userTurnQuiet)
         turnBuffer.setLength(0)
         turnSettlement.clear()
+        lastCreditedTurnFingerprint = null
         queuedCue = null
         responsePending = false
         assistantAudioActive = false
@@ -295,17 +304,30 @@ internal object GptLiveWakeCue {
                 "Keep the pace light and responsive."
             else -> "Give the person room to respond."
         }
-        val motivation = when (request.sessionPlan.expressionProfile.motivationFrame) {
-            com.wakemyway.core.personalization.WakeMotivationFrame.ACTION ->
-                "Focus on one tiny practical action."
-            com.wakemyway.core.personalization.WakeMotivationFrame.SUPPORT ->
-                "Be supportive without praise or pep talks."
-            com.wakemyway.core.personalization.WakeMotivationFrame.ACCOUNTABILITY ->
-                "Be gently direct, never scolding."
-            com.wakemyway.core.personalization.WakeMotivationFrame.SOCIAL ->
-                "Feel like a familiar friend, not a coach."
-            com.wakemyway.core.personalization.WakeMotivationFrame.HUMOR ->
-                "Allow subtle observational humor, never teasing."
+        // A profile's action/motivation preference is NOT permission to issue a
+        // fresh physical instruction after every reply. The runtime's speech
+        // intent wins, especially when the user only needs acknowledgment.
+        val motivation = when (request.intent) {
+            SpeechIntent.KeepEngaging, SpeechIntent.HoldEngagement ->
+                "Respond naturally to what they just said. No new action, task or compliance question."
+            is SpeechIntent.ReEngage ->
+                "This is a single check-in after genuine silence, not an action request."
+            SpeechIntent.SnoozeConfirmation, SpeechIntent.SnoozeFailed ->
+                "Explain the actual app state only; do not add a physical task."
+            SpeechIntent.Orientation ->
+                "Keep the user-approved morning context factual and brief."
+            else -> when (request.sessionPlan.expressionProfile.motivationFrame) {
+                com.wakemyway.core.personalization.WakeMotivationFrame.ACTION ->
+                    "Focus on one tiny practical action."
+                com.wakemyway.core.personalization.WakeMotivationFrame.SUPPORT ->
+                    "Be supportive without praise or pep talks."
+                com.wakemyway.core.personalization.WakeMotivationFrame.ACCOUNTABILITY ->
+                    "Be gently direct, never scolding."
+                com.wakemyway.core.personalization.WakeMotivationFrame.SOCIAL ->
+                    "Feel like a familiar friend, not a coach."
+                com.wakemyway.core.personalization.WakeMotivationFrame.HUMOR ->
+                    "Allow subtle observational humor, never teasing."
+            }
         }
         val cue = "$style $pace $motivation $baseCue"
         if (request.intent != SpeechIntent.Orientation) return cue.take(500)
@@ -326,14 +348,14 @@ internal object GptLiveWakeCue {
     }
 
     fun forIntent(intent: SpeechIntent): String = when (intent) {
-        SpeechIntent.InitialWake -> "Greet the person warmly in one short sentence and gently invite them to sit up. Then listen without pressuring a reply."
-        SpeechIntent.AskToSitUp -> "If useful, gently suggest sitting upright. No demands or repeated instructions. Then listen."
-        SpeechIntent.AskToMove -> "Offer one small, safe movement invitation such as placing feet on the floor. Only one action and then listen."
+        SpeechIntent.InitialWake -> "Greet the person warmly in one short sentence and gently invite them to sit up if it feels natural. Do not demand a report; leave a real quiet pause."
+        SpeechIntent.AskToSitUp -> "React briefly to their last words, if any. Only invite sitting upright if it has not already been suggested; no demands or repeated instructions."
+        SpeechIntent.AskToMove -> "Respond to what they just said first, like someone who knows them. If they sound reluctant or exhausted, acknowledge that without another instruction right now. Otherwise offer one optional, safe movement invitation such as feet toward the floor. Never insist or ask for proof."
         SpeechIntent.ActivateUpperBody -> "Briefly invite a gentle stretch while seated. Never assume they moved."
         SpeechIntent.StandIfSafe -> "Only if comfortable and safe, invite standing up; do not assume compliance."
         SpeechIntent.KeepEngaging, SpeechIntent.HoldEngagement ->
-            "Acknowledge their last remark naturally in a few words. Do not give another task or question unless needed."
-        is SpeechIntent.ReEngage -> "A single soft check-in after silence, with no demand to answer. Then give them space."
+            "Acknowledge their last remark naturally in a few words. Do not give another task or question. No robotic praise, repeated sitting cue or claim that they moved."
+        is SpeechIntent.ReEngage -> "A single soft, human check-in after silence, with no demand to answer and no repeated movement cue. Then give them space."
         SpeechIntent.SnoozeConfirmation -> "Explain that snooze requires tapping the app's confirmation. Do not claim it was set."
         SpeechIntent.SnoozeFailed -> "Briefly say that snooze did not work and the local alarm is still active."
         SpeechIntent.Orientation -> "The app detected enough activity to offer a calm transition into the day. Say one short encouraging goodbye without claiming certainty about being awake."
