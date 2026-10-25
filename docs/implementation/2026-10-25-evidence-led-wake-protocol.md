@@ -20,6 +20,22 @@ Do not conflate the layers. **Activation Completion is never renamed Confirmed W
 
 This blueprint specializes, rather than duplicates, W0–W8: it defines the new **intervention protocol, audio hypotheses, safe reflex-dismissal decision tree, experiment design, and exact build sequencing**. Every follow-up PR references the corresponding W-stream, preserves existing product/domain terminology, and updates canonical docs only when behavior genuinely changes.
 
+## 1A. Quality-first voice decision (2026-10-25)
+
+**Decision:** GPT-Live remains the main premium conversational wake mode. Do **not** change its default to pre-rendered TTS, silently substitute a different speaker, create a cheaper conversation mode, or reduce live interaction to prerecorded compliance prompts in the name of cost reduction.
+
+**Why:** The current product problem is inadequate *experienced wake quality* and incomplete real-device proof. Price optimization against an unproven experience baseline risks optimizing the wrong product. A premium, reactive and stable companion is a core hypothesis worth proving before simplifying.
+
+**Engineering consequences**
+- Focus W2/B2 first on **actual speaker-audible turns, stable character/timbre, responsive interruption, gentle pacing and meaningful variation**, not on swapping the speech provider.
+- Keep silence intentional and first-party native alarm sound independent. Close / release the paid Live session once the runtime no longer needs conversation. These optimizations may also lower cost but must be justified by better UX/reliability, not by a lower invoice alone.
+- Treat the existing bounded dialogue/re-engagement and local Wake Runtime as authority. The OpenAI model may make natural utterances for approved intents; it does not schedule, escalate, self-certify waking or take Stop/Snooze authority.
+- If premium Live fails, show a truthful **native alarm-only** experience. Do not replace the selected character with a mismatched lower-quality synthetic speaker mid-session.
+- Do not claim a full-duplex model is always superior either. After we have **measured** a successful Live baseline, compare a possible guided/TTS alternative in a **non-shipping, opt-in evaluation**. Require non-inferiority for repeated-morning Confirmed Wake Success, perceived naturalness, character consistency, annoyance, perceived agency, start latency and accessibility, not just lower cost.
+- Any cost-only simplification is **deferred**, not part of B2/B3 acceptance or 1.0 default policy.
+
+**Immediate release decision:** The merged #211–#213 fixes need a **new signed Direct APK** before their effect can be judged on an actual OnePlus. Check exact release workflow and physical safety gates; do not equate merging code with a completed release or claim sound was audible from telemetry alone. Preserve existing alarms in a signed in-place upgrade and keep the separate conventional backup during verification.
+
 ## 2. Source audit: reuse instead of rebuild
 
 Existing in main (implemented does not mean physically validated):
@@ -116,12 +132,12 @@ Tasks:
 
 Tasks:
 - [ ] Audit existing Wake Motif, native loop/fade and player/audio route; preserve guaranteed audibility and emergency tone behavior.
-- [ ] Experiment, **only after B1 sound safety**, with (A) current motif + current voice, (B) motif → short pause → voice, and (C) motif/native alarm without voice. Consider a gentle volume envelope bounded by user's native alarm volume and supported device behavior.
+- [ ] Experiment, **only after B1 sound safety**, with (A) current motif + Live as shipped, (B) motif → short pause → the **same Live voice**, and (C) native sound-only as a safety/control baseline, **not as the new premium default**. Consider a gentle volume envelope bounded by user's native alarm volume and supported device behavior.
 - [ ] Keep recognizable sound identity; allow small phrasing variation but do not change voice identity or introduce novelty-for-novelty's-sake.
 - [ ] Evaluate quiet/shared-room considerations: no unconsented smart light, excessive spoken volume or private spoken agenda; document audible alarm tradeoff explicitly.
 - [ ] Never make the fade so gentle that a user misses their alarm; native safety escalation is deterministic and bounded.
 
-**Exit:** Measured audibility, wake success, annoyance, partner disturbance (where reported) and audio defects per variant; choose default only from evidence.
+**Exit:** Measured audibility, wake success, annoyance, partner disturbance (where reported) and audio defects per variant; preserve premium Live as the default unless field evidence supports a consciously accepted product change.
 
 ### B4 — Early Stop / Snooze / follow-through (W3, requires Shape)
 
