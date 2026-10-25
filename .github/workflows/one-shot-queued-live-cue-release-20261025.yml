@@ -1,0 +1,44 @@
+# Single-use dispatcher for a signed founder test release after PR #218 is green.
+# All actual build, signing, migration and quality checks belong to android-release.yml.
+name: Publish queued Live cue reliability patch
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'ops/dispatch-live-queued-cue-release-20261025' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch signed patch from current main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$CURRENT" = "$MERGE_SHA" || {
+            echo "::error::main changed after dispatcher merge"
+            exit 1
+          }
+          LATEST="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test "$LATEST" = 'v0.2.33' || {
+            echo "::error::Expected v0.2.33; refusing duplicate or wrong version"
+            exit 1
+          }
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=false
