@@ -11,3 +11,5 @@ Current high-value notes include:
 - [`reason-first-calm-companion.md`](reason-first-calm-companion.md) — 2026-10-02 convergence: when → why → readiness hierarchy, purpose-led alarm setup, and oriented wake context;
 - [`d2-visual-regression.md`](d2-visual-regression.md) — curated visual-regression gate;
 - [`d3-product-setup.md`](d3-product-setup.md) — production wake setup / Tomorrow Contract experience.
+- [`2026-10-23-wake-experience-excellence-plan.md`](2026-10-23-wake-experience-excellence-plan.md) — master 1.0 execution program W0–W8 and launch gates;
+- [`2026-10-25-evidence-led-wake-protocol.md`](2026-10-25-evidence-led-wake-protocol.md) — evidence-led morning intervention contract, build slices B0–B7, safe Stop, experiments and field validation.
