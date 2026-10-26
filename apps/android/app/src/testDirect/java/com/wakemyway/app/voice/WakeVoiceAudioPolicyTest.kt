@@ -26,6 +26,18 @@ class WakeVoiceAudioPolicyTest {
         ))
     }
 
+    @Test fun queuedLiveCueAwaitingFreshPcmDoesNotSuppressCriticalAlarm() {
+        // A queued next cue is not audible evidence. While the old PCM is
+        // already quiet, waiting for fresh PCM must restore alarm gain.
+        assertFalse(WakeVoiceAudioPolicy.voiceWindowNeeded(
+            remotePcmActive = false, listeningForUser = false,
+        ))
+        // An actual active user-listening window is intentionally different.
+        assertTrue(WakeVoiceAudioPolicy.voiceWindowNeeded(
+            remotePcmActive = false, listeningForUser = true,
+        ))
+    }
+
     @Test fun finishedAssistantAndFinishedListeningRestoreCriticalPlayback() {
         assertFalse(WakeVoiceAudioPolicy.voiceWindowNeeded(
             remotePcmActive = false, listeningForUser = false,
