@@ -18,7 +18,11 @@ param(
     [string]$Action = "status",
 
     [Parameter(Mandatory = $false)]
-    [string]$Serial
+    [string]$Serial,
+
+    # Explicit, LOCAL-ONLY diagnostic expansion. Never share without reviewing content.
+    [Parameter(Mandatory = $false)]
+    [switch]$IncludePrivateDiagnostics
 )
 
 $ErrorActionPreference = "Stop"
@@ -116,6 +120,11 @@ function New-EvidenceDirectory {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $root = Join-Path $AcceptanceRoot $stamp
     New-Item -ItemType Directory -Force -Path $root | Out-Null
+    @(
+        "LOCAL WakeMyWay physical acceptance evidence. Nothing is uploaded by this script.",
+        "Inspect and redact any file before sharing; never attach private-local files to a public issue.",
+        "The in-app Wake Lab semantic report is separate and must be exported deliberately."
+    ) | Set-Content -Encoding UTF8 (Join-Path $root "README-LOCAL.txt")
     $root
 }
 
@@ -296,19 +305,39 @@ switch ($Action) {
         "device=$(Get-DeviceSummary)" | Set-Content -Encoding UTF8 (Join-Path $root "device.txt")
         (& git -C $RepoRoot rev-parse HEAD).Trim() | Set-Content -Encoding UTF8 (Join-Path $root "commit.txt")
 
+        # Default exports include only app-scoped diagnostics. Full Android
+        # service dumps can contain unrelated app/user data, even when WakeMyWay
+        # is the only app being investigated.
         Invoke-Adb shell dumpsys activity services $PackageName |
+            Select-String -Pattern "com\\.wakemyway|activeWake" |
+            ForEach-Object { $_.Line } |
             Out-File -Encoding UTF8 (Join-Path $root "wake-check-services.txt")
         Invoke-Adb shell dumpsys power |
+            Select-String -Pattern "activeWakeStartup|activeWakeTone|wakemyway" |
+            ForEach-Object { $_.Line } |
             Out-File -Encoding UTF8 (Join-Path $root "wake-check-power.txt")
         Invoke-Adb shell dumpsys audio |
+            Select-String -Pattern "wakemyway" |
+            ForEach-Object { $_.Line } |
             Out-File -Encoding UTF8 (Join-Path $root "wake-check-audio.txt")
-        try {
-            Invoke-Adb shell dumpsys vibrator_manager |
-                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
-        } catch {
-            # The vibrator service lives directly under this name on API 29/30.
-            Invoke-Adb shell dumpsys vibrator |
-                Out-File -Encoding UTF8 (Join-Path $root "wake-check-vibrator.txt")
+
+        if ($IncludePrivateDiagnostics) {
+            Write-Warning "Private local diagnostics may include other apps, user data and identifiers. Review before sharing."
+            $privateRoot = Join-Path $root "private-local"
+            New-Item -ItemType Directory -Force -Path $privateRoot | Out-Null
+            Invoke-Adb shell dumpsys activity services $PackageName |
+                Out-File -Encoding UTF8 (Join-Path $privateRoot "services.txt")
+            Invoke-Adb shell dumpsys power |
+                Out-File -Encoding UTF8 (Join-Path $privateRoot "power.txt")
+            Invoke-Adb shell dumpsys audio |
+                Out-File -Encoding UTF8 (Join-Path $privateRoot "audio.txt")
+            try {
+                Invoke-Adb shell dumpsys vibrator_manager |
+                    Out-File -Encoding UTF8 (Join-Path $privateRoot "vibrator.txt")
+            } catch {
+                Invoke-Adb shell dumpsys vibrator |
+                    Out-File -Encoding UTF8 (Join-Path $privateRoot "vibrator.txt")
+            }
         }
 
         Write-Host ""
@@ -336,20 +365,44 @@ switch ($Action) {
 
         "device=$(Get-DeviceSummary)" | Set-Content -Encoding UTF8 (Join-Path $root "device.txt")
         (& git -C $RepoRoot rev-parse HEAD).Trim() | Set-Content -Encoding UTF8 (Join-Path $root "commit.txt")
-        Invoke-Adb devices -l | Out-File -Encoding UTF8 (Join-Path $root "adb-devices.txt")
-        Invoke-Adb shell getprop | Out-File -Encoding UTF8 (Join-Path $root "getprop.txt")
+        # Safe-by-default support evidence. No device serial, whole-device
+        # properties, raw notification content, cross-app audio dumps or logcat.
         Invoke-Adb shell wm size | Out-File -Encoding UTF8 (Join-Path $root "display-size.txt")
         Invoke-Adb shell wm density | Out-File -Encoding UTF8 (Join-Path $root "display-density.txt")
-        Invoke-Adb shell dumpsys deviceidle | Out-File -Encoding UTF8 (Join-Path $root "deviceidle.txt")
-        Invoke-Adb shell dumpsys alarm | Out-File -Encoding UTF8 (Join-Path $root "alarm.txt")
-        Invoke-Adb shell dumpsys package $PackageName | Out-File -Encoding UTF8 (Join-Path $root "package.txt")
-        Invoke-Adb shell dumpsys notification --noredact | Out-File -Encoding UTF8 (Join-Path $root "notification.txt")
-        Invoke-Adb shell dumpsys audio | Out-File -Encoding UTF8 (Join-Path $root "audio.txt")
-        Invoke-Adb shell settings get secure accessibility_enabled | Out-File -Encoding UTF8 (Join-Path $root "accessibility-enabled.txt")
-        Invoke-Adb shell settings get secure enabled_accessibility_services | Out-File -Encoding UTF8 (Join-Path $root "accessibility-services.txt")
-        Get-AnimationScales | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $root "animation-scales.json")
-        Invoke-Adb logcat -d -t 4000 | Out-File -Encoding UTF8 (Join-Path $root "logcat.txt")
-        Copy-BenchmarkEvidence -Destination $root
+        Invoke-Adb shell dumpsys package $PackageName |
+            Select-String -Pattern "^\\s*(versionName|versionCode|firstInstallTime|lastUpdateTime)=" |
+            ForEach-Object { $_.Line.Trim() } |
+            Out-File -Encoding UTF8 (Join-Path $root "package-version.txt")
+        Invoke-Adb shell dumpsys deviceidle |
+            Select-String -Pattern "^\\s*m(State|LightState|ForceIdle|ScreenOn|Charging)=" |
+            ForEach-Object { $_.Line.Trim() } |
+            Out-File -Encoding UTF8 (Join-Path $root "deviceidle-summary.txt")
+        $wakeAlarmLineCount = @(Invoke-Adb shell dumpsys alarm |
+            Select-String -SimpleMatch $PackageName).Count
+        "wakeMyWayAlarmLines=$wakeAlarmLineCount" |
+            Set-Content -Encoding UTF8 (Join-Path $root "alarm-count.txt")
+        Invoke-Adb shell settings get secure accessibility_enabled |
+            Out-File -Encoding UTF8 (Join-Path $root "accessibility-enabled.txt")
+        Get-AnimationScales | ConvertTo-Json |
+            Set-Content -Encoding UTF8 (Join-Path $root "animation-scales.json")
+
+        if ($IncludePrivateDiagnostics) {
+            Write-Warning "Private local diagnostics may include logs, other apps, notification details and identifiers. Never share unreviewed."
+            $privateRoot = Join-Path $root "private-local"
+            New-Item -ItemType Directory -Force -Path $privateRoot | Out-Null
+            Invoke-Adb devices -l | Out-File -Encoding UTF8 (Join-Path $privateRoot "adb-devices.txt")
+            Invoke-Adb shell getprop | Out-File -Encoding UTF8 (Join-Path $privateRoot "getprop.txt")
+            Invoke-Adb shell dumpsys deviceidle | Out-File -Encoding UTF8 (Join-Path $privateRoot "deviceidle.txt")
+            Invoke-Adb shell dumpsys alarm | Out-File -Encoding UTF8 (Join-Path $privateRoot "alarm.txt")
+            Invoke-Adb shell dumpsys package $PackageName | Out-File -Encoding UTF8 (Join-Path $privateRoot "package.txt")
+            # Even normal notification dumps can include private text; do not use --noredact.
+            Invoke-Adb shell dumpsys notification | Out-File -Encoding UTF8 (Join-Path $privateRoot "notification.txt")
+            Invoke-Adb shell dumpsys audio | Out-File -Encoding UTF8 (Join-Path $privateRoot "audio.txt")
+            Invoke-Adb shell settings get secure enabled_accessibility_services |
+                Out-File -Encoding UTF8 (Join-Path $privateRoot "accessibility-services.txt")
+            Invoke-Adb logcat -d -t 4000 | Out-File -Encoding UTF8 (Join-Path $privateRoot "logcat.txt")
+            Copy-BenchmarkEvidence -Destination $privateRoot
+        }
 
         Write-Host "Evidence collected to $root"
         Write-Host "Also export the in-app Wake Alarm Lab reliability report for the same scenario."
