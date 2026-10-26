@@ -8,6 +8,9 @@ on:
       - "CONTEXT.md"
       - "README.md"
       - "tooling/check_docs.py"
+      - "tooling/physical-reliability.ps1"
+      - "tooling/test_physical_reliability_privacy.py"
+      - ".gitignore"
       - ".github/workflows/docs-ci.yml"
   push:
     branches: [main]
@@ -17,6 +20,9 @@ on:
       - "CONTEXT.md"
       - "README.md"
       - "tooling/check_docs.py"
+      - "tooling/physical-reliability.ps1"
+      - "tooling/test_physical_reliability_privacy.py"
+      - ".gitignore"
       - ".github/workflows/docs-ci.yml"
   workflow_dispatch:
 
@@ -38,3 +44,5 @@ jobs:
           python-version: "3.13"
       - name: Validate documentation
         run: python tooling/check_docs.py
+      - name: Validate local device evidence privacy defaults
+        run: python tooling/test_physical_reliability_privacy.py
