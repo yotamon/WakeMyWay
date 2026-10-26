@@ -118,7 +118,7 @@ Physical acceptance must cover:
 - on-device voice degradation / network loss;
 - motion calibration.
 
-Do not use Force Stop as a proxy for ordinary process recreation.
+Do not use Force Stop as a proxy for ordinary process recreation. The `kill-process` helper only requests Android's **background-safe** `am kill`: an active, protected foreground alarm service may survive. For a non-debuggable signed APK, the helper now fails closed and marks that scenario **NOT TESTED**, rather than trying `run-as` or falsely reporting a successful recreation. A dedicated, deliberately controlled OS crash/recreation test on a spare device is needed to certify protected-service recovery; do not trigger one during an important wake.
 
 ### Mid-wake fallback evidence
 
