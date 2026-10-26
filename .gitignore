@@ -33,5 +33,6 @@ dist/
 # The approved contract lives in apps/android/app/src/test/visual-goldens.sha256.
 apps/android/app/src/test/screenshots/*.png
 
-# Local physical-device evidence exports
+# Local physical-device evidence exports (includes sensitive opt-in data)
 artifacts/physical-reliability/
+artifacts/physical-acceptance/
