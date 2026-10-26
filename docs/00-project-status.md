@@ -1,5 +1,13 @@
 # Project status
 
+## Product Excellence Cycle 1 — verified baseline (2026-10-26)
+
+**Latest published signed Direct release: [v0.2.34](https://github.com/yotamon/WakeMyWay/releases/tag/v0.2.34), published 2026-10-25 23:08 UTC.** GitHub's successful [release workflow](https://github.com/yotamon/WakeMyWay/actions/runs/40242676923) built from `main` commit `0c9ab60e0ac1f502bccb62e277ef9340d5ec2530`. The release contains [#218](https://github.com/yotamon/WakeMyWay/pull/218), separating queued-cue PCM-drain waiting from sent-cue first-audio waiting. Earlier release numbers below are point-in-time history, not the current release.
+
+**Cycle 1 code fix in review:** The queued Live drain watchdog emits `live-queued-cue-stalled`. Previously this was missing from both presentation and diagnostic failure classifiers, resulting in generic session failure instead of `TURN_FAILURE` / `REALTIME_FAILURE_TURN`. This patch corrects the category and adds a focused regression. It does **not** change the timeout, audio routing, voice provider, alarm execution, WakeRuntime, Stop/Snooze, or data collection. CI and physical phone validation are separate evidence and must not be assumed from this text.
+
+**Unclosed physical gates:** signed in-place upgrade and real locked-screen/overnight OnePlus delivery (#9); queued-cue spoken handoff, real speaker audibility, voice naturalness, route changes and Stop/Snooze cancellation (#194); TalkBack and reduced-motion (#99); cold-start benchmark (#97); qualified real-morning outcome beta (#87). Paid launch (#88) remains blocked. Use a conventional backup alarm throughout founder dogfood. See [physical acceptance](37-physical-acceptance.md) and [queued-cue handoff checklist](implementation/2026-10-25-live-queued-cue-handoff.md).
+
 ## Latest signed quality release and queued-cue hardening (2026-10-25)
 
 **Latest published signed Direct release: [v0.2.33](https://github.com/yotamon/WakeMyWay/releases/tag/v0.2.33) (2026-10-25).** Its signed release workflow passed the canonical quality, emulator reliability, upgrade persistence, visual and publication gates. It contains the merged truthful-morning-data and calm Live dialog fixes (#211–#213 and [#216](https://github.com/yotamon/WakeMyWay/pull/216)), plus the evidence-led plan [#215](https://github.com/yotamon/WakeMyWay/pull/215). Publishing a release **does not** prove speaker-audible Live, overnight real-device behavior, or real-world getting-up effectiveness.
