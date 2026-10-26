@@ -274,7 +274,7 @@ switch ($Action) {
         # Signed Direct releases are not debuggable, so run-as cannot SIGKILL
         # their processes. Never substitute Force Stop: it invalidates the
         # scheduling and service-recovery scenario being tested.
-        $after = Get-PackagePids
+        $after = $afterAmKill
         $survivors = $originalPids | Where-Object { $after -split "\s+" -contains $_ }
         if ($survivors) {
             throw "Android protected WakeMyWay PID(s) $($survivors -join ', ') from 'am kill'. No forced termination was attempted. Record process recreation as NOT TESTED; a dedicated controlled OS-crash scenario on a test device is required. Never substitute Force Stop."
