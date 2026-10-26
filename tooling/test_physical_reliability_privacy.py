@@ -73,6 +73,15 @@ class PhysicalAcceptancePrivacyContractTest(unittest.TestCase):
         self.assertNotIn("Invoke-Adb shell dumpsys notification --noredact", self.script)
         self.assertIn("Invoke-Adb shell dumpsys notification", self.private_collect)
 
+    def test_process_recreation_does_not_force_stop_or_use_debug_only_run_as(self) -> None:
+        process_test = self.script.split('    "kill-process" {', 1)[1].split(
+            '    "reboot" {', 1
+        )[0]
+        self.assertIn("Invoke-Adb shell am kill $PackageName", process_test)
+        self.assertNotIn("Invoke-Adb shell run-as", process_test)
+        self.assertNotIn("Invoke-Adb shell am force-stop", process_test)
+        self.assertIn("Record process recreation as NOT TESTED", process_test)
+
     def test_evidence_is_marked_local_and_not_auto_uploaded(self) -> None:
         self.assertIn('Join-Path $root "README-LOCAL.txt"', self.script)
         self.assertNotIn("Invoke-RestMethod", self.collect)

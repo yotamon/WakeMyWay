@@ -269,20 +269,17 @@ switch ($Action) {
         $afterAmKill = Get-PackagePids
         $originalPids = $before -split "\s+" | Where-Object { $_ }
 
-        if ($originalPids | Where-Object { $afterAmKill -split "\s+" -contains $_ }) {
-            Write-Host "Android kept the protected process alive; sending SIGKILL via run-as."
-            foreach ($pidValue in $originalPids) {
-                Invoke-Adb shell run-as $PackageName kill -9 $pidValue
-            }
-            Start-Sleep -Milliseconds 750
-        }
-
-        $after = Get-PackagePids
+        # 'am kill' only kills processes that Android considers safe to kill.
+        # A protected foreground alarm service is not a background-safe target.
+        # Signed Direct releases are not debuggable, so run-as cannot SIGKILL
+        # their processes. Never substitute Force Stop: it invalidates the
+        # scheduling and service-recovery scenario being tested.
+        $after = $afterAmKill
         $survivors = $originalPids | Where-Object { $after -split "\s+" -contains $_ }
         if ($survivors) {
-            throw "Original WakeMyWay process survived: $($survivors -join ', ')"
+            throw "Android protected WakeMyWay PID(s) $($survivors -join ', ') from 'am kill'. No forced termination was attempted. Record process recreation as NOT TESTED; a dedicated controlled OS-crash scenario on a test device is required. Never substitute Force Stop."
         }
-        Write-Host "Original PID(s) $before terminated without Force Stop. Current PID(s): $after"
+        Write-Host "Original PID(s) $before terminated through Android's safe background kill. Current PID(s): $after"
         Write-Host "If RECOVERY_GUARD evidence is intended, the OS recovery alarm must now re-kick playback."
     }
 
