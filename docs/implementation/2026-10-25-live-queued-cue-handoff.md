@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-25
 **Scope:** W2 / B2, premium voice gate #194
-**State:** Implementation branch, Android CI and signed real-device testing pending.
+**State:** Initial queued-cue fix merged in [#218](https://github.com/yotamon/WakeMyWay/pull/218) and published in signed v0.2.34; Cycle 1 follow-up code [#220](https://github.com/yotamon/WakeMyWay/pull/220) / [#221](https://github.com/yotamon/WakeMyWay/pull/221) merged with automated CI. Real-device acceptance remains pending.
 
 ## Reproduced code-path risk
 
@@ -21,8 +21,8 @@ No changes to alarm ownership, wake-phase transitions, activation thresholds, le
 
 ## Acceptance checklist
 
-- [ ] Focused Direct unit tests and Android CI pass.
-- [ ] Device-reliability workflow passes.
+- [x] Focused Direct unit tests and Android CI pass for the initial #218 fix (signed v0.2.34).
+- [x] Device-reliability workflow passes for the initial #218 fix (signed v0.2.34).
 - [ ] On signed real Android device, motion during a long assistant phrase can enter Orienting and produce its voice cue **after** the previous PCM settles, without prematurely showing voice unavailable.
 - [ ] If old PCM never settles, native audio returns by bounded failure, with Stop/Snooze still usable.
 - [ ] If the dispatched new cue produces no audio, first-audio failure is still detected.
@@ -33,7 +33,7 @@ Follow the existing `docs/37-physical-acceptance.md` and `docs/implementation/20
 
 ## Follow-up: restore local alarm volume in queued-cue PCM gaps (2026-10-26)
 
-**Implementation in review; Android CI and physical verification pending.**
+**Code merged in [#221](https://github.com/yotamon/WakeMyWay/pull/221); Android CI, API 36 instrumentation and Docs CI passed. Physical speaker/overnight validation remains pending, and the latest published v0.2.34 predates this patch.**
 
 The queued-cue transition also exposed a separate audio-layer defect: the adapter correctly suppresses the old PCM tail's `SpeechFinished` signal (so it cannot finish the newly authorized WakeRuntime directive), but this also bypassed the controller's ordinary local-alarm-volume restoration. The alarm could stay in a temporary voice window while the next cue waited up to 12 seconds for its first PCM.
 
@@ -43,8 +43,8 @@ The callback is guarded against a closed, degraded or hidden wake session. Exist
 
 ### Specific acceptance
 
-- [ ] Direct policy unit test and Android CI pass.
-- [ ] Android device-reliability instrumentation passes; the compiler verifies the shared interface across Direct/Play variants.
+- [x] Direct policy unit test and Android CI pass ([run](https://github.com/yotamon/WakeMyWay/actions/runs/40248636836)).
+- [x] Android device-reliability instrumentation passes ([run](https://github.com/yotamon/WakeMyWay/actions/runs/40248636810)); Android CI compiled the shared interface across Direct/Play variants.
 - [ ] Signed phone test: let prior audible Live output settle while a newer runtime cue is queued; native alarm becomes audible at critical gain during the gap, then naturally yields to actual new PCM.
 - [ ] Keep a 12-second silent new-provider cue and verify the critical alarm is *not* ducked throughout the silent wait or fallback.
 - [ ] A genuine listening window may still hold its intended temporary voice window.
