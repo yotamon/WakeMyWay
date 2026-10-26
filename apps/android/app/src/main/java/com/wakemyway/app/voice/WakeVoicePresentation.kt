@@ -33,6 +33,7 @@ internal fun degradationReasonForConversationFailure(stage: String): WakeVoiceDe
         "turn-budget",
         "no-audio",
         "queued-cue",
+        "queued-cue-stalled",
         "unexpected-output",
         "cue-append-rejected",
         -> WakeVoiceDegradationReason.TURN_FAILURE
@@ -71,6 +72,7 @@ internal fun diagnosticEventForConversationFailure(stage: String): WakeInteracti
         "turn-budget",
         "no-audio",
         "queued-cue",
+        "queued-cue-stalled",
         "unexpected-output",
         "cue-append-rejected",
         -> WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN
