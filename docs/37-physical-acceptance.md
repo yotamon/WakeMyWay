@@ -128,7 +128,7 @@ While a wake is active — during the Bluetooth/audio-route, Doze and degraded-d
 powershell -ExecutionPolicy Bypass -File tooling/physical-reliability.ps1 -Action wake-check
 ```
 
-The check records the live service state, held wake locks (`activeWakeStartup` during the fire-to-audio window, `activeWakeTone` while the emergency tone path plays), alarm audio-focus ownership and vibrator activity into the evidence bundle.
+The check records WakeMyWay-scoped service, wake-lock and audio-focus evidence (including `activeWakeStartup` during fire-to-audio and `activeWakeTone` for the emergency tone path). It does not capture unfiltered system dumps by default. Use `-IncludePrivateDiagnostics` only for an explicitly authorized **local** investigation of full device state; never attach its `private-local` directory to public issues. Physical vibration still requires human observation.
 
 Acceptance for the hardened fallback layers requires observing, on at least one supported device:
 
@@ -203,7 +203,15 @@ After each meaningful run:
 powershell -ExecutionPolicy Bypass -File tooling/physical-reliability.ps1 -Action collect
 ```
 
-The helper records device/build, commit, package state, alarms, notifications, audio route, idle state, accessibility services, animation scales and bounded logcat, and copies benchmark evidence when present.
+The default collector writes a deliberately small, locally stored summary: Android model/version, source commit, installed WakeMyWay version/timestamps, display size/density, idle state, a count of package-matching scheduled alarm lines, accessibility enabled flag, and animation scales. **It does not save raw logcat, notification text, full system properties, other-app audio state, identifiers from `adb devices`, or private benchmark traces by default.** This summary complements the in-app Wake Lab journal; it is not a substitute for actual audible/device evidence.
+
+For a difficult local investigation only, opt in deliberately:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tooling/physical-reliability.ps1 -Action collect -IncludePrivateDiagnostics
+```
+
+The opt-in stores fuller dumps under a `private-local` subfolder. Treat that folder as sensitive, review each file before sharing, and never add private transcripts, notification bodies, tokens or personal context to a GitHub issue. The script never uploads evidence. The entire `artifacts/physical-acceptance/` output directory is gitignored; old evidence should still be checked for accidental tracking before sharing or committing.
 
 Also export the in-app Wake Lab report for the matching reliability scenario.
 
