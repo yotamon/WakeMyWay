@@ -215,6 +215,10 @@ class GptLivePreferredWakeConversation(
                 // The prior turn was consumed by the user's interruption.
                 // Its terminal PCM callback must not complete the NEW directive.
                 responsePending = false
+                // The old remote PCM is now quiet, but the next cue has not
+                // produced any PCM. Give the critical native alarm its volume
+                // back while the new first-audio watchdog is running.
+                listener.onAssistantAudioGapBeforeQueuedCue()
                 if (!sendCue(nextCue)) listener.onConversationFailure("live-queued-cue")
                 return
             }

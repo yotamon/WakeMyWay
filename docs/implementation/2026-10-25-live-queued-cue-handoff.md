@@ -30,3 +30,25 @@ No changes to alarm ownership, wake-phase transitions, activation thresholds, le
 - [ ] Bluetooth/routing and offline fallbacks remain correct; no claim of audible speech from PCM-only telemetry.
 
 Follow the existing `docs/37-physical-acceptance.md` and `docs/implementation/2026-10-25-intent-first-live-wake-quality.md` for real-morning evidence. Do not claim this patch proves real-world waking effectiveness.
+
+## Follow-up: restore local alarm volume in queued-cue PCM gaps (2026-10-26)
+
+**Implementation in review; Android CI and physical verification pending.**
+
+The queued-cue transition also exposed a separate audio-layer defect: the adapter correctly suppresses the old PCM tail's `SpeechFinished` signal (so it cannot finish the newly authorized WakeRuntime directive), but this also bypassed the controller's ordinary local-alarm-volume restoration. The alarm could stay in a temporary voice window while the next cue waited up to 12 seconds for its first PCM.
+
+The Direct Live adapter now emits a **non-authoritative PCM-gap signal** when the old PCM settles and a queued cue is about to be sent. The controller uses it only to release the temporary voice window while the next provider PCM is still silent (unless actively listening to the user). It does not synthesize `SpeechFinished`, change the WakeRuntime phase, close the voice session, alter timeout budgets, or change Stop/Snooze. The next actual remote speech-start event can acquire the voice window again.
+
+The callback is guarded against a closed, degraded or hidden wake session. Existing critical alarm ownership remains in `AlarmPlaybackService`; provider audio is never accepted as evidence of actual speaker audibility.
+
+### Specific acceptance
+
+- [ ] Direct policy unit test and Android CI pass.
+- [ ] Android device-reliability instrumentation passes; the compiler verifies the shared interface across Direct/Play variants.
+- [ ] Signed phone test: let prior audible Live output settle while a newer runtime cue is queued; native alarm becomes audible at critical gain during the gap, then naturally yields to actual new PCM.
+- [ ] Keep a 12-second silent new-provider cue and verify the critical alarm is *not* ducked throughout the silent wait or fallback.
+- [ ] A genuine listening window may still hold its intended temporary voice window.
+- [ ] Stop or Snooze during a queued gap prevents any later assistant turn; first-audio and drain watchdogs remain bounded.
+- [ ] Verify same behavior on locked screen and after Bluetooth routing changes. Capture Wake Lab timeline plus human speaker observation, without transcripts/recordings.
+
+Physical validation is still required for gates #9 and #194; automated timing/PCM events alone do not demonstrate the speaker or person woke up.

@@ -25,6 +25,12 @@ interface WakeConversationEnrichment : AutoCloseable {
         /** Ephemeral assistant caption fragments only; never persist them or treat them as authority. */
         fun onAssistantTranscript(delta: String) = Unit
         fun onAssistantSpeechFinished(interrupted: Boolean)
+        /**
+         * Previous remote PCM became quiet while a new runtime-authorized cue is queued.
+         * Restore critical local audio during the provider-first-PCM gap, without
+         * treating the prior audio tail as the new WakeRuntime SpeechFinished.
+         */
+        fun onAssistantAudioGapBeforeQueuedCue() = Unit
         fun onUserSpeechStarted()
         /** Reports whether the detected audio turn contained usable, intentional spoken engagement. */
         fun onUserTurnObserved(coherent: Boolean = true)

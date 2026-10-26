@@ -156,6 +156,24 @@ class WakeVoiceSessionController(
                 }
             }
 
+            override fun onAssistantAudioGapBeforeQueuedCue() {
+                mainHandler.post {
+                    if (closed || alarmOnly || !started || !surfaceVisible) return@post
+                    // This is an audio observation, NOT a WakeRuntime transition.
+                    // The prior queued-over PCM has ended; the new authorized
+                    // voice turn is waiting for its first actual audio. Restore
+                    // native alarm gain until the next speech-start callback.
+                    audibleAssistantOutput = false
+                    if (!WakeVoiceAudioPolicy.voiceWindowNeeded(
+                            remotePcmActive = false,
+                            listeningForUser = listening,
+                        )
+                    ) {
+                        setVoiceWindow(false)
+                    }
+                }
+            }
+
             override fun onAssistantSpeechFinished(interrupted: Boolean) {
                 mainHandler.post {
                     if (closed || alarmOnly || !started) return@post
