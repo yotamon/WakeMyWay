@@ -309,7 +309,7 @@ switch ($Action) {
         # service dumps can contain unrelated app/user data, even when WakeMyWay
         # is the only app being investigated.
         Invoke-Adb shell dumpsys activity services $PackageName |
-            Select-String -Pattern "com\\.wakemyway|activeWake" |
+            Select-String -Pattern "com\.wakemyway|activeWake" |
             ForEach-Object { $_.Line } |
             Out-File -Encoding UTF8 (Join-Path $root "wake-check-services.txt")
         Invoke-Adb shell dumpsys power |
@@ -370,11 +370,11 @@ switch ($Action) {
         Invoke-Adb shell wm size | Out-File -Encoding UTF8 (Join-Path $root "display-size.txt")
         Invoke-Adb shell wm density | Out-File -Encoding UTF8 (Join-Path $root "display-density.txt")
         Invoke-Adb shell dumpsys package $PackageName |
-            Select-String -Pattern "^\\s*(versionName|versionCode|firstInstallTime|lastUpdateTime)=" |
+            Select-String -Pattern "^\s*(versionName|versionCode|firstInstallTime|lastUpdateTime)=" |
             ForEach-Object { $_.Line.Trim() } |
             Out-File -Encoding UTF8 (Join-Path $root "package-version.txt")
         Invoke-Adb shell dumpsys deviceidle |
-            Select-String -Pattern "^\\s*m(State|LightState|ForceIdle|ScreenOn|Charging)=" |
+            Select-String -Pattern "^\s*m(State|LightState|ForceIdle|ScreenOn|Charging)=" |
             ForEach-Object { $_.Line.Trim() } |
             Out-File -Encoding UTF8 (Join-Path $root "deviceidle-summary.txt")
         $wakeAlarmLineCount = @(Invoke-Adb shell dumpsys alarm |
