@@ -131,4 +131,28 @@ class WakeVoicePresentationTest {
         )
     }
 
+    @Test
+    fun `queuedLiveAudioDrainWatchdogIsClassifiedAsTurnFailure`() {
+        // The Live adapter emits this when earlier PCM never drains. It is a
+        // provider TURN timeout, not a session/transport failure, and the
+        // failure report must preserve the correct diagnostic category.
+        assertEquals(
+            WakeVoiceDegradationReason.TURN_FAILURE,
+            degradationReasonForConversationFailure("live-queued-cue-stalled"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("live-queued-cue-stalled"),
+        )
+        // Preserve the existing direct queued-cue send failure category.
+        assertEquals(
+            WakeVoiceDegradationReason.TURN_FAILURE,
+            degradationReasonForConversationFailure("live-queued-cue"),
+        )
+        assertEquals(
+            WakeInteractiveDiagnosticEvent.REALTIME_FAILURE_TURN,
+            diagnosticEventForConversationFailure("live-queued-cue"),
+        )
+    }
+
 }
