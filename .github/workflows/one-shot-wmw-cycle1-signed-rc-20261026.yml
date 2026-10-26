@@ -1,0 +1,47 @@
+# One-time, fail-closed dispatch for the user-requested Cycle 1 signed founder candidate.
+# This must not create a public release, tag or update to the stable in-app feed.
+# Canonical quality, upgrade, visual, signing and artifact gates remain in android-release.yml.
+name: Build Cycle 1 signed founder candidate
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-signed-dry-run:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'ops/dispatch-wmw-cycle1-signed-rc-20261026' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify source and dispatch private release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          CURRENT="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')"
+          test "$CURRENT" = "$MERGE_SHA" || {
+            echo "::error::main advanced after dispatcher merge; refusing to build another commit."
+            exit 1
+          }
+          LATEST="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')"
+          test "$LATEST" = 'v0.2.34' || {
+            echo "::error::Unexpected latest release ($LATEST); refusing duplicate or wrong version."
+            exit 1
+          }
+          # dry_run=true signs and verifies both variants, uploads a seven-day
+          # Actions candidate artifact, but skips tag and public release publication.
+          gh workflow run android-release.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f release_type=patch \
+            -f dry_run=true
